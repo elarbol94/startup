@@ -1,4 +1,7 @@
 "use client";
+import { MunicipalityConditionEditor, ConditionNodeEditor, conditionLabel } from "./municipality-condition-editor";
+import { defaultCondition, conditionSchema, type FilterCondition } from "../filters";
+
 
 import "@xyflow/react/dist/style.css";
 import { createId } from "@paralleldrive/cuid2";
@@ -58,6 +61,7 @@ import {
   saveMunicipalityAnalysisNodeAsMetric,
 } from "../actions";
 import {
+  municipalityDatasetRefSchema,
   ANALYSIS_OPERATION_VERSION,
   ANALYSIS_OPERATOR_SYMBOLS,
   analysisAnnotationColors,
@@ -95,6 +99,7 @@ import type { PopulationViewId } from "../structure";
 import {
   AUSGANGSDATEN_CATALOG,
   bindKennzahlInput,
+  buildKennzahlGraph,
   expandKennzahlIntoGraph,
   kennzahlExpressionFor,
   kennzahlFormulaText,
@@ -113,6 +118,7 @@ type AnalysisRecord = {
   updatedAt: number;
 };
 
+const DATASET_DRAG_TYPE = "application/x-municipality-analysis-dataset";
 const OPERATOR_DRAG_TYPE = "application/x-municipality-analysis-operator";
 /** Dragged like an operator, but drops a constant node. */
 const CONSTANT_DRAG_VALUE = "constant";
@@ -323,7 +329,8 @@ const MOVEMENT_KEYS: Record<MovementTargetId, string> = {
   "internal-departures": "movementInternalDepartures",
 };
 
-function datasetTitle(dataset: MunicipalityDatasetRef | KennzahlInput, t: ReturnType<typeof useTranslations>) {
+function datasetTitle(dataset: MunicipalityDatasetRef | KennzahlInput, t: ReturnType<typeof useTranslations>, tf: ReturnType<typeof useTranslations>) {
+  if (dataset.kind === "condition") return conditionLabel(dataset.condition, tf, t);
   if (dataset.kind === "constant") return String(dataset.value);
   if (dataset.kind === "attribute") return t("attributeArea");
   if (dataset.kind === "cost-share") {
@@ -434,6 +441,8 @@ function CatalogRow({
         "rounded-lg border bg-background text-left hover:border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950",
         page ? "px-3 py-2" : "px-2 py-1.5",
       )}
+      draggable={!page}
+      onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(DATASET_DRAG_TYPE, JSON.stringify({ label: entry.label, dataset: entry.dataset })); }}
       onClick={onOpen}
     >
       <span className="flex items-center gap-1.5">
@@ -449,17 +458,6 @@ function CatalogRow({
         </span>
       )}
     </button>
-  );
-}
-
-/** A Kennzahl the app cannot derive — shown so the reader knows it exists, not clickable. */
-function CatalogNote({ label, note, variant }: { label: string; note: string; variant: CatalogVariant }) {
-  const page = variant === "page";
-  return (
-    <div className={cn("rounded-lg border border-dashed bg-muted/20 px-2 py-1.5", page && "px-3 py-2")}>
-      <p className={cn("font-medium", page ? "text-sm" : "text-[11px]")}>{label}</p>
-      <p className={cn("mt-0.5 text-muted-foreground", page ? "text-xs" : "text-[10px]")}>{note}</p>
-    </div>
   );
 }
 
@@ -481,12 +479,13 @@ function DatasetCatalog({
   onOpen: (request: { label: string; dataset: MunicipalityDatasetRef }) => void;
 }) {
   const t = useTranslations("municipalities");
+  const tf = useTranslations("municipalityFilters");
   const format = useFormatter();
   const page = variant === "page";
   const [query, setQuery] = useState("");
 
   const describe = useCallback((expression: KennzahlExpression) =>
-    kennzahlFormulaText(expression, (input) => datasetTitle(input, t), (value) => format.number(value)), [format, t]);
+    kennzahlFormulaText(expression, (input) => datasetTitle(input, t, tf), (value) => format.number(value)), [format, t, tf]);
 
   const sections = useMemo(() => {
     const group = (entries: CatalogEntry[]) => {
@@ -496,7 +495,7 @@ function DatasetCatalog({
     };
     return {
       ausgangsdaten: group(AUSGANGSDATEN_CATALOG.map(({ id, category, output }) => ({
-        id, category, label: datasetTitle(output, t), formula: null,
+        id, category, label: datasetTitle(output, t, tf), formula: null,
         dataset: bindKennzahlInput(output), derivable: true,
       }))),
       kennzahlen: group(KENNZAHL_CATALOG.map(({ id, category, labelKey, output }) => {
@@ -510,7 +509,7 @@ function DatasetCatalog({
         };
       })),
     };
-  }, [describe, t]);
+  }, [describe, t, tf]);
 
   const needle = normalizeMunicipalitySearch(query);
   const matches = (entry: CatalogEntry) => !needle
@@ -535,14 +534,12 @@ function DatasetCatalog({
   const empty = !visibleAusgangsdaten.length && !visibleKennzahlen.length && !visibleOwn.length;
 
   const renderGroups = (groups: ReturnType<typeof filter>) => groups.map(([category, entries]) => (
-    <div key={category}>
-      <h3 className={cn("font-semibold text-muted-foreground", page ? "text-xs tracking-wide uppercase" : "text-[10px] uppercase")}>
-        {categoryLabel(category)}
-      </h3>
+    <details key={`${category}:${Boolean(needle)}`} open={needle ? true : undefined} className="rounded-lg border p-2.5">
+      <summary className="cursor-pointer text-sm font-medium">
+        {categoryLabel(category)} <span className="ml-1 text-xs text-muted-foreground">({entries.length})</span>
+      </summary>
       <div className={cn("mt-1.5 grid gap-1.5", page && "sm:grid-cols-2 xl:grid-cols-3")}>
-        {entries.map((entry) => !entry.derivable
-          ? <CatalogNote key={entry.id} label={entry.label} note={t("kennzahlPrimary")} variant={variant} />
-          : (
+        {entries.map((entry) => (
             <CatalogRow
               key={entry.id}
               entry={entry}
@@ -554,7 +551,7 @@ function DatasetCatalog({
             />
           ))}
       </div>
-    </div>
+    </details>
   ));
 
   return (
@@ -608,7 +605,7 @@ function DatasetCatalog({
             </h3>
             <div className={cn("mt-1.5 grid gap-1.5", page && "sm:grid-cols-2 xl:grid-cols-3")}>
               {visibleOwn.map((metric) => (
-                <div key={metric.id} className={cn("rounded-lg border bg-background", page ? "px-3 py-2" : "px-2 py-1.5")}>
+                <div key={metric.id} draggable={!page} onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(DATASET_DRAG_TYPE, JSON.stringify({ metricId: metric.id })); }} className={cn("rounded-lg border bg-background cursor-grab", page ? "px-3 py-2" : "px-2 py-1.5")}>
                   <p className={cn("font-medium", page ? "text-sm" : "text-[11px]")}>{metric.name}</p>
                   <p className={cn("mt-1 break-words text-muted-foreground", page ? "text-xs leading-5" : "text-[10px] leading-4")}>
                     {describe(metric.expression)}
@@ -644,6 +641,8 @@ function StudioPalette({
   onDataset: (request: { label: string; dataset: MunicipalityDatasetRef }) => void;
 }) {
   const t = useTranslations("municipalities");
+  const tf = useTranslations("municipalityFilters");
+  const [condition, setCondition] = useState<FilterCondition>(defaultCondition("availability"));
   return (
     <Tabs defaultValue="data" className="min-h-0 flex-1">
       <TabsList className="grid h-9 w-full grid-cols-2">
@@ -651,6 +650,7 @@ function StudioPalette({
         <TabsTrigger value="blocks"><Sigma className="size-3.5" />{t("studioBlocks")}</TabsTrigger>
       </TabsList>
       <TabsContent value="data" className="min-h-0 overflow-y-auto pr-1">
+        <details className="my-3 rounded-lg border p-2"><summary className="cursor-pointer text-sm font-medium">{tf("conditionBlock")}</summary><div className="mt-3 space-y-3"><MunicipalityConditionEditor value={condition} onChange={setCondition} /><p className="text-xs text-muted-foreground">{tf("snapshotHint")}</p><Button size="sm" className="h-auto whitespace-normal" disabled={!conditionSchema.safeParse(condition).success} draggable={conditionSchema.safeParse(condition).success} onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(DATASET_DRAG_TYPE, JSON.stringify({ label: tf("conditionBlock"), dataset: { kind: "condition", condition } })); }} onClick={() => onDataset({ label: tf("fields." + condition.field), dataset: { kind: "condition", condition } })}>{tf("addBlock")}</Button></div></details>
         <DatasetCatalog variant="sidebar" ownMetrics={metrics} onOpen={onDataset} />
       </TabsContent>
       <TabsContent value="blocks" className="min-h-0 overflow-y-auto pr-1">
@@ -691,7 +691,7 @@ function StudioPalette({
                 onClick={onConstant}
                 onDragStart={(event) => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(OPERATOR_DRAG_TYPE, CONSTANT_DRAG_VALUE); }}
               ><span className="font-mono text-xs">123</span>{t("constantNode")}<span className="sr-only">{t("addConstant")}</span></Button>
-              <Button variant="outline" size="sm" className="justify-start" onClick={onAnnotation}><StickyNote className="size-3.5" />{t("studioNote")}</Button>
+              <Button variant="outline" size="sm" className="justify-start" draggable onDragStart={event => { event.dataTransfer.effectAllowed = "copy"; event.dataTransfer.setData(OPERATOR_DRAG_TYPE, "annotation"); }} onClick={onAnnotation}><StickyNote className="size-3.5" />{t("studioNote")}</Button>
             </div>
           </section>
           <p className="text-[10px] leading-4 text-muted-foreground">{t("analysisUnitRule")}</p>
@@ -703,6 +703,7 @@ function StudioPalette({
 
 function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRecord; analyses: MunicipalityAnalysisSummary[]; metrics: MunicipalityMetricRecord[] }) {
   const t = useTranslations("municipalities");
+  const tf = useTranslations("municipalityFilters");
   const format = useFormatter();
   const router = useRouter();
   const reactFlow = useReactFlow<DisplayNode, Edge>();
@@ -925,16 +926,26 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
   }, [redoLastEdit, undoLastEdit]);
 
   useEffect(() => {
+    let lastShift = 0;
+    let shiftOnly = false;
+    const editable = (event: KeyboardEvent) => (event.target as HTMLElement | null)?.closest("input, textarea, select, [contenteditable='true']");
     const onKeyDown = (event: KeyboardEvent) => {
+      if (editable(event)) { lastShift = 0; shiftOnly = false; return; }
+      if (event.key === "Shift" && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) { shiftOnly = true; return; }
+      shiftOnly = false; lastShift = 0;
       if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      setQuickAddOpen(true);
+      event.preventDefault(); event.stopImmediatePropagation(); setQuickAddOpen(true);
+    };
+    const onKeyUp = (event: KeyboardEvent) => {
+      if (event.key !== "Shift" || !shiftOnly || editable(event)) return;
+      shiftOnly = false;
+      const now = performance.now();
+      if (lastShift && now - lastShift < 450) { lastShift = 0; setQuickAddOpen(true); }
+      else lastShift = now;
     };
     window.addEventListener("keydown", onKeyDown, { capture: true });
-    return () => window.removeEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("keyup", onKeyUp);
+    return () => { window.removeEventListener("keydown", onKeyDown, { capture: true }); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
   /**
@@ -986,7 +997,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
       };
     }
     if (node.type === "dataset") {
-      const technicalTitle = datasetTitle(node.data.dataset, t);
+      const technicalTitle = datasetTitle(node.data.dataset, t, tf);
       return {
         ...base,
         type: "dataset" as const,
@@ -1034,7 +1045,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
         rename: (title: string | null) => setNodeTitle(node.id, title),
       },
     };
-  }), [graph.nodes, graph.subject, results, selectedNodeIds, setAnnotation, setNodeTitle, setNodeValue, togglePin, t]);
+  }), [graph.nodes, graph.subject, results, selectedNodeIds, setAnnotation, setNodeTitle, setNodeValue, togglePin, t, tf]);
   // A node with no live draft is handed back unchanged: React Flow keeps the internal node
   // it already built for an unchanged object, so dragging one card does not re-render the
   // sparkline of every other one.
@@ -1090,7 +1101,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
   }), [edgeGeometry, graph.edges, routedPaths, selectedEdgeIds, selectedNodeIds]);
   const selectedNode = selectedNodeIds.length === 1 ? graph.nodes.find(({ id }) => id === selectedNodeIds[0]) ?? null : null;
   const selectedSeries = selectedNode ? results.get(selectedNode.id) ?? null : null;
-  const selectedTechnicalTitle = selectedNode?.type === "dataset" ? datasetTitle(selectedNode.data.dataset, t)
+  const selectedTechnicalTitle = selectedNode?.type === "dataset" ? datasetTitle(selectedNode.data.dataset, t, tf)
     : selectedNode?.type === "operator" ? t(`operator_${selectedNode.data.operator}`)
       : selectedNode?.type === "annotation" ? t("studioNote") : t("analysisNoResultSelected");
   const selectedTitle = selectedNode && selectedNode.type !== "annotation" ? selectedNode.data.alias ?? selectedTechnicalTitle : selectedTechnicalTitle;
@@ -1323,9 +1334,9 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
    * expands a derivation into real nodes and falls back to a single node for an
    * Ausgangsdatum, which is exactly the difference between the two lists.
    */
-  const insertDataset = useCallback((request: { label: string; dataset: MunicipalityDatasetRef }) => {
+  const insertDataset = useCallback((request: { label: string; dataset: MunicipalityDatasetRef }, position?: { x: number; y: number }) => {
     const inserted = commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION, type: "add-kennzahl", nodeId: createId(), dataset: request.dataset,
+      version: ANALYSIS_OPERATION_VERSION, type: "add-kennzahl", nodeId: createId(), dataset: request.dataset, position,
     }]);
     if (inserted) toast.success(t("kennzahlInserted", { kennzahl: request.label }));
   }, [commitOperations, t]);
@@ -1396,10 +1407,10 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
   const quickAddItems = useMemo<QuickAddItem[]>(() => [
     ...AUSGANGSDATEN_CATALOG.map(({ id, output }) => ({
       id: `data:${id}`,
-      label: datasetTitle(output, t),
+      label: datasetTitle(output, t, tf),
       group: t("dataKindBase"),
       kind: "dataset" as const,
-      request: { label: datasetTitle(output, t), dataset: bindKennzahlInput(output) },
+      request: { label: datasetTitle(output, t, tf), dataset: bindKennzahlInput(output) },
     })),
     ...KENNZAHL_CATALOG.flatMap(({ id, labelKey, output }) => kennzahlExpressionFor(output) ? [{
       id: `metric:${id}`,
@@ -1417,7 +1428,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
     })),
     { id: "constant", label: t("constantNode"), group: t("studioBlocks"), kind: "constant" },
     { id: "annotation", label: t("studioNote"), group: t("studioBlocks"), kind: "annotation" },
-  ], [t]);
+  ], [t, tf]);
   const visibleQuickAddItems = useMemo(() => {
     const needle = normalizeMunicipalitySearch(quickAddQuery);
     return quickAddItems.filter(({ label, group }) => !needle
@@ -1487,6 +1498,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
               <h2 className="truncate text-sm font-semibold">{selectedTitle}</h2>
               <p className="mt-0.5 truncate text-xs text-muted-foreground">{selectedTechnicalTitle}</p>
             </div>
+            {selectedNode.type === "dataset" && selectedNode.data.dataset.kind === "condition" && <div className="space-y-3"><ConditionNodeEditor key={selectedNode.id + JSON.stringify(selectedNode.data.dataset.condition)} value={selectedNode.data.dataset.condition} onSave={condition => { if (conditionSchema.safeParse(condition).success) commitOperations([{ version: ANALYSIS_OPERATION_VERSION, type: "update-condition", nodeId: selectedNode.id, condition }]); }} /><p className="text-xs text-muted-foreground">{tf("snapshotHint")}</p>{data?.digital && <p className="text-xs text-muted-foreground">{tf("snapshotDate", { date: data.digital.referenceDate })}</p>}</div>}
             {selectedNode.type !== "annotation" && (
               <label className="grid gap-1.5 text-xs font-medium">
                 {t("studioCustomTitle")}
@@ -1529,8 +1541,8 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
                 </div>
               </>
             )}
-            <div>
-              <h3 className="text-xs font-medium">{t("studioDimensions")}</h3>
+            <details className="rounded-lg border p-3">
+              <summary className="cursor-pointer text-xs font-medium">{t("studioDimensions")}</summary>
               <div className="mt-1.5 grid grid-cols-2 gap-2">
                 <label className="grid gap-1 text-[10px] text-muted-foreground">{t("studioWidth")}
                   <Input key={`${selectedNode.id}:w:${selectedWidth}`} className="h-8 text-xs" type="number" defaultValue={selectedWidth} min={selectedNode.type === "annotation" ? MIN_ANALYSIS_NOTE_WIDTH : MIN_ANALYSIS_NODE_WIDTH} max={MAX_ANALYSIS_NODE_WIDTH} onBlur={(event) => resizeSelectedNode({ width: Number(event.target.value) })} />
@@ -1539,7 +1551,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
                   <Input key={`${selectedNode.id}:h:${selectedHeight}`} className="h-8 text-xs" type="number" defaultValue={selectedHeight} min={selectedNode.type === "annotation" ? MIN_ANALYSIS_NOTE_HEIGHT : MIN_ANALYSIS_NODE_HEIGHT} max={MAX_ANALYSIS_NODE_HEIGHT} onBlur={(event) => resizeSelectedNode({ height: Number(event.target.value) })} />
                 </label>
               </div>
-            </div>
+            </details>
             {selectedNode.type === "dataset" && selectedNode.data.dataset.kind !== "constant" && (
               <Button variant="outline" size="sm" onClick={() => togglePin(selectedNode.id)}>
                 {datasetMunicipalityName(selectedNode.data.dataset) ? <PinOff className="size-3.5" /> : <Pin className="size-3.5" />}
@@ -1564,12 +1576,15 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
                       <Button variant="outline" size="sm" disabled={pending} onClick={() => { setMetricName(selectedTitle); setSavingMetric(true); }}><Bookmark className="size-4" />{t("saveAsKennzahl")}</Button>
                       <Button variant="outline" size="sm" onClick={copySeriesAsCsv}><Copy className="size-4" />{t("copyCsv")}</Button>
                     </div>
-                    <div className="mt-3 max-h-80 overflow-y-auto rounded-lg border">
+                    <details className="mt-4 rounded-lg border">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-medium">{t("analysisValueTable")}</summary>
+                      <div className="max-h-80 overflow-y-auto">
                       <table className="w-full text-[11px]">
                         <thead className="sticky top-0 bg-muted text-muted-foreground"><tr><th className="px-2 py-1 text-left font-medium">{t("csvYearHeader")}</th><th className="px-2 py-1 text-right font-medium">{t("analysisValueHeader")}</th></tr></thead>
                         <tbody>{[...selectedSeries.points].reverse().map(({ year, value }) => <tr key={year} className="border-t"><td className="px-2 py-1">{year}</td><td className="px-2 py-1 text-right tabular-nums">{value === null ? "—" : typeof value === "boolean" ? (value ? t("booleanTrue") : t("booleanFalse")) : format.number(value, { maximumFractionDigits: 2 })}</td></tr>)}</tbody>
                       </table>
-                    </div>
+                      </div>
+                    </details>
                   </div>
                 ) : <p className="py-4 text-xs leading-5 text-muted-foreground">{t("analysisSelectResult")}</p>}
       </TabsContent>
@@ -1612,7 +1627,7 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
         <section className="flex min-w-0 flex-1 flex-col bg-muted/20">
           <div className="flex flex-wrap items-center gap-1 border-b bg-background px-2 py-1.5">
             <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setPaletteSheetOpen(true)}><Menu className="size-3.5" />{t("studioLibrary")}</Button>
-            <Button variant="outline" size="sm" onClick={() => setQuickAddOpen(true)}><Plus className="size-3.5" />{t("studioQuickAdd")}<span className="ml-2 hidden rounded border px-1 text-[9px] text-muted-foreground sm:inline">⌘K</span></Button>
+            <Button variant="outline" size="sm" onClick={() => setQuickAddOpen(true)}><Plus className="size-3.5" />{t("studioQuickAdd")}<span className="ml-2 hidden rounded border px-1 text-[9px] text-muted-foreground sm:inline">⇧ ⇧ · Ctrl/⌘K</span></Button>
             <span className="mx-1 h-5 w-px bg-border" />
             <Button variant="ghost" size="icon-sm" aria-label={t("analysisUndo")} title={t("analysisUndo")} disabled={!historyDepth.undo} onClick={undoLastEdit}><Undo2 className="size-3.5" /></Button>
             <Button variant="ghost" size="icon-sm" aria-label={t("studioRedo")} title={t("studioRedo")} disabled={!historyDepth.redo} onClick={redoLastEdit}><Redo2 className="size-3.5" /></Button>
@@ -1650,8 +1665,8 @@ function AnalysisEditor({ analysis, analyses, metrics }: { analysis: AnalysisRec
               // means a card only has to be touched by it, not enclosed.
               selectionMode={SelectionMode.Partial}
               onPaneClick={() => { selectedNodeIdsRef.current = []; setSelectedNodeIds([]); if (graphRef.current.selectedNodeId) commitOperations([{ version: ANALYSIS_OPERATION_VERSION, type: "set-selected-node", nodeId: null }], { recordHistory: false }); }}
-              onDragOver={(event) => { if (event.dataTransfer.types.includes(OPERATOR_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
-              onDrop={(event) => { event.preventDefault(); const payload = event.dataTransfer.getData(OPERATOR_DRAG_TYPE); const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); if (payload === CONSTANT_DRAG_VALUE) addConstant(position); else if (analysisOperatorIds.includes(payload as AnalysisOperatorId)) addOperator(payload as AnalysisOperatorId, position); }}
+              onDragOver={(event) => { if (event.dataTransfer.types.includes(OPERATOR_DRAG_TYPE) || event.dataTransfer.types.includes(DATASET_DRAG_TYPE)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; } }}
+              onDrop={(event) => { event.preventDefault(); const payload = event.dataTransfer.getData(OPERATOR_DRAG_TYPE); const position = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); const datasetPayload = event.dataTransfer.getData(DATASET_DRAG_TYPE); if (datasetPayload) { try { const request = JSON.parse(datasetPayload); if (typeof request.metricId === "string") { const metric = metrics.find(item => item.id === request.metricId); if (!metric) return; const built = buildKennzahlGraph(metric.expression, graphRef.current.subject, position); commitOperations([...built.nodes.map(node => ({ version: 1 as const, type: "add-node" as const, node })), ...built.edges.map(edge => ({ version: 1 as const, type: "add-edge" as const, edge }))]); return; } const dataset = municipalityDatasetRefSchema.parse(request.dataset); insertDataset({ label: String(request.label).slice(0, 160), dataset }, position); } catch { /* Ignore invalid external drag payloads. */ } return; } if (payload === "annotation") addAnnotation(position); else if (payload === CONSTANT_DRAG_VALUE) addConstant(position); else if (analysisOperatorIds.includes(payload as AnalysisOperatorId)) addOperator(payload as AnalysisOperatorId, position); }}
             >
               <Background gap={20} size={1} />
               <Controls position="bottom-left" showInteractive={false} />
@@ -1708,6 +1723,15 @@ function AnalysisLanding({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
 
+  const [deleting, setDeleting] = useState<MunicipalityAnalysisSummary | null>(null);
+  function removeSavedAnalysis() {
+    if (!deleting || pending) return;
+    startTransition(async () => {
+      try { await deleteMunicipalityAnalysis(deleting.id); setDeleting(null); router.refresh(); }
+      catch { toast.error(t("analysisDeleteFailed")); }
+    });
+  }
+
   // No analysis is open here, so opening a derivation creates one for it.
   function openAsAnalysis(request: { label: string; dataset: MunicipalityDatasetRef }) {
     if (pending) return;
@@ -1722,51 +1746,55 @@ function AnalysisLanding({
 
   return (
     <div className="grid gap-4" data-testid="municipality-analysis-landing">
-      <section className="overflow-hidden rounded-2xl border bg-gradient-to-br from-teal-50 via-background to-violet-50 shadow-sm dark:from-teal-950/35 dark:to-violet-950/25">
-        <div className="grid gap-6 p-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center">
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center">
           <div>
-            <span className="inline-flex items-center gap-2 rounded-full border bg-background/75 px-3 py-1 text-xs font-medium text-teal-800 shadow-sm dark:text-teal-200"><BarChart3 className="size-3.5" />{t("analysisTab")}</span>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight">{t("newAnalysis")}</h2>
+            <h2 className="text-xl font-semibold tracking-tight">{t("newAnalysis")}</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{t("newAnalysisDescription")}</p>
           </div>
-          <form action={createMunicipalityAnalysisAndRedirect} className="rounded-xl border bg-background/90 p-3 shadow-sm backdrop-blur">
-            <Input name="name" maxLength={120} required placeholder={t("analysisNamePlaceholder")} />
-            <Button className="mt-2 w-full" size="lg" type="submit"><Plus className="size-4" />{t("create")}</Button>
+          <form action={createMunicipalityAnalysisAndRedirect} className="flex flex-col gap-2 sm:flex-row">
+            <Input name="name" aria-label={t("analysisNamePlaceholder")} maxLength={120} required placeholder={t("analysisNamePlaceholder")} />
+            <Button type="submit"><Plus className="size-4" />{t("create")}</Button>
           </form>
         </div>
       </section>
 
-      <section className="rounded-2xl border bg-card p-5 shadow-sm">
-        <h2 className="text-xl font-semibold">{t("savedAnalyses")}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{t("savedAnalysesDescription")}</p>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {analyses.map((analysis) => (
-            <button
-              key={analysis.id}
-              type="button"
-              className="group rounded-xl border bg-background p-4 text-left shadow-xs transition hover:-translate-y-0.5 hover:border-teal-400 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
-              onClick={() => router.push(`/municipalities/analysis?analysis=${encodeURIComponent(analysis.id)}`)}
-            >
-              <span className="flex items-start justify-between gap-3">
-                <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-teal-100 text-teal-800 dark:bg-teal-950 dark:text-teal-200"><BarChart3 className="size-4" /></span>
-                <span className="text-[10px] text-muted-foreground">{format.dateTime(analysis.updatedAt, { dateStyle: "medium" })}</span>
-              </span>
-              <span className="mt-4 block truncate text-sm font-semibold group-hover:text-teal-800 dark:group-hover:text-teal-200">{analysis.name}</span>
-              <span className="mt-1 flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="size-3" />{analysis.municipalityName ?? t("analysisSubjectNone")}</span>
-              <span className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-muted-foreground">
-                <span className="rounded-full bg-muted px-2 py-1">{t("analysisNodeCount", { count: analysis.nodeCount })}</span>
-                <span className="rounded-full bg-muted px-2 py-1">{t("analysisNoteCount", { count: analysis.noteCount })}</span>
-              </span>
-              <span className="mt-3 block truncate text-[10px] text-muted-foreground">{t("analysisUpdatedAt", { date: format.dateTime(analysis.updatedAt, { dateStyle: "medium", timeStyle: "short" }) })}</span>
-            </button>
-          ))}
-          {!analyses.length && <p className="col-span-full rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("noAnalyses")}</p>}
-        </div>
-      </section>
+      <Tabs defaultValue="saved" className="gap-4">
+        <TabsList className="grid w-full grid-cols-2 sm:w-fit" aria-label={t("analysisTab")}>
+          <TabsTrigger value="saved" className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"><BarChart3 />{t("savedAnalyses")}</TabsTrigger>
+          <TabsTrigger value="catalog" className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"><Database />{t("catalog")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="saved" className="rounded-2xl border bg-card p-5">
+          <h2 className="text-xl font-semibold">{t("savedAnalyses")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("savedAnalysesDescription")}</p>
+          <div className="mt-5 grid gap-2">
+            {analyses.map((analysis) => (
+              <div key={analysis.id} className="flex items-center gap-2 rounded-xl border pr-3">
+              <button
+                type="button"
+                className="group flex min-w-0 flex-1 items-center gap-4 rounded-xl border bg-background p-4 text-left transition-colors hover:bg-muted/50 hover:border-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                onClick={() => router.push(`/municipalities/analysis?analysis=${encodeURIComponent(analysis.id)}`)}
+              >
+                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><BarChart3 className="size-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-semibold">{analysis.name}</span>
+                  <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3 shrink-0" /><span className="truncate">{analysis.municipalityName ?? t("analysisSubjectNone")}</span></span>
+                </span>
+                <span className="hidden shrink-0 text-xs text-muted-foreground sm:block">{t("analysisNodeCount", { count: analysis.nodeCount })}</span>
+                <span className="hidden shrink-0 text-xs text-muted-foreground md:block" title={t("analysisUpdatedAt", { date: format.dateTime(analysis.updatedAt, { dateStyle: "medium", timeStyle: "short" }) })}>{format.dateTime(analysis.updatedAt, { dateStyle: "medium" })}</span>
+              </button>
+              <Button variant="ghost" size="icon-sm" aria-label={`${t("deleteAnalysis")} · ${analysis.name}`} disabled={pending} onClick={() => setDeleting(analysis)}><Trash2 className="size-4 text-destructive" /></Button>
+              </div>
+            ))}
+            {!analyses.length && <p className="col-span-full rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("noAnalyses")}</p>}
+          </div>
+        </TabsContent>
 
-      <section className="rounded-2xl border bg-card p-5 shadow-sm">
-        <DatasetCatalog variant="page" ownMetrics={metrics} onOpen={openAsAnalysis} />
-      </section>
+        <TabsContent value="catalog" className="rounded-2xl border bg-card p-5">
+          <DatasetCatalog variant="page" ownMetrics={metrics} onOpen={openAsAnalysis} />
+        </TabsContent>
+      </Tabs>
+      <Dialog open={Boolean(deleting)} onOpenChange={open => { if (!open && !pending) setDeleting(null); }}><DialogContent><DialogHeader><DialogTitle>{t("deleteAnalysis")}</DialogTitle><DialogDescription>{t("deleteAnalysisConfirm", { name: deleting?.name ?? "" })}</DialogDescription></DialogHeader><DialogFooter><Button variant="outline" disabled={pending} onClick={() => setDeleting(null)}>{t("cancel")}</Button><Button variant="destructive" disabled={pending} onClick={removeSavedAnalysis}>{t("delete")}</Button></DialogFooter></DialogContent></Dialog>
     </div>
   );
 }

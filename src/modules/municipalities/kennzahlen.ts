@@ -1,3 +1,7 @@
+import { filterMetric } from "./filter-metrics";
+import { createPeerMedianIndex } from "./peer-medians";
+export { createPeerMedianIndex } from "./peer-medians";
+import { evaluateCondition, combineMatches } from "./filters";
 import { createId } from "@paralleldrive/cuid2";
 import { z } from "zod";
 import {
@@ -24,12 +28,10 @@ import {
   type MunicipalityDatasetRef,
 } from "./analysis";
 import {
-  median,
   municipalityCostAbsolute,
   municipalityCostPerCapita,
   municipalityCostRealPerCapita,
   municipalityCostShare,
-  municipalityPopulationBand,
   COST_TARGETS,
   type CostMeasureId,
   type CostTargetId,
@@ -93,6 +95,7 @@ const MOVEMENT_BASE_METRICS = new Set<MovementTargetId>([
 ]);
 
 export function datasetClass(input: KennzahlInput): DataKind {
+  if (input.kind === "condition") return "derived";
   if (input.kind === "attribute") return "base";
   if (input.kind === "population") {
     return input.view === "density" || input.view === "foreign-share" ? "derived" : "base";
@@ -194,54 +197,7 @@ export function kennzahlExpressionFor(output: KennzahlInput): KennzahlExpression
 
 // --- browsable catalogue ----------------------------------------------------
 
-const AGE_INDICATOR_IDS = [
-  "youth-share", "senior-share", "old-age-dependency", "child-dependency", "total-dependency",
-  "aging-index", "average-age", "women-share", "women-per-100-men",
-] as const;
-const DERIVED_MOVEMENT_IDS = [
-  "birth-rate", "death-rate", "birth-balance-rate", "migration-balance-rate",
-  "international-migration-balance", "international-migration-balance-rate",
-  "internal-migration-balance", "internal-migration-balance-rate", "statistical-correction",
-] as const;
-const INDICATOR_LABEL_KEYS: Record<(typeof AGE_INDICATOR_IDS)[number], string> = {
-  "youth-share": "indicatorYouthShare", "senior-share": "indicatorSeniorShare",
-  "old-age-dependency": "indicatorOldAgeDependency", "child-dependency": "indicatorChildDependency",
-  "total-dependency": "indicatorTotalDependency", "aging-index": "indicatorAgingIndex",
-  "average-age": "indicatorAverageAge", "women-share": "indicatorWomenShare",
-  "women-per-100-men": "indicatorWomenPer100Men",
-};
-const MOVEMENT_LABEL_KEYS: Record<(typeof DERIVED_MOVEMENT_IDS)[number], string> = {
-  "birth-rate": "movementBirthRate", "death-rate": "movementDeathRate",
-  "birth-balance-rate": "movementBirthBalanceRate", "migration-balance-rate": "movementMigrationBalanceRate",
-  "international-migration-balance": "movementInternationalBalance",
-  "international-migration-balance-rate": "movementInternationalBalanceRate",
-  "internal-migration-balance": "movementInternalBalance",
-  "internal-migration-balance-rate": "movementInternalBalanceRate",
-  "statistical-correction": "movementStatisticalCorrection",
-};
-
-/**
- * The entries the analysis tool offers for browsing. Parameterised families (age groups
- * by sex, cost categories) are listed once with a representative parameter — dragging a
- * concrete selection off the map still expands the exact combination that was chosen.
- */
-export const KENNZAHL_CATALOG: KennzahlDefinition[] = [
-  { id: "population-density", category: "population", labelKey: "populationDensity", output: { kind: "population", view: "density" } },
-  { id: "population-foreign-share", category: "population", labelKey: "populationForeignShare", output: { kind: "population", view: "foreign-share" } },
-  { id: "age-group-share", category: "age", labelKey: "ageMeasureShare", output: { kind: "age-group", ageGroup: "65-79", measure: "share", sex: "all" } },
-  ...AGE_INDICATOR_IDS.map((indicator): KennzahlDefinition => ({
-    id: `age-${indicator}`, category: "age", labelKey: INDICATOR_LABEL_KEYS[indicator],
-    output: { kind: "age-indicator", indicator },
-  })),
-  ...DERIVED_MOVEMENT_IDS.map((metric): KennzahlDefinition => ({
-    id: `movement-${metric}`, category: "movement", labelKey: MOVEMENT_LABEL_KEYS[metric],
-    output: { kind: "movement", metric },
-  })),
-  { id: "cost-share", category: "costs", labelKey: "costMeasureShare", output: { kind: "cost-share", category: "0", measure: "share" } },
-  { id: "cost-per-capita", category: "costs", labelKey: "costMeasurePerCapita", output: { kind: "cost-share", category: "0", measure: "per-capita" } },
-  { id: "cost-real-per-capita", category: "costs", labelKey: "costMeasureRealPerCapita", output: { kind: "cost-share", category: "0", measure: "real-per-capita" } },
-  { id: "cost-peer-deviation", category: "costs", labelKey: "costMeasurePeerDeviation", output: { kind: "cost-share", category: "0", measure: "peer-deviation" } },
-];
+export { KENNZAHL_CATALOG } from "./metric-catalog";
 
 // --- graph construction -----------------------------------------------------
 
@@ -592,7 +548,11 @@ export function kennzahlFromGraph(
 
 /** Every Ausgangsdatum a Kennzahl reads, for working out which data files it needs. */
 export function kennzahlExpressionInputs(expression: KennzahlExpression): KennzahlInput[] {
-  if ("input" in expression) return [expression.input];
+  if ("input" in expression) {
+    const input = expression.input;
+    const metric = input.kind === "condition" && input.condition.field === "metric" ? filterMetric(input.condition.metricId) : null;
+    return metric ? [input, metric.output] : [input];
+  }
   if ("op" in expression) {
     return "b" in expression
       ? [...kennzahlExpressionInputs(expression.a), ...kennzahlExpressionInputs(expression.b)]
@@ -623,43 +583,6 @@ export function kennzahlExpressionUnit(expression: KennzahlExpression): string {
  * single node but quadratic across 2.092 municipalities. This builds the whole year in
  * one pass instead, and is the only copy — both the map and the Kennzahl evaluator use it.
  */
-export function createPeerMedianIndex(data: MunicipalityAnalysisData) {
-  const cache = new Map<string, Map<string, number | null>>();
-  return (code: string, year: number, category: CostTargetId) => {
-    const cacheKey = `${category}|${year}`;
-    let medians = cache.get(cacheKey);
-    if (!medians) {
-      const groups = new Map<string, number[]>();
-      const yearCosts = data.costs?.years[String(year)]?.values ?? {};
-      const populations = data.population.years[String(year)]?.values ?? {};
-      for (const municipality of data.index.municipalities) {
-        const inhabitants = populations[municipality.municipalityCode];
-        const tuple = yearCosts[municipality.municipalityCode];
-        if (!tuple || !inhabitants) continue;
-        const value = municipalityCostPerCapita(tuple, category, inhabitants);
-        if (value === null) continue;
-        const band = municipalityPopulationBand(inhabitants);
-        for (const key of [`${municipality.state}|${band}`, `*|${band}`]) {
-          const group = groups.get(key);
-          if (group) group.push(value);
-          else groups.set(key, [value]);
-        }
-      }
-      medians = new Map();
-      for (const municipality of data.index.municipalities) {
-        const band = municipalityPopulationBand(populations[municipality.municipalityCode]);
-        const regional = groups.get(`${municipality.state}|${band}`);
-        // Fewer than five neighbours in the same Bundesland is too thin a comparison,
-        // so those fall back to the nationwide band.
-        const comparison = regional && regional.length >= 5 ? regional : groups.get(`*|${band}`) ?? [];
-        medians.set(municipality.municipalityCode, median(comparison));
-      }
-      cache.set(cacheKey, medians);
-    }
-    return medians.get(code) ?? null;
-  };
-}
-
 type ValueReader = (code: string, year: number) => number | null;
 
 function baseReader(
@@ -669,6 +592,11 @@ function baseReader(
 ): ValueReader {
   const byCode = new Map(data.index.municipalities.map((item) => [item.municipalityCode, item]));
 
+  if (input.kind === "condition") return (code, year) => {
+    const municipality = byCode.get(code);
+    const value = municipality ? evaluateCondition(input.condition, municipality, year, data) : null;
+    return value === null ? null : value ? 1 : 0;
+  };
   if (input.kind === "attribute") return (code) => byCode.get(code)?.areaSquareKilometers ?? null;
 
   if (input.kind === "population") return (code, year) => {
@@ -743,6 +671,10 @@ export function createKennzahlLookup(
     if (!("b" in node)) return evaluate(node.a, code, year - node.years);
     const a = evaluate(node.a, code, year);
     const b = evaluate(node.b, code, year);
+    if (node.op === "and" || node.op === "or") {
+      const value = combineMatches([a === null ? null : a !== 0, b === null ? null : b !== 0], node.op);
+      return value === null ? null : value ? 1 : 0;
+    }
     if (a === null || b === null) return null;
     switch (node.op) {
       case "add": return a + b;
@@ -756,8 +688,6 @@ export function createKennzahlLookup(
       case "less-or-equal": return a <= b ? 1 : 0;
       case "equal": return a === b ? 1 : 0;
       case "not-equal": return a !== b ? 1 : 0;
-      case "and": return a !== 0 && b !== 0 ? 1 : 0;
-      case "or": return a !== 0 || b !== 0 ? 1 : 0;
       default: return null;
     }
   };
