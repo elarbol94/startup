@@ -62,3 +62,99 @@ dem Beginn der Daten bleiben leer, wie jede andere Lücke auch.
 Auf der Karte werden diese Kennzahlen über `createKennzahlLookup` ausgewertet, nicht über
 `resolveMunicipalityDataset`: Letzteres sucht pro Jahr linear im Index und die
 Peer-Abweichung darin ist quadratisch über alle Gemeinden.
+
+## Gemeinden filtern und Bedingungen
+
+Unter **Gemeinden filtern** lassen sich Einwohnerzahl (2002–2025), Fläche,
+Bundesland, Bürger-App-Anbieter, App-Verfügbarkeit, Recherchestatus und die
+Anzahlen der digitalen Plattformansichten kombinieren. Gruppen unterstützen UND,
+ODER und NICHT. Zahlen bieten Vergleiche und ein einschließliches Intervall;
+Anbieter und Bundesländer erlauben Mehrfachauswahl. Die Ergebnisse erscheinen als
+Liste oder Karte, mit getrennten Treffern, Nichttreffern und unbekannten Ergebnissen.
+Die Bedingungen können über die URL als Lesezeichen gespeichert werden.
+
+`filters.ts` enthält Schema und gemeinsame Auswertung. `condition`-Datensätze im
+Analysegraphen verwenden dieselbe Auswertung und liefern Wahrheitswerte. Sie
+lassen sich im Datenpanel hinzufügen, im Inspektor bearbeiten, mit UND/ODER
+verbinden und als Kennzahl speichern. **Als Analyse öffnen** übernimmt alle
+Filterbedingungen; negierte Gruppen werden nach De Morgan umgeformt. Der Graph
+wertet die Bedingungen für die gesamte Bevölkerungszeitreihe aus, während die
+Filterseite nur das ausgewählte Jahr zeigt.
+
+Plattformdaten sind ein aktueller Recherchesnapshot, keine historische Zeitreihe.
+Dies wird im Filter und am Bedingungsblock ausgewiesen. Mehrere Anbieter werden
+über ihre tatsächliche Liste geprüft, niemals über Farbcodes der Karte. Ein
+gefundener Anbieter kann auch bei unvollständiger Recherche einen Treffer liefern;
+ein nicht gefundener Anbieter bleibt dann unbekannt. Exakte Plattformanzahlen
+setzen abgeschlossene Recherche voraus. „Keine App gefunden“ ist ein
+Rechercheergebnis, kein Beweis der Abwesenheit.
+
+Unbekannt bleibt auch unter NICHT unbekannt. FALSCH UND UNBEKANNT ist FALSCH;
+WAHR ODER UNBEKANNT ist WAHR. Filter, Graph und Kennzahl-Kartenauswertung teilen
+diese dreiwertige Logik. `filters.test.ts` prüft Grenzen, Mehrfachanbieter,
+Datenlücken, Speichern und Ergebnisgleichheit über alle Gemeinden.
+
+### Ausgangsdaten im Filter erkunden
+
+Die Filterseite zeigt eine gemeinsame Karte neben den Bedingungen (auf schmalen
+Bildschirmen darüber). Die Kategorien Bevölkerung/Geografie und digitale
+Plattformen bieten alle derzeit unterstützten Filterfelder als Kartenansicht an.
+Die Darstellung lässt sich zwischen Ausgangsdaten und Filterergebnissen wechseln,
+ohne Bedingungen oder Kartenausschnitt zurückzusetzen. `readFilterField` liefert
+die gemeinsamen Werte; Einwohnerklassen und Anbieterfarben stammen aus dem
+Überblick. Andere numerische Felder verwenden fünf gleich breite Werteklassen.
+
+Ein Klick auf die Karte zeigt den Rohwert und bei
+digitalen Daten den Recherchestatus und das Prüfdatum. „Als Bedingung hinzufügen"
+übernimmt Feld und gegebenenfalls ausgewählten Wert in eine gewählte Gruppe.
+Bei mehreren Anbietern wird eine Mehrfachauswahl angelegt; bei einer bekannten
+leeren Anbieterliste die Bedingung „Keine vergleichbare App gefunden". Die
+Vorschau unter dem Button zeigt die Bedingung vor dem Hinzufügen.
+
+### Kennzahlen im Filter
+
+Unter Kategorie **Kennzahl** stehen die numerischen Kennzahlen des Analysekatalogs
+zur Verfügung: Bevölkerungsdichte, Ausländeranteil, Altersgruppen (nach Geschlecht),
+demografische Indikatoren, Bewegungsraten/-salden und Finanzkennzahlen für jede
+Aufgabengruppe. Eigene gespeicherte Kennzahlen und politische Wahldaten sind in
+dieser Auswahl noch nicht enthalten.
+
+`filter-metrics.ts` erweitert den gemeinsamen Katalog um konkrete Alters- und
+Finanzkategorien und verwendet dieselben Primärberechnungen wie der Überblick.
+Anteile und relative Abweichungen werden für Karte und Bedingungen in Prozent
+umgerechnet (25 bedeutet 25 %); Raten behalten ihre ausgewiesene Einheit.
+Negative Schwellen sind erlaubt. Werteklassen berücksichtigen negative Werte.
+Das ausgewählte Jahr gilt exakt: keine stillschweigende Übernahme aus einem
+anderen Jahr, fehlende Daten bleiben auch unter NICHT unbekannt.
+
+Bedingungen speichern die stabile Kennzahl-ID. Der Analyse-Datenlader und die
+Abhängigkeitsermittlung gespeicherter Bedingungskennzahlen laden die zugehörigen
+Zeitreihen. Vergleichsgruppen-Mediane werden gemeinsam mit dem Überblick über
+`peer-medians.ts` berechnet; Werte werden pro Datenbestand, Jahr und Kennzahl
+zwischengespeichert. Tests prüfen die Übereinstimmung für alle Auswahlmöglichkeiten,
+Einheiten, negative Schwellen, Datenlücken und die Übernahme in die Analyse.
+
+Im Kartenmodus „Daten“ bleiben Gruppenauswahl, Hinzufügen-Button und
+Bedingungsvorschau ausgeblendet. Sie erscheinen nur bei gültigen „Ergebnissen“.
+Die Verknüpfung von Gruppen wird erst ab zwei Gruppen gezeigt; Hinweise zum
+Datenstand und zu fehlenden Werten sind aufklappbar.
+
+Die Filterkarte zeigt beim Darüberfahren den Gemeindenamen und hebt die Fläche
+mit einer stärkeren Kontur hervor. Beim Verlassen verschwindet die Hervorhebung.
+Ein Klick oder Antippen öffnet die Werte; die separate Gemeindeauswahlliste entfällt.
+Bedingungen stehen in einzelnen Karten mit einem durchgehenden Datenfeld und
+nebeneinander angeordneten Vergleichs- und Wertefeldern.
+
+### Analyse-Bibliothek und Ablage
+
+Katalogkategorien sind standardmäßig eingeklappt; eine Suche öffnet passende
+Kategorien. Datensätze, Kennzahlen, Bedingungen, Operatoren, Konstanten und Notizen
+lassen sich auf die Arbeitsfläche ziehen. Der Ablagepunkt wird mit der aktuellen
+Kartenverschiebung und Zoomstufe in Arbeitsflächenkoordinaten umgerechnet.
+`add-kennzahl.position` verschiebt ausschließlich neu eingefügte Knoten; bestehende
+Knoten bleiben an ihrer Position. Eigene Kennzahlen werden als Ausdrucksgraph eingefügt.
+
+Zweimaliges kurzes Drücken der Umschalttaste (innerhalb von 450 ms) öffnet
+„Schnell hinzufügen“, ebenso Strg/Cmd+K. Texteingaben und Shift-Tastenkombinationen
+lösen die neue Tastenkombination nicht aus. Gespeicherte Analysen lassen sich direkt
+in der Übersicht über einen Löschknopf mit Bestätigungsdialog entfernen.

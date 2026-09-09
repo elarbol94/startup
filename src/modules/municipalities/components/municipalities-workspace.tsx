@@ -173,6 +173,7 @@ type DatasetSelection = {
   customExpression: KennzahlExpression | null;
 };
 type DatasetSeries = {
+  digital?: MunicipalityDigitalPlatformDataset | null;
   index: MunicipalityIndex;
   population: MunicipalityPopulationSeries;
   structure: MunicipalityStructureSeries | null;
@@ -198,7 +199,7 @@ function createDatasetLookup(selection: DatasetSelection, data: DatasetSeries) {
   const peerMedianFor = (code: string, year: number) => peerMedianIndex(code, year, costCategory);
 
   const customLookup = customExpression
-    ? createKennzahlLookup(customExpression, { index, population, structure, demography, movement, costs }, peerMedianIndex)
+    ? createKennzahlLookup(customExpression, { index, population, structure, demography, movement, costs, digital: data.digital }, peerMedianIndex)
     : null;
 
   const valueFor = (code: string, year: number): number | null => {
@@ -251,6 +252,7 @@ function createDatasetLookup(selection: DatasetSelection, data: DatasetSeries) {
 
 export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: MunicipalityMetricRecord[] }) {
   const t = useTranslations("municipalities");
+  const tf = useTranslations("municipalityFilters");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -644,6 +646,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
         demography: demographySeries,
         movement: movementSeries,
         costs: costSeries,
+        digital: digitalPlatforms,
       },
     );
     const usesPopulationClasses = metric === "population" && populationView === "count";
@@ -834,7 +837,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
   }, [costError, costSeries, index, needsCosts]);
 
   useEffect(() => {
-    if (metric !== "digital" || digitalPlatforms || digitalPlatformsError || !index) return;
+    if (!(metric === "digital" || (metric === "custom" && customMetric && kennzahlExpressionInputs(customMetric.expression).some(input => input.kind === "condition"))) || digitalPlatforms || digitalPlatformsError || !index) return;
     const controller = new AbortController();
     fetchJson<MunicipalityDigitalPlatformDataset>(
       "/data/municipality-digital-platforms.json",
@@ -848,7 +851,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
         if (!(error instanceof DOMException && error.name === "AbortError")) setDigitalPlatformsError(true);
       });
     return () => controller.abort();
-  }, [digitalPlatforms, digitalPlatformsError, index, metric]);
+  }, [customMetric, digitalPlatforms, digitalPlatformsError, index, metric]);
 
   function replace(next: URLSearchParams) {
     const value = next.toString();
@@ -1327,6 +1330,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
       className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-4"
       data-testid="municipalities-workspace"
     >
+      {metric === "custom" && customInputs.some(input => input.kind === "condition") && <p className="col-span-full mb-3 rounded-lg border bg-muted/30 p-3 text-xs">{tf("snapshotHint")} {digitalPlatforms && tf("snapshotDate", { date: digitalPlatforms.referenceDate })}</p>}
       <section
         className="relative h-[calc(100dvh-10.5rem)] min-h-[32rem] lg:h-[calc(100dvh-12rem)] lg:min-h-[38rem]"
         aria-label={t("mapRegionLabel")}

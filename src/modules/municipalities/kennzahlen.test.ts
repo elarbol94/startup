@@ -381,6 +381,17 @@ describe("adding a Kennzahl to a graph", () => {
     operators: graph.nodes.filter(({ type }) => type === "operator").length,
   });
 
+  it("places dropped datasets and derivations at the requested canvas position without moving existing nodes", () => {
+    for (const dataset of [{ kind: "population", view: "count" }, { kind: "movement", metric: "birth-rate" }] as const) {
+      const existing = add(emptyMunicipalityAnalysisGraph(), { kind: "attribute", field: "area" });
+      const graph = applyMunicipalityAnalysisGraphOperations(existing, [{ version: ANALYSIS_OPERATION_VERSION, type: "add-kennzahl", nodeId: "dropped", dataset, position: { x: -120, y: 350 } }], expandKennzahlIntoGraph).graph;
+      const inserted = graph.nodes.filter(node => !existing.nodes.some(old => old.id === node.id));
+      expect(Math.min(...inserted.map(node => node.position.x))).toBe(-120);
+      expect(Math.min(...inserted.map(node => node.position.y))).toBe(350);
+      expect(graph.nodes.find(node => node.id === existing.nodes[0].id)?.position).toEqual(existing.nodes[0].position);
+    }
+  });
+
   it("adds an Ausgangsdatum as a single node", () => {
     const graph = add(emptyMunicipalityAnalysisGraph(), {
       kind: "population", municipalityCode: "60101", municipalityName: "Graz", view: "count",

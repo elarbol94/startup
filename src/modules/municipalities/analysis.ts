@@ -1,3 +1,5 @@
+import { conditionSchema, evaluateCondition, combineMatches } from "./filters";
+import type { MunicipalityDigitalPlatformDataset } from "./digital-platforms";
 import { z } from "zod";
 import {
   municipalityCostAbsolute,
@@ -86,6 +88,7 @@ const pinnedMunicipality = {
 };
 
 export const municipalityDatasetRefSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("condition"), ...pinnedMunicipality, condition: conditionSchema }),
   z.object({ kind: z.literal("population"), ...pinnedMunicipality, view: z.enum(["count", "density", "foreign-share", "foreign-persons", "structure-population"]) }),
   z.object({
     kind: z.literal("age-group"), ...pinnedMunicipality,
@@ -189,6 +192,7 @@ export type MunicipalityAnalysisEdge = z.infer<typeof analysisEdgeSchema>;
 
 export const ANALYSIS_OPERATION_VERSION = 1;
 export const municipalityAnalysisGraphOperationSchema = z.discriminatedUnion("type", [
+  z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("update-condition"), nodeId: z.string().min(1).max(100), condition: conditionSchema }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("add-node"), node: analysisNodeSchema }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("remove-node"), nodeId: z.string().min(1).max(100) }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("move-node"), nodeId: z.string().min(1).max(100), position: positionSchema }),
@@ -199,7 +203,7 @@ export const municipalityAnalysisGraphOperationSchema = z.discriminatedUnion("ty
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("add-dataset"), nodeId: z.string().min(1).max(100), dataset: municipalityDatasetRefSchema }),
   // Like add-dataset, but for a Kennzahl: the graph decides how it lands, because only it
   // knows which Ausgangsdaten are already on the canvas and where there is room.
-  z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("add-kennzahl"), nodeId: z.string().min(1).max(100), dataset: municipalityDatasetRefSchema }),
+  z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("add-kennzahl"), nodeId: z.string().min(1).max(100), dataset: municipalityDatasetRefSchema, position: positionSchema.optional() }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("set-subject"), subject: analysisSubjectSchema.nullable() }),
   // The number typed into a node: a constant's value, or a unary operator's year count.
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("set-node-value"), nodeId: z.string().min(1).max(100), value: z.number().finite() }),
@@ -314,6 +318,7 @@ export function applyMunicipalityAnalysisGraphOperations(
   let lastDatasetNodeId: string | null = null;
   for (const operation of parsedOperations) {
     if (operation.type === "add-kennzahl") {
+      const previousIds = new Set(next.nodes.map(node => node.id));
       const expanded = expandKennzahl?.(operation.dataset, next);
       // An empty array means the derivation is already fully on the canvas — that is a
       // successful no-op, not a missing derivation.
@@ -326,6 +331,15 @@ export function applyMunicipalityAnalysisGraphOperations(
         lastDatasetNodeId = added.nodeId;
         if (added.duplicate) duplicateCount += 1;
       }
+      if (operation.position) {
+        const inserted = next.nodes.filter(node => !previousIds.has(node.id));
+        if (inserted.length) {
+          const x = Math.min(...inserted.map(node => node.position.x));
+          const y = Math.min(...inserted.map(node => node.position.y));
+          const origin = operation.position;
+          next = { ...next, nodes: next.nodes.map(node => previousIds.has(node.id) ? node : { ...node, position: { x: origin.x + node.position.x - x, y: origin.y + node.position.y - y } }) };
+        }
+      }
     } else if (operation.type === "add-dataset") {
       const added = addDatasetToGraph(next, operation.dataset, operation.nodeId);
       next = added.graph;
@@ -335,6 +349,8 @@ export function applyMunicipalityAnalysisGraphOperations(
       if (!next.nodes.some(({ id }) => id === operation.node.id)) {
         next = { ...next, nodes: [...next.nodes, operation.node], selectedNodeId: operation.node.id };
       }
+    } else if (operation.type === "update-condition") {
+      next = { ...next, nodes: next.nodes.map(node => node.id === operation.nodeId && node.type === "dataset" && node.data.dataset.kind === "condition" ? { ...node, data: { ...node.data, dataset: { ...node.data.dataset, condition: operation.condition } } } : node) };
     } else if (operation.type === "remove-node") {
       next = {
         ...next,
@@ -453,9 +469,11 @@ export type MunicipalityAnalysisData = {
   demography: MunicipalityDemographySeries | null;
   movement: MunicipalityMovementSeries | null;
   costs: MunicipalityCostSeries | null;
+  digital?: MunicipalityDigitalPlatformDataset | null;
 };
 
 export function datasetUnit(dataset: MunicipalityDatasetRef) {
+  if (dataset.kind === "condition") return "boolean";
   if (dataset.kind === "population") return populationViewUnit(dataset.view);
   if (dataset.kind === "age-group") return dataset.measure;
   if (dataset.kind === "age-indicator") return demographicIndicatorUnit(dataset.indicator);
@@ -524,7 +542,13 @@ export function resolveMunicipalityDataset(
   // read yet, which is a state to report rather than a series of nulls.
   const code = dataset.municipalityCode ?? subject?.municipalityCode ?? null;
   if (code === null) {
-    return { unit: datasetUnit(dataset), valueType: "number", points: [], error: "missing-municipality", warnings: [] };
+    return { unit: datasetUnit(dataset), valueType: dataset.kind === "condition" ? "boolean" : "number", points: [], error: "missing-municipality", warnings: [] };
+  }
+
+  if (dataset.kind === "condition") {
+    const municipality = data.index.municipalities.find(item => item.municipalityCode === code);
+    for (let year = firstYear; year <= latestYear; year += 1) points.push({ year, value: municipality ? evaluateCondition(dataset.condition, municipality, year, data) : null });
+    return { unit: "boolean", valueType: "boolean", points, error: null, warnings: [] };
   }
 
   for (let year = firstYear; year <= latestYear; year += 1) {
@@ -647,8 +671,7 @@ export function evaluateAnalysisOperator(
     const a = point.value;
     const b = rightByYear.get(point.year);
     if (logical) {
-      if (typeof a !== "boolean" || typeof b !== "boolean") return [{ year: point.year, value: null }];
-      return [{ year: point.year, value: operator === "and" ? a && b : a || b }];
+      return [{ year: point.year, value: combineMatches([typeof a === "boolean" ? a : null, typeof b === "boolean" ? b : null], operator === "and" ? "and" : "or") }];
     }
     if (typeof a !== "number" || typeof b !== "number") return [{ year: point.year, value: null }];
     if (operator === "divide" && b === 0) { warnings.push({ year: point.year, code: "division-by-zero" }); return [{ year: point.year, value: null }]; }
