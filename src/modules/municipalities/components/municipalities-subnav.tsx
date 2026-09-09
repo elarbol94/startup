@@ -33,6 +33,7 @@ import {
 
 export function MunicipalitiesSubnav() {
   const t = useTranslations("municipalities");
+  const tf = useTranslations("municipalityFilters");
   const pathname = usePathname();
   const { enqueue } = useMunicipalityAnalysisPersistence();
   const [dragging, setDragging] = useState(false);
@@ -106,6 +107,7 @@ export function MunicipalitiesSubnav() {
           <Map className="size-4" />
           <span className="hidden sm:inline">{t("overviewTab")}</span>
         </Link>
+        <Link href="/municipalities/filter" aria-current={pathname.endsWith("/filter") ? "page" : undefined} className={cn("inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium", pathname.endsWith("/filter") ? "bg-background shadow-sm" : "text-muted-foreground hover:bg-background/70")}>{tf("nav")}</Link>
         <Link
           href={lastAnalysisId ? "/municipalities/analysis?analysis=" + encodeURIComponent(lastAnalysisId) : "/municipalities/analysis"}
           prefetch={false}

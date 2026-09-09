@@ -50,6 +50,7 @@ test("a Kennzahl derivation can be inspected, saved and used on the map", async 
   // The analysis landing page is the reference: every Kennzahl with its formula, no
   // analysis needed to read it.
   await page.goto("/municipalities/analysis");
+  await page.getByRole("tab", { name: "Daten & Kennzahlen", exact: true }).click();
   const catalog = page.getByTestId("kennzahl-catalog");
   await expect(catalog).toBeVisible({ timeout: 30_000 });
   // The formula must be readable in full, not cut off after the first terms.

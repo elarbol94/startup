@@ -35,6 +35,10 @@ test("municipality subpages route and transfer a dataset into a saved analysis",
   await page.getByRole("link", { name: "Analyse" }).click();
   await expect(page).toHaveURL(/\/municipalities\/analysis/);
   await expect(page.getByTestId("municipality-analysis-landing")).toBeVisible();
+  await expect(page.getByTestId("kennzahl-catalog")).not.toBeVisible();
+  await page.getByRole("tab", { name: "Daten & Kennzahlen", exact: true }).click();
+  await expect(page.getByTestId("kennzahl-catalog")).toBeVisible();
+  await page.getByRole("tab", { name: "Gespeicherte Analysen" }).click();
   await page.getByPlaceholder("z. B. Bevölkerungsvergleich").fill("Graz und Wien");
   await page.getByRole("button", { name: "Erstellen" }).click();
   await expect(page).toHaveURL(/analysis=/);
@@ -158,6 +162,7 @@ test("studio aliases, dimensions, notes, quick add, layout, and panels persist",
   await page.getByLabel("Notiztext").blur();
   await expect(page.getByRole("button", { name: "Blau" })).toBeVisible();
   await page.getByRole("button", { name: "Blau" }).click();
+  await page.getByText("Abmessungen", { exact: true }).click();
   await page.getByLabel("Breite").fill("320");
   await page.getByLabel("Breite").blur();
   await page.getByLabel("Höhe").fill("220");
@@ -179,6 +184,7 @@ test("studio aliases, dimensions, notes, quick add, layout, and panels persist",
   await expect(page.getByRole("tabpanel", { name: "Ergebnis" }).getByRole("heading", { name: "Pro-Kopf-Quote" })).toBeVisible();
   await page.getByRole("tab", { name: "Eigenschaften" }).click();
 
+  if (!(await page.getByLabel("Breite").isVisible())) await page.getByText("Abmessungen", { exact: true }).click();
   await page.getByLabel("Breite").fill("360");
   await page.getByLabel("Breite").blur();
   await page.getByLabel("Höhe").fill("240");

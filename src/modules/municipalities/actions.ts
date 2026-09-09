@@ -1,5 +1,7 @@
 "use server";
 
+import { filterToAnalysisGraph } from "./filter-graph";
+import { municipalityFilterSchema } from "./filters";
 import { createId } from "@paralleldrive/cuid2";
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -262,4 +264,14 @@ export async function deleteMunicipalityMetric(metricIdInput: string) {
   if (!deleted.changes) throw new Error("Municipality metric not found");
   revalidateMetrics();
   return { deleted: true };
+}
+
+export async function createMunicipalityFilterAnalysis(input: { name: string; filter: unknown }) {
+  const user = await requireUserOrThrow();
+  const parsed = z.object({ name: nameSchema, filter: municipalityFilterSchema }).parse(input);
+  const graph = filterToAnalysisGraph(parsed.filter);
+  const id = createId();
+  db.insert(municipalityAnalyses).values({ id, ownerId: user.id, name: parsed.name, graphJson: serializeMunicipalityAnalysisGraph(graph) }).run();
+  revalidateAnalyses();
+  return { id };
 }
