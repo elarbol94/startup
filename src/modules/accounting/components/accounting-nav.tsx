@@ -39,14 +39,14 @@ export function AccountingNav() {
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "group relative flex h-11 items-center gap-2 px-3 text-sm font-medium text-[#61706b] transition-colors hover:text-[#173c32] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315c73] focus-visible:ring-offset-2",
-                active && "text-[#173c32]",
+                "group relative flex h-11 items-center gap-2 px-3 text-sm font-medium text-[#61706b] dark:text-muted-foreground transition-colors hover:text-[#173c32] dark:hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315c73] dark:focus-visible:ring-ring focus-visible:ring-offset-2",
+                active && "text-[#173c32] dark:text-foreground",
               )}
             >
               <Icon
                 className={cn(
-                  "size-4 text-[#87938f] transition-colors group-hover:text-[#315c73]",
-                  active && "text-[#315c73]",
+                  "size-4 text-[#87938f] dark:text-muted-foreground transition-colors group-hover:text-[#315c73] dark:group-hover:text-foreground",
+                  active && "text-[#315c73] dark:text-foreground",
                 )}
               />
               {t(item.key)}

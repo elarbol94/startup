@@ -88,8 +88,8 @@ export function LedgerClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-2xl border border-[#dfe5e1] bg-white p-4 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-5">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.08em] text-[#71807a] uppercase">
+      <section className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-5">
+        <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.08em] text-[#71807a] dark:text-muted-foreground uppercase">
           <Filter className="size-3.5" />
           {tBookings("filters")}
         </div>
@@ -100,7 +100,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("year")}
-              className="w-28 border-[#d4ddd8] bg-[#fbfcfb]"
+              className="w-28 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue />
             </SelectTrigger>
@@ -121,7 +121,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("month")}
-              className="w-40 border-[#d4ddd8] bg-[#fbfcfb]"
+              className="w-40 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.month ? monthName(filters.month) : t("wholeYear")}
@@ -145,7 +145,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={tBookings("type")}
-              className="w-36 border-[#d4ddd8] bg-[#fbfcfb]"
+              className="w-36 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.kind
@@ -168,7 +168,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("category")}
-              className="w-56 max-w-full border-[#d4ddd8] bg-[#fbfcfb]"
+              className="w-56 max-w-full border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.categoryId
@@ -193,7 +193,7 @@ export function LedgerClient({
               size="sm"
               nativeButton={false}
               render={<a href={exportHref} />}
-              className="border-[#d4ddd8] bg-white text-[#315c73] hover:bg-[#edf2f0] hover:text-[#234758]"
+              className="border-[#d4ddd8] dark:border-border bg-white dark:bg-card text-[#315c73] dark:text-foreground hover:bg-[#edf2f0] dark:hover:bg-accent hover:text-[#234758] dark:hover:text-foreground"
             >
               <Download className="size-4" />
               {t("exportCsv")}
@@ -215,7 +215,7 @@ export function LedgerClient({
 
       <section className="grid gap-3 md:hidden" aria-label={t("bookings")}>
         {entries.length === 0 ? (
-          <div className="rounded-2xl border border-[#dfe5e1] bg-white p-8 text-center text-sm text-[#7a8782]">{t("noEntries")}</div>
+          <div className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-8 text-center text-sm text-[#7a8782] dark:text-muted-foreground">{t("noEntries")}</div>
         ) : entries.map((entry) => {
           const sign = entry.kind === "expense" ? -1 : 1;
           const canEdit = canManagePersonnel || entry.categoryTemplate !== "personnel";
@@ -224,7 +224,7 @@ export function LedgerClient({
               key={entry.id}
               type="button"
               disabled={!canEdit}
-              className="min-h-28 rounded-2xl border border-[#dfe5e1] bg-white p-4 text-left shadow-[0_1px_2px_rgba(20,47,39,0.03)] transition hover:border-[#b9cac2] disabled:cursor-default disabled:opacity-75"
+              className="min-h-28 rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 text-left shadow-[0_1px_2px_rgba(20,47,39,0.03)] transition hover:border-[#b9cac2] dark:hover:border-border disabled:cursor-default disabled:opacity-75"
               onClick={() => {
                 if (!canEdit) return;
                 setDialogEntry(entry);
@@ -233,50 +233,50 @@ export function LedgerClient({
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="truncate font-semibold text-[#213c35]">{entry.description}</p>
-                  <p className="mt-1 truncate text-xs text-[#71807a]">{entry.counterparty || "—"}</p>
+                  <p className="truncate font-semibold text-[#213c35] dark:text-foreground">{entry.description}</p>
+                  <p className="mt-1 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty || "—"}</p>
                 </div>
-                <p className={`shrink-0 font-semibold tabular-nums ${entry.kind === "income" ? "text-[#2f6b55]" : "text-[#273f38]"}`}>
+                <p className={`shrink-0 font-semibold tabular-nums ${entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"}`}>
                   {formatCents(sign * entry.grossAmountCents, locale)}
                 </p>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#edf0ee] pt-3">
-                <span className="text-xs tabular-nums text-[#68756f]">{format.dateTime(new Date(entry.date), { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
-                <Badge variant="outline" className="max-w-full border-[#dfe5e1] bg-[#fafbfa] text-[#52625c]">
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#edf0ee] dark:border-border pt-3">
+                <span className="text-xs tabular-nums text-[#68756f] dark:text-muted-foreground">{format.dateTime(new Date(entry.date), { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
+                <Badge variant="outline" className="max-w-full border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground">
                   <span className="mr-1 inline-block size-2 shrink-0 rounded-full" style={{ backgroundColor: entry.categoryColor }} />
                   <span className="truncate">{entry.categoryName}</span>
                 </Badge>
                 {entry.status === "draft" ? <Badge className="bg-amber-50 text-amber-800" variant="outline">{tBookings("draft")}</Badge> : null}
-                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 text-[#83918b]" /> : null}
+                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 text-[#83918b] dark:text-muted-foreground" /> : null}
               </div>
             </button>
           );
         })}
       </section>
 
-      <section className="hidden overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-[0_1px_2px_rgba(20,47,39,0.03)] md:block">
+      <section className="hidden overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] md:block">
         <Table>
-          <TableHeader className="bg-[#f8faf8]">
-            <TableRow className="border-[#e3e8e5] hover:bg-transparent">
-              <TableHead className="h-10 w-28 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase sm:pl-6">
+          <TableHeader className="bg-[#f8faf8] dark:bg-muted">
+            <TableRow className="border-[#e3e8e5] dark:border-border hover:bg-transparent">
+              <TableHead className="h-10 w-28 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pl-6">
                 {t("date")}
               </TableHead>
-              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
                 {t("description")}
               </TableHead>
-              <TableHead className="hidden h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase md:table-cell">
+              <TableHead className="hidden h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase md:table-cell">
                 {t("counterparty")}
               </TableHead>
-              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
                 {t("category")}
               </TableHead>
-              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase lg:table-cell">
+              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase lg:table-cell">
                 {t("net")}
               </TableHead>
-              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase xl:table-cell">
+              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase xl:table-cell">
                 {t("vat")}
               </TableHead>
-              <TableHead className="h-10 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase sm:pr-6">
+              <TableHead className="h-10 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pr-6">
                 {t("gross")}
               </TableHead>
             </TableRow>
@@ -284,7 +284,7 @@ export function LedgerClient({
           <TableBody>
             {entries.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="h-40 text-center text-[#7a8782]">
+                <TableCell colSpan={7} className="h-40 text-center text-[#7a8782] dark:text-muted-foreground">
                   {t("noEntries")}
                 </TableCell>
               </TableRow>
@@ -299,8 +299,8 @@ export function LedgerClient({
                   tabIndex={canEdit ? 0 : undefined}
                   aria-disabled={canEdit ? undefined : true}
                   className={canEdit
-                    ? "cursor-pointer border-[#edf0ee] hover:bg-[#f6f9f7] focus-visible:bg-[#f0f5f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#315c73]"
-                    : "border-[#edf0ee]"}
+                    ? "cursor-pointer border-[#edf0ee] dark:border-border hover:bg-[#f6f9f7] dark:hover:bg-accent focus-visible:bg-[#f0f5f2] dark:focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#315c73] dark:focus-visible:ring-ring"
+                    : "border-[#edf0ee] dark:border-border"}
                   onClick={() => {
                     if (!canEdit) return;
                     setDialogEntry(entry);
@@ -319,7 +319,7 @@ export function LedgerClient({
                     setDialogOpen(true);
                   }}
                 >
-                  <TableCell className="whitespace-nowrap pl-5 text-[#68756f] sm:pl-6">
+                  <TableCell className="whitespace-nowrap pl-5 text-[#68756f] dark:text-muted-foreground sm:pl-6">
                     {format.dateTime(new Date(entry.date), {
                       day: "2-digit",
                       month: "2-digit",
@@ -330,7 +330,7 @@ export function LedgerClient({
                     <span className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#788680] hover:bg-[#e8efeb] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315c73]"
+                        className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#788680] dark:text-muted-foreground hover:bg-[#e8efeb] dark:hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315c73] dark:focus-visible:ring-ring"
                         aria-label={tBookings("toggleDetails")}
                         aria-expanded={expandedId === entry.id}
                         onClick={(event) => {
@@ -342,25 +342,25 @@ export function LedgerClient({
                         {expandedId === entry.id ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                       </button>
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-[#213c35]">
+                        <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
                           {entry.description}
                         </span>
-                        <span className="block truncate text-xs text-[#84908c] md:hidden">
+                        <span className="block truncate text-xs text-[#84908c] dark:text-muted-foreground md:hidden">
                           {entry.counterparty}
                         </span>
                       </span>
                       {entry.attachmentCount > 0 && (
-                        <Paperclip className="size-3.5 shrink-0 text-[#83918b]" />
+                        <Paperclip className="size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
                       )}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden max-w-48 truncate text-[#71807a] md:table-cell">
+                  <TableCell className="hidden max-w-48 truncate text-[#71807a] dark:text-muted-foreground md:table-cell">
                     {entry.counterparty}
                   </TableCell>
                   <TableCell>
                     <Badge
                       variant="outline"
-                      className="border-[#dfe5e1] bg-[#fafbfa] text-[#52625c]"
+                      className="border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground"
                     >
                       <span
                         className="mr-1 inline-block size-2 rounded-full"
@@ -374,59 +374,59 @@ export function LedgerClient({
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="hidden text-right tabular-nums text-[#5c6b66] lg:table-cell">
+                  <TableCell className="hidden text-right tabular-nums text-[#5c6b66] dark:text-muted-foreground lg:table-cell">
                     {formatCents(sign * entry.netAmountCents, locale)}
                   </TableCell>
-                  <TableCell className="hidden text-right tabular-nums text-[#87938f] xl:table-cell">
+                  <TableCell className="hidden text-right tabular-nums text-[#87938f] dark:text-muted-foreground xl:table-cell">
                     {formatCents(sign * entry.vatAmountCents, locale)}
                   </TableCell>
                   <TableCell
                     className={`pr-5 text-right font-semibold tabular-nums sm:pr-6 ${
-                      entry.kind === "income" ? "text-[#2f6b55]" : "text-[#273f38]"
+                      entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"
                     }`}
                   >
                     {formatCents(sign * entry.grossAmountCents, locale)}
                   </TableCell>
                 </TableRow>
                 {expandedId === entry.id && (
-                  <TableRow className="border-[#e4eae7] bg-[#f8faf8] hover:bg-[#f8faf8]">
+                  <TableRow className="border-[#e4eae7] dark:border-border bg-[#f8faf8] dark:bg-muted hover:bg-[#f8faf8] dark:hover:bg-accent">
                     <TableCell colSpan={7} className="px-5 py-4 sm:px-6">
                       <div className="grid gap-4 text-xs sm:grid-cols-[220px_1fr]">
-                        <div className="space-y-1 text-[#66756f]">
-                          <p><strong className="text-[#2b473f]">{tBookings("documentDate")}:</strong> {entry.documentDate ?? "–"}</p>
-                          <p><strong className="text-[#2b473f]">{tBookings("documentNumber")}:</strong> {entry.documentNumber || "–"}</p>
-                          <p><strong className="text-[#2b473f]">{tBookings("deductible")}:</strong> {entry.deductiblePercent} %</p>
+                        <div className="space-y-1 text-[#66756f] dark:text-muted-foreground">
+                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentDate")}:</strong> {entry.documentDate ?? "–"}</p>
+                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentNumber")}:</strong> {entry.documentNumber || "–"}</p>
+                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("deductible")}:</strong> {entry.deductiblePercent} %</p>
                         </div>
                         <div className="space-y-2">
-                        <div className="overflow-hidden rounded-lg border border-[#dfe5e1] bg-white">
+                        <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
                           {entry.taxLines.map((line, index) => (
-                            <div key={line.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-[#edf0ee] px-3 py-2 last:border-b-0">
-                              <span className="truncate text-[#52635d]">{line.description || `${tBookings("taxLine")} ${index + 1}`}</span>
+                            <div key={line.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0">
+                              <span className="truncate text-[#52635d] dark:text-muted-foreground">{line.description || `${tBookings("taxLine")} ${index + 1}`}</span>
                               <span>{line.vatRate} %</span>
                               <span className="tabular-nums">{formatCents(line.netAmountCents, locale)}</span>
-                              <strong className="tabular-nums text-[#29463e]">{formatCents(line.grossAmountCents, locale)}</strong>
+                              <strong className="tabular-nums text-[#29463e] dark:text-foreground">{formatCents(line.grossAmountCents, locale)}</strong>
                             </div>
                           ))}
                         </div>
                         {entry.paymentLines.length > 0 && (
-                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] bg-white">
-                            <div className="bg-[#f1f5f2] px-3 py-2 font-semibold text-[#38554c]">{tBookings("payments")}</div>
+                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
+                            <div className="bg-[#f1f5f2] dark:bg-muted px-3 py-2 font-semibold text-[#38554c] dark:text-foreground">{tBookings("payments")}</div>
                             {entry.paymentLines.map((line) => (
-                              <div key={line.id} className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-[#edf0ee] px-3 py-2 last:border-b-0">
-                                <span className="whitespace-nowrap text-[#71807a]">{line.date}</span>
-                                <span className="truncate text-[#52635d]">{line.description}{line.recipient ? ` · ${line.recipient}` : ""}</span>
-                                <strong className="tabular-nums text-[#29463e]">{formatCents(line.amountCents, locale)}</strong>
+                              <div key={line.id} className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0">
+                                <span className="whitespace-nowrap text-[#71807a] dark:text-muted-foreground">{line.date}</span>
+                                <span className="truncate text-[#52635d] dark:text-muted-foreground">{line.description}{line.recipient ? ` · ${line.recipient}` : ""}</span>
+                                <strong className="tabular-nums text-[#29463e] dark:text-foreground">{formatCents(line.amountCents, locale)}</strong>
                               </div>
                             ))}
                           </div>
                         )}
                         {entry.auditHistory.length > 0 && (
-                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] bg-white">
-                            <div className="bg-[#f1f5f2] px-3 py-2 font-semibold text-[#38554c]">{tBookings("auditHistory")}</div>
+                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
+                            <div className="bg-[#f1f5f2] dark:bg-muted px-3 py-2 font-semibold text-[#38554c] dark:text-foreground">{tBookings("auditHistory")}</div>
                             {entry.auditHistory.map((item) => (
-                              <div key={item.id} className="grid gap-1 border-b border-[#edf0ee] px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1fr]">
-                                <span className="whitespace-nowrap text-[#71807a]">{format.dateTime(item.changedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
-                                <span className="text-[#52635d]">{tBookings(`auditActions.${item.action}`)} · {item.changedByName}{item.reason ? ` — ${item.reason}` : ""}</span>
+                              <div key={item.id} className="grid gap-1 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1fr]">
+                                <span className="whitespace-nowrap text-[#71807a] dark:text-muted-foreground">{format.dateTime(item.changedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
+                                <span className="text-[#52635d] dark:text-muted-foreground">{tBookings(`auditActions.${item.action}`)} · {item.changedByName}{item.reason ? ` — ${item.reason}` : ""}</span>
                               </div>
                             ))}
                           </div>
@@ -465,34 +465,34 @@ export function LedgerClient({
 
       <section
         aria-label={tBookings("periodTotals")}
-        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-3"
+        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-3"
       >
         <div className="p-4 sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
             {t("incomePlural")}
           </p>
-          <p className="mt-2 text-lg font-semibold tabular-nums text-[#2f6b55]">
+          <p className="mt-2 text-lg font-semibold tabular-nums text-[#2f6b55] dark:text-emerald-400">
             {formatCents(totals.incomeGross, locale)}
           </p>
         </div>
-        <div className="border-t border-[#e3e8e5] p-4 sm:border-t-0 sm:border-l sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+        <div className="border-t border-[#e3e8e5] dark:border-border p-4 sm:border-t-0 sm:border-l sm:p-5">
+          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
             {t("expensePlural")}
           </p>
-          <p className="mt-2 text-lg font-semibold tabular-nums text-[#273f38]">
+          <p className="mt-2 text-lg font-semibold tabular-nums text-[#273f38] dark:text-foreground">
             {formatCents(
               totals.expenseGross === 0 ? 0 : -totals.expenseGross,
               locale,
             )}
           </p>
         </div>
-        <div className="border-t border-[#e3e8e5] bg-[#f8faf8] p-4 sm:border-t-0 sm:border-l sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+        <div className="border-t border-[#e3e8e5] dark:border-border bg-[#f8faf8] dark:bg-muted p-4 sm:border-t-0 sm:border-l sm:p-5">
+          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
             {t("balance")}
           </p>
           <p
             className={`mt-2 text-lg font-semibold tabular-nums ${
-              totals.balance >= 0 ? "text-[#2f6b55]" : "text-[#a64f3c]"
+              totals.balance >= 0 ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#a64f3c] dark:text-red-400"
             }`}
           >
             {formatCents(totals.balance, locale)}

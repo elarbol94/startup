@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { FocusModeProvider } from "@/components/focus-mode";
 import { WebVitals } from "@/components/web-vitals";
 import { HtmlLocaleSync } from "@/components/html-locale-sync";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const unstable_instant = false;
@@ -22,14 +23,17 @@ export default function RootLayout({
     <html
       lang="de"
       className="h-full antialiased"
+      suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col">
-        <NextIntlClientProvider>
-          <HtmlLocaleSync />
-          <FocusModeProvider>{children}</FocusModeProvider>
-        </NextIntlClientProvider>
-        <WebVitals />
-        <Toaster />
+        <ThemeProvider>
+          <NextIntlClientProvider>
+            <HtmlLocaleSync />
+            <FocusModeProvider>{children}</FocusModeProvider>
+          </NextIntlClientProvider>
+          <WebVitals />
+          <Toaster />
+        </ThemeProvider>
       </body>
     </html>
   );

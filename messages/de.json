@@ -3608,6 +3608,14 @@
     }
   },
   "settings": {
+    "appearance": {
+      "title": "Darstellung",
+      "description": "Wähle die Darstellung für die gesamte Plattform. System übernimmt automatisch die Einstellung deines Betriebssystems. Deine Auswahl wird in diesem Browser gespeichert.",
+      "mode": "Farbmodus",
+      "system": "System",
+      "light": "Hell",
+      "dark": "Dunkel"
+    },
     "title": "Einstellungen",
     "tabs": {
       "profile": "Profil",

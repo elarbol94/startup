@@ -97,14 +97,14 @@ function CashflowChart({
     <div>
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold tracking-[-0.015em] text-[#17342d]">
+          <h2 className="text-base font-semibold tracking-[-0.015em] text-[#17342d] dark:text-foreground">
             {t("cashflowTitle")}
           </h2>
-          <p className="mt-1 text-sm text-[#6f7d78]">
+          <p className="mt-1 text-sm text-[#6f7d78] dark:text-muted-foreground">
             {t("cashflowDescription")}
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs font-medium text-[#61706b]">
+        <div className="flex items-center gap-2 text-xs font-medium text-[#61706b] dark:text-muted-foreground">
           <span className="size-2 rounded-full bg-[#315c73]" />
           {t("runningBalance")}
         </div>
@@ -162,11 +162,11 @@ function CashflowChart({
             />
           ))}
         </svg>
-        <div className="grid grid-cols-12 gap-1 border-t border-[#e3e8e5] pt-3">
+        <div className="grid grid-cols-12 gap-1 border-t border-[#e3e8e5] dark:border-border pt-3">
           {months.map((month) => (
             <span
               key={month.month}
-              className="text-center text-[10px] font-semibold tracking-[0.06em] text-[#87938f] uppercase sm:text-[11px]"
+              className="text-center text-[10px] font-semibold tracking-[0.06em] text-[#87938f] dark:text-muted-foreground uppercase sm:text-[11px]"
             >
               {format.dateTime(new Date(year, month.month - 1, 1), {
                 month: "narrow",
@@ -264,7 +264,7 @@ export function AccountingOverview({
   }
 
   const recentEntries = entries.slice(0, 6);
-  const resultTone = totals.balance >= 0 ? "text-[#2f6b55]" : "text-[#a64f3c]";
+  const resultTone = totals.balance >= 0 ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#a64f3c] dark:text-red-400";
   const metrics = [
     {
       label: tOverview("result"),
@@ -277,21 +277,21 @@ export function AccountingOverview({
       label: t("incomePlural"),
       value: totals.incomeGross,
       icon: ArrowUpRight,
-      tone: "text-[#2f6b55]",
+      tone: "text-[#2f6b55] dark:text-emerald-400",
       detail: tOverview("incomeDetail"),
     },
     {
       label: t("expensePlural"),
       value: totals.expenseGross === 0 ? 0 : -totals.expenseGross,
       icon: ReceiptText,
-      tone: "text-[#17342d]",
+      tone: "text-[#17342d] dark:text-foreground",
       detail: tOverview("expenseDetail"),
     },
     {
       label: tOverview("vatPosition"),
       value: vatBalance,
       icon: Landmark,
-      tone: vatBalance > 0 ? "text-[#a36525]" : "text-[#315c73]",
+      tone: vatBalance > 0 ? "text-[#a36525] dark:text-amber-400" : "text-[#315c73] dark:text-foreground",
       detail: tOverview("vatDetail"),
     },
   ];
@@ -300,20 +300,20 @@ export function AccountingOverview({
     <div className="flex flex-col gap-6 lg:gap-8">
       <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
-          <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-[#71807a] uppercase">
+          <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-[#71807a] dark:text-muted-foreground uppercase">
             {tOverview("period", { year })}
           </p>
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#15342c] sm:text-[2.35rem] sm:leading-tight">
+          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#15342c] dark:text-foreground sm:text-[2.35rem] sm:leading-tight">
             {tOverview("title")}
           </h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-[#65736e] sm:text-base">
+          <p className="mt-3 max-w-xl text-sm leading-6 text-[#65736e] dark:text-muted-foreground sm:text-base">
             {tOverview("description")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Select value={String(year)} onValueChange={changeYear}>
             <SelectTrigger
-              className="h-9 min-w-28 border-[#d4ddd8] bg-white text-[#29463e] shadow-xs"
+              className="h-9 min-w-28 border-[#d4ddd8] dark:border-border bg-white dark:bg-card text-[#29463e] dark:text-foreground shadow-xs"
               aria-label={t("year")}
             >
               <SelectValue />
@@ -341,7 +341,7 @@ export function AccountingOverview({
 
       <section
         aria-label={tOverview("keyFigures")}
-        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-2 xl:grid-cols-4"
+        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-2 xl:grid-cols-4"
       >
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
@@ -349,26 +349,26 @@ export function AccountingOverview({
             <article
               key={metric.label}
               className={`relative min-w-0 p-5 sm:p-6 ${
-                index > 0 ? "border-t border-[#e3e8e5] sm:border-t-0 sm:border-l" : ""
+                index > 0 ? "border-t border-[#e3e8e5] dark:border-border sm:border-t-0 sm:border-l" : ""
               } ${index === 2 ? "sm:border-l-0 xl:border-l" : ""}`}
             >
               <div className="mb-5 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold tracking-[0.08em] text-[#73817c] uppercase">
+                <p className="text-xs font-semibold tracking-[0.08em] text-[#73817c] dark:text-muted-foreground uppercase">
                   {metric.label}
                 </p>
-                <Icon className="size-4 text-[#8b9793]" />
+                <Icon className="size-4 text-[#8b9793] dark:text-muted-foreground" />
               </div>
               <p className={`text-2xl font-semibold tracking-[-0.035em] tabular-nums ${metric.tone}`}>
                 {formatCents(metric.value, locale)}
               </p>
-              <p className="mt-1.5 text-xs text-[#88938f]">{metric.detail}</p>
+              <p className="mt-1.5 text-xs text-[#88938f] dark:text-muted-foreground">{metric.detail}</p>
             </article>
           );
         })}
       </section>
 
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.85fr)]">
-        <section className="rounded-2xl border border-[#dfe5e1] bg-white p-5 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-6">
+        <section className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-5 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-6">
           <CashflowChart months={months} year={year} />
         </section>
 
@@ -408,13 +408,13 @@ export function AccountingOverview({
         </aside>
       </div>
 
-      <section className="overflow-hidden rounded-2xl border border-[#dfe5e1] bg-white shadow-[0_1px_2px_rgba(20,47,39,0.03)]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e3e8e5] px-5 py-4 sm:px-6">
+      <section className="overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)]">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e3e8e5] dark:border-border px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-base font-semibold tracking-[-0.015em] text-[#17342d]">
+            <h2 className="text-base font-semibold tracking-[-0.015em] text-[#17342d] dark:text-foreground">
               {tOverview("recentTitle")}
             </h2>
-            <p className="mt-0.5 text-sm text-[#7a8782]">
+            <p className="mt-0.5 text-sm text-[#7a8782] dark:text-muted-foreground">
               {tOverview("recentDescription")}
             </p>
           </div>
@@ -422,25 +422,25 @@ export function AccountingOverview({
             variant="ghost"
             nativeButton={false}
             render={<Link href={`/accounting/bookings?year=${year}`} />}
-            className="text-[#315c73] hover:bg-[#edf2f0] hover:text-[#234758]"
+            className="text-[#315c73] dark:text-foreground hover:bg-[#edf2f0] dark:hover:bg-accent hover:text-[#234758] dark:hover:text-foreground"
           >
             {tOverview("showAll")}
             <ArrowRight className="size-4" />
           </Button>
         </div>
         <Table>
-          <TableHeader className="bg-[#f8faf8]">
-            <TableRow className="border-[#e3e8e5] hover:bg-transparent">
-              <TableHead className="h-9 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase sm:pl-6">
+          <TableHeader className="bg-[#f8faf8] dark:bg-muted">
+            <TableRow className="border-[#e3e8e5] dark:border-border hover:bg-transparent">
+              <TableHead className="h-9 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pl-6">
                 {t("date")}
               </TableHead>
-              <TableHead className="h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase">
+              <TableHead className="h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
                 {t("description")}
               </TableHead>
-              <TableHead className="hidden h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase md:table-cell">
+              <TableHead className="hidden h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase md:table-cell">
                 {t("category")}
               </TableHead>
-              <TableHead className="h-9 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] uppercase sm:pr-6">
+              <TableHead className="h-9 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pr-6">
                 {t("gross")}
               </TableHead>
             </TableRow>
@@ -448,7 +448,7 @@ export function AccountingOverview({
           <TableBody>
             {recentEntries.length === 0 && (
               <TableRow>
-                <TableCell colSpan={4} className="h-32 text-center text-sm text-[#7a8782]">
+                <TableCell colSpan={4} className="h-32 text-center text-sm text-[#7a8782] dark:text-muted-foreground">
                   {t("noEntries")}
                 </TableCell>
               </TableRow>
@@ -463,8 +463,8 @@ export function AccountingOverview({
                   tabIndex={canEdit ? 0 : undefined}
                   aria-disabled={canEdit ? undefined : true}
                   className={canEdit
-                    ? "cursor-pointer border-[#edf0ee] hover:bg-[#f6f9f7] focus-visible:bg-[#f0f5f2] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#315c73]"
-                    : "border-[#edf0ee]"}
+                    ? "cursor-pointer border-[#edf0ee] dark:border-border hover:bg-[#f6f9f7] dark:hover:bg-accent focus-visible:bg-[#f0f5f2] dark:focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#315c73] dark:focus-visible:ring-ring"
+                    : "border-[#edf0ee] dark:border-border"}
                   onClick={() => {
                     if (!canEdit) return;
                     setDialogEntry(entry);
@@ -477,7 +477,7 @@ export function AccountingOverview({
                     setDialogOpen(true);
                   }}
                 >
-                  <TableCell className="pl-5 text-[#68756f] sm:pl-6">
+                  <TableCell className="pl-5 text-[#68756f] dark:text-muted-foreground sm:pl-6">
                     {format.dateTime(new Date(entry.date), {
                       day: "2-digit",
                       month: "short",
@@ -486,22 +486,22 @@ export function AccountingOverview({
                   <TableCell className="max-w-80">
                     <span className="flex items-center gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-[#213c35]">
+                        <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
                           {entry.description}
                         </span>
                         {entry.counterparty && (
-                          <span className="block truncate text-xs text-[#84908c]">
+                          <span className="block truncate text-xs text-[#84908c] dark:text-muted-foreground">
                             {entry.counterparty}
                           </span>
                         )}
                       </span>
                       {entry.attachmentCount > 0 && (
-                        <Paperclip className="size-3.5 shrink-0 text-[#83918b]" />
+                        <Paperclip className="size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
                       )}
                     </span>
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    <span className="inline-flex items-center gap-2 text-xs text-[#63716c]">
+                    <span className="inline-flex items-center gap-2 text-xs text-[#63716c] dark:text-muted-foreground">
                       <span
                         className="size-2 rounded-full"
                         style={{ backgroundColor: entry.categoryColor }}
@@ -511,7 +511,7 @@ export function AccountingOverview({
                   </TableCell>
                   <TableCell
                     className={`pr-5 text-right font-semibold tabular-nums sm:pr-6 ${
-                      entry.kind === "income" ? "text-[#2f6b55]" : "text-[#273f38]"
+                      entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"
                     }`}
                   >
                     {formatCents(sign * entry.grossAmountCents, locale)}

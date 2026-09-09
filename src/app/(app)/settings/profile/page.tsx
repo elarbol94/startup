@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { InviteUserDialog } from "../users/invite-user-dialog";
+import { AppearanceForm } from "./appearance-form";
 import { MarkColorForm } from "./mark-color-form";
 
 export default async function ProfileSettingsPage() {
@@ -24,6 +25,7 @@ export default async function ProfileSettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
+      <AppearanceForm />
       {currentUser.role === "admin" && (
         <Card>
           <CardHeader>

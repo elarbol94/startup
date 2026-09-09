@@ -51,6 +51,9 @@ Docker image already includes both tools and the German/English OCR packs.
 - Migrations and default categories are applied automatically on server boot
   (`src/instrumentation.ts`). Manual commands: `npm run db:migrate`,
   `npm run db:seed`, `npx drizzle-kit studio`.
+- Under *Settings → Profile → Appearance*, choose System (default), Light, or
+  Dark for the whole platform. System follows operating-system changes
+  automatically; the preference is remembered in the current browser.
 - Configuration lives in `.env.local` (see `.env.example`).
 
 For wiki presentation editing, save recovery, live following and PDF export,

@@ -3606,6 +3606,14 @@
     }
   },
   "settings": {
+    "appearance": {
+      "title": "Appearance",
+      "description": "Choose the appearance for the whole platform. System follows your operating system automatically. Your choice is saved in this browser.",
+      "mode": "Color mode",
+      "system": "System",
+      "light": "Light",
+      "dark": "Dark"
+    },
     "title": "Settings",
     "tabs": {
       "profile": "Profile",
