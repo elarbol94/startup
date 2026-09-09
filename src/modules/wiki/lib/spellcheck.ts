@@ -115,9 +115,10 @@ export function collectSpellcheckParagraphs(doc: ProseMirrorNode): SpellcheckPar
   return paragraphs;
 }
 
-function shouldIgnoreMatch(paragraph: SpellcheckParagraph, offset: number, length: number) {
+function shouldIgnoreMatch(paragraph: SpellcheckParagraph, offset: number, length: number, kind: SpellcheckIssueKind) {
   const end = offset + length;
   if (paragraph.excludedRanges.some((range) => range.from < end && offset < range.to)) return true;
+  if (kind !== "spelling") return false;
   const before = paragraph.text.slice(0, offset).match(/[^\s()[\]{}<>]+$/)?.[0] ?? "";
   const after = paragraph.text.slice(end).match(/^[^\s()[\]{}<>]+/)?.[0] ?? "";
   const token = `${before}${paragraph.text.slice(offset, end)}${after}`.replace(/^["\x27„“‚‘,;:!?]+|["\x27”’.,;:!?]+$/g, "");
@@ -134,7 +135,7 @@ export function mapSpellcheckMatches(
 ): SpellcheckIssue[] {
   return matches.flatMap((match) => {
     const paragraph = paragraphs[match.paragraph];
-    if (!paragraph || !Number.isInteger(match.offset) || !Number.isInteger(match.length) || match.offset < 0 || match.length < 1 || match.offset + match.length > paragraph.text.length || shouldIgnoreMatch(paragraph, match.offset, match.length)) return [];
+    if (!paragraph || !Number.isInteger(match.offset) || !Number.isInteger(match.length) || match.offset < 0 || match.length < 1 || match.offset + match.length > paragraph.text.length || shouldIgnoreMatch(paragraph, match.offset, match.length, match.kind)) return [];
     return [{
       from: paragraph.from + match.offset,
       to: paragraph.from + match.offset + match.length,
@@ -222,14 +223,17 @@ export function createSpellcheckPlugin(onIssueClick: (issue: SpellcheckIssue, ta
       decorations(state) {
         return spellcheckKey.getState(state)?.decorations ?? DecorationSet.empty;
       },
-      handleClick(view, _position, event) {
-        const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("[data-spellcheck-issue]") : null;
-        if (!target) return false;
-        const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
-        const issue = (spellcheckKey.getState(view.state)?.issues ?? []).find((candidate) => coordinates?.pos != null && candidate.from <= coordinates.pos && candidate.to >= coordinates.pos);
-        if (!issue) return false;
-        onIssueClick(issue, target);
-        return true;
+      handleDOMEvents: {
+        contextmenu(view, event) {
+          const target = event.target instanceof HTMLElement ? event.target.closest<HTMLElement>("[data-spellcheck-issue]") : null;
+          if (!target) return false;
+          const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
+          const issue = (spellcheckKey.getState(view.state)?.issues ?? []).find((candidate) => coordinates?.pos != null && candidate.from <= coordinates.pos && candidate.to >= coordinates.pos);
+          if (!issue) return false;
+          event.preventDefault();
+          onIssueClick(issue, target);
+          return true;
+        },
       },
       handleKeyDown(view, event) {
         if (!event.altKey || !["F7", "Enter"].includes(event.key)) return false;

@@ -101,7 +101,7 @@ is lost while an import runs, the result is rejected to preserve those edits.
 ## Spelling and grammar
 
 The **Rechtschreibung / Proofreading** menu selects German, Austrian German or
-English directly, shows the check status and opens the next suggestion. Click
+English directly, shows the check status and opens the next suggestion. Right-click
 an underline, press **Alt+Enter** at an issue, or use **Alt+F7** to move to the
 next one. Language changes show a saving state until acknowledged and keep
 their request alive during navigation. The first correction receives keyboard
@@ -119,10 +119,13 @@ A lane for the current sentence runs alongside at most one background request.
 Background batches contain up to eight contexts and normally at most 4,000
 characters (one longer context may run alone). Superseded requests are cancelled;
 useful work can finish in the background. Cancellation reaches LanguageTool when
-no other editor is awaiting the same shared request. Continuous typing is
+no other editor is awaiting the same shared request. Requests time out after
+eight seconds and release their checking lane even if cancellation never settles;
+late results from those requests are discarded. Continuous typing is
 coalesced, and completed requests do not bypass the typing pause or IME composition.
 
-Editing a word removes its own underline. Other spelling hints remain usable
+Editing a word removes its own underline. Converting prose to code or other
+excluded content clears its old hints. Other spelling hints remain usable
 immediately. Grammar hints whose paragraph changed remain visible but cannot be
 applied until their sentence context has been checked again. The count includes
 these pending hints; “Checking changes…” distinguishes unfinished checks from
@@ -138,9 +141,9 @@ larger than 500 words do not exceed the checking API's request limit.
 LanguageTool runs privately in the Docker Compose `languagetool` service. Local
 development needs a reachable `LANGUAGETOOL_URL`; the default Docker hostname
 does not resolve outside that network. Text is sent to the configured service.
-On failure, the editor enables browser spellchecking with the selected language
-(availability depends on installed browser dictionaries), retains its normal
-save behavior, and retries after 5, 10, 20, then at most 30 seconds. The menu also
+Browser spellchecking stays disabled to avoid conflicting dictionaries and stuck
+red underlines. On failure, the editor shows an unavailable status, retains its
+normal save behavior, and retries after 5, 10, 20, then at most 30 seconds. The menu also
 offers an immediate retry. Actual checking latency depends on LanguageTool;
 the 250 ms debounce is not a service-response guarantee.
 

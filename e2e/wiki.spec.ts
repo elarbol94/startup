@@ -476,13 +476,13 @@ test("proofing language persists and spelling and writing issues use distinct st
   await expect(page.locator(".wiki-spellcheck-issue--spelling")).toHaveCount(2, { timeout: 10_000 });
   await expect(page.locator(".wiki-spellcheck-issue--writing")).toHaveCount(1);
   const requestsBeforeAcceptance = requestedLanguages.length;
-  await page.locator(".wiki-spellcheck-issue--spelling").first().click();
+  await page.locator(".wiki-spellcheck-issue--spelling").first().click({ button: "right" });
   await page.getByRole("button", { name: "Fehler", exact: true }).click();
   await page.waitForTimeout(700);
   expect(requestedLanguages).toHaveLength(requestsBeforeAcceptance + 1);
   await expect(page.locator(".wiki-spellcheck-issue--spelling")).toHaveCount(1);
   await expect(page.locator(".wiki-spellcheck-issue--writing")).toHaveCount(1);
-  await page.locator(".wiki-spellcheck-issue--spelling").click();
+  await page.locator(".wiki-spellcheck-issue--spelling").click({ button: "right" });
   await page.getByRole("button", { name: "Zum gemeinsamen Wörterbuch hinzufügen" }).click();
   await expect(page.locator(".wiki-spellcheck-issue--spelling")).toHaveCount(0, { timeout: 10_000 });
   await expect(page.locator(".wiki-spellcheck-issue--writing")).toHaveCount(1);

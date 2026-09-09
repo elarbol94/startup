@@ -345,13 +345,15 @@ test("proofing keeps remaining suggestions clickable and the count stable during
     await expect(page.locator(".wiki-spellcheck-issue")).toHaveCount(6);
     await expect(page.getByTestId("proofing-pending")).toHaveCount(0);
     await page.locator(".wiki-spellcheck-issue").first().click();
+    await expect(page.getByRole("dialog", { name: "Korrekturvorschläge" })).toHaveCount(0);
+    await page.locator(".wiki-spellcheck-issue").first().click({ button: "right" });
     await page.getByRole("button", { name: "Fehler", exact: true }).click();
     await expect.poll(() => rechecks.length).toBeGreaterThan(0);
     await expect(page.locator(".wiki-spellcheck-issue")).toHaveCount(5);
     await expect(page.getByTestId("proofing-status")).toHaveText("5 Hinweise");
     await expect(page.getByTestId("proofing-pending")).toHaveText("Änderungen werden geprüft…");
     // The checker remains held: the second word must already be usable.
-    await page.locator(".wiki-spellcheck-issue").first().click();
+    await page.locator(".wiki-spellcheck-issue").first().click({ button: "right" });
     const popup = page.getByRole("dialog", { name: "Korrekturvorschläge" });
     await expect(popup.getByRole("button", { name: "Fehler", exact: true })).toBeEnabled();
     await popup.getByRole("button", { name: "Fehler", exact: true }).click();
@@ -429,7 +431,7 @@ test("proofing suggestions correct formatted words after line breaks and support
   await page.keyboard.press("Escape");
   await expect(popup).toBeHidden();
   await expect(editor).toBeFocused();
-  await page.locator(".wiki-spellcheck-issue").first().click();
+  await page.locator(".wiki-spellcheck-issue").first().click({ button: "right" });
   await expect(popup).toBeVisible();
   await page.getByTestId("proofing-language-toggle").click();
   await expect(popup).toBeHidden();
@@ -454,10 +456,10 @@ test("proofing refreshes pending grammar before allowing a context-dependent rep
   try {
     await editor.fill("Feler ist sind hier.");
     await expect(page.locator(".wiki-spellcheck-issue")).toHaveCount(2);
-    await page.locator(".wiki-spellcheck-issue--spelling").click();
+    await page.locator(".wiki-spellcheck-issue--spelling").click({ button: "right" });
     await page.getByRole("button", { name: "Fehler", exact: true }).click();
     await expect.poll(() => recheckStarted).toBe(true);
-    await page.locator(".wiki-spellcheck-issue--writing").click();
+    await page.locator(".wiki-spellcheck-issue--writing").click({ button: "right" });
     const popup = page.getByRole("dialog", { name: "Korrekturvorschläge" });
     await expect(popup.getByRole("button", { name: "ist", exact: true })).toBeDisabled();
     await expect(popup.getByRole("status")).toHaveText("Dieser Hinweis wird gerade aktualisiert…");
@@ -493,7 +495,7 @@ test("proofing keeps delayed checks useful without applying stale offsets", asyn
     await expect(page.locator(".wiki-spellcheck-issue")).toHaveText("Feler");
     await expect(page.getByTestId("proofing-status")).toHaveText("1 Hinweis");
     expect(texts.filter((text) => text === "Feler alt")).toHaveLength(1);
-    await page.locator(".wiki-spellcheck-issue").click();
+    await page.locator(".wiki-spellcheck-issue").click({ button: "right" });
     await page.getByRole("button", { name: "Fehler", exact: true }).click();
     await expect(editor).toHaveText("Ganz neuer TextFehler alt");
     await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
@@ -507,7 +509,7 @@ test("proofing replace all leaves unmarked substrings alone and supports deletio
   page.setDefaultTimeout(15_000);
   await editor.fill("Feler Felerchen Feler");
   await expect(page.locator(".wiki-spellcheck-issue")).toHaveCount(2);
-  await page.locator(".wiki-spellcheck-issue").first().click();
+  await page.locator(".wiki-spellcheck-issue").first().click({ button: "right" });
   const popup = page.getByRole("dialog", { name: "Korrekturvorschläge" });
   await popup.getByText("Weitere Aktionen", { exact: true }).click();
   await popup.getByRole("button", { name: "Alle gleich markierten Stellen ersetzen" }).click();
@@ -517,7 +519,7 @@ test("proofing replace all leaves unmarked substrings alone and supports deletio
     return route.fulfill({ json: { matches: paragraphs.flatMap((text, paragraph) => text.includes("doppelt ") ? [{ paragraph, offset: 0, length: 8, message: "Doppeltes Wort", kind: "writing", category: "Grammatik", ruleId: "DOUBLE", replacements: [""] }] : []) } });
   });
   await editor.fill("doppelt doppelt");
-  await page.locator(".wiki-spellcheck-issue").click();
+  await page.locator(".wiki-spellcheck-issue").click({ button: "right" });
   await popup.getByRole("button", { name: "Entfernen", exact: true }).click();
   await expect(editor).toHaveText("doppelt");
 });
@@ -531,8 +533,8 @@ test("proofing recovers after service failure, selects languages directly and fi
   const editor = await createNote(page);
   page.setDefaultTimeout(15_000);
   await editor.fill("Feler");
-  await expect(editor).toHaveAttribute("spellcheck", "true");
-  await expect(page.getByTestId("proofing-status")).toHaveText("Browserprüfung");
+  await expect(editor).toHaveAttribute("spellcheck", "false");
+  await expect(page.getByTestId("proofing-status")).toHaveText("Prüfung nicht erreichbar");
   await expect(page.locator(".wiki-spellcheck-issue")).toBeVisible({ timeout: 12_000 });
   await expect(editor).toHaveAttribute("spellcheck", "false");
   await page.getByTestId("proofing-language-toggle").click();
@@ -548,7 +550,7 @@ test("proofing recovers after service failure, selects languages directly and fi
   await expect(editor).toHaveAttribute("lang", "en-US");
   await page.setViewportSize({ width: 390, height: 700 });
   await expect(page.getByTestId("proofing-language-toggle")).toBeVisible();
-  await page.locator(".wiki-spellcheck-issue").click();
+  await page.locator(".wiki-spellcheck-issue").click({ button: "right" });
   const popup = page.getByRole("dialog", { name: "Korrekturvorschläge" });
   await expect(popup).toBeVisible();
   const box = await popup.boundingBox();
@@ -586,7 +588,8 @@ test("proofing menu retries immediately and opens the next correction as plain t
   const editor = await createNote(page);
   page.setDefaultTimeout(15_000);
   await editor.fill("Feler");
-  await expect(editor).toHaveAttribute("spellcheck", "true");
+  await expect(editor).toHaveAttribute("spellcheck", "false");
+  await expect(page.getByTestId("proofing-status")).toHaveText("Prüfung nicht erreichbar");
   await page.getByTestId("proofing-language-toggle").click();
   available = true;
   await page.getByRole("button", { name: "Erneut prüfen", exact: true }).click();

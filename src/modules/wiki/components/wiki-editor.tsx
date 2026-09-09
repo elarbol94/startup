@@ -1533,9 +1533,6 @@ export function WikiEditor({
     };
   }, [editor, pageId, proofingDictionary, proofingDictionaryLoaded, proofingLanguage, proofingPicky]);
   useEffect(() => {
-    if (editor) editor.view.dom.spellcheck = proofingStatus === "error";
-  }, [editor, proofingStatus]);
-  useEffect(() => {
     if (!editor) return;
     if (!documentMode) {
       setDocumentPaginationBreaks(editor, []);
