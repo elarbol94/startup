@@ -45,6 +45,8 @@ Docker image already includes both tools and the German/English OCR packs.
   Opening or previewing a link does not consume it. Sending another invitation
   to the same address replaces the earlier link after successful email delivery.
   Pending invitations appear below the users list. Existing accounts stay intact.
+  Administrators can also remove other users here. Removal revokes account access
+  while retaining their name and existing business records for history.
   See [docs/user-invitations.md](docs/user-invitations.md) for email configuration.
 - Migrations and default categories are applied automatically on server boot
   (`src/instrumentation.ts`). Manual commands: `npm run db:migrate`,

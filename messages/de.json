@@ -3631,7 +3631,19 @@
       "mailFailed": "Die Einladungs-E-Mail konnte nicht versendet werden. Bitte versuche es erneut.",
       "pendingInvitations": "Offene Einladungen",
       "pendingHint": "Konten erscheinen nach der Einrichtung oben. Lade dieselbe E-Mail-Adresse erneut ein, um einen neuen Link zu senden; dieser ersetzt den bisherigen Link.",
-      "expiresOn": "Gültig bis {date}"
+      "expiresOn": "Gültig bis {date}",
+      "removeUser": "Benutzer entfernen",
+      "removeTitle": "{name} entfernen?",
+      "removeDescription": "Der Kontozugang wird dauerhaft entfernt und der Benutzer wird abgemeldet. Der Name und bestehende Geschäftsdaten bleiben für den Verlauf erhalten. Du kannst die Person erneut einladen, um ein neues Konto anzulegen.",
+      "userActions": "Aktionen",
+      "yourAccount": "Dein Konto",
+      "confirmRemove": "Konto entfernen",
+      "removingUser": "Wird entfernt…",
+      "userRemoved": "Benutzer entfernt. Der Zugang wurde entzogen.",
+      "cannotRemoveSelf": "Du kannst dein eigenes Konto nicht entfernen.",
+      "userNotFound": "Dieser Benutzer wurde bereits entfernt oder existiert nicht mehr.",
+      "invalidRemoval": "Wähle einen gültigen Benutzer zum Entfernen.",
+      "inviterUnavailable": "Dein Administratorzugang ist nicht mehr verfügbar. Bitte melde dich erneut an."
     },
     "language": {
       "label": "Sprache",

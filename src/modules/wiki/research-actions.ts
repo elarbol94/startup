@@ -324,7 +324,7 @@ export async function addComment(input: z.infer<typeof commentSchema>) {
       if (thread && thread.createdBy !== currentUser.id) db.insert(wikiNotifications).values({ userId: thread.createdBy, actorId: currentUser.id, type: "reply", pageId: data.pageId, threadId }).run();
     }
     db.insert(wikiComments).values({ threadId: threadId!, body: data.body, createdBy: currentUser.id }).run();
-    const mentioned = db.select({ id: user.id, name: user.name }).from(user).all().filter((person) => data.body.toLocaleLowerCase().includes(`@${person.name.toLocaleLowerCase()}`) && person.id !== currentUser.id);
+    const mentioned = db.select({ id: user.id, name: user.name }).from(user).where(isNull(user.removedAt)).all().filter((person) => data.body.toLocaleLowerCase().includes(`@${person.name.toLocaleLowerCase()}`) && person.id !== currentUser.id);
     for (const person of mentioned) db.insert(wikiNotifications).values({ userId: person.id, actorId: currentUser.id, type: "mention", pageId: data.pageId, threadId }).run();
   });
   revalidateWiki();

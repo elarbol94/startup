@@ -654,6 +654,7 @@ export function listUsers() {
     .select({ id: user.id, name: user.name, markColor: userProfilePreferences.markColor })
     .from(user)
     .leftJoin(userProfilePreferences, eq(user.id, userProfilePreferences.userId))
+    .where(isNull(user.removedAt))
     .orderBy(asc(user.name))
     .all()
     .map((person) => ({ ...person, markColor: resolveStoredUserMarkColor(person.markColor) }));

@@ -1,7 +1,7 @@
 import { withoutPresentationSources } from "./lib/presentation-source";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { attachments, user, wikiPresentationAccess, wikiPresentationComments, wikiPresentationLibrary, wikiPresentationMembers, wikiPresentationRevisions, wikiPresentations } from "@/db/schema";
@@ -49,7 +49,7 @@ export async function getPresentationStudio(id: string) {
   const role = requirePresentationAccess(id, viewer);
   const access = presentationAccessSettings(id);
   const members = role === "owner" ? db.select({ userId: wikiPresentationMembers.userId, role: wikiPresentationMembers.role }).from(wikiPresentationMembers).where(eq(wikiPresentationMembers.presentationId, id)).all() : [];
-  const users = role === "owner" ? db.select({ id: user.id, name: user.name }).from(user).all() : [];
+  const users = role === "owner" ? db.select({ id: user.id, name: user.name }).from(user).where(isNull(user.removedAt)).all() : [];
   const comments = db.select({ id: wikiPresentationComments.id, elementId: wikiPresentationComments.elementId, body: wikiPresentationComments.body, resolved: wikiPresentationComments.resolved, author: user.name }).from(wikiPresentationComments).innerJoin(user, eq(user.id, wikiPresentationComments.authorId)).where(eq(wikiPresentationComments.presentationId, id)).orderBy(desc(wikiPresentationComments.createdAt)).limit(200).all();
   const library = db.select().from(wikiPresentationLibrary).orderBy(desc(wikiPresentationLibrary.createdAt)).limit(100).all().map((entry) => ({ id: entry.id, name: entry.name, kind: entry.kind, removable: entry.createdBy === viewer.id || viewer.role === "admin", theme: entry.kind === "theme" ? presentationThemeSchema.parse(JSON.parse(entry.documentJson)) : undefined }));
   const assets = db.select().from(attachments).orderBy(desc(attachments.createdAt)).all().filter((entry) => entry.mimeType.startsWith("image/") && canUseAttachment(entry, viewer)).slice(0, 200).map((entry) => ({ id: entry.id, name: entry.fileName }));
@@ -69,7 +69,7 @@ export async function changePresentationStudio(id: string, input: unknown) {
     db.insert(wikiPresentationAccess).values({ presentationId: id, publicTokenHash }).onConflictDoUpdate({ target: wikiPresentationAccess.presentationId, set: { publicTokenHash } }).run();
     return { token };
   } else if (data.action === "member") {
-    if (!db.select({ id: user.id }).from(user).where(eq(user.id, data.userId)).get()) throw new Error("Unknown user");
+    if (data.role !== "remove" && !db.select({ id: user.id }).from(user).where(and(eq(user.id, data.userId), isNull(user.removedAt))).get()) throw new Error("Unknown user");
     if (data.role === "remove") db.delete(wikiPresentationMembers).where(and(eq(wikiPresentationMembers.presentationId, id), eq(wikiPresentationMembers.userId, data.userId))).run();
     else db.insert(wikiPresentationMembers).values({ presentationId: id, userId: data.userId, role: data.role }).onConflictDoUpdate({ target: [wikiPresentationMembers.presentationId, wikiPresentationMembers.userId], set: { role: data.role } }).run();
   } else if (data.action === "comment") {

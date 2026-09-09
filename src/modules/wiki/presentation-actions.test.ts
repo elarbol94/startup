@@ -10,7 +10,7 @@ vi.mock("@/db", async () => {
   const { readFileSync } = await import("node:fs");
   const sqlite = new Database(":memory:");
   sqlite.pragma("foreign_keys = ON");
-  sqlite.exec("CREATE TABLE user (id TEXT PRIMARY KEY, name TEXT); INSERT INTO user VALUES ('author', 'Author')");
+  sqlite.exec("CREATE TABLE user (id TEXT PRIMARY KEY, name TEXT, removedAt INTEGER); INSERT INTO user (id, name) VALUES ('author', 'Author')");
   for (const file of ["0051_wiki_presentations.sql", "0052_wiki_presentation_history.sql", "0055_redundant_nebula.sql"]) {
     sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   }
@@ -37,7 +37,7 @@ const revisions = (id: string) => sqlite.prepare("SELECT * FROM wiki_presentatio
 }[];
 
 beforeEach(() => {
-  sqlite.exec("DELETE FROM wiki_presentations; INSERT OR IGNORE INTO user VALUES ('other', 'Other')");
+  sqlite.exec("DELETE FROM wiki_presentations; INSERT OR IGNORE INTO user (id, name) VALUES ('other', 'Other')");
   vi.mocked(requireUserOrThrow).mockResolvedValue({ id: "author", name: "Author" } as Awaited<ReturnType<typeof requireUserOrThrow>>);
 });
 

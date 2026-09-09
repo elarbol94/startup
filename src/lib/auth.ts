@@ -7,7 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { cache } from "react";
-import { count } from "drizzle-orm";
+import { count, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
@@ -92,7 +92,7 @@ function getLocalDevelopmentSession(): typeof auth.$Infer.Session | null {
     return null;
   }
 
-  const localUser = db.select().from(schema.user).get();
+  const localUser = db.select().from(schema.user).where(isNull(schema.user.removedAt)).get();
   if (!localUser) return null;
 
   const now = new Date();

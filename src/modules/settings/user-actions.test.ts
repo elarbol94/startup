@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  requireAdmin: vi.fn(), issueInvitation: vi.fn(), acceptInvitation: vi.fn(), revalidatePath: vi.fn(),
+  removeUserAccount: vi.fn(), requireAdmin: vi.fn(), issueInvitation: vi.fn(), acceptInvitation: vi.fn(), revalidatePath: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ requireAdmin: mocks.requireAdmin }));
+vi.mock("./user-removal", () => ({ removeUserAccount: mocks.removeUserAccount }));
 vi.mock("./invitations", () => ({ issueInvitation: mocks.issueInvitation, acceptInvitation: mocks.acceptInvitation }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next-intl/server", () => ({ getLocale: async () => "en" }));
 
-import { invitePlatformUser } from "./user-actions";
+import { invitePlatformUser, removePlatformUser } from "./user-actions";
 const input = { email: "colleague@example.com", role: "member" as const };
 
 beforeEach(() => {
@@ -39,6 +40,29 @@ describe("invitePlatformUser", () => {
   it.each(["emailTaken", "mailNotConfigured", "mailFailed"])("returns the %s delivery error without reporting success", async (error) => {
     mocks.issueInvitation.mockResolvedValue({ error });
     expect(await invitePlatformUser(input)).toEqual({ error });
+    expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("removePlatformUser", () => {
+  it("requires administrator access before attempting removal", async () => {
+    mocks.requireAdmin.mockRejectedValue(new Error("Forbidden"));
+    await expect(removePlatformUser({ userId: "member" })).rejects.toThrow("Forbidden");
+    expect(mocks.removeUserAccount).not.toHaveBeenCalled();
+  });
+  it("rejects malformed IDs without touching an account", async () => {
+    expect(await removePlatformUser({ userId: " " })).toEqual({ error: "invalidRemoval" });
+    expect(mocks.removeUserAccount).not.toHaveBeenCalled();
+  });
+  it("passes the authenticated admin to removal and refreshes affected views", async () => {
+    mocks.removeUserAccount.mockReturnValue({ error: null });
+    expect(await removePlatformUser({ userId: "member" })).toEqual({ error: null });
+    expect(mocks.removeUserAccount).toHaveBeenCalledWith("member", "admin");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/", "layout");
+  });
+  it("keeps protected-account errors visible without reporting success", async () => {
+    mocks.removeUserAccount.mockReturnValue({ error: "cannotRemoveSelf" });
+    expect(await removePlatformUser({ userId: "admin" })).toEqual({ error: "cannotRemoveSelf" });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
   });
 });

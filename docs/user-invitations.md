@@ -58,3 +58,21 @@ provider's delivery status and spam folder when needed.
 Migrations run on application startup. The additive `user_invitations` table
 does not change existing accounts or passwords. Tests use isolated databases
 and a loopback SMTP catcher; no real invitations are sent by the test suite.
+
+## Removing users
+
+In **Settings → Users**, administrators can choose **Remove user** on another
+account and confirm the named account. Their own account cannot be removed.
+Removal signs the user out, deletes their credentials, releases their email and
+nickname for a fresh invitation, and revokes invitations issued by or addressed
+to them. Removed users disappear from account lists and new-user selectors.
+
+The author row and name remain for existing documents, invoices, projects,
+calendar records, and other history. This is account removal, not deletion of
+business data. Existing assignments remain attached to that historical author
+and can be reassigned. Removal cannot be undone; inviting the same email creates
+a separate new account without restoring previous access or assignments.
+
+The operation runs in one database transaction and rechecks the acting admin
+inside its write lock, preventing concurrent administrators from removing each
+other and leaving the platform without an administrator.

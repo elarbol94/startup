@@ -40,10 +40,15 @@ export async function issueInvitation(input: InviteUserInput, invitedBy: string,
   const messages = (await import(`../../../messages/${language}.json`)).default;
   const t = createTranslator({ locale: language, messages, namespace: "invitationEmail" });
   const now = new Date();
-  const invitation = db.insert(userInvitations).values({
-    ...input, invitedBy, tokenHash: tokenHash(token), createdAt: now,
-    expiresAt: new Date(now.getTime() + INVITATION_LIFETIME_MS),
-  }).returning({ id: userInvitations.id }).get();
+  const invitation = db.transaction((tx) => {
+    const inviter = tx.select().from(user).where(eq(user.id, invitedBy)).get();
+    if (!inviter || inviter.removedAt || inviter.banned || inviter.role !== "admin") return null;
+    return tx.insert(userInvitations).values({
+      ...input, invitedBy, tokenHash: tokenHash(token), createdAt: now,
+      expiresAt: new Date(now.getTime() + INVITATION_LIFETIME_MS),
+    }).returning({ id: userInvitations.id }).get();
+  }, { behavior: "immediate" });
+  if (!invitation) return { error: "inviterUnavailable" as const };
 
   try {
     await sendMail({ to: input.email, subject: t("subject"), text: t("body", { url: url.toString() }) });

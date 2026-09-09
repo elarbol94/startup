@@ -113,3 +113,67 @@ test("admins invite users who choose their credentials; links work once and role
   await expect(dialog.getByRole("alert")).toContainText("Ein Konto mit dieser E-Mail-Adresse existiert bereits");
   expect(inbox).toHaveLength(mailCount);
 });
+
+test("admins remove users on desktop and mobile; removed sessions and credentials stop working", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  const signup = await page.request.post("/api/auth/sign-up/email", {
+    data: { name: "E2E Admin", username: "admin", email: "admin@example.com", password: "super-secret-1" },
+  });
+  if (!signup.ok()) {
+    const login = await page.request.post("/api/auth/sign-in/username", {
+      data: { username: "admin", password: "super-secret-1" },
+    });
+    expect(login.ok(), await login.text()).toBe(true);
+  }
+  await page.goto("/settings/users");
+  const ownRow = page.getByRole("row").filter({ hasText: "admin@example.com" });
+  await expect(ownRow.getByRole("button", { name: "Benutzer entfernen" })).toHaveCount(0);
+  await expect(ownRow).toContainText("Dein Konto");
+
+  for (const role of ["member", "admin"] as const) {
+    const nickname = `remove.${role}.${Date.now()}`;
+    const email = `${nickname}@example.com`;
+    const created = await page.request.post("/api/auth/admin/create-user", {
+      headers: { Origin: new URL(page.url()).origin },
+      data: { name: nickname, email, password: "remove-user-password", role, data: { username: nickname } },
+    });
+    expect(created.ok(), await created.text()).toBe(true);
+    const colleague = await browser.newContext();
+    try {
+      const signedIn = await colleague.request.post("/api/auth/sign-in/username", {
+        data: { username: nickname, password: "remove-user-password" },
+      });
+      expect(signedIn.ok()).toBe(true);
+      if (role === "admin") await page.setViewportSize({ width: 390, height: 844 });
+      await page.reload();
+      const entry = role === "admin"
+        ? page.locator("article").filter({ hasText: email })
+        : page.getByRole("row").filter({ hasText: email });
+      await entry.getByRole("button", { name: "Benutzer entfernen" }).click();
+      let dialog = page.getByRole("dialog");
+      await expect(dialog).toContainText(email);
+      await dialog.getByRole("button", { name: "Abbrechen", exact: true }).click();
+      await expect(entry).toBeVisible();
+      expect(await (await colleague.request.get("/api/auth/get-session")).json()).not.toBeNull();
+      await entry.getByRole("button", { name: "Benutzer entfernen" }).click();
+      dialog = page.getByRole("dialog");
+      await dialog.getByRole("button", { name: "Konto entfernen", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(entry).toHaveCount(0);
+      expect(await (await colleague.request.get("/api/auth/get-session")).json()).toBeNull();
+      const denied = await colleague.request.post("/api/auth/sign-in/username", {
+        data: { username: nickname, password: "remove-user-password" },
+      });
+      expect(denied.ok()).toBe(false);
+      const colleaguePage = await colleague.newPage();
+      await colleaguePage.goto("/settings/profile");
+      await expect(colleaguePage).toHaveURL(/\/login$/);
+      await page.getByRole("button", { name: "Benutzer einladen" }).click();
+      dialog = page.getByRole("dialog");
+      await dialog.getByLabel("E-Mail", { exact: true }).fill(email);
+      await dialog.getByRole("button", { name: "Einladung senden", exact: true }).click();
+      await expect(dialog).toBeHidden();
+      await expect(page.getByRole("region", { name: "Offene Einladungen" })).toContainText(email);
+    } finally { await colleague.close(); }
+  }
+});

@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { appSettings, businessLocations, user, userProfilePreferences } from "@/db/schema";
 import { USER_MARK_COLORS } from "@/lib/user-mark-colors";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
@@ -36,6 +36,7 @@ export function listUsers() {
       createdAt: user.createdAt,
     })
     .from(user)
+    .where(isNull(user.removedAt))
     .orderBy(user.createdAt)
     .all();
 }

@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RemoveUserDialog } from "./remove-user-dialog";
 import { InviteUserDialog } from "./invite-user-dialog";
 
 export default async function UsersSettingsPage() {
@@ -56,6 +57,10 @@ export default async function UsersSettingsPage() {
                 </div>
               </div>
               <p className="mt-3 break-all border-t pt-3 text-sm text-muted-foreground">{user.email}</p>
+              <div className="mt-3">
+                {user.id === currentUser.id ? <p className="text-sm text-muted-foreground">{t("yourAccount")}</p> :
+                  <RemoveUserDialog userId={user.id} name={user.name} email={user.email} />}
+              </div>
             </article>
           ))}
         </div>
@@ -67,6 +72,7 @@ export default async function UsersSettingsPage() {
               <TableHead>{t("username")}</TableHead>
               <TableHead>{t("email")}</TableHead>
               <TableHead>{t("role")}</TableHead>
+              <TableHead>{t("userActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -90,6 +96,10 @@ export default async function UsersSettingsPage() {
                       <Badge variant="destructive">{t("banned")}</Badge>
                     )}
                   </div>
+                </TableCell>
+                <TableCell>
+                  {user.id === currentUser.id ? <span className="text-sm text-muted-foreground">{t("yourAccount")}</span> :
+                    <RemoveUserDialog userId={user.id} name={user.name} email={user.email} />}
                 </TableCell>
               </TableRow>
             ))}

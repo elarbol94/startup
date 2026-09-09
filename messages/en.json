@@ -3629,7 +3629,19 @@
       "mailFailed": "The invitation email could not be sent. Please try again.",
       "pendingInvitations": "Pending invitations",
       "pendingHint": "Accounts appear above after setup. To resend, invite the same email again; the new email replaces the previous link.",
-      "expiresOn": "Expires {date}"
+      "expiresOn": "Expires {date}",
+      "removeUser": "Remove user",
+      "removeTitle": "Remove {name}?",
+      "removeDescription": "This permanently removes account access and signs the user out. Their name and existing business records remain for history. You can invite them again to create a new account.",
+      "userActions": "Actions",
+      "yourAccount": "Your account",
+      "confirmRemove": "Remove account",
+      "removingUser": "Removing…",
+      "userRemoved": "User removed. Their access has been revoked.",
+      "cannotRemoveSelf": "You cannot remove your own account.",
+      "userNotFound": "This user has already been removed or no longer exists.",
+      "invalidRemoval": "Select a valid user to remove.",
+      "inviterUnavailable": "Your administrator access is no longer available. Please sign in again."
     },
     "language": {
       "label": "Language",

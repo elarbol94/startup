@@ -18,3 +18,5 @@ export const acceptInvitationSchema = z.object({
 
 export type InviteUserInput = z.infer<typeof inviteUserSchema>;
 export type AcceptInvitationInput = z.infer<typeof acceptInvitationSchema>;
+
+export const removeUserSchema = z.object({ userId: z.string().trim().min(1).max(128) });

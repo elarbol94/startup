@@ -1,7 +1,7 @@
 "use server";
 
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq, inArray, lt, gt } from "drizzle-orm";
+import { and, eq, inArray, lt, gt, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -91,7 +91,7 @@ function accessibleUserIds(ids: string[]) {
     db
       .select({ id: user.id })
       .from(user)
-      .where(inArray(user.id, ids))
+      .where(and(inArray(user.id, ids), isNull(user.removedAt)))
       .all()
       .map((row) => row.id),
   );

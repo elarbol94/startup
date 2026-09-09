@@ -854,6 +854,7 @@ export async function getContextualTaskOptions() {
     members: db
       .select({ id: user.id, name: user.name })
       .from(user)
+      .where(isNull(user.removedAt))
       .orderBy(asc(user.name))
       .all(),
     projects: db
@@ -946,8 +947,8 @@ export async function upsertContextualTask(
     ? db.select().from(tasks).where(eq(tasks.id, data.id)).get()
     : undefined;
   if (data.id && !existing) throw new Error("Task not found");
-  if (data.assigneeId) {
-    const member = db.select({ id: user.id }).from(user).where(eq(user.id, data.assigneeId)).get();
+  if (data.assigneeId && data.assigneeId !== existing?.assigneeId) {
+    const member = db.select({ id: user.id }).from(user).where(and(eq(user.id, data.assigneeId), isNull(user.removedAt))).get();
     if (!member) throw new Error("Assignee not found");
   }
 

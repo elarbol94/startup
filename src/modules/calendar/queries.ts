@@ -478,6 +478,7 @@ export function listCalendarWorkspace(input: {
     members: db
       .select({ id: user.id, name: user.name })
       .from(user)
+      .where(isNull(user.removedAt))
       .orderBy(asc(user.name))
       .all(),
     projects: projectRows.map((project) => ({

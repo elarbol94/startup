@@ -1,7 +1,7 @@
 "use server";
 
 import { createHash } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -91,7 +91,10 @@ export async function upsertEmployeePlan(input: EmployeePlanInput) {
   const data = employeePlanSchema.parse(input);
   const location = db.select().from(businessLocations).where(and(eq(businessLocations.id, data.locationId), eq(businessLocations.active, true))).get();
   if (!location) throw new Error("Active location required");
-  if (data.userId && !db.select({ id: user.id }).from(user).where(eq(user.id, data.userId)).get()) throw new Error("User not found");
+  const existingUserId = data.employeeId
+    ? db.select({ userId: employees.userId }).from(employees).where(eq(employees.id, data.employeeId)).get()?.userId
+    : null;
+  if (data.userId && data.userId !== existingUserId && !db.select({ id: user.id }).from(user).where(and(eq(user.id, data.userId), isNull(user.removedAt))).get()) throw new Error("User not found");
   if (data.joinedOn && data.leftOn && data.joinedOn > data.leftOn) throw new Error("Invalid employment period");
   let employeeId = data.employeeId;
   db.transaction((tx) => {

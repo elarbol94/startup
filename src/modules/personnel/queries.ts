@@ -1,4 +1,4 @@
-import { asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import {
   businessLocations,
@@ -26,7 +26,7 @@ export function canManagePersonnel(user: SessionUser) {
 export function getPersonnelWorkspace(viewer: SessionUser, year = new Date().getFullYear()) {
   const fullAccess = canManagePersonnel(viewer);
   const locations = fullAccess ? db.select().from(businessLocations).where(eq(businessLocations.active, true)).orderBy(asc(businessLocations.name)).all() : [];
-  const users = fullAccess ? db.select({ id: user.id, name: user.name, email: user.email }).from(user).orderBy(asc(user.name)).all() : [];
+  const users = fullAccess ? db.select({ id: user.id, name: user.name, email: user.email }).from(user).where(isNull(user.removedAt)).orderBy(asc(user.name)).all() : [];
   const contractRows = fullAccess ? db.select().from(employmentContractPeriods).orderBy(desc(employmentContractPeriods.validFrom)).all() : [];
   const taxRows = fullAccess ? db.select().from(personnelTaxProfiles).orderBy(desc(personnelTaxProfiles.validFrom)).all() : [];
   const people = fullAccess
