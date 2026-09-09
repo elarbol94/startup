@@ -3,7 +3,6 @@ import { figureManifest, refreshServerFigures } from "@/modules/wiki/figure-asse
 import { getSession } from "@/lib/auth";
 import { generateWikiDocumentPdf, renderStoredWikiDocument } from "@/modules/wiki/lib/document-pdf";
 import { parseDocumentSettings } from "@/modules/wiki/lib/document-settings";
-import { renderDocumentMarkdown } from "@/modules/wiki/lib/document-renderer";
 
 import { parseDocumentForExport } from "@/modules/wiki/lib/suggestions";
 import { generateDocumentDocx } from "@/modules/wiki/lib/document-docx";
@@ -25,7 +24,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   if (!pageOwner) return Response.json({ error: "Page not found" }, { status: 404 });
   const typography = getWikiTypographyForUser(pageOwner.createdBy);
   const url = new URL(request.url);
-  const format = url.searchParams.get("format") ?? "markdown";
+  const format = url.searchParams.get("format") ?? "html";
+  if (!["pdf", "docx", "html"].includes(format)) return Response.json({ error: "Unsupported export format" }, { status: 400 });
   const inline = url.searchParams.get("disposition") === "inline";
   try {
     const snapshot = request.method === "POST" ? z.object({ revisions: z.record(z.string().min(1).max(100), z.number().int().positive()).optional(), allowSaved: z.boolean().default(false) }).parse(await request.json()) : { allowSaved: url.searchParams.get("allowSaved") === "1", revisions: undefined };
@@ -67,17 +67,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
         },
       });
     }
-    const markdown = `# ${page.title}\n\n${renderDocumentMarkdown(
-      parseDocumentForExport(page.contentJson),
-      parseDocumentSettings(page.documentSettingsJson),
-      url.origin,
-    )}`;
-    return new Response(markdown, {
-      headers: {
-        "Content-Type": "text/markdown; charset=utf-8",
-        "Content-Disposition": disposition(page.slug, "md", inline),
-      },
-    });
+    return Response.json({ error: "Unsupported export format" }, { status: 400 });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Document export failed";
     const status = message === "Page not found" ? 404 : 500;

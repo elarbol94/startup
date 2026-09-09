@@ -28,6 +28,12 @@ async function openEditorMore(page: Page) {
   await page.getByRole("button", { name: "Mehr", exact: true }).last().click();
 }
 
+async function openEditorCommand(page: Page, query: string) {
+  await page.keyboard.press("Shift");
+  await page.keyboard.press("Shift");
+  await page.getByRole("dialog", { name: "Befehl suchen" }).getByRole("combobox").fill(query);
+}
+
 async function openWritingStyle(page: Page) {
   await openEditorMore(page);
   await page.getByRole("menuitem", { name: /Schreibbild/ }).click();
@@ -62,26 +68,6 @@ test("knowledge launchpad prioritizes search, writing, and sources", async ({ pa
   await expect(navigation.getByRole("link", { name: "Quellen" })).toBeVisible();
   await expect(navigation.getByText("Dokumentbaum")).toHaveCount(0);
   await expect(navigation.getByText("Schlagwörter")).toHaveCount(0);
-});
-
-test("Markdown reference dialog opens from the editor toolbar and closes on Escape or outside click", async ({ page }) => {
-  await login(page);
-  await quickNote(page, `Markdown Reference ${Date.now()}`, "Toolbar help.");
-
-  await openEditorMore(page);
-  await page.getByTestId("markdown-help-button").click();
-  const dialog = page.getByTestId("markdown-reference-dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText("**fett**");
-  await expect(dialog).toContainText(/Syntax\s*\|\s*Beschreibung/);
-  await page.keyboard.press("Escape");
-  await expect(dialog).toBeHidden();
-
-  await openEditorMore(page);
-  await page.getByTestId("markdown-help-button").click();
-  await expect(dialog).toBeVisible();
-  await page.locator('[data-slot="dialog-overlay"]').click({ position: { x: 4, y: 4 } });
-  await expect(dialog).toBeHidden();
 });
 
 test("global writing style previews, cancels, persists across pages, and reaches HTML export", async ({ page }) => {
@@ -199,7 +185,7 @@ test("document mode persists page layout, document blocks, templates, and PDF ex
   expect((await response.body()).length).toBeGreaterThan(1_000);
 });
 
-test("editor productivity tools support links, Markdown paste, search, outline, and writing statistics", async ({ page, context }) => {
+test("editor productivity tools support links, rich-text paste, search, outline, and writing statistics", async ({ page, context }) => {
   await login(page);
   await quickNote(page, "Editor tools", "Alpha beta alpha");
   const editor = page.locator(".ProseMirror");
@@ -213,7 +199,7 @@ test("editor productivity tools support links, Markdown paste, search, outline, 
   await page.evaluate(() => {
     const target = document.querySelector(".ProseMirror");
     const data = new DataTransfer();
-    data.setData("text/plain", "## Imported heading\n\n- First\n- Second");
+    data.setData("text/html", "<h2>Imported heading</h2><ul><li>First</li><li>Second</li></ul>");
     target?.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data }));
   });
   await expect(editor.getByRole("heading", { level: 2, name: "Imported heading" })).toBeVisible();
@@ -268,140 +254,25 @@ test("editor productivity tools support links, Markdown paste, search, outline, 
   await context.setOffline(false);
 });
 
-test("markdown shortcuts render on a boundary, undo cleanly, and persist", async ({ page }) => {
+test("Markdown syntax stays literal when typed and pasted", async ({ page }) => {
   await login(page);
-  await quickNote(page, "Markdown Shortcuts", "Start");
+  await quickNote(page, "Literal syntax", "Start");
   const editor = page.locator(".ProseMirror");
-
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("**delayed**");
-  await expect(editor).toContainText("**delayed**");
-  await expect(editor.locator("strong", { hasText: "delayed" })).toHaveCount(0);
-
-  await page.keyboard.press("Space");
-  await expect(editor).not.toContainText("**delayed**");
-  await expect(editor.locator("strong", { hasText: "delayed" })).toHaveCount(1);
-
-  await page.keyboard.press("ControlOrMeta+z");
-  await expect(editor).toContainText("**delayed**");
-  await expect(editor.locator("strong", { hasText: "delayed" })).toHaveCount(0);
-
-  await page.keyboard.press("Space");
-  await page.keyboard.type("plain");
-  await expect(editor.locator("strong", { hasText: "delayed" })).toHaveText("delayed");
-  await expect(editor.locator("strong")).not.toContainText("plain");
-
+  await page.keyboard.type("# Heading **bold** ");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("*next line*");
-  await expect(editor).toContainText("*next line*");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("unformatted");
-  await expect(editor.locator("em", { hasText: "next line" })).toHaveText("next line");
-  await expect(editor.locator("em")).not.toContainText("unformatted");
-
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("# ");
-  await page.keyboard.type("Markdown heading");
-  await expect(editor.getByRole("heading", { level: 1, name: "Markdown heading" })).toBeVisible();
-
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
-  await page.reload();
-  await expect(editor.locator("strong", { hasText: "delayed" })).toHaveText("delayed");
-  await expect(editor.locator("em", { hasText: "next line" })).toHaveText("next line");
-  await expect(editor.getByRole("heading", { level: 1, name: "Markdown heading" })).toBeVisible();
-});
-
-test("extended Markdown syntax creates editable semantic content", async ({ page }) => {
-  await login(page);
-  await quickNote(page, "Extended Markdown", "Start");
-  const editor = page.locator(".ProseMirror");
-
-  await editor.click();
-  await page.keyboard.press("ControlOrMeta+End");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("==important==");
-  await expect(editor.locator("mark.wiki-highlight")).toHaveCount(0);
-  await page.keyboard.press("Space");
-  await page.keyboard.type("H~2~O");
-  await page.keyboard.press("Space");
-  await page.keyboard.type("X^2^");
-  await page.keyboard.press("Space");
-  await page.keyboard.type(":joy:");
-  await page.keyboard.press("Space");
-  await page.keyboard.type("[^1]");
-  await page.keyboard.press("Space");
-  await expect(editor.locator("mark.wiki-highlight")).toHaveText("important");
-  await expect(editor.locator("sub")).toHaveText("2");
-  await expect(editor.locator("sup:not([data-footnote-reference])")).toHaveText("2");
-  await expect(editor.locator("sup[data-footnote-reference]")).toHaveText("1");
-  await expect(editor).toContainText("😂");
-
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("[^1]: Footnote text");
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("aside[data-footnote-definition='1']")).toContainText("Footnote text");
-
-  await page.keyboard.type("term");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type(": definition");
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("dl[data-markdown-definition-list] dt")).toHaveText("term");
-  await expect(editor.locator("dl[data-markdown-definition-list] dd")).toHaveText("definition");
-
-  await page.keyboard.type("| Syntax | Description |");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("| --- | --- |");
-  await page.keyboard.press("Enter");
-  const table = editor.locator("table[data-markdown-table]");
-  await expect(table.locator("th")).toHaveCount(2);
-  await expect(table.locator("td")).toHaveCount(2);
-  await table.locator("td").nth(0).click();
-  await page.keyboard.type("Header");
-  await table.locator("td").nth(1).click();
-  await page.keyboard.type("Title");
-  await expect(table.locator("td").nth(0)).toHaveText("Header");
-  await expect(table.locator("td").nth(1)).toHaveText("Title");
-
-  const trailingParagraph = editor.locator("xpath=./p").last();
-  await trailingParagraph.evaluate((element) => {
-    (element.parentElement as HTMLElement | null)?.focus();
-    const range = document.createRange();
-    range.selectNodeContents(element);
-    range.collapse(false);
-    const selection = window.getSelection();
-    selection?.removeAllRanges();
-    selection?.addRange(range);
+  await page.evaluate(() => {
+    const data = new DataTransfer();
+    data.setData("text/plain", "## Pasted heading **text**");
+    document.querySelector(".ProseMirror")?.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
-  await page.keyboard.type("### ");
-  await page.keyboard.type("My Great Heading {#custom-id}");
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("h3#custom-id")).toHaveText("My Great Heading");
-
-  await page.keyboard.type("![diagram](/window.svg)");
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("figure[data-commentable-image] img")).toHaveAttribute("alt", "diagram");
-
-  await page.keyboard.type("```");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("const x = 1");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("```");
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("pre code")).toHaveText("const x = 1");
-
-  await page.keyboard.type("---");
-  await expect(editor.locator("hr")).toHaveCount(0);
-  await page.keyboard.press("Enter");
-  await expect(editor.locator("hr")).toHaveCount(1);
-
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
-  await page.reload();
-  await expect(editor.locator("table[data-markdown-table]")).toHaveCount(1);
-  await expect(editor.locator("aside[data-footnote-definition='1']")).toContainText("Footnote text");
-  await expect(editor.locator("h3#custom-id")).toHaveText("My Great Heading");
-  await expect(editor.locator("pre code")).toHaveText("const x = 1");
+  await expect(editor).toContainText("# Heading **bold**");
+  await expect(editor).toContainText("## Pasted heading **text**");
+  await expect(editor.locator("h1, h2, strong")).toHaveCount(0);
+  await openEditorMore(page);
+  await expect(page.getByTestId("markdown-help-button")).toHaveCount(0);
 });
 
 test("internal links create backlinks and unified search finds content", async ({ page }) => {
@@ -476,15 +347,15 @@ test("subpages remain nested and deletion is recoverable", async ({ page }) => {
   await expect(page.getByText("Tag Eins")).toHaveCount(0);
 });
 
-test("slash palette filters commands and applies a block command from the keyboard", async ({ page }) => {
+test("command search filters commands and applies a block command from the keyboard", async ({ page }) => {
   await login(page);
   await quickNote(page, "Slash Palette", "Start");
   const editor = page.locator(".ProseMirror");
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/uberschrift 2");
-  await expect(page.getByRole("listbox", { name: "Slash-Befehle" })).toBeVisible();
+  await openEditorCommand(page, "uberschrift 2");
+  await expect(page.getByRole("dialog", { name: "Befehl suchen" })).toBeVisible();
   await page.keyboard.press("Enter");
   await page.keyboard.type("A useful heading");
   await expect(editor.getByRole("heading", { level: 2, name: "A useful heading" })).toBeVisible();
@@ -492,12 +363,12 @@ test("slash palette filters commands and applies a block command from the keyboa
 
   await page.keyboard.press("End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/trennlinie");
+  await openEditorCommand(page, "trennlinie");
   await page.getByRole("option", { name: /Trennlinie/ }).click();
   await expect(editor.locator("hr")).toHaveCount(1);
 });
 
-test("slash wiki actions open the existing attachment, source, and comment controls", async ({ page }) => {
+test("command search actions open the existing attachment, source, and comment controls", async ({ page }) => {
   await login(page);
   await quickNote(page, "Slash Actions", "Action start");
   const editor = page.locator(".ProseMirror");
@@ -505,7 +376,7 @@ test("slash wiki actions open the existing attachment, source, and comment contr
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/datei");
+  await openEditorCommand(page, "attachment");
   const chooserPromise = page.waitForEvent("filechooser");
   await page.keyboard.press("Enter");
   const chooser = await chooserPromise;
@@ -515,43 +386,19 @@ test("slash wiki actions open the existing attachment, source, and comment contr
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/kommentar");
+  await openEditorCommand(page, "pageComment");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("page-comment-input")).toBeFocused();
 
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/quelle verknupfen");
+  await openEditorCommand(page, "supportingSource");
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("supporting-source-picker")).toBeFocused();
 });
 
-test("slash palette dismisses without deleting text and stays closed in URLs and code blocks", async ({ page }) => {
-  await login(page);
-  await quickNote(page, "Slash Guardrails", "Guardrail start");
-  const editor = page.locator(".ProseMirror");
-  await editor.click();
-  await page.keyboard.press("ControlOrMeta+End");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("https://");
-  await expect(page.getByRole("listbox", { name: "Slash-Befehle" })).toHaveCount(0);
-
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("/");
-  await expect(page.getByRole("listbox", { name: "Slash-Befehle" })).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("listbox", { name: "Slash-Befehle" })).toHaveCount(0);
-  await expect(editor).toContainText("/");
-
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("/code");
-  await page.keyboard.press("Enter");
-  await page.keyboard.type("/");
-  await expect(page.getByRole("listbox", { name: "Slash-Befehle" })).toHaveCount(0);
-});
-
-test("slash wiki insert commands open the shared page, citation, and PDF evidence pickers", async ({ page }) => {
+test("command search insert commands open the shared page, citation, and PDF evidence pickers", async ({ page }) => {
   await login(page);
   await quickNote(page, "Slash Pickers", "Picker start");
   const editor = page.locator(".ProseMirror");
@@ -559,19 +406,19 @@ test("slash wiki insert commands open the shared page, citation, and PDF evidenc
     await editor.click();
     await page.keyboard.press("ControlOrMeta+End");
     await page.keyboard.press("Enter");
-    await page.keyboard.type("/" + query);
+    await openEditorCommand(page, query);
     await page.keyboard.press("Enter");
   };
 
-  await openCommand("seite verknupfen");
+  await openCommand("pageLink");
   await expect(page.getByPlaceholder("Dokumente filtern…")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await openCommand("zitat einfugen");
+  await openCommand("citation");
   await expect(page.getByPlaceholder("Quelle suchen…")).toBeVisible();
   await page.keyboard.press("Escape");
 
-  await openCommand("pdf");
+  await openCommand("pdfEvidence");
   await expect(page.getByPlaceholder("PDF-Markierungen durchsuchen…")).toBeVisible();
 });
 

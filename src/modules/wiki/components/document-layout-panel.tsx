@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import type { Editor } from "@tiptap/react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -38,6 +38,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 type Props = {
+  marginFocusRequest?: number;
   embedded?: boolean;
   pageId: string;
   editor: Editor;
@@ -70,6 +71,7 @@ function Toggle({ checked, onChange, label }: { checked: boolean; onChange: (che
 }
 
 export function DocumentLayoutPanel({
+  marginFocusRequest = 0,
   embedded = false,
   pageId,
   editor,
@@ -87,6 +89,19 @@ export function DocumentLayoutPanel({
   onClose,
 }: Props) {
   const t = useTranslations("wiki.document");
+  const marginInput = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState({ value: "page", request: marginFocusRequest });
+  const activeTab = tab.request === marginFocusRequest ? tab.value : "page";
+  const handledMarginRequest = useRef(0);
+  useEffect(() => {
+    if (!marginFocusRequest || handledMarginRequest.current === marginFocusRequest) return;
+    const frame = requestAnimationFrame(() => {
+      marginInput.current?.focus();
+      marginInput.current?.scrollIntoView({ block: "center" });
+      handledMarginRequest.current = marginFocusRequest;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [marginFocusRequest, activeTab]);
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [templateId, setTemplateId] = useState(templates[0]?.id ?? "");
@@ -245,7 +260,7 @@ export function DocumentLayoutPanel({
         <X />
       </Button>
     </div>}
-    <Tabs defaultValue="page" className="gap-0">
+    <Tabs value={activeTab} onValueChange={(value) => setTab({ value: String(value), request: marginFocusRequest })} className="gap-0">
       <TabsList className="mx-2 mt-2 grid grid-cols-3">
         <TabsTrigger value="page">{t("tabs.page")}</TabsTrigger>
         <TabsTrigger value="content">{t("tabs.content")}</TabsTrigger>
@@ -271,7 +286,7 @@ export function DocumentLayoutPanel({
           </div>
           <div className="grid grid-cols-2 gap-2">
             {(["top", "right", "bottom", "left"] as const).map((side) => <Field key={side} label={t(`margin.${side}`)}>
-              <Input className="h-8" type="number" min={8} max={50} value={settings.page.marginsMm[side]} onChange={(event) => patchMargins(side, Number(event.target.value))} />
+              <Input ref={side === "top" ? marginInput : undefined} data-workspace-command-focus={side === "top" && marginFocusRequest > 0 ? "" : undefined} data-testid={`document-margin-${side}`} className="h-8" type="number" min={8} max={50} value={settings.page.marginsMm[side]} onChange={(event) => patchMargins(side, Number(event.target.value))} />
             </Field>)}
           </div>
           <div className="rounded-lg border bg-muted/30 px-2.5 py-1.5">

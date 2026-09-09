@@ -11,6 +11,34 @@ The Wiki editor uses one content version for text and document layout. A save
 includes that version and the tab's edit-lease session. Metadata changes such as
 renaming a page do not invalidate a text save.
 
+## Command search
+
+Tap Shift twice while the editor has focus, or use the search button in the
+toolbar, to find editor commands. Type a name or keyword to narrow the list;
+Arrow Up/Down selects, Tab completes the name, Enter runs, and Escape closes.
+The document selection is retained. Search tolerates small typos when there are
+no exact matches and accepts German/English synonyms. Available commands for the
+current image, table or text selection rank first; recent commands follow for an
+empty search. The last eight command IDs are stored locally per user, without
+document text. Toggle commands display their current on/off state. Font size,
+line spacing and page margin commands focus their settings directly. Image/table commands explain the required
+selection, and editing commands are unavailable when the document is read-only.
+Shift used for typing, selecting text or other shortcuts does not open search.
+Typing `/` inserts ordinary text; it no longer opens a command menu. Empty
+paragraphs have no writing/command placeholder.
+
+Focused checks: `npx vitest run src/modules/wiki/lib/command-search.test.ts
+src/modules/wiki/lib/wiki-shortcuts.test.ts src/modules/wiki/lib/slash-commands.test.ts`.
+Browser coverage: `npm run e2e -- e2e/reliable-wiki-editor.spec.ts --grep
+"double Shift command search"`.
+
+## Text formatting
+
+Use the rich-text toolbar to format documents. Markdown typing shortcuts, paste
+conversion, help and export are no longer available. Plain-text Markdown stays
+literal; rich HTML paste and HTML, Word and PDF exports remain supported. Existing
+formatted content, tables and references retain their stored document schema.
+
 ## Linked presentations
 
 Headings used by presentations display a small presentation badge. It opens a list

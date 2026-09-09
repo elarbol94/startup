@@ -2084,41 +2084,6 @@
     "comments": "Comments",
     "hideComments": "Hide comments",
     "showComments": "Show comments",
-    "markdownHelp": {
-      "button": "Markdown",
-      "title": "Markdown shortcuts",
-      "description": "Type the syntax, then use Space or Enter to convert it. Block shortcuts activate when you complete the line.",
-      "groups": {
-        "inline": "Inline",
-        "blocks": "Blocks",
-        "structured": "Structured content"
-      },
-      "items": {
-        "bold": "Bold",
-        "italic": "Italic",
-        "strikethrough": "Strikethrough",
-        "code": "Inline code",
-        "link": "External link",
-        "highlight": "Highlight",
-        "subscript": "Subscript",
-        "superscript": "Superscript",
-        "arrows": "Arrows",
-        "emoji": "Emoji",
-        "footnoteReference": "Footnote reference",
-        "headings": "Heading",
-        "headingId": "Heading with ID",
-        "blockquote": "Block quote",
-        "bulletList": "Bullet list",
-        "orderedList": "Ordered list",
-        "taskList": "Task list",
-        "divider": "Divider",
-        "fencedCode": "Code block",
-        "image": "Image",
-        "table": "Table · fill in cells afterwards",
-        "definitionList": "Definition list",
-        "footnoteDefinition": "Footnote"
-      }
-    },
     "shortcuts": {
       "title": "Keyboard shortcuts",
       "description": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
@@ -2162,7 +2127,6 @@
         "inlineComment": "Add comment",
         "toggleComments": "Show/hide comments",
         "documentMode": "Document mode",
-        "markdownHelp": "Markdown help",
         "typography": "Writing style",
         "shortcuts": "Keyboard shortcuts",
         "image": "Insert image",
@@ -2509,7 +2473,6 @@
         "untitled": "Untitled heading"
       },
       "placeholder": {
-        "empty": "Write something, or type / for commands…",
         "heading": "Heading…"
       },
       "preferences": {
@@ -3511,6 +3474,73 @@
         "ne": "Crop top right",
         "sw": "Crop bottom left",
         "se": "Crop bottom right"
+      }
+    },
+    "commandSearch": {
+      "title": "Find a command",
+      "description": "Press Shift twice while writing. Search by name or what you want to do.",
+      "placeholder": "Try “heading”, “image” or “comment”…",
+      "empty": "No matching commands. Try another word.",
+      "keys": "↑ ↓ Browse · Tab Complete · Enter Run · Esc Close",
+      "editor": "Editor",
+      "tools": "Tools",
+      "readOnly": "Editing is currently unavailable",
+      "selectImage": "Select an image first",
+      "selectTable": "Place the cursor in a table first",
+      "unavailable": "Nothing to do at this position",
+      "proofingNext": "Next spelling or grammar suggestion",
+      "proofingRetry": "Check spelling and grammar again",
+      "languages": {
+        "de-DE": "Proofreading: German",
+        "de-AT": "Proofreading: Austrian German",
+        "en-US": "Proofreading: English"
+      },
+      "export": "Export {format}",
+      "on": "On",
+      "off": "Off",
+      "recent": "Recently used",
+      "context": "For your selection",
+      "pageMargins": "Page margins",
+      "aliases": {
+        "bold": [
+          "bold",
+          "fett",
+          "thicker text",
+          "dicker Text",
+          "strong"
+        ],
+        "italic": [
+          "italic",
+          "kursiv",
+          "schräg"
+        ],
+        "strike": [
+          "strikethrough",
+          "durchstreichen"
+        ],
+        "underline": [
+          "underline",
+          "unterstreichen"
+        ],
+        "fontSize": [
+          "font size",
+          "text size",
+          "Schriftgröße",
+          "Textgröße"
+        ],
+        "lineSpacing": [
+          "line spacing",
+          "line height",
+          "Zeilenabstand",
+          "Zeilenhöhe"
+        ],
+        "pageMargins": [
+          "page margins",
+          "margins",
+          "Seitenränder",
+          "Seitenrand",
+          "Ränder"
+        ]
       }
     }
   },

@@ -30,7 +30,8 @@ async function createNote(page: Page) {
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/, { timeout: 180_000 });
   const editor = page.locator(".ProseMirror");
   await expect(editor).toBeVisible();
-  await expect(editor).toHaveAttribute("contenteditable", "true", { timeout: 30_000 });
+  // The lease endpoint may compile after the editor becomes visible in a cold preview.
+  await expect(editor).toHaveAttribute("contenteditable", "true", { timeout: 90_000 });
   return editor;
 }
 
@@ -103,7 +104,7 @@ test("stale local recovery cannot overwrite a newer server document", async ({ p
   await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "release", sessionId } });
   await page.reload();
   await expect(page.getByRole("button", { name: "Aktuelle laden" })).toBeVisible();
-  const current = await page.request.get(`/api/wiki/pages/${id}/export?format=markdown`);
+  const current = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await current.text()).toContain("Original words");
   await expect(editor).toContainText("Stale local words");
   await page.getByRole("button", { name: "Aktuelle laden" }).click();
@@ -129,10 +130,10 @@ test("layout-only drafts recover and export includes the last keystrokes", async
   await editor.fill("Last keystrokes before export");
   await page.getByRole("button", { name: "Mehr", exact: true }).first().click();
   const downloadEvent = page.waitForEvent("download");
-  await page.getByRole("menuitem", { name: "Markdown", exact: true }).click();
+  await page.getByRole("menuitem", { name: "HTML", exact: true }).click();
   const download = await downloadEvent;
   expect(await download.failure()).toBeNull();
-  const exported = await page.request.get(`/api/wiki/pages/${id}/export?format=markdown`);
+  const exported = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await exported.text()).toContain("Last keystrokes before export");
 });
 
@@ -149,7 +150,7 @@ test("server saving still works when local recovery storage is full", async ({ p
   await editor.fill("Save through a full recovery journal");
   await expect(page.getByText(/Die lokale Wiederherstellung ist nicht verfügbar/)).toBeVisible();
   await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
-  const response = await page.request.get(`/api/wiki/pages/${id}/export?format=markdown`);
+  const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Save through a full recovery journal");
 });
 
@@ -166,7 +167,7 @@ test("applying a template preserves current text by default and uses normal savi
   await expect(panel.getByLabel("Text durch Vorlageninhalt ersetzen")).not.toBeChecked();
   await panel.getByRole("button", { name: "Vorlage anwenden", exact: true }).click();
   await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
-  const response = await page.request.get(`/api/wiki/pages/${id}/export?format=markdown`);
+  const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Keep these current words");
   await expect(editor).toContainText("Keep these current words");
 });
@@ -598,4 +599,89 @@ test("proofing menu retries immediately and opens the next correction as plain t
   await page.keyboard.press("Enter");
   await expect(editor).toHaveText("<strong>Fehler</strong>");
   await expect(editor.locator("strong")).toHaveCount(0);
+});
+
+test("double Shift command search preserves selection and supports completion", async ({ page }) => {
+  page.on("pageerror", (error) => console.error(error.stack));
+  await login(page);
+  const editor = await createNote(page);
+  await editor.fill("Command search selection");
+  await editor.press("ControlOrMeta+a");
+  await page.keyboard.press("Shift");
+  await page.keyboard.press("Shift");
+  const dialog = page.getByRole("dialog", { name: "Befehl suchen" });
+  const search = dialog.getByRole("combobox");
+  await expect(search).toBeFocused();
+  await search.fill("fet");
+  await search.press("Tab");
+  await expect(search).toHaveValue("Fett");
+  await search.press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(editor.locator("strong")).toHaveText("Command search selection");
+  await expect(editor).toBeFocused();
+  await page.keyboard.press("Shift");
+  await page.keyboard.press("Shift");
+  await expect(search).toBeFocused();
+  await search.fill("imageWidth50");
+  await expect(dialog.getByRole("option")).toHaveAttribute("aria-disabled", "true");
+  await search.press("Enter");
+  await expect(dialog).toBeVisible();
+  await search.fill("no-matching-command-xyz");
+  await expect(dialog.getByRole("status")).toBeVisible();
+  await search.press("Escape");
+  await expect(editor).toBeFocused();
+  await editor.press("ArrowRight");
+  await editor.press("Shift+ArrowLeft");
+  await page.keyboard.press("Shift");
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: /Befehl suchen/ }).click();
+  await expect(search).toBeFocused();
+  await search.fill("heading");
+  await search.press("ArrowDown");
+  await expect(search).toHaveAttribute("aria-activedescendant", /-1$/);
+  await search.press("Escape");
+});
+
+test("command search ranks selection, remembers commands and focuses settings", async ({ page }) => {
+  test.setTimeout(600_000); // Cold shared previews can spend several minutes compiling before editing is ready.
+  await login(page);
+  const editor = await createNote(page);
+  await editor.fill("Contextual commands");
+  await editor.press("ControlOrMeta+a");
+  const dialog = page.getByRole("dialog", { name: "Befehl suchen" });
+  const search = dialog.getByRole("combobox");
+  const openSearch = async () => {
+    await editor.focus();
+    await page.getByRole("button", { name: "Befehl suchen", exact: true }).click();
+    await expect(search).toBeFocused();
+  };
+  await openSearch();
+  await expect(dialog.getByRole("option").first()).toContainText("Passend zur Auswahl");
+  await search.fill("blod");
+  await expect(dialog.getByRole("option").first()).toContainText("Fett");
+  await search.press("Enter");
+  await openSearch();
+  await search.fill("bold");
+  await expect(dialog.getByRole("option").first()).toContainText("Ein");
+  await search.press("Escape");
+  await editor.press("ArrowRight");
+  await openSearch();
+  await expect(dialog.getByRole("option").first()).toContainText("Zuletzt verwendet");
+  await search.fill("font size");
+  await search.press("Enter");
+  await expect(page.getByTestId("bodySizePt-number")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("wiki-typography-dialog")).toHaveCount(0);
+  await expect(editor).toBeFocused();
+  await openSearch();
+  await search.fill("line spacing");
+  await search.press("Enter");
+  await expect(page.getByTestId("lineHeight-number")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("wiki-typography-dialog")).toHaveCount(0);
+  await expect(editor).toBeFocused();
+  await openSearch();
+  await search.fill("page margins");
+  await search.press("Enter");
+  await expect(page.getByTestId("document-margin-top")).toBeFocused();
 });
