@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { FileText, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, FileText, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,120 +20,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { createPresentation, createPresentationFromWikiPage, deletePresentation } from "../presentation-actions";
-import { presentationTemplateIds, type PresentationTemplateId } from "../lib/presentation-templates";
+import { localizedPresentationTemplate, presentationTemplateIds, presentationTemplates, type PresentationTemplate, type PresentationTemplateId } from "../lib/presentation-templates";
+import { defaultPresentationSettings } from "../lib/presentation";
+import { PresentationScene } from "./presentation-scene";
 
-/**
- * Small hand-drawn schematics, not a live render of the template's actual canvas — a
- * template picker only needs to evoke the layout, not reproduce it pixel-for-pixel.
- */
-
-function BlankIcon() {
-  return (
-    <svg viewBox="0 0 120 76" className="h-16 w-full">
-      <rect x="6" y="6" width="108" height="64" rx="8" className="fill-none stroke-current text-muted-foreground/50" strokeWidth="2" strokeDasharray="6 5" />
-      <path d="M60 30v16M52 38h16" className="stroke-current text-muted-foreground" strokeWidth="3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function TimelineIcon() {
-  return (
-    <svg viewBox="0 0 120 76" className="h-16 w-full">
-      <line x1="10" y1="58" x2="110" y2="58" className="stroke-current text-indigo-500" strokeWidth="3" />
-      {[16, 42, 68, 94].map((x) => (
-        <rect key={x} x={x} y="18" width="18" height="34" rx="3" className="fill-none stroke-current text-foreground/70" strokeWidth="2.5" />
-      ))}
-      {[16, 42, 68, 94].map((x) => (
-        <circle key={x} cx={x + 9} cy="58" r="3" className="fill-current text-indigo-500" />
-      ))}
-    </svg>
-  );
-}
-
-function HubIcon() {
-  const satellites: [number, number][] = [[60, 10], [94, 38], [60, 66], [26, 38]];
-  return (
-    <svg viewBox="0 0 120 76" className="h-16 w-full">
-      {satellites.map(([cx, cy]) => (
-        <line key={`${cx}-${cy}`} x1="60" y1="38" x2={cx} y2={cy} className="stroke-current text-foreground/40" strokeWidth="2" />
-      ))}
-      <circle cx="60" cy="38" r="10" className="fill-none stroke-current text-indigo-500" strokeWidth="3" />
-      {satellites.map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="6" className="fill-none stroke-current text-foreground/70" strokeWidth="2.5" />
-      ))}
-    </svg>
-  );
-}
-
-function PitchIcon() {
-  return (
-    <svg viewBox="0 0 120 76" className="h-16 w-full">
-      <rect x="30" y="6" width="60" height="10" rx="2" className="fill-current text-foreground/70" />
-      <rect x="12" y="24" width="96" height="12" rx="3" className="fill-none stroke-current text-foreground/60" strokeWidth="2.5" />
-      <rect x="12" y="42" width="96" height="12" rx="3" className="fill-none stroke-current text-sky-500" strokeWidth="2.5" />
-      <rect x="12" y="60" width="96" height="12" rx="3" className="fill-none stroke-current text-teal-500" strokeWidth="2.5" />
-    </svg>
-  );
-}
-
-function MindmapIcon() {
-  const branches: [number, number][] = [[90, 14], [98, 40], [34, 64], [12, 44], [26, 10]];
-  return (
-    <svg viewBox="0 0 120 76" className="h-16 w-full">
-      {branches.map(([cx, cy]) => (
-        <line key={`${cx}-${cy}`} x1="58" y1="38" x2={cx} y2={cy} className="stroke-current text-foreground/40" strokeWidth="2" />
-      ))}
-      <line x1="98" y1="40" x2="116" y2="34" className="stroke-current text-foreground/30" strokeWidth="1.5" />
-      <circle cx="58" cy="38" r="8" className="fill-current text-rose-500" />
-      {branches.map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="5" className="fill-none stroke-current text-foreground/70" strokeWidth="2" />
-      ))}
-      <circle cx="116" cy="34" r="3" className="fill-none stroke-current text-foreground/50" strokeWidth="1.5" />
-    </svg>
-  );
-}
-
-const TEMPLATE_ICONS: Record<PresentationTemplateId, () => React.ReactElement> = {
-  timeline: TimelineIcon,
-  hub: HubIcon,
-  pitch: PitchIcon,
-  mindmap: MindmapIcon,
-  roadmap: TimelineIcon,
-  workshop: MindmapIcon,
-  report: PitchIcon,
-  demo: HubIcon,
-  portfolio: PitchIcon,
-  lesson: TimelineIcon,
-};
-
-function TemplateCard({
-  name,
-  disabled,
-  onClick,
-  children,
-}: {
-  name: string;
-  disabled: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        "flex flex-col items-center gap-2 rounded-lg border bg-card p-3 text-center transition-colors hover:border-indigo-400 disabled:pointer-events-none disabled:opacity-50",
-      )}
-    >
-      {children}
-      <span className="text-xs font-medium">{name}</span>
-    </button>
-  );
+/** Render only the chosen frame and its editable contents, using the delivery renderer. */
+function TemplatePreview({ template, index = 0 }: { template: PresentationTemplate; index?: number }) {
+  const target = template.steps[index].elementId;
+  return <PresentationScene padding={0} index={0} presentation={{
+    title: template.id, background: "#ffffff", settings: defaultPresentationSettings,
+    steps: [template.steps[index]],
+    elements: template.elements.filter((element) => element.id === target || element.parentId === target),
+  }} />;
 }
 
 export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTrigger = false }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean } = {}) {
-  const locale = useLocale();
+  const language = useLocale();
+  const locale = language === "en" ? "en" : "de";
   const t = useTranslations("wiki");
   const router = useRouter();
   const [title, setTitle] = useState("");
@@ -141,12 +44,20 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange ?? setLocalOpen;
   const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<PresentationTemplateId | "blank">("pitch");
+  const [previewIndex, setPreviewIndex] = useState(0);
+  const catalog = useMemo(() => presentationTemplateIds.map((id) => localizedPresentationTemplate(presentationTemplates[id], locale)), [locale]);
+  const preview = useMemo(() => selected === "blank" ? null : localizedPresentationTemplate(presentationTemplates[selected], locale, title), [selected, locale, title]);
 
-  const create = async (templateId?: PresentationTemplateId) => {
-    const name = title.trim() || t("presentations.untitled");
+  const choose = (id: PresentationTemplateId | "blank") => {
+    setSelected(id);
+    setPreviewIndex(0);
+  };
+  const create = async () => {
+    if (busy) return;
     setBusy(true);
     try {
-      const { id } = await createPresentation({ title: name, templateId, locale });
+      const { id } = await createPresentation({ title: title.trim() || t("presentations.untitled"), templateId: selected === "blank" ? undefined : selected, locale });
       setOpen(false);
       setTitle("");
       setBusy(false);
@@ -160,31 +71,68 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
   return (
     <>
       {!hideTrigger && <Button size="sm" onClick={() => setOpen(true)}><Plus className="size-4" />{t("presentations.new")}</Button>}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{t("presentations.chooseTemplate")}</DialogTitle>
-            <DialogDescription>{t("presentations.chooseTemplateDescription")}</DialogDescription>
+      <Dialog open={open} onOpenChange={(value) => { if (!busy) setOpen(value); }}>
+        <DialogContent className="flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-6xl">
+          <DialogHeader className="shrink-0 border-b px-6 pt-6 pb-5 text-left">
+            <DialogTitle className="text-2xl tracking-tight">{t("presentations.chooseTemplate")}</DialogTitle>
+            <DialogDescription className="hidden sm:block">{t("presentations.chooseTemplateDescription")}</DialogDescription>
+            <div className="mt-3 space-y-2">
+              <Label htmlFor="new-presentation-title">{t("presentations.presentationTitle")}</Label>
+              <Input id="new-presentation-title" value={title} disabled={busy} maxLength={200} placeholder={t("presentations.newPlaceholder")} onChange={(event) => setTitle(event.target.value)} />
+            </div>
           </DialogHeader>
-          <Input autoFocus value={title} maxLength={200} placeholder={t("presentations.newPlaceholder")} aria-label={t("presentations.presentationTitle")} onChange={(event) => setTitle(event.target.value)} />
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <TemplateCard name={t("presentations.templates.blank")} disabled={busy} onClick={() => void create()}>
-              <BlankIcon />
-            </TemplateCard>
-            {presentationTemplateIds.map((id) => {
-              const Icon = TEMPLATE_ICONS[id];
-              return (
-                <TemplateCard
-                  key={id}
-                  name={t(`presentations.templates.${id}`)}
-                  disabled={busy}
-                  onClick={() => void create(id)}
-                >
-                  <Icon />
-                </TemplateCard>
-              );
-            })}
+          <div className="min-h-0 overflow-y-auto lg:grid lg:grid-cols-[1.15fr_1fr]">
+            <div className="p-4 sm:p-6">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">{t("presentations.templateGallery")}</p>
+                <span className="text-xs text-muted-foreground">{t("presentations.templateCount", { count: catalog.length })}</span>
+              </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-2 lg:gap-4">
+                {catalog.map((template) => <button key={template.id} type="button" disabled={busy}
+                  aria-label={t(`presentations.templates.${template.id}`)} aria-pressed={selected === template.id}
+                  onClick={() => choose(template.id)}
+                  className={cn("group w-40 shrink-0 overflow-hidden rounded-xl border bg-card text-left lg:w-auto transition-shadow hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:opacity-50", selected === template.id ? "border-primary ring-2 ring-primary/20" : "border-border hover:border-muted-foreground/50")}>
+                  <div className="pointer-events-none aspect-video overflow-hidden border-b" aria-hidden="true" inert><TemplatePreview template={template} /></div>
+                  <div className="p-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-semibold">{t(`presentations.templates.${template.id}`)}</span>
+                      {selected === template.id && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
+                    </div>
+                    <p className="mt-1 hidden min-h-8 text-xs leading-relaxed text-muted-foreground lg:block">{t(`presentations.templateDescriptions.${template.id}`)}</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{t("presentations.templateSlides", { count: template.steps.length })} · 16:9</p>
+                  </div>
+                </button>)}
+                <button type="button" aria-label={t("presentations.templates.blank")} aria-pressed={selected === "blank"} disabled={busy} onClick={() => choose("blank")}
+                  className={cn("col-span-2 flex w-40 shrink-0 items-center gap-3 rounded-xl lg:w-auto border border-dashed p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring", selected === "blank" && "border-primary bg-accent ring-2 ring-primary/20")}>
+                  <Plus className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="flex-1"><p className="text-sm font-semibold">{t("presentations.templates.blank")}</p><p className="mt-1 text-xs text-muted-foreground">{t("presentations.templateDescriptions.blank")}</p></div>
+                  {selected === "blank" && <Check className="size-4 text-primary" aria-hidden="true" />}
+                </button>
+              </div>
+            </div>
+            <div className="border-t bg-muted/30 p-4 sm:p-6 lg:sticky lg:top-0 lg:self-start lg:border-t-0 lg:border-l">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h3 className="text-base font-semibold">{t(`presentations.templates.${selected}`)}</h3>
+                <span className="text-xs text-muted-foreground">{t("presentations.templatePreview")}</span>
+              </div>
+              <div className="aspect-video overflow-hidden rounded-lg border bg-white shadow-sm" aria-label={t("presentations.templatePreview")}>
+                {preview ? <div className="pointer-events-none h-full w-full" inert><TemplatePreview template={preview} index={previewIndex} /></div> : <div className="grid h-full place-items-center text-slate-300"><Plus className="size-12" /></div>}
+              </div>
+              {preview && <div className="mt-3 flex items-center justify-between gap-3">
+                <Button variant="outline" size="icon-sm" aria-label={t("presentations.templatePreviousPage")} disabled={previewIndex === 0 || busy} onClick={() => setPreviewIndex((index) => index - 1)}><ChevronLeft className="size-4" /></Button>
+                <p className="text-xs text-muted-foreground" role="status" aria-live="polite">{t("presentations.templatePage", { current: previewIndex + 1, total: preview.steps.length })}</p>
+                <Button variant="outline" size="icon-sm" aria-label={t("presentations.templateNextPage")} disabled={previewIndex === preview.steps.length - 1 || busy} onClick={() => setPreviewIndex((index) => index + 1)}><ChevronRight className="size-4" /></Button>
+              </div>}
+              <p className="mt-5 hidden text-sm leading-relaxed text-muted-foreground lg:block">{t(`presentations.templateDescriptions.${selected}`)}</p>
+              <p className="mt-3 hidden text-xs leading-relaxed text-muted-foreground lg:block">{t("presentations.templateEditable")}</p>
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center justify-between gap-4 border-t bg-background px-4 py-4 sm:px-6">
+            <p className="hidden text-xs text-muted-foreground sm:block">{t("presentations.templateReady")}</p>
+            <Button className="w-full sm:w-auto" disabled={busy} onClick={() => void create()}>
+              {busy ? <Loader2 className="size-4 animate-spin" /> : <ArrowRight className="size-4" />}
+              {t(selected === "blank" ? "presentations.createBlank" : "presentations.useTemplate")}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

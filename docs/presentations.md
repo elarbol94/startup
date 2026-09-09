@@ -10,6 +10,21 @@ uploaded video and audio. The editor, player, previews and PDF export share the
 stored content model. Internal editing and live following require sign-in;
 owners can explicitly publish a separate read-only link or website embed.
 
+## Built-in templates
+
+**New → Blank or template** opens a gallery of ten complete designs for pitches,
+reports, roadmaps, workshops, product demos, portfolios, timelines, topic overviews,
+mindmaps and lessons. Select a design, browse every page with the preview arrows,
+and choose **Use template**. Selecting and previewing never creates a presentation.
+The blank option remains available for a free canvas.
+
+Previews use the same editable elements as the created presentation. Each design
+includes 16:9 frames, coordinated colors, a clear reading order, authoring prompts
+and speaker notes in the selected German or English UI language. The entered title
+appears on the cover; each frame owns its contents so moving it keeps the layout
+together. Metric fields remain placeholders for the author's real values and sources.
+Existing presentations retain their saved design. No migration is required.
+
 ## Links to document sections
 
 New presentations created from a wiki page retain a source link on every heading

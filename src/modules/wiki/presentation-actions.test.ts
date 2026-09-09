@@ -146,7 +146,7 @@ describe("presentation studio access and collaboration", () => {
     const source = getPresentation(id, { id: "author" })!;
     await changePresentationStudio(id, { action: "comment", elementId: source.elements[0].id, body: "Please clarify" });
     expect(sqlite.prepare("SELECT body FROM wiki_presentation_comments WHERE presentation_id = ?").get(id)).toEqual({ body: "Please clarify" });
-    await changePresentationStudio(id, { action: "notes", stepId: source.steps[0].id, previous: "", notes: "Presenter revision" });
+    await changePresentationStudio(id, { action: "notes", stepId: source.steps[0].id, previous: source.steps[0].notes ?? "", notes: "Presenter revision" });
     const current = getPresentation(id, { id: "author" })!;
     expect(current.elements).toEqual(source.elements); expect(current.steps[0].notes).toBe("Presenter revision");
     expect(revisions(id)).toHaveLength(1);

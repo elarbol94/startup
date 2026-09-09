@@ -1,159 +1,145 @@
-import type {
-  PresentationElement,
-  PresentationFrameElement,
-  PresentationStep,
-  PresentationTextElement,
-} from "./presentation";
+import type { PresentationElement, PresentationFrameElement, PresentationStep, PresentationTextElement } from "./presentation";
+import { presentationTemplateCopy, type TemplateCopy, type TemplateSection } from "./presentation-template-copy";
 
-/**
- * Built-in starting points offered on presentation creation. Each is plain data — the
- * same element/step shapes the editor already reads and writes — so a template is just
- * a canvas someone else arranged first. No separate rendering path needed.
- */
-
-export const presentationTemplateIds = ["timeline", "hub", "pitch", "mindmap", "roadmap", "workshop", "report", "demo", "portfolio", "lesson"] as const;
+export const presentationTemplateIds = ["pitch", "report", "roadmap", "workshop", "demo", "portfolio", "timeline", "hub", "mindmap", "lesson"] as const;
 export type PresentationTemplateId = (typeof presentationTemplateIds)[number];
-
 export type PresentationTemplate = {
   id: PresentationTemplateId;
   elements: PresentationElement[];
   steps: PresentationStep[];
 };
+type Palette = { paper: string; ink: string; muted: string; accent: string; soft: string; cover: string; coverInk: string };
+type Design = { palette: Palette; cover: "orbit" | "editorial" | "journey" | "cards"; layout: "grid" | "radial" | "journey"; serif?: boolean };
+const ink = "#172033";
+const designs: Record<PresentationTemplateId, Design> = {
+  pitch: { palette: { paper: "#fffaf5", ink, muted: "#656b76", accent: "#b34c35", soft: "#f3e6dc", cover: "#172033", coverInk: "#fffaf5" }, cover: "orbit", layout: "grid" },
+  report: { palette: { paper: "#ffffff", ink, muted: "#606c80", accent: "#3456a6", soft: "#edf1fa", cover: "#edf1fa", coverInk: ink }, cover: "cards", layout: "grid" },
+  roadmap: { palette: { paper: "#fafcf8", ink: "#183e36", muted: "#5b7268", accent: "#30674e", soft: "#e7eee1", cover: "#183e36", coverInk: "#f3f6e9" }, cover: "journey", layout: "journey" },
+  workshop: { palette: { paper: "#fffcf5", ink: "#42352b", muted: "#776a5c", accent: "#a45424", soft: "#f4ead1", cover: "#f4ead1", coverInk: "#42352b" }, cover: "cards", layout: "grid" },
+  demo: { palette: { paper: "#f8faff", ink, muted: "#626b82", accent: "#5546a0", soft: "#ece9f8", cover: "#292342", coverInk: "#f8f5ff" }, cover: "orbit", layout: "grid" },
+  portfolio: { palette: { paper: "#faf7f1", ink: "#35392f", muted: "#6d7263", accent: "#626b43", soft: "#eae9db", cover: "#faf7f1", coverInk: "#35392f" }, cover: "editorial", layout: "grid", serif: true },
+  timeline: { palette: { paper: "#fffaf5", ink: "#473429", muted: "#7a6b61", accent: "#9b5335", soft: "#f0e3d5", cover: "#f0e3d5", coverInk: "#473429" }, cover: "journey", layout: "journey", serif: true },
+  hub: { palette: { paper: "#f7fbfa", ink: "#164b4c", muted: "#587475", accent: "#287779", soft: "#e1efec", cover: "#164b4c", coverInk: "#f4faf4" }, cover: "orbit", layout: "radial" },
+  mindmap: { palette: { paper: "#fff9fa", ink: "#542d42", muted: "#826779", accent: "#9b4266", soft: "#f2e2e9", cover: "#f2e2e9", coverInk: "#542d42" }, cover: "orbit", layout: "radial" },
+  lesson: { palette: { paper: "#f9fafc", ink: "#253e62", muted: "#67758a", accent: "#42699c", soft: "#e8eef6", cover: "#253e62", coverInk: "#f4f8ff" }, cover: "editorial", layout: "journey" },
+};
 
-function text(
-  id: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  value: string,
-  fontSize: number,
-  bold: boolean,
-): PresentationTextElement {
-  return { id, type: "text", x, y, width, height, rotation: 0, content: { text: value, fontSize, bold, color: "", align: "center" } };
-}
+/** Every visual is ordinary editable canvas content, shared by previews and saved decks. */
+function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: string): PresentationTemplate {
+  const copy: TemplateCopy = presentationTemplateCopy[locale][id];
+  const design = designs[id];
+  const p = design.palette;
+  const elements: PresentationElement[] = [];
+  const steps: PresentationStep[] = [];
+  const de = locale === "de";
+  const total = copy.sections.length + 1;
 
-function frame(
-  id: string,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  label: string,
-  shape: "rect" | "circle" = "rect",
-  color = "",
-): PresentationFrameElement {
-  return { id, type: "frame", x, y, width, height, rotation: 0, content: { label, shape, color } };
-}
-
-function step(id: string, elementId: string): PresentationStep {
-  return { id, elementId };
-}
-
-// Horizontal frames along a line: a title, a connecting bar, and four chapters in a row.
-const timeline: PresentationTemplate = (() => {
-  const title = text("timeline-title", 0, -220, 900, 100, "Presentation Title", 56, true);
-  const bar = frame("timeline-bar", 0, 98, 3460, 24, "", "rect", "#6366f1");
-  const frames = [0, 1, 2, 3].map((i) => frame(`timeline-frame-${i + 1}`, i * 900, -20, 760, 260, `Chapter ${i + 1}`));
-  return {
-    id: "timeline",
-    elements: [title, bar, ...frames],
-    steps: [step("s0", title.id), ...frames.map((f, i) => step(`s${i + 1}`, f.id))],
-  };
-})();
-
-// A center topic with four frames arranged around it, hub-and-spoke style.
-const hub: PresentationTemplate = (() => {
-  const center = frame("hub-center", -200, -200, 400, 400, "Topic", "circle", "#6366f1");
-  const satellites = [
-    frame("hub-frame-1", -160, -910, 320, 320, "Frame 1"),
-    frame("hub-frame-2", 590, -160, 320, 320, "Frame 2"),
-    frame("hub-frame-3", -160, 590, 320, 320, "Frame 3"),
-    frame("hub-frame-4", -910, -160, 320, 320, "Frame 4"),
-  ];
-  return {
-    id: "hub",
-    elements: [center, ...satellites],
-    steps: [step("s0", center.id), ...satellites.map((f, i) => step(`s${i + 1}`, f.id))],
-  };
-})();
-
-// Title, then problem, solution, ask — the classic four-stop pitch.
-const pitch: PresentationTemplate = (() => {
-  const title = text("pitch-title", 0, -220, 900, 120, "Your Pitch", 56, true);
-  const problem = frame("pitch-problem", 0, 0, 900, 280, "Problem");
-  const solution = frame("pitch-solution", 0, 380, 900, 280, "Solution", "rect", "#0ea5e9");
-  const ask = frame("pitch-ask", 0, 760, 900, 280, "Ask", "rect", "#0d9488");
-  return {
-    id: "pitch",
-    elements: [title, problem, solution, ask],
-    steps: [step("s0", title.id), step("s1", problem.id), step("s2", solution.id), step("s3", ask.id)],
-  };
-})();
-
-// Center idea with radial branches at uneven radius/angle, plus one nested sub-branch —
-// asymmetric on purpose, so it reads as a mindmap rather than another hub.
-const mindmap: PresentationTemplate = (() => {
-  const center = frame("mindmap-center", -180, -180, 360, 360, "Idea", "circle", "#e11d48");
-  const branch1 = frame("mindmap-branch-1", 650, -450, 280, 180, "Branch 1");
-  const branch2 = frame("mindmap-branch-2", 750, 150, 280, 180, "Branch 2");
-  const detail = frame("mindmap-detail", 1150, 100, 220, 140, "Detail");
-  const branch3 = frame("mindmap-branch-3", 200, 650, 280, 180, "Branch 3");
-  const branch4 = frame("mindmap-branch-4", -750, 250, 280, 180, "Branch 4");
-  const branch5 = frame("mindmap-branch-5", -650, -500, 280, 180, "Branch 5");
-  const branches = [branch1, branch2, detail, branch3, branch4, branch5];
-  return {
-    id: "mindmap",
-    elements: [center, ...branches],
-    steps: [step("s0", center.id), ...branches.map((f, i) => step(`s${i + 1}`, f.id))],
-  };
-})();
-
-function structuredTemplate(id: PresentationTemplateId, layout: "grid" | "journey" | "nested", count: number): PresentationTemplate {
-  const overview = frame(`${id}-overview`, -60, -100, layout === "journey" ? 1100 * count : 2200, layout === "nested" ? 1500 : 1100, "", "rect", "#6366f1");
-  const elements: PresentationElement[] = [overview];
-  const steps = [step(`${id}-start`, overview.id)];
-  for (let i = 0; i < count; i++) {
-    const x = layout === "journey" ? i * 1050 : (i % 2) * 1050;
-    const y = layout === "journey" ? (i % 2) * 500 : layout === "nested" ? Math.floor(i / 2) * 450 : Math.floor(i / 2) * 500;
-    const section = { ...frame(`${id}-frame-${i}`, x, y, 900, 360, `${i + 1}`, "rect", i % 2 ? "#0d9488" : "#6366f1"), parentId: overview.id };
-    elements.push(section, { ...text(`${id}-text-${i}`, x + 50, y + 50, 800, 80, `${i + 1}`, 56, true), parentId: section.id });
-    steps.push(step(`${id}-step-${i}`, section.id));
-    if (layout === "nested") {
-      const detail = { ...frame(`${id}-detail-${i}`, x + 520, y + 180, 300, 130, "", "circle", "#f59e0b"), parentId: section.id };
-      elements.push(detail); steps.push(step(`${id}-zoom-${i}`, detail.id));
-    }
+  function slide(key: string, x: number, y: number, background: string, notes: string, label: string): PresentationFrameElement {
+    const element: PresentationFrameElement = { id: `${id}-${key}`, type: "frame", x, y, width: 1200, height: 675, rotation: 0, background, content: { label, shape: "rect", color: "transparent" } };
+    elements.push(element);
+    steps.push({ id: `${id}-step-${steps.length}`, elementId: element.id, notes });
+    return element;
   }
+  function text(parent: PresentationFrameElement, key: string, x: number, y: number, width: number, height: number, value: string, size = 24, color = p.ink, bold = false, serif = false) {
+    const element: PresentationTextElement = { id: `${parent.id}-${key}`, type: "text", parentId: parent.id, x: parent.x + x, y: parent.y + y, width, height, rotation: 0, content: { text: value, fontSize: size, color, bold, align: "left", font: serif ? "georgia" : "sans" } };
+    elements.push(element);
+    return element;
+  }
+  function shape(parent: PresentationFrameElement, key: string, x: number, y: number, width: number, height: number, fill: string, kind: "rect" | "ellipse" | "line" = "rect", stroke = fill, strokeWidth = 0) {
+    elements.push({ id: `${parent.id}-${key}`, type: "shape", parentId: parent.id, x: parent.x + x, y: parent.y + y, width, height, rotation: 0, content: { shape: kind, fill, stroke, strokeWidth, opacity: 1 } });
+  }
+  function footer(parent: PresentationFrameElement, index: number, color: string) {
+    shape(parent, "footer-rule", 64, 600, 1072, 20, "", "line", color, 1);
+    text(parent, "footer", 64, 632, 900, 20, de ? "[Name / Team]     ·     [Datum]" : "[Name / Team]     ·     [Date]", 14, color);
+    text(parent, "page", 1070, 632, 66, 20, `${String(index + 1).padStart(2, "0")} / ${String(total).padStart(2, "0")}`, 14, color);
+  }
+
+  const cover = slide("cover", 0, 0, p.cover, de ? "Thema, Publikum und Ziel der Präsentation nennen. Platzhalter durch eigene Inhalte ersetzen; Quellen und Beispiele ergänzen." : "Introduce the topic, audience and goal. Replace prompts with your own content; add sources and examples.", de ? "Titel" : "Title");
+  text(cover, "eyebrow", 64, 56, 700, 24, de ? "PERSPEKTIVEN  /  NÄCHSTE SCHRITTE" : "PERSPECTIVES  /  NEXT STEPS", 16, p.coverInk, true);
+  const coverTitle = text(cover, "title", 64, 156, 650, 250, title?.trim() || copy.title, title?.trim() ? Math.min(64, Math.floor(Math.sqrt(650 * 200 / (title.trim().length * 1.15)))) : 64, p.coverInk, !design.serif, design.serif);
+  // Stable title ID also makes existing editor links and selectors useful for new decks.
+  coverTitle.id = `${id}-title`;
+  text(cover, "subtitle", 68, 432, 585, 94, copy.subtitle, 25, p.coverInk);
+  if (design.cover === "orbit") {
+    shape(cover, "orbit-outer", 786, 142, 320, 320, "", "ellipse", p.coverInk, 2);
+    shape(cover, "orbit-inner", 854, 210, 184, 184, "", "ellipse", p.coverInk, 2);
+    shape(cover, "orbit-center", 905, 261, 82, 82, p.coverInk, "ellipse");
+    shape(cover, "orbit-dot", 1056, 183, 44, 44, p.accent, "ellipse");
+    text(cover, "orbit-caption", 796, 510, 320, 42, de ? "VON DER IDEE ZUR WIRKUNG" : "FROM IDEA TO IMPACT", 15, p.coverInk, true);
+  } else if (design.cover === "editorial") {
+    shape(cover, "art-back", 798, 132, 300, 384, p.soft);
+    shape(cover, "art-disc", 824, 157, 248, 248, p.accent, "ellipse");
+    shape(cover, "art-front", 824, 298, 248, 194, p.ink);
+    text(cover, "art-number", 844, 382, 215, 102, "01—", 80, p.paper, false, design.serif);
+  } else if (design.cover === "journey") {
+    shape(cover, "journey-line", 755, 450, 353, 20, "", "line", p.coverInk, 2);
+    [0, 1, 2].forEach((i) => {
+      const x = 770 + i * 126;
+      shape(cover, `milestone-${i}`, x, 332 - i * 80, 82, 100 + i * 80, p.coverInk);
+      text(cover, `milestone-number-${i}`, x + 15, 352 - i * 80, 60, 40, `0${i + 1}`, 27, p.cover, true);
+    });
+    text(cover, "journey-caption", 762, 510, 350, 42, de ? "JETZT     →     NÄCHSTES     →     ZIEL" : "NOW     →     NEXT     →     GOAL", 15, p.coverInk, true);
+  } else {
+    [0, 1, 2].forEach((i) => {
+      const y = 145 + i * 125;
+      shape(cover, `card-${i}`, 780, y, 340, 106, i === 1 ? p.ink : p.paper);
+      text(cover, `card-number-${i}`, 802, y + 23, 64, 52, `0${i + 1}`, 38, i === 1 ? p.paper : p.accent, true);
+      text(cover, `card-label-${i}`, 880, y + 34, 210, 52, copy.sections[i].title, 22, i === 1 ? p.paper : p.ink, true);
+    });
+  }
+  footer(cover, 0, p.coverInk);
+
+  function cards(parent: PresentationFrameElement, section: TemplateSection, mode: "cards" | "rows" | "metrics" | "statement") {
+    if (mode === "statement") {
+      shape(parent, "statement-panel", 64, 285, 350, 270, p.ink);
+      text(parent, "statement-number", 90, 310, 270, 110, "→", 88, p.paper);
+      text(parent, "statement-caption", 92, 458, 290, 66, de ? "KLARHEIT SCHAFFT\nBEWEGUNG." : "CLARITY CREATES\nMOMENTUM.", 23, p.paper, true);
+    }
+    section.items.forEach((item, i) => {
+      const [heading, ...body] = item.split("\n");
+      if (mode === "rows" || mode === "statement") {
+        const x = mode === "statement" ? 460 : 64;
+        const y = 278 + i * 104;
+        const width = 1136 - x;
+        shape(parent, `row-rule-${i}`, x, y + 84, width, 20, "", "line", p.soft, 2);
+        text(parent, `number-${i}`, x, y + 9, 70, 42, `0${i + 1}`, 28, p.accent, true);
+        text(parent, `item-title-${i}`, x + 90, y + 4, width - 95, 32, heading, 24, p.ink, true);
+        text(parent, `item-body-${i}`, x + 90, y + 43, width - 95, 52, body.join("\n"), 21, p.muted);
+      } else {
+        const x = 64 + i * 366;
+        shape(parent, `card-${i}`, x, 284, 340, 282, p.soft);
+        text(parent, `number-${i}`, x + 24, 308, 285, mode === "metrics" ? 90 : 54, mode === "metrics" ? "—" : `0${i + 1}`, mode === "metrics" ? 72 : 34, p.accent, true);
+        text(parent, `item-title-${i}`, x + 24, mode === "metrics" ? 420 : 400, 292, 62, heading, 25, p.ink, true);
+        text(parent, `item-body-${i}`, x + 24, mode === "metrics" ? 490 : 478, 292, 75, body.join("\n"), 21, p.muted);
+      }
+    });
+  }
+
+  copy.sections.forEach((section, i) => {
+    const index = i + 1;
+    let x = (index % 2) * 1440, y = Math.floor(index / 2) * 855;
+    if (design.layout === "journey") { x = index * 1440; y = 0; }
+    if (design.layout === "radial") {
+      const positions = [[0, -855], [1440, 0], [0, 855], [-1440, 0], [1440, 855]];
+      [x, y] = positions[i];
+    }
+    const key = id === "pitch" ? ["problem", "solution", "ask"][i] : `section-${index}`;
+    const parent = slide(key, x, y, p.paper, `${section.prompt}\n\n${section.items.join("\n\n")}`, section.title);
+    text(parent, "eyebrow", 64, 52, 1000, 24, `${String(index).padStart(2, "0")}  /  ${section.title.toLocaleUpperCase(locale)}`, 16, p.accent, true);
+    text(parent, "heading", 64, 116, 1065, 100, section.title, 51, p.ink, !design.serif, design.serif);
+    text(parent, "prompt", 68, 218, 1064, 58, section.prompt, 25, p.muted);
+    const mode = id === "report" && i === 1 ? "metrics"
+      : (id === "pitch" && i !== 1) || (id === "portfolio" && i === 0) ? "statement"
+      : (id === "workshop" && i !== 2) || (i % 3 === 2) ? "rows" : "cards";
+    cards(parent, section, mode);
+    footer(parent, index, p.muted);
+  });
   return { id, elements, steps };
 }
 
-export const presentationTemplates: Record<PresentationTemplateId, PresentationTemplate> = {
-  timeline,
-  hub,
-  pitch,
-  mindmap,
-  roadmap: structuredTemplate("roadmap", "journey", 4),
-  workshop: structuredTemplate("workshop", "nested", 6),
-  report: structuredTemplate("report", "grid", 4),
-  demo: structuredTemplate("demo", "nested", 4),
-  portfolio: structuredTemplate("portfolio", "grid", 4),
-  lesson: structuredTemplate("lesson", "journey", 5),
-};
+export const presentationTemplates = Object.fromEntries(presentationTemplateIds.map((id) => [id, buildTemplate(id, "en")])) as Record<PresentationTemplateId, PresentationTemplate>;
 
-/** Meaningful prompts in the author's language, not English-only starter content. */
-export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en") {
-  const labels = {
-    de: { roadmap: ["Vision", "Heute", "Nächster Schritt", "Ausblick"], workshop: ["Ziel", "Kontext", "Ideen", "Diskussion", "Entscheidung", "Nächste Schritte"], report: ["Zusammenfassung", "Kennzahlen", "Erkenntnisse", "Maßnahmen"], demo: ["Problem", "Lösung", "Produkt", "Nächste Schritte"], portfolio: ["Profil", "Kompetenzen", "Projekte", "Kontakt"], lesson: ["Lernziel", "Grundlagen", "Beispiel", "Übung", "Rückblick"] },
-    en: { roadmap: ["Vision", "Today", "Next milestone", "Outlook"], workshop: ["Objective", "Context", "Ideas", "Discussion", "Decision", "Next steps"], report: ["Summary", "Key metrics", "Findings", "Actions"], demo: ["Problem", "Solution", "Product", "Next steps"], portfolio: ["Profile", "Expertise", "Projects", "Contact"], lesson: ["Learning goal", "Foundations", "Example", "Exercise", "Recap"] },
-  };
-  const names = labels[locale][template.id as keyof typeof labels.en];
-  if (!names) return template;
-  const elements = template.elements.map((element) => {
-    const match = element.id.match(/-(?:frame|text)-(\d+)$/);
-    const label = match ? names[Number(match[1])] : undefined;
-    if (!label) return element;
-    return element.type === "text" ? { ...element, content: { ...element.content, text: label, color: "#172033" } }
-      : element.type === "frame" ? { ...element, background: "#ffffff", content: { ...element.content, label } } : element;
-  });
-  return { ...template, elements };
+/** Fresh objects on each call: previewing or editing one deck never changes the catalog. */
+export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en", title?: string): PresentationTemplate {
+  return buildTemplate(template.id, locale, title);
 }

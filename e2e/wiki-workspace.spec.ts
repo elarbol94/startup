@@ -91,6 +91,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   const title = `Strategische Unternehmensentwicklung und langfristige Zusammenarbeit ${Date.now()}`;
   await page.getByRole("textbox", { name: "Titel der Präsentation" }).fill(title);
   await page.getByRole("button", { name: "Pitch", exact: true }).click();
+  await page.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await expect(page.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
   await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(0);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;

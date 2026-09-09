@@ -62,6 +62,11 @@ test("create from a template, edit an element, add a step, then present and chec
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
+  await expect(page).toHaveURL(/\/wiki\/presentations$/);
+  await dialog.getByRole("button", { name: "Nächste Vorschauseite" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Folie 2 von 4");
+  await dialog.getByRole("button", { name: "Vorherige Vorschauseite" }).click();
+  await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
 
@@ -108,7 +113,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // The overlay sits on top of the still-mounted app shell, so control lookups are scoped
   // to it -- the app sidebar has its own "Übersicht" (dashboard) nav entry underneath.
   const player = page.getByTestId("presentation-player");
-  const status = player.getByText(/^\d+ \/ \d+$/);
+  const status = player.getByRole("status");
   await expect(status).toHaveText("1 / 5");
 
   const next = player.getByRole("button", { name: "Nächste Station" });
@@ -129,7 +134,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // rely on: clicking the "Ask" frame (a step target) must move the player there through
   // the normal setIndex path, same as Next/Previous; re-opening the overview between clicks
   // keeps the next target reachable once the camera has flown in tight on the previous one.
-  await player.locator('[data-testid="rf__node-pitch-ask"]').click();
+  await player.locator('[data-testid="rf__node-pitch-ask"]').click({ position: { x: 1, y: 24 } });
   await expect(status).toHaveText("4 / 5");
 
   // The free element is not a step target, so clicking it only flies the camera there --
@@ -150,14 +155,14 @@ test("create from a template, edit an element, add a step, then present and chec
 
   // Back to "Problem" so the walk below starts from the same step it always did.
   await player.getByRole("button", { name: "Übersicht" }).click();
-  await player.locator('[data-testid="rf__node-pitch-problem"]').click();
+  await player.locator('[data-testid="rf__node-pitch-problem"]').click({ position: { x: 1, y: 24 } });
   await expect(status).toHaveText("2 / 5");
 
-  // "Problem" now fills the view, so a click mid-screen lands on that frame node rather
-  // than on empty canvas. Clicking the frame we are already looking inside must advance
+  // Click the frame outline, which remains reachable around its authored contents.
+  // Clicking the frame we are already looking inside must advance
   // like an empty-canvas click, not re-frame it -- decks whose every node is enclosed by
   // a frame would otherwise lose click-to-advance completely.
-  await player.locator('[data-testid="rf__node-pitch-problem"]').click();
+  await player.locator('[data-testid="rf__node-pitch-problem"]').click({ position: { x: 1, y: 24 } });
   await expect(status).toHaveText("3 / 5");
 
   const fullscreenToggle = player.getByRole("button", { name: "Vollbild" });
@@ -177,7 +182,7 @@ test("create from a template, edit an element, add a step, then present and chec
   await player.getByRole("button", { name: "Präsentationsansicht öffnen" }).click();
   const popup = await popupPromise;
   await popup.waitForLoadState();
-  await expect(popup.getByText(title)).toBeVisible({ timeout: 30_000 });
+  await expect(popup.locator("header").getByText(title, { exact: true })).toBeVisible({ timeout: 30_000 });
   // The BroadcastChannel round trip needs the popup's own bundle hydrated first, which on
   // a cold dev-server compile can take longer than the current step count alone.
   await expect(popup.getByText("5 / 5")).toBeVisible({ timeout: 30_000 });
@@ -201,6 +206,7 @@ async function openNewPitchEditor(page: Page, title: string) {
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
+  await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
   // A rendered breadcrumb can appear before hydration and the initial edit lease.
@@ -282,11 +288,11 @@ test("restoring history drains pending edits and cannot be overwritten by autosa
   await expect(restore).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
   await restore.click();
-  await expect(page.getByTestId("rf__node-pitch-title")).toContainText("Your Pitch");
+  await expect(page.getByTestId("rf__node-pitch-title")).toContainText(title);
   await expect(page.getByRole("button", { name: "Rückgängig" })).toBeDisabled();
   await page.waitForTimeout(2_000);
   await page.reload();
-  await expect(page.getByTestId("rf__node-pitch-title")).toContainText("Your Pitch");
+  await expect(page.getByTestId("rf__node-pitch-title")).toContainText(title);
 });
 
 test("PDF notes are opt-in and keyboard activation advances exactly one stop", async ({ page, context }) => {
@@ -398,14 +404,15 @@ test("panel inputs: a playback duration is typed digit by digit and clamped only
 test("panel inputs: undo puts the canvas value back into the side panel", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page);
-  await openNewPitchEditor(page, `E2E Panel Undo ${Date.now()}`);
+  const title = `E2E Panel Undo ${Date.now()}`;
+  await openNewPitchEditor(page, title);
 
   // The Pitch template's title element, selected on the canvas so the panel edits it.
   const titleNode = page.locator('[data-testid="rf__node-pitch-title"]');
   await expect(titleNode).toBeVisible();
   await titleNode.click();
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
-  await expect(contentField).toHaveValue("Your Pitch");
+  await expect(contentField).toHaveValue(title);
 
   await contentField.fill("Changed title");
   await contentField.blur();
@@ -413,14 +420,14 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
 
   const undo = page.getByRole("button", { name: "Rückgängig" });
   await undo.click();
-  await expect(titleNode).toContainText("Your Pitch");
+  await expect(titleNode).toContainText(title);
   // The panel used to keep showing the undone text, and re-applied it on the next blur.
-  await expect(contentField).toHaveValue("Your Pitch");
+  await expect(contentField).toHaveValue(title);
 
   await contentField.click();
   await contentField.blur();
-  await expect(contentField).toHaveValue("Your Pitch");
-  await expect(titleNode).toContainText("Your Pitch");
+  await expect(contentField).toHaveValue(title);
+  await expect(titleNode).toContainText(title);
   // Leaving a field alone is not an edit, so there is still nothing left to undo.
   await expect(undo).toBeDisabled();
 });
@@ -443,6 +450,7 @@ test("presenting flushes the pending autosave instead of losing the last edit", 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
+  await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
 
@@ -478,6 +486,7 @@ test("reloading the editor reclaims the author's own lease so edits still save",
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
+  await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
 
@@ -520,6 +529,7 @@ test("a follower leaves a live session from the badge, and the presenter exiting
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
+  await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
 

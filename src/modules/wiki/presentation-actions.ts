@@ -47,7 +47,7 @@ export async function createPresentation(input: { title: string; templateId?: st
     .object({ title: titleSchema, templateId: templateIdSchema.optional(), locale: z.enum(["de", "en"]).default("de") })
     .parse(input);
   // templateId is validated against the enum above, so this is always a known template.
-  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale) : null;
+  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale, title) : null;
   const row = db
     .insert(wikiPresentations)
     .values({
