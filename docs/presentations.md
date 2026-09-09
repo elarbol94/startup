@@ -12,14 +12,16 @@ owners can explicitly publish a separate read-only link or website embed.
 
 ## Built-in templates
 
-**New → Blank or template** opens a gallery of ten complete designs for pitches,
+**New → Blank or template** opens a gallery of fourteen complete designs for pitches,
 reports, roadmaps, workshops, product demos, portfolios, timelines, topic overviews,
 mindmaps and lessons. Select a design, browse every page with the preview arrows,
 and choose **Use template**. Selecting and previewing never creates a presentation.
 The blank option remains available for a free canvas.
 
-Previews use the same editable elements as the created presentation. Each design
-includes 16:9 frames, coordinated colors, a clear reading order, authoring prompts
+Use **Color palette** beside the preview to keep the original colors or choose Ocean, Forest, Sunset, Plum or Slate. Thumbnails and every preview stop update immediately. The selected palette is applied to the editable elements when creating the presentation; switching templates keeps the palette selection. Existing presentations are unchanged.
+
+Previews use the same editable elements as the created presentation. The ten slide-based designs
+include 16:9 frames, coordinated colors, a clear reading order, authoring prompts
 and speaker notes in the selected German or English UI language. The entered title
 appears on the cover; each frame owns its contents so moving it keeps the layout
 together. Metric fields remain placeholders for the author's real values and sources.
@@ -231,6 +233,51 @@ On desktop, the path and the active utility panel dock beside the canvas.
   The plain-text field and canvas double-click are plain-text edits and clear
   span-level formatting when their text changes.
 
+## Copying object formatting
+
+Select one object and press **Ctrl+Shift+C** (Mac: **Cmd+Shift+C**) to copy its
+appearance. Select one or more objects of the same type and press **Ctrl+Shift+V**
+to apply it. Formatting is available through the keyboard shortcuts.
+This session-local formatting clipboard preserves target content, position, size,
+hierarchy, media, chart data and connector links. Text formatting includes padding
+and automatic fitting; text span overrides are cleared while their text and URLs
+are retained. Other types copy their relevant colors, borders, fit or mask settings.
+Locked and incompatible targets are skipped. Pasting is one undo step. Normal text
+editing shortcuts inside inputs, rich text and dialogs are left to those controls.
+The formatting clipboard lasts until this editor is closed or reloaded.
+
+## Layout assistance
+
+A single click selects an object without opening or switching panels. Double-clicking an object opens its Properties panel, including a **Selected element tools** card. Use **Connect to** to choose a target and **Add connector**, without needing multi-selection. Labeled shortcuts jump to appearance, content/media, structure and animation; the panel also has direct buttons for document sources, design, assets and comments. Multi-selection exposes alignment buttons in the same card.
+
+Select two or more objects and open **Arrange / Anordnen** to align their edges
+or centers. Three or more objects can be distributed with equal gaps. Rotated
+objects use their visible bounds. Frames move with their descendants; selecting
+both a frame and a child does not move that child twice. Locked roots cannot be
+arranged. Equal spacing leaves an overlapping selection unchanged if there is
+not enough room for nonnegative gaps; spread the outer objects first.
+
+With exactly two objects selected, **Connect sections / Bereiche verbinden**
+adds an arrow whose endpoints follow their boundaries when they move, resize or
+rotate. Select the arrow and use **Detach connector / Verbindung lösen** to
+position it freely. Deleting an endpoint detaches its connector at the last
+position. Duplicating a connected selection remaps its copied endpoint links.
+Existing freehand lines stay freehand. Extremely close or overlapping objects
+retain a minimum 20-unit connector, matching the canvas size limits.
+
+Text properties include **Automatically fit text / Text automatisch einpassen**
+and text padding. Fitting uses conservative character-width estimates to shrink
+text down to 12 units (or its smaller original size) and regrow it up to the
+chosen font size when space becomes available. Rich text, explicit line breaks
+and lists participate in fitting. A warning asks the author to enlarge the box
+or shorten its content if it still does not fit. This is a layout aid rather
+than exact font measurement; review the delivery preview for unusual fonts or
+scripts. Fitted font sizes and padding are saved, so exports use the same values.
+
+Arrangement, text fitting and connector updates share the existing autosave,
+undo and redo history. The optional settings live in canvas JSON; no database
+migration is required.
+
 ## Color selection
 
 Color controls share an Office-style palette with ten base-color columns and
@@ -243,7 +290,8 @@ Personal annotation identity colors keep their reserved, per-user choices.
 
 ## Company designs and assets
 
-- Ten built-in starters cover timeline, hub, pitch, mind map, roadmap, workshop,
+- Four spatial starters (topic map, journey, layers and comparison) use nested camera regions on one canvas, with an overview at the beginning and end. Gallery previews include the full canvas and use stop-based navigation. All text is placeholder content, available in German and English.
+- Ten slide-based starters cover timeline, hub, pitch, mind map, roadmap, workshop,
   report, demo, portfolio and lesson layouts.
 - Save named company themes (background, foreground, accent and font) and reusable
   templates from the inspector. Applying a template replaces the current canvas
@@ -328,3 +376,7 @@ Migration `0055_redundant_nebula.sql` adds access settings, membership, comments
 the design library. Existing canvases remain backwards-compatible. Deploy through
 the normal manual homeserver workflow after local validation; do not deploy from
 the laptop automatically.
+
+The Properties inspector uses exclusive collapsible sections: opening Appearance, Content & media, Structure, or Animation closes the others. Connectors and multi-object arrangement are collapsed groups; a compact selector switches workspace panels.
+
+Inspector tools follow the selection: Content is shown only for text, images, charts, icons and media; grouping and alignment require multiple objects; connected arrows expose line styling and detaching. Animation step settings only refer to the selected object. Canvas settings appear with no selection.

@@ -221,3 +221,18 @@ it("resolves current source previews, persists reviews, and reports removed sect
   sqlite.prepare("UPDATE wiki_pages SET deleted_at = 1 WHERE id = ?").run("preview-doc");
   expect(presentationSourcePreviews([reference])[0]).toMatchObject({ document: null, snapshot: null });
 });
+
+describe("template palette creation", () => {
+  it("persists exactly the palette shown by the localized preview", async () => {
+    const { localizedPresentationTemplate, presentationTemplates } = await import("./lib/presentation-templates");
+    for (const templateId of ["topicmap", "pitch"] as const) {
+      const preview = localizedPresentationTemplate(presentationTemplates[templateId], "de", "Farben", "plum");
+      const { id } = await createPresentation({ title: "Farben", templateId, locale: "de", paletteId: "plum" });
+      expect(JSON.parse(record(id).elements_json)).toEqual(preview.elements);
+    }
+  });
+  it("rejects an unknown palette before inserting a presentation", async () => {
+    await expect(createPresentation({ title: "Invalid", templateId: "topicmap", paletteId: "unknown" })).rejects.toThrow();
+    expect(sqlite.prepare("SELECT count(*) AS count FROM wiki_presentations").get()).toEqual({ count: 0 });
+  });
+});

@@ -32,7 +32,7 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
     const c = element.content;
     const style: CSSProperties = { fontFamily: presentationFontFamilies[c.font ?? "sans"], fontSize: c.fontSize,
       fontWeight: c.bold ? 700 : 400, fontStyle: c.italic ? "italic" : undefined, textDecoration: c.underline ? "underline" : undefined,
-      textAlign: c.align, color: c.color || "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word", lineHeight: 1.15, height: "100%", overflow: "hidden" };
+      boxSizing: "border-box", padding: c.padding ?? 0, textAlign: c.align, color: c.color || "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word", lineHeight: 1.15, height: "100%", overflow: "hidden" };
     const runs = c.runs ?? [{ text: c.text }];
     const renderRuns = (entries: typeof runs) => entries.map((run, i) => {
       const child = <span style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, textDecoration: run.underline ? "underline" : undefined, color: run.color || undefined }}>{run.text}</span>;

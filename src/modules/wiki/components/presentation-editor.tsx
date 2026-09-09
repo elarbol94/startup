@@ -8,6 +8,8 @@ import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
+import { copyPresentationFormat, pastePresentationFormat, type PresentationFormat } from "../lib/presentation-format";
+import { arrangePresentation, layoutRoots, presentationAlignments, presentationTextFits } from "../lib/presentation-layout";
 import { subsectionBaseline } from "../lib/presentation-subsections";
 import { applyStructureProposal } from "../lib/presentation-structure";
 import { PresentationSubsectionUpdates } from "./presentation-subsection-updates";
@@ -124,6 +126,7 @@ import {
   type SnapGuide,
 } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
+import { PresentationSelectionTools } from "./presentation-selection-tools";
 import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import { mergePresentation, presentationValuesEqual } from "../lib/presentation-merge";
@@ -461,6 +464,7 @@ function Editor({
   const reactFlow = useReactFlow<PresentationNode>();
   const { resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const formatClipboard = useRef<PresentationFormat | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => globalThis.crypto.randomUUID());
   const canEdit = presentation.role === "owner" || presentation.role === "edit";
@@ -512,8 +516,7 @@ function Editor({
   const [inspectedSelection, setInspectedSelection] = useState(selectionKey);
   if (selectionKey !== inspectedSelection) {
     setInspectedSelection(selectionKey);
-    if (selectionKey && !(pathOpen && !window.matchMedia("(min-width: 1280px)").matches)) setActivePanel((current) => current === "sources" || current === "comments" ? current : "properties");
-    else if (!selectionKey) setActivePanel((current) => current === "properties" ? null : current);
+    if (!selectionKey) setActivePanel((current) => current === "properties" ? null : current);
   }
   const [activeStepId, setActiveStepId] = useState<string | null>(null);
   const [status, setStatus] = useState<Exclude<SaveState, "unsaved">>("idle");
@@ -915,6 +918,27 @@ function Editor({
     [commitElements, disabled, elements.length, t],
   );
 
+  const arrangementRoots = layoutRoots(elements, selectedSet);
+  const arrangementDisabled = disabled || arrangementRoots.length < 2 || arrangementRoots.some(e => isPresentationElementLocked(elements, e.id) || (e.type === "shape" && e.content.connection));
+  const connectObjects = (fromId: string, toId: string) => {
+    const from = elements.find(e => e.id === fromId), to = elements.find(e => e.id === toId);
+    if (disabled || !from || !to || fromId === toId || elements.length >= 500 || isPresentationElementLocked(elements, fromId)
+      || (from.type === "shape" && from.content.connection) || (to.type === "shape" && to.content.connection)) return;
+    addElement({ id: createId(), type: "shape", x: 0, y: 0, width: 20, height: 20, rotation: 0,
+      content: { shape: "arrow", fill: "", stroke: "", strokeWidth: 3, opacity: 1, connection: { fromId, toId } } });
+  };
+  const connectSelection = () => {
+    if (!arrangementDisabled && arrangementRoots.length === 2) connectObjects(arrangementRoots[0].id, arrangementRoots[1].id);
+  };
+  const jumpToSelectionTool = (section: "appearance" | "content" | "structure" | "animation") => {
+    const target = document.getElementById(`presentation-tool-${section}`);
+    if (!target) return;
+    document.querySelectorAll<HTMLDetailsElement>('details[name="presentation-inspector"]').forEach(panel => { panel.open = panel === target; });
+    target.scrollIntoView({ block: "start" });
+    const focusTarget = target.querySelector<HTMLElement>("summary") ?? target;
+    focusTarget.focus({ preventScroll: true });
+  };
+
   /** Deleting takes the steps that pointed at the gone elements with it. */
   const deleteSelection = useCallback(
     (ids: string[]) => {
@@ -955,6 +979,22 @@ function Editor({
     [commitElements],
   );
 
+  const copyObjectFormat = useCallback(() => {
+    if (selection.length !== 1) { toast.info(t("presentations.format.selectSource")); return; }
+    formatClipboard.current = copyPresentationFormat(selection[0]);
+    toast.success(t("presentations.format.copied"));
+  }, [selection, t]);
+  const pasteObjectFormat = useCallback(() => {
+    if (disabled) return;
+    const format = formatClipboard.current;
+    if (!format) { toast.info(t("presentations.format.empty")); return; }
+    const compatible = selection.filter(e => e.type === format.type && !isPresentationElementLocked(elements, e.id));
+    if (!compatible.length) { toast.info(t("presentations.format.selectTarget")); return; }
+    const ids = new Set(compatible.map(e => e.id));
+    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => pastePresentationFormat(current, ids, format) });
+    toast.success(t("presentations.format.pasted", { count: compatible.length }));
+  }, [disabled, elements, selection, t]);
+
   /**
    * Delete, Ctrl+D and undo/redo are handled here rather than by React Flow's own key
    * options, so the shortcuts work no matter which pane has focus — and so a copy is offset
@@ -969,8 +1009,18 @@ function Editor({
         return;
       }
       if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      if (disabled || target?.closest("[role='dialog']")) return;
+      if (target?.closest("[role='dialog']")) return;
       const shortcut = event.ctrlKey || event.metaKey;
+      if (shortcut && event.shiftKey && ["c", "v"].includes(event.key.toLowerCase())) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!event.repeat) {
+          if (event.key.toLowerCase() === "c") copyObjectFormat();
+          else pasteObjectFormat();
+        }
+        return;
+      }
+      if (disabled) return;
       if (shortcut && event.key.toLowerCase() === "z") {
         event.preventDefault();
         dispatch({ type: event.shiftKey ? "redo" : "undo" });
@@ -987,9 +1037,9 @@ function Editor({
         duplicateSelection(selectedIds);
       }
     };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteSelection, duplicateSelection, selectedIds, disabled, flush]);
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [deleteSelection, duplicateSelection, selectedIds, disabled, flush, copyObjectFormat, pasteObjectFormat]);
 
   const addText = useCallback(() => {
     const { x, y } = viewportCenter();
@@ -1440,6 +1490,13 @@ function Editor({
           <DropdownMenuItem onClick={() => addStudioElement("icon")}>{studio("addIcon")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => mediaInputRef.current?.click()}>{studio("uploadMedia")}</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
+        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={arrangementDisabled} />}>{t("presentations.layout.arrange")}</DropdownMenuTrigger><DropdownMenuContent>
+          {presentationAlignments.map(mode => <DropdownMenuItem key={mode} disabled={arrangementRoots.length < ((mode === "horizontal" || mode === "vertical") ? 3 : 2)} onClick={() => {
+            if (!arrangementDisabled) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => arrangePresentation(current, selectedSet, mode) });
+          }}>{t(`presentations.layout.${mode}`)}</DropdownMenuItem>)}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem disabled={arrangementRoots.length !== 2 || elements.length >= 500} onClick={connectSelection}>{t("presentations.layout.connect")}</DropdownMenuItem>
+        </DropdownMenuContent></DropdownMenu>
         <input ref={mediaInputRef} aria-label={studio("uploadMedia")} hidden type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file); event.target.value = ""; }} />
         <input
           ref={imageInputRef}
@@ -1520,6 +1577,12 @@ function Editor({
             edges={[]}
             nodeTypes={presentationNodeTypes}
             onNodesChange={onNodesChange}
+            onNodeDoubleClick={(_event, node) => {
+              setSelectedIds([node.id]);
+              setActivePanel("properties");
+              if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false);
+            }}
+            zoomOnDoubleClick={false}
             onNodeDragStart={startGesture}
             onNodeDragStop={endGesture}
             onSelectionDragStart={startGesture}
@@ -1575,9 +1638,15 @@ function Editor({
         </div>
 
         <WorkspacePanel title={t(`workspace.${activePanel ?? "properties"}`)} open={activePanel !== null} onClose={() => setActivePanel(null)} className="h-full max-h-full overflow-y-auto">
+          <select aria-label={t("presentations.selectionTools.panels")} value={activePanel ?? "properties"} onChange={event => setActivePanel(event.target.value as Exclude<typeof activePanel, null>)} className="mb-5 h-10 w-full rounded-lg border bg-background px-3 text-sm">
+            {(["properties", "sources", "design", "assets", "comments"] as const).map(panel => <option key={panel} value={panel}>{t(`workspace.${panel}`)}</option>)}
+          </select>
           <div hidden={activePanel !== "sources"}>{sourcePanel}</div>
           <div hidden={!["design", "assets", "comments"].includes(activePanel ?? "")}>{libraryPanel}</div>
           <div hidden={activePanel !== "properties"}>
+          {selection.length > 0 && <PresentationSelectionTools key={selectionKey} elements={elements} selection={selection}
+            disabled={disabled || selection.some(e => isPresentationElementLocked(elements, e.id))} arrangeDisabled={arrangementDisabled} rootCount={arrangementRoots.length}
+            onConnect={connectObjects} onArrange={mode => { if (!arrangementDisabled) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => arrangePresentation(current, selectedSet, mode) }); }} onJump={jumpToSelectionTool} />}
           <fieldset disabled={disabled} className="min-w-0">
           {selection.length > 1 && (
             <section className="mt-5 border-t pt-4">
@@ -1602,7 +1671,8 @@ function Editor({
           )}
 
           {selected && (
-            <section className="mt-5 border-t pt-4">
+            <details id="presentation-tool-appearance" name="presentation-inspector" open className="my-3 scroll-mt-4 rounded-lg border p-3">
+              <summary className="mb-3 cursor-pointer text-sm font-semibold">{t("presentations.selectionTools.appearance")}</summary>
               <div className="flex items-center justify-between gap-1">
                 <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">{t(`presentations.elementTypes.${selected.type}`)}</h2>
                 <div className="flex shrink-0 items-center">
@@ -1622,7 +1692,7 @@ function Editor({
               </div>
 
               <div className="mt-3 space-y-2">
-                <label className="block text-xs text-muted-foreground">
+                {!(selected.type === "shape" && selected.content.connection) && <label className="block text-xs text-muted-foreground">
                   {t("presentations.rotation")}
                   <DraftInput
                     type="number"
@@ -1635,8 +1705,8 @@ function Editor({
                     normalise={(raw) => String(Math.round(parseNumberInput(raw, -360, 360) ?? selected.rotation))}
                     onCommit={(next) => updateElement(selected.id, (element) => ({ ...element, rotation: Number(next) }))}
                   />
-                </label>
-                {colorField(t("presentations.elementBackground"), selected.background ?? "", (color) =>
+                </label>}
+                {!(selected.type === "shape" && (selected.content.shape === "arrow" || selected.content.shape === "line")) && colorField(t("presentations.elementBackground"), selected.background ?? "", (color) =>
                   updateElement(selected.id, (element) => ({ ...element, background: color })),
                 )}
               </div>
@@ -1651,6 +1721,15 @@ function Editor({
                     rows={4}
                     onCommit={(text) => onTextChange(selected.id, text)}
                   />
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={Boolean(selected.content.autoFit)} onCheckedChange={(checked) => updateElement(selected.id, element => element.type === "text" ? { ...element, content: { ...element.content, autoFit: checked ? { minFontSize: Math.min(12, element.content.fontSize), maxFontSize: element.content.fontSize } : undefined } } : element)} />
+                    {t("presentations.layout.autoFit")}
+                  </label>
+                  {selected.content.autoFit && <p className="text-xs text-muted-foreground">{t("presentations.layout.autoFitHint")}</p>}
+                  {selected.content.autoFit && !presentationTextFits(selected) && <p role="status" className="text-xs text-amber-700">{t("presentations.layout.overcrowded")}</p>}
+                  <label className="block text-xs text-muted-foreground">{t("presentations.layout.padding")}
+                    <DraftInput type="number" min={0} max={100} value={String(selected.content.padding ?? 0)} normalise={raw => String(parseNumberInput(raw, 0, 100) ?? 0)} onCommit={next => updateElement(selected.id, element => element.type === "text" ? { ...element, content: { ...element.content, padding: Number(next) } } : element)} />
+                  </label>
                   <label className="block text-xs text-muted-foreground">
                     {t("presentations.fontSize")}
                     <DraftInput
@@ -1659,11 +1738,11 @@ function Editor({
                       max={400}
                       className="mt-1 h-8"
                       key={`${selected.id}-size`}
-                      value={String(selected.content.fontSize)}
+                      value={String(selected.content.autoFit?.maxFontSize ?? selected.content.fontSize)}
                       normalise={(raw) => String(Math.round(parseNumberInput(raw, 8, 400) ?? selected.content.fontSize))}
                       onCommit={(next) =>
                         updateElement(selected.id, (element) =>
-                          element.type === "text" ? { ...element, content: { ...element.content, fontSize: Number(next) } } : element,
+                          element.type === "text" ? { ...element, content: { ...element.content, fontSize: Number(next), autoFit: element.content.autoFit ? { minFontSize: Math.min(element.content.autoFit.minFontSize, Number(next)), maxFontSize: Number(next) } : undefined } } : element,
                         )
                       }
                     />
@@ -1705,6 +1784,10 @@ function Editor({
                 </div>
               )}
 
+              {selected.type === "shape" && selected.content.connection && <div className="mt-3 space-y-2">
+                <p className="text-xs text-muted-foreground">{t("presentations.layout.connectedHint")}</p>
+                <Button size="sm" variant="outline" onClick={() => updateElement(selected.id, element => element.type === "shape" ? { ...element, content: { ...element.content, connection: undefined } } : element)}>{t("presentations.layout.detach")}</Button>
+              </div>}
               {selected.type === "image" && (
                 <label className="mt-3 block text-xs text-muted-foreground">
                   {t("presentations.altText")}
@@ -1767,7 +1850,7 @@ function Editor({
               {selected.type === "shape" && (
                 <div className="mt-3 space-y-3">
                   <div className="flex flex-wrap gap-1.5">
-                    {presentationShapeKinds.map((shape) => (
+                    {presentationShapeKinds.filter(shape => !selected.content.connection || shape === "arrow" || shape === "line").map((shape) => (
                       <Button
                         key={shape}
                         type="button"
@@ -1783,7 +1866,7 @@ function Editor({
                       </Button>
                     ))}
                   </div>
-                  {colorField(t("presentations.fill"), selected.content.fill, (fill) =>
+                  {selected.content.shape !== "arrow" && selected.content.shape !== "line" && colorField(t("presentations.fill"), selected.content.fill, (fill) =>
                     updateElement(selected.id, (element) =>
                       element.type === "shape" ? { ...element, content: { ...element.content, fill } } : element,
                     ),
@@ -1829,20 +1912,20 @@ function Editor({
                   </label>
                 </div>
               )}
-            </section>
+            </details>
           )}
 
           <PresentationStudioInspector elements={elements} selectedIds={selectedIds} activeStep={activeStep}
             onElements={commitElements} onSelect={setSelectedIds} onUpdate={(element) => updateElement(element.id, () => element)} onSteps={commitSteps}
             disabled={disabled || uploading} />
-          <section className="mt-5 border-t pt-4">
-            <h2 className="text-xs font-semibold tracking-wide uppercase">{t("presentations.canvas")}</h2>
+          {selection.length === 0 && <details name="presentation-inspector" open className="mt-4 rounded-lg border p-3">
+            <summary className="cursor-pointer text-sm font-semibold">{t("presentations.canvas")}</summary>
             <div className="mt-3">
               {colorField(t("presentations.canvasBackground"), background, (color) => {
                 dispatch({ type: "touch", background: color });
               })}
             </div>
-          </section>
+          </details>}
 
           </fieldset>
           </div>

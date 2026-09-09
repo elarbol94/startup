@@ -1,7 +1,10 @@
+import { presentationPalettes, type PresentationPaletteId } from "./presentation-template-palettes";
+import { buildSpatialTemplate, spatialTemplateIds, isSpatialTemplateId } from "./presentation-spatial-templates";
 import type { PresentationElement, PresentationFrameElement, PresentationStep, PresentationTextElement } from "./presentation";
 import { presentationTemplateCopy, type TemplateCopy, type TemplateSection } from "./presentation-template-copy";
 
-export const presentationTemplateIds = ["pitch", "report", "roadmap", "workshop", "demo", "portfolio", "timeline", "hub", "mindmap", "lesson"] as const;
+const slideTemplateIds = ["pitch", "report", "roadmap", "workshop", "demo", "portfolio", "timeline", "hub", "mindmap", "lesson"] as const;
+export const presentationTemplateIds = [...spatialTemplateIds, ...slideTemplateIds] as const;
 export type PresentationTemplateId = (typeof presentationTemplateIds)[number];
 export type PresentationTemplate = {
   id: PresentationTemplateId;
@@ -11,7 +14,7 @@ export type PresentationTemplate = {
 type Palette = { paper: string; ink: string; muted: string; accent: string; soft: string; cover: string; coverInk: string };
 type Design = { palette: Palette; cover: "orbit" | "editorial" | "journey" | "cards"; layout: "grid" | "radial" | "journey"; serif?: boolean };
 const ink = "#172033";
-const designs: Record<PresentationTemplateId, Design> = {
+const designs: Record<(typeof slideTemplateIds)[number], Design> = {
   pitch: { palette: { paper: "#fffaf5", ink, muted: "#656b76", accent: "#b34c35", soft: "#f3e6dc", cover: "#172033", coverInk: "#fffaf5" }, cover: "orbit", layout: "grid" },
   report: { palette: { paper: "#ffffff", ink, muted: "#606c80", accent: "#3456a6", soft: "#edf1fa", cover: "#edf1fa", coverInk: ink }, cover: "cards", layout: "grid" },
   roadmap: { palette: { paper: "#fafcf8", ink: "#183e36", muted: "#5b7268", accent: "#30674e", soft: "#e7eee1", cover: "#183e36", coverInk: "#f3f6e9" }, cover: "journey", layout: "journey" },
@@ -25,10 +28,11 @@ const designs: Record<PresentationTemplateId, Design> = {
 };
 
 /** Every visual is ordinary editable canvas content, shared by previews and saved decks. */
-function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: string): PresentationTemplate {
+function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original"): PresentationTemplate {
+  if (isSpatialTemplateId(id)) return buildSpatialTemplate(id, locale, title, paletteId === "original" ? undefined : presentationPalettes[paletteId]);
   const copy: TemplateCopy = presentationTemplateCopy[locale][id];
   const design = designs[id];
-  const p = design.palette;
+  const p = paletteId === "original" ? design.palette : presentationPalettes[paletteId];
   const elements: PresentationElement[] = [];
   const steps: PresentationStep[] = [];
   const de = locale === "de";
@@ -140,6 +144,6 @@ function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: 
 export const presentationTemplates = Object.fromEntries(presentationTemplateIds.map((id) => [id, buildTemplate(id, "en")])) as Record<PresentationTemplateId, PresentationTemplate>;
 
 /** Fresh objects on each call: previewing or editing one deck never changes the catalog. */
-export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en", title?: string): PresentationTemplate {
-  return buildTemplate(template.id, locale, title);
+export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original"): PresentationTemplate {
+  return buildTemplate(template.id, locale, title, paletteId);
 }

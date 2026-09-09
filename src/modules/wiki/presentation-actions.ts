@@ -31,6 +31,8 @@ import { requirePresentationAccess, presentationAccessSettings } from "./present
 import { mergePresentation } from "./lib/presentation-merge";
 import { presentationSnapshotSchema } from "./lib/presentation";
 
+import { presentationPaletteIds } from "./lib/presentation-template-palettes";
+
 const idSchema = z.string().min(1).max(64);
 const titleSchema = z.string().trim().min(1).max(200);
 const sessionSchema = z.string().min(8).max(200);
@@ -41,13 +43,13 @@ function revalidatePresentations(id?: string) {
   if (id) revalidatePath(`/wiki/presentations/${id}`);
 }
 
-export async function createPresentation(input: { title: string; templateId?: string; locale?: string }) {
+export async function createPresentation(input: { title: string; templateId?: string; locale?: string; paletteId?: string }) {
   const currentUser = await requireUserOrThrow();
-  const { title, templateId, locale } = z
-    .object({ title: titleSchema, templateId: templateIdSchema.optional(), locale: z.enum(["de", "en"]).default("de") })
+  const { title, templateId, locale, paletteId } = z
+    .object({ title: titleSchema, templateId: templateIdSchema.optional(), paletteId: z.enum(presentationPaletteIds).default("original"), locale: z.enum(["de", "en"]).default("de") })
     .parse(input);
   // templateId is validated against the enum above, so this is always a known template.
-  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale, title) : null;
+  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale, title, paletteId) : null;
   const row = db
     .insert(wikiPresentations)
     .values({

@@ -60,3 +60,76 @@ describe("localized, editable template layouts", () => {
     expect(JSON.stringify(presentationTemplates)).toBe(before);
   });
 });
+
+
+describe("spatial navigation", () => {
+  for (const id of ["topicmap", "journey", "layers", "comparison"] as const) {
+    it(`${id}: moves from a shared overview into smaller regions and back`, () => {
+      const template = presentationTemplates[id];
+      const root = template.elements.find((element) => element.id === template.steps[0].elementId)!;
+      expect(template.steps.at(-1)?.elementId).toBe(root.id);
+      const targets = template.steps.slice(1, -1).map((step) => template.elements.find((element) => element.id === step.elementId)!);
+      expect(targets.some((target) => target.width < root.width / 2)).toBe(true);
+      expect(template.elements.filter((element) => element.type === "frame" && element.id !== root.id).every((frame) => Boolean(frame.parentId))).toBe(true);
+    });
+  }
+  it("layers has progressively nested detail, not disconnected pages", () => {
+    const { elements, steps } = presentationTemplates.layers;
+    for (let index = 1; index <= 3; index++) {
+      const child = elements.find((element) => element.id === steps[index].elementId)!;
+      expect(child.parentId).toBe(steps[index - 1].elementId);
+    }
+  });
+});
+
+describe("spatial template alignment", () => {
+  const frame = (id: "topicmap" | "journey" | "layers" | "comparison", key: string) => presentationTemplates[id].elements.find((element) => element.id === `${id}-${key}`)!;
+  const cx = (e: ReturnType<typeof frame>) => e.x + e.width / 2;
+  const cy = (e: ReturnType<typeof frame>) => e.y + e.height / 2;
+  it("centers topic branches on the hub axes with symmetric spacing", () => {
+    const center = frame("topicmap", "center");
+    expect(cx(frame("topicmap", "north"))).toBe(cx(center));
+    expect(cx(frame("topicmap", "south"))).toBe(cx(center));
+    expect(cy(frame("topicmap", "east"))).toBe(cy(center));
+    expect(cy(frame("topicmap", "west"))).toBe(cy(center));
+    expect(cx(center) - cx(frame("topicmap", "west"))).toBe(cx(frame("topicmap", "east")) - cx(center));
+    expect(cy(center) - cy(frame("topicmap", "north"))).toBe(cy(frame("topicmap", "south")) - cy(center));
+  });
+  it("spaces journey stops evenly with equal outer margins", () => {
+    const stops = [0, 1, 2, 3].map((i) => frame("journey", `milestone-${i}`));
+    const gap = stops[1].x - stops[0].x;
+    expect(stops[2].x - stops[1].x).toBe(gap);
+    expect(stops[3].x - stops[2].x).toBe(gap);
+    expect(stops[0].x).toBe(3200 - stops[3].x - stops[3].width);
+  });
+  it("insets nested layers equally from the right and bottom", () => {
+    for (const [parentKey, childKey] of [["topic", "detail"], ["detail", "evidence"]]) {
+      const parent = frame("layers", parentKey), child = frame("layers", childKey);
+      expect(parent.x + parent.width - child.x - child.width).toBeCloseTo(parent.y + parent.height - child.y - child.height);
+    }
+  });
+  it("centers the comparison conclusion between equal-sized perspectives", () => {
+    const left = frame("comparison", "left"), right = frame("comparison", "right"), conclusion = frame("comparison", "synthesis");
+    expect(left.width).toBe(right.width);
+    expect(left.y).toBe(right.y);
+    expect(cx(conclusion)).toBe((cx(left) + cx(right)) / 2);
+  });
+});
+
+describe("template palettes", () => {
+  it("changes colors without changing geometry or navigation, and restores original colors", async () => {
+    const { presentationPaletteIds } = await import("./presentation-template-palettes");
+    for (const id of presentationTemplateIds) {
+      const original = localizedPresentationTemplate(presentationTemplates[id], "en");
+      const geometry = (t: typeof original) => t.elements.map(({ id, x, y, width, height, parentId }) => ({ id, x, y, width, height, parentId }));
+      for (const palette of presentationPaletteIds) {
+        const themed = localizedPresentationTemplate(presentationTemplates[id], "en", undefined, palette);
+        expect(() => presentationElementsSchema.parse(themed.elements)).not.toThrow();
+        expect(geometry(themed)).toEqual(geometry(original));
+        expect(themed.steps).toEqual(original.steps);
+        if (palette !== "original") expect(themed.elements).not.toEqual(original.elements);
+      }
+      expect(localizedPresentationTemplate(presentationTemplates[id], "en", undefined, "original")).toEqual(original);
+    }
+  });
+});

@@ -21,16 +21,16 @@ import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { createPresentation, createPresentationFromWikiPage, deletePresentation } from "../presentation-actions";
 import { localizedPresentationTemplate, presentationTemplateIds, presentationTemplates, type PresentationTemplate, type PresentationTemplateId } from "../lib/presentation-templates";
+import { presentationPaletteIds, presentationPalettes, type PresentationPaletteId } from "../lib/presentation-template-palettes";
 import { defaultPresentationSettings } from "../lib/presentation";
 import { PresentationScene } from "./presentation-scene";
 
-/** Render only the chosen frame and its editable contents, using the delivery renderer. */
+/** Keep the full canvas visible while the camera focuses on the chosen stop. */
 function TemplatePreview({ template, index = 0 }: { template: PresentationTemplate; index?: number }) {
-  const target = template.steps[index].elementId;
   return <PresentationScene padding={0} index={0} presentation={{
     title: template.id, background: "#ffffff", settings: defaultPresentationSettings,
     steps: [template.steps[index]],
-    elements: template.elements.filter((element) => element.id === target || element.parentId === target),
+    elements: template.elements,
   }} />;
 }
 
@@ -44,10 +44,11 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
   const open = controlledOpen ?? localOpen;
   const setOpen = onOpenChange ?? setLocalOpen;
   const [busy, setBusy] = useState(false);
-  const [selected, setSelected] = useState<PresentationTemplateId | "blank">("pitch");
+  const [selected, setSelected] = useState<PresentationTemplateId | "blank">("topicmap");
+  const [paletteId, setPaletteId] = useState<PresentationPaletteId>("original");
   const [previewIndex, setPreviewIndex] = useState(0);
-  const catalog = useMemo(() => presentationTemplateIds.map((id) => localizedPresentationTemplate(presentationTemplates[id], locale)), [locale]);
-  const preview = useMemo(() => selected === "blank" ? null : localizedPresentationTemplate(presentationTemplates[selected], locale, title), [selected, locale, title]);
+  const catalog = useMemo(() => presentationTemplateIds.map((id) => localizedPresentationTemplate(presentationTemplates[id], locale, undefined, paletteId)), [locale, paletteId]);
+  const preview = useMemo(() => selected === "blank" ? null : localizedPresentationTemplate(presentationTemplates[selected], locale, title, paletteId), [selected, locale, title, paletteId]);
 
   const choose = (id: PresentationTemplateId | "blank") => {
     setSelected(id);
@@ -57,7 +58,7 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
     if (busy) return;
     setBusy(true);
     try {
-      const { id } = await createPresentation({ title: title.trim() || t("presentations.untitled"), templateId: selected === "blank" ? undefined : selected, locale });
+      const { id } = await createPresentation({ title: title.trim() || t("presentations.untitled"), templateId: selected === "blank" ? undefined : selected, locale, paletteId });
       setOpen(false);
       setTitle("");
       setBusy(false);
@@ -99,7 +100,7 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
                       {selected === template.id && <Check className="size-4 shrink-0 text-primary" aria-hidden="true" />}
                     </div>
                     <p className="mt-1 hidden min-h-8 text-xs leading-relaxed text-muted-foreground lg:block">{t(`presentations.templateDescriptions.${template.id}`)}</p>
-                    <p className="mt-2 text-[11px] text-muted-foreground">{t("presentations.templateSlides", { count: template.steps.length })} · 16:9</p>
+                    <p className="mt-2 text-[11px] text-muted-foreground">{t("presentations.templateSlides", { count: template.steps.length })}</p>
                   </div>
                 </button>)}
                 <button type="button" aria-label={t("presentations.templates.blank")} aria-pressed={selected === "blank"} disabled={busy} onClick={() => choose("blank")}
@@ -115,6 +116,20 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
                 <h3 className="text-base font-semibold">{t(`presentations.templates.${selected}`)}</h3>
                 <span className="text-xs text-muted-foreground">{t("presentations.templatePreview")}</span>
               </div>
+              {preview && <fieldset disabled={busy} className="mb-4">
+                <legend className="mb-2 text-sm font-medium">{t("presentations.paletteLabel")}</legend>
+                <div className="flex flex-wrap gap-2">
+                  {presentationPaletteIds.map((id) => <button key={id} type="button" aria-pressed={paletteId === id}
+                    onClick={() => setPaletteId(id)}
+                    className={cn("flex items-center gap-2 rounded-lg border px-3 py-2 text-xs focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50", paletteId === id ? "border-primary ring-2 ring-primary/20" : "border-border")}>
+                    {id !== "original" && <span className="flex overflow-hidden rounded" aria-hidden="true">
+                      {[presentationPalettes[id].ink, presentationPalettes[id].accent, presentationPalettes[id].soft].map((color) => <span key={color} className="h-4 w-3" style={{ backgroundColor: color }} />)}
+                    </span>}
+                    {t(`presentations.palettes.${id}`)}
+                    {paletteId === id && <Check className="size-3" aria-hidden="true" />}
+                  </button>)}
+                </div>
+              </fieldset>}
               <div className="aspect-video overflow-hidden rounded-lg border bg-white shadow-sm" aria-label={t("presentations.templatePreview")}>
                 {preview ? <div className="pointer-events-none h-full w-full" inert><TemplatePreview template={preview} index={previewIndex} /></div> : <div className="grid h-full place-items-center text-slate-300"><Plus className="size-12" /></div>}
               </div>

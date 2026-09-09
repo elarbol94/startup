@@ -1,3 +1,4 @@
+import { maintainPresentationLayout } from "./presentation-layout";
 import { z } from "zod";
 import { retainObservedPresentationSections } from "./presentation-source";
 import { mergePresentation, presentationValuesEqual } from "./presentation-merge";
@@ -45,6 +46,8 @@ const textElementSchema = z.object({
   content: z.object({
     text: z.string().max(5_000).default(""),
     fontSize: z.number().int().min(8).max(400).default(32),
+    autoFit: z.object({ minFontSize: z.number().int().min(8).max(400), maxFontSize: z.number().int().min(8).max(400) }).refine(value => value.minFontSize <= value.maxFontSize).optional(),
+    padding: z.number().min(0).max(100).optional(),
     bold: z.boolean().default(false),
     color: z.string().max(32).default(""),
     align: z.enum(["left", "center", "right"]).default("left"),
@@ -102,6 +105,7 @@ const shapeElementSchema = z.object({
     stroke: z.string().max(32).default(""),
     strokeWidth: z.number().finite().min(0).max(200).default(2),
     opacity: z.number().finite().min(0).max(1).default(1),
+    connection: z.object({ fromId: z.string().min(1).max(64), toId: z.string().min(1).max(64) }).optional(),
   }),
 });
 
@@ -610,7 +614,8 @@ export function applyGeometryChanges(
   if (!before || !after) return { elements, guides: [] };
 
   const affected = presentationDescendants(elements, new Set(moving.keys()));
-  const targets = elements.filter((element) => !affected.has(element.id)).map(elementBounds);
+  const targets = elements.filter((element) => !affected.has(element.id)
+    && !(element.type === "shape" && element.content.connection)).map(elementBounds);
   const resizing = moving.size === 1 && ([...byId.values()].some((change) => change.resizing)
     || Math.abs(after.width - before.width) > 0.01 || Math.abs(after.height - before.height) > 0.01);
   const snapped = snapBounds(before, after, targets, tolerance, resizing);
@@ -735,6 +740,7 @@ function commitCanvas(
   separate = false,
 ): PresentationCanvasState {
   if (elements === state.elements && steps === state.steps) return state;
+  elements = maintainPresentationLayout(elements);
   const coalesce = !separate && state.past.length > 0 && state.editedAt > 0
     && (state.gestureActive || at - state.editedAt <= PRESENTATION_HISTORY_COALESCE_MS);
   return {
@@ -975,7 +981,8 @@ export function duplicatePresentationTree(elements: PresentationElement[], ids: 
     ...element, id: idMap.get(element.id)!, locked: false,
     parentId: element.parentId ? idMap.get(element.parentId) ?? element.parentId : undefined,
     x: element.x + PRESENTATION_DUPLICATE_OFFSET, y: element.y + PRESENTATION_DUPLICATE_OFFSET,
-  }));
+    ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: { fromId: idMap.get(element.content.connection.fromId) ?? element.content.connection.fromId, toId: idMap.get(element.content.connection.toId) ?? element.content.connection.toId } } } : {}),
+  } as PresentationElement));
   return elements.length + copies.length <= 500 ? [...elements, ...copies] : elements;
 }
 
