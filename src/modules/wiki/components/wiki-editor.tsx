@@ -13,7 +13,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
-import { DOMParser as ProseMirrorDOMParser, Fragment, Slice } from "@tiptap/pm/model";
+import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
 import { AlignCenter, AlignLeft, AlignRight, Bold, BookMarked, CalendarClock, Check, ClipboardCheck, CloudOff, Code, Columns2, FileText, Heading1, Heading2, Heading3, Highlighter, ImagePlus, Italic, Keyboard, Layers3, Link2, List, ListOrdered, ListTree, ListTodo, MessageSquareText, Minus, MoreHorizontal, Paperclip, Pilcrow, Quote, Redo2, RotateCcw, Rows3, ScissorsLineDashed, Search, Settings2, Strikethrough, Trash2, Underline as UnderlineIcon, Undo2, Workflow } from "lucide-react";
 import { useDocumentWorkspace } from "./document-workspace";
 import { WorkspacePanel } from "./workspace-panel";
@@ -26,7 +26,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { createSlashCommandExtension, type SlashCommandDefinition } from "./slash-command-menu";
+import type { SlashCommandDefinition } from "./slash-command-menu";
 import { CommentRail, type CommentRailHandle, type CommentThread } from "./comment-rail";
 import { CommentAnchorOverlay } from "./comment-anchor-overlay";
 import { DocumentPresentationLinks } from "./document-presentation-links";
@@ -34,8 +34,11 @@ import { HeadingIdentity } from "./heading-identity";
 import { withDocumentSectionIds } from "../lib/document-sections";
 import type { TiptapNode } from "../lib/tiptap";
 import { CollapsibleHeading, HeadingListItem, headingVisibilityChanged } from "./collapsible-heading";
-import { MarkdownDocumentExtensions, MarkdownShortcutMarks, MarkdownShortcuts } from "./markdown-shortcut-extension";
-import { MarkdownReferenceDialog } from "./markdown-reference-dialog";
+import { MarkdownDocumentExtensions, MarkdownShortcutMarks } from "./markdown-shortcut-extension";
+import { flushSync } from "react-dom";
+import { proposalTable, proposalSectionSnippet } from "../lib/proposal";
+import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
+import { createDoubleShiftDetector, recentEditorCommands, rememberEditorCommand } from "../lib/command-search";
 import { WikiShortcutsDialog } from "./wiki-shortcuts-dialog";
 import { EditorLinkPopover, EditorOutlineSheet, EditorSearchPanel, type OutlineItem } from "./editor-tools";
 import { mergeCommentThreadIds, normalizeImageRect, type CommentAnchor } from "../lib/comment-anchors";
@@ -45,7 +48,6 @@ import { disableMyWikiProofingRule, ignoreMyWikiProofingIssue, updateMyWikiProof
 import { createSpellcheckController } from "../lib/spellcheck-controller";
 import { WikiProofingMenu, WikiProofingSuggestions, type OpenProofingIssue } from "./wiki-proofing";
 import type { WikiProofingPrefsV1 } from "../lib/wiki-proofing-prefs";
-import { looksLikeMarkdown, parseMarkdownDocument } from "../lib/markdown-import";
 import { sanitizePastedHtml } from "../lib/paste-html";
 import { calculateWritingStats, type WritingStats } from "../lib/editor-writing";
 import { parseEditorDraft, readEditorStorage, removeEditorStorage, sameEditorSnapshot, writeEditorStorage } from "../lib/editor-draft";
@@ -803,7 +805,11 @@ export function WikiEditor({
     () => [...optimisticCommentThreads.filter((thread) => !comments.some((item) => item.id === thread.id)), ...comments],
     [comments, optimisticCommentThreads],
   );
-  const [pageLinkOpen, setPageLinkOpen] = useState(false); const [citationOpen, setCitationOpen] = useState(false); const [evidenceOpen, setEvidenceOpen] = useState(false); const [markdownHelpOpen, setMarkdownHelpOpen] = useState(false); const [shortcutsOpen, setShortcutsOpen] = useState(false); const [linkEditorRequest, setLinkEditorRequest] = useState(0);
+  const [typographyFocus, setTypographyFocus] = useState<"bodySizePt" | "lineHeight" | undefined>();
+  const [marginFocusRequest, setMarginFocusRequest] = useState(0);
+  const [commandSearchOpen, setCommandSearchOpen] = useState(false);
+  const [commandSearchCommands, setCommandSearchCommands] = useState<EditorSearchCommand[]>([]);
+  const [pageLinkOpen, setPageLinkOpen] = useState(false); const [citationOpen, setCitationOpen] = useState(false); const [evidenceOpen, setEvidenceOpen] = useState(false); const [shortcutsOpen, setShortcutsOpen] = useState(false); const [linkEditorRequest, setLinkEditorRequest] = useState(0);
   const [graphicsOpen, setGraphicsOpen] = useState(false);
   const [manualSearchOpen, setManualSearchOpen] = useState(false);
   const searchOpen = manualSearchOpen || Boolean(externalSearchQuery);
@@ -1220,12 +1226,11 @@ export function WikiEditor({
     // headings, figures, tables and annexes — open it rather than duplicating it here.
     slash("crossReference", "wiki", Link2, () => { rememberToolbarSelection(); setFigureReferenceOpen(true); }),
   ];
-  const slashExtension = createSlashCommandExtension({ commands: slashCommands, ariaLabel: t("slash.ariaLabel"), emptyLabel: t("slash.empty") });
 
-  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: ["blockquote", "bulletList", "codeBlock", "heading", "orderedList", "taskItem"], extensions: [StarterKit.configure({ dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : t("editor.placeholder.empty") }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
+  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [StarterKit.configure({ dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
       const source = liveEditor.current?.state.doc.textBetween(issue.from, issue.to) ?? "";
       setSpellcheckIssue({ issue, target, source });
-    }), MarkdownShortcuts, slashExtension], content,
+    })], content,
     editorProps: {
       attributes: { class: "prose prose-neutral dark:prose-invert max-w-none min-h-[28rem] focus:outline-none", spellcheck: "false" },
       handlePaste(view, event) {
@@ -1237,22 +1242,6 @@ export function WikiEditor({
         }
         const clipboard = event.clipboardData;
         if (!clipboard) return false;
-        const plainText = clipboard.getData("text/plain");
-        // Raw markdown text takes priority over any HTML the clipboard also carries:
-        // many sources (browsers, note apps) wrap even a plain-text copy in an HTML
-        // format that adds no real structure, which used to make pasted "#### Heading"
-        // fall into the HTML branch below and show up as literal punctuation.
-        if (looksLikeMarkdown(plainText)) {
-          try {
-            const parsed = parseMarkdownDocument(plainText);
-            const nodes = (parsed.content ?? []).map((node) => view.state.schema.nodeFromJSON(node));
-            event.preventDefault();
-            view.dispatch(view.state.tr.replaceSelection(new Slice(Fragment.fromArray(nodes), 0, 0)).scrollIntoView());
-            return true;
-          } catch {
-            // Not actually parseable as markdown - fall through to HTML/plain-text handling.
-          }
-        }
         const html = clipboard.getData("text/html");
         if (html) {
           // Sanitize first, then hand off to the schema's own DOMParser: it already
@@ -1544,9 +1533,6 @@ export function WikiEditor({
     };
   }, [editor, pageId, proofingDictionary, proofingDictionaryLoaded, proofingLanguage, proofingPicky]);
   useEffect(() => {
-    if (editor) editor.view.dom.spellcheck = proofingStatus === "error";
-  }, [editor, proofingStatus]);
-  useEffect(() => {
     if (!editor) return;
     if (!documentMode) {
       setDocumentPaginationBreaks(editor, []);
@@ -1797,20 +1783,8 @@ export function WikiEditor({
     window.addEventListener("offline", offline);
     return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
   }, []);
-  const handleWikiShortcut = useEffectEvent((event: KeyboardEvent) => {
-      if (!editor || event.defaultPrevented || event.isComposing) return;
-      const target = event.target as HTMLElement | null;
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (!editorRootRef.current?.contains(target) && !editorRootRef.current?.contains(activeElement)) return;
-      if (target?.closest("input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]")) return;
-      const binding = normalizeWikiShortcut(event);
-      if (!binding) return;
-      const action = WIKI_SHORTCUT_ACTIONS.find((candidate) => wikiShortcuts[candidate] === binding);
-      if (!action && !LEGACY_TIPTAP_SHORTCUTS.has(binding)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-      if (!action) return;
+  function executeEditorAction(action: WikiShortcutAction) {
+    if (!editor) return;
       const run = (command: () => boolean) => command();
       switch (action) {
         case "undo": run(() => editor.chain().focus().undo().run()); break;
@@ -1838,7 +1812,6 @@ export function WikiEditor({
         case "inlineComment": prepareComment(); break;
         case "toggleComments": setCommentsVisible((value) => !value); break;
         case "documentMode": changeDocumentMode(!documentMode); break;
-        case "markdownHelp": setMarkdownHelpOpen(true); break;
         case "typography": setTypographyOpen(true); break;
         case "shortcuts": setShortcutsOpen(true); break;
         case "image": openInlineImagePicker(); break;
@@ -1866,6 +1839,22 @@ export function WikiEditor({
         case "tableDeleteRow": deleteMarkdownTableRow(editor); break;
         case "tableDeleteColumn": deleteMarkdownTableColumn(editor); break;
       }
+  }
+  const handleWikiShortcut = useEffectEvent((event: KeyboardEvent) => {
+      if (!editor || event.defaultPrevented || event.isComposing) return;
+      const target = event.target as HTMLElement | null;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (!editorRootRef.current?.contains(target) && !editorRootRef.current?.contains(activeElement)) return;
+      if (target?.closest("input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]")) return;
+      const binding = normalizeWikiShortcut(event);
+      if (!binding) return;
+      const action = WIKI_SHORTCUT_ACTIONS.find((candidate) => wikiShortcuts[candidate] === binding);
+      if (!action && !LEGACY_TIPTAP_SHORTCUTS.has(binding)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      if (!action) return;
+      executeEditorAction(action);
   });
 
   useEffect(() => {
@@ -1993,6 +1982,31 @@ export function WikiEditor({
     const shortcut = (event: KeyboardEvent) => handleWikiShortcut(event);
     window.addEventListener("keydown", shortcut, true);
     return () => window.removeEventListener("keydown", shortcut, true);
+  }, [editor]);
+  const openCommandSearch = useEffectEvent(() => {
+    if (!editor || commandSearchOpen) return;
+    rememberToolbarSelection();
+    setCommandSearchCommands(buildEditorCommands());
+    setCommandSearchOpen(true);
+  });
+  useEffect(() => {
+    if (!editor) return;
+    const detector = createDoubleShiftDetector();
+    const handle = (event: KeyboardEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement) || !editorRootRef.current?.contains(target) || target.closest("input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]")) { detector.reset(); return; }
+      if (detector.handle(event, performance.now())) { event.preventDefault(); openCommandSearch(); }
+    };
+    window.addEventListener("keydown", handle, true);
+    window.addEventListener("keyup", handle, true);
+    window.addEventListener("blur", detector.reset);
+    window.addEventListener("pointerdown", detector.reset, true);
+    return () => {
+      window.removeEventListener("keydown", handle, true);
+      window.removeEventListener("keyup", handle, true);
+      window.removeEventListener("blur", detector.reset);
+      window.removeEventListener("pointerdown", detector.reset, true);
+    };
   }, [editor]);
   const handleSvgAssetReady = useCallback((attachmentId: string, contentUrl: string) => {
     if (!editor) return;
@@ -2417,7 +2431,77 @@ export function WikiEditor({
   const currentDocumentModeLabel = t(documentMode ? "document.documentMode" : "document.noteMode");
   const nextDocumentModeLabel = t(documentMode ? "document.noteMode" : "document.documentMode");
 
+  function buildEditorCommands(): EditorSearchCommand[] {
+    const readOnlyActions = new Set(["search", "outline", "toggleComments", "typography", "shortcuts"]);
+    const editorCommands: EditorSearchCommand[] = WIKI_SHORTCUT_ACTIONS.map((action) => ({
+      id: action, label: t(`shortcuts.actions.${action}`), group: t("commandSearch.editor"), shortcut: shortcutLabel(action),
+      keywords: slashCommands.find((command) => command.id === action)?.keywords,
+      disabledReason: !activeEditor.isEditable && !readOnlyActions.has(action) ? t("commandSearch.readOnly")
+        : action.startsWith("image") && action !== "image" && !activeEditor.isActive("commentableImage") ? t("commandSearch.selectImage")
+        : action.startsWith("table") && action !== "tableOfContents" && !activeEditor.isActive("markdownTable") ? t("commandSearch.selectTable")
+        : action === "undo" && !activeEditor.can().undo() || action === "redo" && !activeEditor.can().redo() ? t("commandSearch.unavailable") : undefined,
+      execute: () => executeEditorAction(action),
+    }));
+    for (const command of slashCommands) {
+      if (editorCommands.some((item) => item.id === command.id) || command.id === "inlineImage") continue;
+      editorCommands.push({ id: command.id, label: command.label, group: command.groupLabel, keywords: command.keywords,
+        disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined, execute: () => command.execute(activeEditor) });
+    }
+    editorCommands.push({ id: "figureList", label: t("figures.insertList"), group: t("commandSearch.tools"), execute: insertFigureList, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "layout", label: t("document.panelTitle"), group: t("commandSearch.tools"), execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); } });
+    editorCommands.push({ id: "details", label: t("documentDetails"), group: t("commandSearch.tools"), execute: () => setPanel("details") });
+    editorCommands.push({ id: "graphics", label: t("graphics.title"), group: t("commandSearch.tools"), execute: () => setGraphicsOpen(true), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "suggestions", label: suggesting ? t("suggestions.leaveMode") : t("suggestions.enterMode"), group: t("commandSearch.tools"), execute: () => setSuggesting((value) => !value), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "acceptSuggestions", label: t("suggestions.acceptAll", { count: suggestionCounts.inserted + suggestionCounts.deleted }), group: t("commandSearch.tools"), execute: () => resolveSuggestions(true), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "rejectSuggestions", label: t("suggestions.rejectAll"), group: t("commandSearch.tools"), execute: () => resolveSuggestions(false), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "proofingPicky", label: t("editor.proofing.picky"), group: t("commandSearch.tools"), execute: () => { void toggleProofingPicky(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: "proofingNext", label: t("commandSearch.proofingNext"), group: t("commandSearch.tools"), execute: nextProofingIssue });
+    editorCommands.push({ id: "proofingRetry", label: t("commandSearch.proofingRetry"), group: t("commandSearch.tools"), execute: () => proofingRetry.current() });
+    for (const language of ["de-DE", "de-AT", "en-US"] as ProofingLanguage[]) {
+      editorCommands.push({ id: `proofing-${language}`, label: t(`commandSearch.languages.${language}`), group: t("commandSearch.tools"), execute: () => { void changeProofingLanguage(language); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    }
+    for (const kind of ["budget", "workPackages", "timeline", "risks", "kpis", "generic"] as const) {
+      editorCommands.push({ id: `table-${kind}`, label: t(`document.proposal.${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalTable(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    }
+    for (const kind of ["executiveSummary", "objectives", "deliverables", "assumptions", "decision"] as const) {
+      editorCommands.push({ id: `snippet-${kind}`, label: t(`document.proposal.snippet_${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalSectionSnippet(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    }
+    for (const attribute of ["keepWithNext", "keepTogether"] as const) {
+      editorCommands.push({ id: attribute, label: t(`document.${attribute}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().updateAttributes(activeEditor.state.selection.$from.parent.type.name, { [attribute]: !activeEditor.isActive({ [attribute]: true }) }).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    }
+    for (const format of ["pdf", "docx", "html"] as const) {
+      editorCommands.push({ id: `export-${format}`, label: t("commandSearch.export", { format: format.toUpperCase() }), group: t("commandSearch.tools"), execute: () => { void exportSavedDocument(pageId, format, false, flushSave, () => toast.error(t("document.exportSaveFailed"))); } });
+    }
+    for (const [id, field, label] of [["fontSize", "bodySizePt", "bodySize"], ["lineSpacing", "lineHeight", "lineHeight"]] as const) {
+      editorCommands.push({ id, label: t(`editor.preferences.controls.${label}`), group: t("commandSearch.tools"), keywords: t.raw(`commandSearch.aliases.${id}`) as string[], execute: () => { setTypographyFocus(field); setTypographyOpen(true); } });
+    }
+    editorCommands.push({ id: "pageMargins", label: t("commandSearch.pageMargins"), group: t("commandSearch.tools"), keywords: t.raw("commandSearch.aliases.pageMargins") as string[], execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); setMarginFocusRequest((value) => value + 1); } });
+    const recent = recentEditorCommands(readEditorStorage(`wiki-command-recent:${currentUserId}`));
+    const marks: Record<string, string> = { bold: "bold", italic: "italic", underline: "underline", highlight: "highlight", strike: "strike", inlineCode: "code", bulletList: "bulletList", orderedList: "orderedList", taskList: "taskList", blockquote: "blockquote", codeBlock: "codeBlock" };
+    for (const command of editorCommands) {
+      if (marks[command.id]) command.active = activeEditor.isActive(marks[command.id]);
+      if (/^heading[123]$/.test(command.id)) command.active = activeEditor.isActive("heading", { level: Number(command.id.at(-1)) });
+      if (command.id === "suggestions") command.active = suggesting;
+      if (command.id === "documentMode") command.active = documentMode;
+      if (command.id === "proofingPicky") command.active = proofingPicky;
+      if (t.has(`commandSearch.aliases.${command.id}`)) command.keywords = [...(command.keywords ?? []), ...(t.raw(`commandSearch.aliases.${command.id}`) as string[])];
+      const recentIndex = recent.indexOf(command.id);
+      if (recentIndex >= 0) command.recentIndex = recentIndex;
+      if (!command.disabledReason) {
+        if (activeEditor.isActive("commentableImage") && command.id.startsWith("image") && command.id !== "image") command.contextPriority = 3;
+        else if (activeEditor.isActive("markdownTable") && command.id.startsWith("table") && command.id !== "tableOfContents" && !command.id.startsWith("table-")) command.contextPriority = 3;
+        else if (!activeEditor.state.selection.empty && marks[command.id] && ["bold", "italic", "underline", "highlight", "strike", "inlineCode"].includes(command.id)) command.contextPriority = 2;
+      }
+    }
+    return editorCommands;
+  }
+  function closeCommandSearch() {
+    flushSync(() => setCommandSearchOpen(false));
+    activeEditor.view.focus();
+  }
+
   return <FigureLibraryContext.Provider value={{ ...figureLibrary, editArtwork: (nodeId) => void editFigureArtwork(nodeId), replace: (nodeId) => { rememberToolbarSelection(); setFigureSourceMode(false); setFigureTargetId(nodeId); setInlineImagePickerOpen(true); }, editSource: (nodeId) => { rememberToolbarSelection(); setFigureSourceMode(true); setFigureTargetId(nodeId); setInlineImagePickerOpen(true); } }}><div className="relative flex flex-col gap-3"><DocumentPresentationLinks editor={activeEditor} pageId={pageId} slug={pageSlug} flush={() => flushSaveRef.current()} /><div data-testid="document-toolbar" className="sticky top-0 z-40 flex flex-wrap items-center gap-1 border-b border-border/60 bg-background/95 py-2 backdrop-blur">
+    <ToolbarButton title={t("commandSearch.title")} shortcut="⇧ ⇧" onClick={() => { rememberToolbarSelection(); setCommandSearchCommands(buildEditorCommands()); setCommandSearchOpen(true); }}><Search className="size-4" /></ToolbarButton>
     <ToolbarGroup label={t("editor.toolbar.groups.history")}>
       <ToolbarButton title={t("editor.toolbar.undo")} shortcut={shortcutLabel("undo")} onClick={() => activeEditor.chain().focus().undo().run()}><Undo2 className="size-4" /></ToolbarButton>
       <ToolbarButton title={t("editor.toolbar.redo")} shortcut={shortcutLabel("redo")} onClick={() => activeEditor.chain().focus().redo().run()}><Redo2 className="size-4" /></ToolbarButton>
@@ -2502,7 +2586,6 @@ export function WikiEditor({
       <DropdownMenuSeparator />
       <DropdownMenuGroup>
         <DropdownMenuLabel>{t("editor.toolbar.settings")}</DropdownMenuLabel>
-        <DropdownMenuItem data-testid="markdown-help-button" onClick={() => setMarkdownHelpOpen(true)}><BookMarked />{t("markdownHelp.button")}<DropdownMenuShortcut>{shortcutLabel("markdownHelp")}</DropdownMenuShortcut></DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTypographyOpen(true)}><Settings2 />{t("editor.preferences.title")}<DropdownMenuShortcut>{shortcutLabel("typography")}</DropdownMenuShortcut></DropdownMenuItem>
         <DropdownMenuItem onClick={() => setShortcutsOpen(true)}><Keyboard />{t("shortcuts.title")}<DropdownMenuShortcut>{shortcutLabel("shortcuts")}</DropdownMenuShortcut></DropdownMenuItem>
       </DropdownMenuGroup>
@@ -2600,7 +2683,7 @@ export function WikiEditor({
     <div hidden={!outlineOpen}><EditorOutlineSheet embedded editor={activeEditor} items={outline} activePosition={activeHeadingPosition} open={outlineOpen} onOpenChange={setOutlineOpen} /></div>
     <div hidden={panel !== "image"}>{panelImage && <FigurePanel key={String(panelImage.attrs.nodeId)} editor={activeEditor} node={panelImage} onComment={prepareImageComment} />}</div>
     <div hidden={!commentsVisible}><CommentRail embedded ref={commentRailRef} visible={commentsVisible} onVisibleChange={setCommentsVisible} pageId={pageId} comments={commentThreads} currentUserId={currentUserId} editor={editor} editorRootRef={editorRootRef} activeThreadId={activeThreadId} onActiveThreadChange={setActiveThreadId} /></div>
-    <div hidden={!layoutVisible}>{documentMode && <DocumentLayoutPanel embedded
+    <div hidden={!layoutVisible}>{documentMode && <DocumentLayoutPanel marginFocusRequest={marginFocusRequest} embedded
       pageId={pageId}
       editor={activeEditor}
       settings={documentSettings}
@@ -2636,7 +2719,15 @@ export function WikiEditor({
   {regionTarget && <ImageRegionSelector rootRef={editorRootRef} {...regionTarget} onCancel={() => setRegionTarget(null)} onSelect={(anchor) => { setRegionTarget(null); openCommentComposer(anchor); }} />}
   <SvgGraphicsPanel preferredId={preferredSvgId} pageId={pageId} open={graphicsOpen} onOpenChange={setGraphicsOpen} variables={{ title: pageTitle, author: documentSettings.metadata.author, ...documentSettings.variables }} documentSettings={documentSettings} typography={typography} onDocumentSettingsChange={changeDocumentSettings} onAssetReady={handleSvgAssetReady} />
   <Dialog open={commentOpen} onOpenChange={(open) => { setCommentOpen(open); if (!open) setPendingAnchor(null); }}><DialogContent className="w-[min(26rem,calc(100vw-2rem))]"><DialogHeader><DialogTitle>{pendingAnchor?.type === "image" ? t("imageComment") : t("inlineComment")}</DialogTitle></DialogHeader>{pendingAnchor?.type !== "page" && pendingAnchor && <blockquote className="border-l-2 border-amber-400 pl-3 text-sm italic text-muted-foreground">{pendingAnchor.type === "text" ? pendingAnchor.quote : pendingAnchor.label}</blockquote>}<Textarea autoFocus value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t("commentPlaceholder")} /><Select value={assigneeId} onValueChange={(value) => setAssigneeId(value ?? "none")}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{users.map((person) => <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>)}</SelectContent></Select><Button onClick={submitComment} disabled={!commentBody.trim()}>{t("addComment")}</Button></DialogContent></Dialog>
-  <MarkdownReferenceDialog open={markdownHelpOpen} onOpenChange={setMarkdownHelpOpen} />
+  {commandSearchOpen && <EditorCommandSearch commands={commandSearchCommands} onClose={closeCommandSearch} onExecute={(command) => {
+    const current = buildEditorCommands().find((candidate) => candidate.id === command.id);
+    if (!current || current.disabledReason) return;
+    flushSync(() => setCommandSearchOpen(false));
+    activeEditor.view.focus();
+    current.execute();
+    const key = `wiki-command-recent:${currentUserId}`;
+    writeEditorStorage(key, JSON.stringify(rememberEditorCommand(recentEditorCommands(readEditorStorage(key)), current.id)));
+  }} />}
   <WikiShortcutsDialog open={shortcutsOpen} onOpenChange={setShortcutsOpen} bindings={wikiShortcuts} onBindingsChange={setWikiShortcuts} />
   {typographyOpen && <WikiTypographyDialog
     editorPreferences={{ minimalToolbar, statusVisible, typewriterMode }}
@@ -2649,7 +2740,9 @@ export function WikiEditor({
       setTypewriterMode(preferences.typewriterMode);
       router.refresh();
     }}
-    onOpenChange={setTypographyOpen}
+    returnFocus={() => activeEditor.view.dom}
+    focusControl={typographyFocus}
+    onOpenChange={(open) => { setTypographyOpen(open); if (!open) setTypographyFocus(undefined); }}
     onTemplatesChange={setPersonalTypographyTemplates}
     open={typographyOpen}
     templates={personalTypographyTemplates}

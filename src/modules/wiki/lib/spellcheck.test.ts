@@ -53,6 +53,14 @@ describe("wiki spellcheck helpers", () => {
     ]);
   });
 
+  it("preserves grammar hints on acronyms and numbers but still excludes code", () => {
+    const paragraphs = [{ text: "API 123 code", from: 1, excludedRanges: [{ from: 8, to: 12 }] }];
+    const results = mapSpellcheckMatches(paragraphs, [0, 4, 8].map((offset) => ({
+      paragraph: 0, offset, length: 3, message: "Grammar", kind: "writing", category: "Grammar", ruleId: "GRAMMAR", replacements: [],
+    })));
+    expect(results.map((issue) => issue.from)).toEqual([1, 5]);
+  });
+
   it("chunks every paragraph within API limits and remaps long-paragraph offsets", () => {
     const paragraphs = Array.from({ length: 161 }, (_, index) => ({ text: "p" + index, from: index * 10, excludedRanges: [] }));
     const batches = createSpellcheckBatches(paragraphs);

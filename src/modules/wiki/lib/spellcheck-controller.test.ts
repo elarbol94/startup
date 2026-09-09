@@ -159,6 +159,38 @@ describe("incremental proofing", () => {
     checker.dispose();
   });
 
+  it("clears retained hints when prose becomes uncheckable", async () => {
+    let paragraphs = [prose("Teh text")];
+    let issues: SpellcheckIssue[] = [];
+    const checker = createSpellcheckController({ snapshot: () => ({ paragraphs, cursor: 1, issues }),
+      request: async () => [typo()], publish: (next) => { issues = next; }, status: vi.fn() });
+    checker.start();
+    await vi.advanceTimersByTimeAsync(10);
+    expect(issues).toHaveLength(1);
+    paragraphs = [];
+    checker.schedule();
+    await vi.advanceTimersByTimeAsync(250);
+    expect(issues).toEqual([]);
+    checker.dispose();
+  });
+
+  it("releases a hung request and retries without accepting its late result", async () => {
+    let finish!: (matches: SpellcheckResponseMatch[]) => void;
+    const request = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; })).mockResolvedValue([]);
+    const status = vi.fn(), publish = vi.fn();
+    const checker = createSpellcheckController({ snapshot: () => ({ paragraphs: [prose("Teh text")], cursor: 1 }), request, status, publish });
+    checker.start();
+    await vi.advanceTimersByTimeAsync(8_001);
+    expect(status).toHaveBeenLastCalledWith("error");
+    await vi.advanceTimersByTimeAsync(5_001);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(status).toHaveBeenLastCalledWith("ready");
+    finish([typo()]);
+    await vi.advanceTimersByTimeAsync(10);
+    expect(publish).toHaveBeenLastCalledWith([]);
+    checker.dispose();
+  });
+
   it("waits for text composition and aborts only when disposed", async () => {
     let composing = true;
     const request = vi.fn<(batch: SpellcheckBatch, signal: AbortSignal) => Promise<SpellcheckResponseMatch[]>>(() => new Promise(() => {}));

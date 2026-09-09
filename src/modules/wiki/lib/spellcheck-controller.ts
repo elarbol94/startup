@@ -53,8 +53,14 @@ export function createSpellcheckController(options: {
     // Both ranges and hints follow document order. A single sweep avoids a
     // quadratic scan when a long document already contains many suggestions.
     const ranges = checked.map((unit) => ({ from: paragraphs[unit.paragraph].from + unit.offset, to: paragraphs[unit.paragraph].from + unit.end }));
-    let rangeIndex = 0;
+    let rangeIndex = 0, paragraphIndex = 0;
     const retained = [...issues].sort((a, b) => a.from - b.from).filter((issue) => {
+      while (paragraphIndex < paragraphs.length && paragraphs[paragraphIndex].from + paragraphs[paragraphIndex].text.length <= issue.from) paragraphIndex++;
+      const paragraph = paragraphs[paragraphIndex];
+      // Converting prose to code or removing the last checkable text must also
+      // remove old hints, even when no replacement request will be made.
+      if (!paragraph || issue.from < paragraph.from || issue.to > paragraph.from + paragraph.text.length
+        || paragraph.excludedRanges.some((range) => paragraph.from + range.from < issue.to && issue.from < paragraph.from + range.to)) return false;
       while (rangeIndex < ranges.length && ranges[rangeIndex].to <= issue.from) rangeIndex++;
       return rangeIndex === ranges.length || ranges[rangeIndex].from > issue.from;
     });
@@ -114,11 +120,20 @@ export function createSpellcheckController(options: {
   function launch(texts: string[]): Job {
     const job: Job = { texts, abort: new AbortController(), started: performance.now(), queueMs: Math.max(0, performance.now() - editAt) };
     const batch: SpellcheckBatch = { items: texts.map((text, paragraph) => ({ text, paragraph, offset: 0 })) };
-    const signal = AbortSignal.any([lifetime.signal, job.abort.signal, AbortSignal.timeout(8_000)]);
+    const timeout = new AbortController();
+    const timeoutTimer = setTimeout(() => timeout.abort(new Error("Proofing request timed out")), 8_000);
+    const signal = AbortSignal.any([lifetime.signal, job.abort.signal, timeout.signal]);
+    let abortRequest: () => void = () => {};
     void (async () => {
       let outcome: ProofingTiming["outcome"] = "success", requestMs = 0, applyMs = 0;
       try {
-        const matches = await Promise.resolve().then(() => options.request(batch, signal));
+        // Free the lane even if a transport never settles after cancellation.
+        const cancelled = new Promise<never>((_resolve, reject) => {
+          abortRequest = () => reject(signal.reason);
+          if (signal.aborted) abortRequest();
+          else signal.addEventListener("abort", abortRequest, { once: true });
+        });
+        const matches = await Promise.race([Promise.resolve().then(() => options.request(batch, signal)), cancelled]);
         requestMs = performance.now() - job.started;
         if (signal.aborted) return;
         texts.forEach((text, index) => cache.set(text, matches.filter((match) => match.paragraph === index)
@@ -136,6 +151,8 @@ export function createSpellcheckController(options: {
         options.status("error");
         retryAt = Date.now() + Math.min(30_000, 5_000 * 2 ** failures++);
       } finally {
+        clearTimeout(timeoutTimer);
+        signal.removeEventListener("abort", abortRequest);
         if (job.abort.signal.aborted || lifetime.signal.aborted) outcome = "cancelled";
         options.timing?.({ queueMs: job.queueMs, requestMs: requestMs || performance.now() - job.started, applyMs,
           characters: texts.reduce((sum, text) => sum + text.length, 0), items: texts.length, outcome });

@@ -2084,41 +2084,6 @@
     "comments": "Kommentare",
     "hideComments": "Kommentare ausblenden",
     "showComments": "Kommentare anzeigen",
-    "markdownHelp": {
-      "button": "Markdown",
-      "title": "Markdown-Kurzbefehle",
-      "description": "Syntax eingeben und mit Leertaste oder Eingabetaste umwandeln. Blockbefehle werden beim Abschluss der Zeile aktiviert.",
-      "groups": {
-        "inline": "Im Text",
-        "blocks": "Blöcke",
-        "structured": "Strukturierte Inhalte"
-      },
-      "items": {
-        "bold": "Fett",
-        "italic": "Kursiv",
-        "strikethrough": "Durchgestrichen",
-        "code": "Inline-Code",
-        "link": "Externer Link",
-        "highlight": "Hervorheben",
-        "subscript": "Tiefgestellt",
-        "superscript": "Hochgestellt",
-        "arrows": "Pfeile",
-        "emoji": "Emoji",
-        "footnoteReference": "Fußnotenverweis",
-        "headings": "Überschrift",
-        "headingId": "Überschrift mit ID",
-        "blockquote": "Zitatblock",
-        "bulletList": "Aufzählung",
-        "orderedList": "Nummerierte Liste",
-        "taskList": "Aufgabenliste",
-        "divider": "Trennlinie",
-        "fencedCode": "Codeblock",
-        "image": "Bild",
-        "table": "Tabelle · Zellen danach ausfüllen",
-        "definitionList": "Definitionsliste",
-        "footnoteDefinition": "Fußnote"
-      }
-    },
     "shortcuts": {
       "title": "Tastenkürzel",
       "description": "Klicke auf ein Kürzel und drücke anschließend Strg oder Cmd plus die gewünschte Taste.",
@@ -2162,7 +2127,6 @@
         "inlineComment": "Kommentar erstellen",
         "toggleComments": "Kommentare ein-/ausblenden",
         "documentMode": "Dokumentmodus",
-        "markdownHelp": "Markdown-Hilfe",
         "typography": "Schreibbild",
         "shortcuts": "Tastenkürzel",
         "image": "Bild einfügen",
@@ -2388,11 +2352,11 @@
         "preferenceFailed": "Die Einstellung gilt vorerst nur in dieser Sitzung. Speichern fehlgeschlagen.",
         "moreActions": "Weitere Aktionen",
         "deleteText": "Entfernen",
-        "hint": "Unterstrichene Wörter anklicken. Alt+Enter öffnet den Hinweis am Cursor.",
+        "hint": "Rechtsklick auf ein unterstrichenes Wort öffnet Vorschläge. Alt+Enter öffnet den Vorschlag am Cursor.",
         "nextIssue": "Nächster Hinweis",
         "retry": "Erneut prüfen",
         "issueCount": "{count, plural, one {# Hinweis} other {# Hinweise}}",
-        "fallbackShort": "Browserprüfung",
+        "fallbackShort": "Prüfung nicht erreichbar",
         "ready": "Prüfung abgeschlossen",
         "language": "Prüfsprache",
         "title": "Rechtschreibung",
@@ -2406,7 +2370,7 @@
         "checkingChanges": "Änderungen werden geprüft…",
         "recheckingSuggestion": "Dieser Hinweis wird gerade aktualisiert…",
         "unavailable": "Rechtschreib- und Grammatikprüfung momentan nicht erreichbar",
-        "browserFallback": "Die erweiterte Prüfung ist nicht erreichbar. Die Browserprüfung ist aktiviert, sofern dein Browser die Sprache unterstützt. Wir versuchen es automatisch erneut.",
+        "browserFallback": "Die Rechtschreib- und Grammatikprüfung ist nicht erreichbar. Wir versuchen es automatisch erneut. Du kannst weiter schreiben.",
         "saveFailed": "Die Prüfsprache konnte nicht gespeichert werden.",
         "picky": "Strengere Prüfung",
         "dialog": "Korrekturvorschläge",
@@ -2509,7 +2473,6 @@
         "untitled": "Unbenannte Überschrift"
       },
       "placeholder": {
-        "empty": "Schreiben oder / für Befehle eingeben …",
         "heading": "Überschrift …"
       },
       "preferences": {
@@ -3571,6 +3534,73 @@
         "ne": "Zuschnitt oben rechts",
         "sw": "Zuschnitt unten links",
         "se": "Zuschnitt unten rechts"
+      }
+    },
+    "commandSearch": {
+      "title": "Befehl suchen",
+      "description": "Beim Schreiben zweimal die Umschalttaste drücken. Nach Name oder gewünschter Aktion suchen.",
+      "placeholder": "Zum Beispiel „Überschrift“, „Bild“ oder „Kommentar“…",
+      "empty": "Keine passenden Befehle. Versuche ein anderes Wort.",
+      "keys": "↑ ↓ Auswählen · Tab Vervollständigen · Enter Ausführen · Esc Schließen",
+      "editor": "Editor",
+      "tools": "Werkzeuge",
+      "readOnly": "Bearbeiten ist derzeit nicht verfügbar",
+      "selectImage": "Zuerst ein Bild auswählen",
+      "selectTable": "Zuerst den Cursor in eine Tabelle setzen",
+      "unavailable": "An dieser Stelle nicht verfügbar",
+      "proofingNext": "Nächsten Rechtschreib- oder Grammatikhinweis öffnen",
+      "proofingRetry": "Rechtschreibung und Grammatik erneut prüfen",
+      "languages": {
+        "de-DE": "Rechtschreibung: Deutsch",
+        "de-AT": "Rechtschreibung: Österreichisches Deutsch",
+        "en-US": "Rechtschreibung: Englisch"
+      },
+      "export": "Als {format} exportieren",
+      "on": "Ein",
+      "off": "Aus",
+      "recent": "Zuletzt verwendet",
+      "context": "Passend zur Auswahl",
+      "pageMargins": "Seitenränder",
+      "aliases": {
+        "bold": [
+          "bold",
+          "fett",
+          "thicker text",
+          "dicker Text",
+          "strong"
+        ],
+        "italic": [
+          "italic",
+          "kursiv",
+          "schräg"
+        ],
+        "strike": [
+          "strikethrough",
+          "durchstreichen"
+        ],
+        "underline": [
+          "underline",
+          "unterstreichen"
+        ],
+        "fontSize": [
+          "font size",
+          "text size",
+          "Schriftgröße",
+          "Textgröße"
+        ],
+        "lineSpacing": [
+          "line spacing",
+          "line height",
+          "Zeilenabstand",
+          "Zeilenhöhe"
+        ],
+        "pageMargins": [
+          "page margins",
+          "margins",
+          "Seitenränder",
+          "Seitenrand",
+          "Ränder"
+        ]
       }
     }
   },

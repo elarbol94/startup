@@ -43,6 +43,8 @@ export function WorkspacePanel({ title, open, onClose, children, side = "right",
       <PanelDialog.Portal keepMounted container={container}>
         {!desktop && <PanelDialog.Backdrop className="fixed inset-0 z-50 bg-black/20 data-closed:hidden" />}
         <PanelDialog.Popup ref={popup} role={desktop ? "complementary" : "dialog"} initialFocus={desktop ? false : () => {
+          const requested = Array.from(popup.current?.querySelectorAll<HTMLElement>("[data-workspace-command-focus]") ?? []).find((field) => field.getClientRects().length > 0);
+          if (requested) return requested;
           const active = document.activeElement;
           if (active instanceof HTMLElement && popup.current?.contains(active)) return active;
           return Array.from(popup.current?.querySelectorAll<HTMLElement>("[data-workspace-autofocus]") ?? []).find((field) => field.getClientRects().length > 0) ?? popup.current;

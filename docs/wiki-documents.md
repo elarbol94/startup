@@ -11,6 +11,34 @@ The Wiki editor uses one content version for text and document layout. A save
 includes that version and the tab's edit-lease session. Metadata changes such as
 renaming a page do not invalidate a text save.
 
+## Command search
+
+Tap Shift twice while the editor has focus, or use the search button in the
+toolbar, to find editor commands. Type a name or keyword to narrow the list;
+Arrow Up/Down selects, Tab completes the name, Enter runs, and Escape closes.
+The document selection is retained. Search tolerates small typos when there are
+no exact matches and accepts German/English synonyms. Available commands for the
+current image, table or text selection rank first; recent commands follow for an
+empty search. The last eight command IDs are stored locally per user, without
+document text. Toggle commands display their current on/off state. Font size,
+line spacing and page margin commands focus their settings directly. Image/table commands explain the required
+selection, and editing commands are unavailable when the document is read-only.
+Shift used for typing, selecting text or other shortcuts does not open search.
+Typing `/` inserts ordinary text; it no longer opens a command menu. Empty
+paragraphs have no writing/command placeholder.
+
+Focused checks: `npx vitest run src/modules/wiki/lib/command-search.test.ts
+src/modules/wiki/lib/wiki-shortcuts.test.ts src/modules/wiki/lib/slash-commands.test.ts`.
+Browser coverage: `npm run e2e -- e2e/reliable-wiki-editor.spec.ts --grep
+"double Shift command search"`.
+
+## Text formatting
+
+Use the rich-text toolbar to format documents. Markdown typing shortcuts, paste
+conversion, help and export are no longer available. Plain-text Markdown stays
+literal; rich HTML paste and HTML, Word and PDF exports remain supported. Existing
+formatted content, tables and references retain their stored document schema.
+
 ## Linked presentations
 
 Headings used by presentations display a small presentation badge. It opens a list
@@ -73,7 +101,7 @@ is lost while an import runs, the result is rejected to preserve those edits.
 ## Spelling and grammar
 
 The **Rechtschreibung / Proofreading** menu selects German, Austrian German or
-English directly, shows the check status and opens the next suggestion. Click
+English directly, shows the check status and opens the next suggestion. Right-click
 an underline, press **Alt+Enter** at an issue, or use **Alt+F7** to move to the
 next one. Language changes show a saving state until acknowledged and keep
 their request alive during navigation. The first correction receives keyboard
@@ -91,10 +119,13 @@ A lane for the current sentence runs alongside at most one background request.
 Background batches contain up to eight contexts and normally at most 4,000
 characters (one longer context may run alone). Superseded requests are cancelled;
 useful work can finish in the background. Cancellation reaches LanguageTool when
-no other editor is awaiting the same shared request. Continuous typing is
+no other editor is awaiting the same shared request. Requests time out after
+eight seconds and release their checking lane even if cancellation never settles;
+late results from those requests are discarded. Continuous typing is
 coalesced, and completed requests do not bypass the typing pause or IME composition.
 
-Editing a word removes its own underline. Other spelling hints remain usable
+Editing a word removes its own underline. Converting prose to code or other
+excluded content clears its old hints. Other spelling hints remain usable
 immediately. Grammar hints whose paragraph changed remain visible but cannot be
 applied until their sentence context has been checked again. The count includes
 these pending hints; “Checking changes…” distinguishes unfinished checks from
@@ -110,9 +141,9 @@ larger than 500 words do not exceed the checking API's request limit.
 LanguageTool runs privately in the Docker Compose `languagetool` service. Local
 development needs a reachable `LANGUAGETOOL_URL`; the default Docker hostname
 does not resolve outside that network. Text is sent to the configured service.
-On failure, the editor enables browser spellchecking with the selected language
-(availability depends on installed browser dictionaries), retains its normal
-save behavior, and retries after 5, 10, 20, then at most 30 seconds. The menu also
+Browser spellchecking stays disabled to avoid conflicting dictionaries and stuck
+red underlines. On failure, the editor shows an unavailable status, retains its
+normal save behavior, and retries after 5, 10, 20, then at most 30 seconds. The menu also
 offers an immediate retry. Actual checking latency depends on LanguageTool;
 the 250 ms debounce is not a service-response guarantee.
 

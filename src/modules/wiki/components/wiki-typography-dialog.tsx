@@ -41,6 +41,8 @@ export type WikiEditorPreferences = {
 };
 
 type Props = {
+  returnFocus?: () => HTMLElement | null;
+  focusControl?: "bodySizePt" | "lineHeight";
   open: boolean;
   onOpenChange: (open: boolean) => void;
   typography: WikiTypographySettingsV1;
@@ -154,6 +156,8 @@ function PreferenceToggle({
 }
 
 export function WikiTypographyDialog({
+  returnFocus,
+  focusControl,
   open,
   onOpenChange,
   typography,
@@ -245,6 +249,8 @@ export function WikiTypographyDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
+        finalFocus={returnFocus}
+        initialFocus={focusControl ? () => document.querySelector<HTMLInputElement>(`[data-testid="${focusControl}-number"]`) : undefined}
         className="max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto_auto] gap-0 overflow-hidden p-0 sm:max-w-6xl"
         data-testid="wiki-typography-dialog"
         showCloseButton={!pending}

@@ -1,7 +1,7 @@
 export const WIKI_SHORTCUT_ACTIONS = [
   "undo", "redo", "bold", "italic", "underline", "highlight", "strike", "inlineCode",
   "heading1", "heading2", "heading3", "bulletList", "orderedList", "taskList", "blockquote", "codeBlock", "horizontalRule", "pageBreak", "tableOfContents", "twoColumns",
-  "search", "outline", "inlineComment", "toggleComments", "documentMode", "markdownHelp", "typography", "shortcuts",
+  "search", "outline", "inlineComment", "toggleComments", "documentMode", "typography", "shortcuts",
   "image", "pageLink", "externalLink", "citation", "pdfEvidence", "attachment", "supportingSource",
   "imageHighlight", "imageComment", "imageRegion", "imageWidth50", "imageWidth75", "imageWidth100", "imageAlignLeft", "imageAlignCenter", "imageAlignRight",
   "tableAddRow", "tableAddColumn", "tableHeader", "tableAlignLeft", "tableAlignCenter", "tableAlignRight", "tableDeleteRow", "tableDeleteColumn",
@@ -13,7 +13,7 @@ export type WikiShortcutBindings = Record<WikiShortcutAction, string>;
 export const WIKI_SHORTCUT_GROUPS: Array<{ label: "editing" | "structure" | "wiki" | "insert" | "context"; actions: WikiShortcutAction[] }> = [
   { label: "editing", actions: ["undo", "redo", "bold", "italic", "underline", "highlight", "strike", "inlineCode"] },
   { label: "structure", actions: ["heading1", "heading2", "heading3", "bulletList", "orderedList", "taskList", "blockquote", "codeBlock", "horizontalRule", "pageBreak", "tableOfContents", "twoColumns"] },
-  { label: "wiki", actions: ["search", "outline", "inlineComment", "toggleComments", "documentMode", "markdownHelp", "typography", "shortcuts"] },
+  { label: "wiki", actions: ["search", "outline", "inlineComment", "toggleComments", "documentMode", "typography", "shortcuts"] },
   { label: "insert", actions: ["image", "pageLink", "externalLink", "citation", "pdfEvidence", "attachment", "supportingSource"] },
   { label: "context", actions: ["imageHighlight", "imageComment", "imageRegion", "imageWidth50", "imageWidth75", "imageWidth100", "imageAlignLeft", "imageAlignCenter", "imageAlignRight", "tableAddRow", "tableAddColumn", "tableHeader", "tableAlignLeft", "tableAlignCenter", "tableAlignRight", "tableDeleteRow", "tableDeleteColumn"] },
 ];
@@ -21,7 +21,7 @@ export const WIKI_SHORTCUT_GROUPS: Array<{ label: "editing" | "structure" | "wik
 export const DEFAULT_WIKI_SHORTCUT_BINDINGS: WikiShortcutBindings = {
   undo: "Ctrl+Z", redo: "Ctrl+Shift+Z", bold: "Ctrl+B", italic: "Ctrl+I", underline: "Ctrl+U", highlight: "Ctrl+Alt+H", strike: "Ctrl+Alt+S", inlineCode: "Ctrl+Alt+C",
   heading1: "Ctrl+Alt+1", heading2: "Ctrl+Alt+2", heading3: "Ctrl+Alt+3", bulletList: "Ctrl+Alt+L", orderedList: "Ctrl+Alt+O", taskList: "Ctrl+Alt+T", blockquote: "Ctrl+Alt+Q", codeBlock: "Ctrl+Alt+K", horizontalRule: "Ctrl+Alt+-", pageBreak: "Ctrl+Alt+Enter", tableOfContents: "Ctrl+Alt+G", twoColumns: "Ctrl+Alt+W",
-  search: "Ctrl+F", outline: "Ctrl+Alt+N", inlineComment: "Ctrl+Alt+M", toggleComments: "Ctrl+Alt+V", documentMode: "Ctrl+Alt+D", markdownHelp: "Ctrl+Alt+Y", typography: "Ctrl+Alt+P", shortcuts: "Ctrl+/",
+  search: "Ctrl+F", outline: "Ctrl+Alt+N", inlineComment: "Ctrl+Alt+M", toggleComments: "Ctrl+Alt+V", documentMode: "Ctrl+Alt+D", typography: "Ctrl+Alt+P", shortcuts: "Ctrl+/",
   image: "Ctrl+Alt+I", pageLink: "Ctrl+Alt+J", externalLink: "Ctrl+K", citation: "Ctrl+Alt+X", pdfEvidence: "Ctrl+Alt+E", attachment: "Ctrl+Alt+A", supportingSource: "Ctrl+Alt+R",
   imageHighlight: "Ctrl+Alt+Shift+H", imageComment: "Ctrl+Alt+Shift+M", imageRegion: "Ctrl+Alt+Shift+R", imageWidth50: "Ctrl+Alt+5", imageWidth75: "Ctrl+Alt+7", imageWidth100: "Ctrl+Alt+0", imageAlignLeft: "Ctrl+Alt+ArrowLeft", imageAlignCenter: "Ctrl+Alt+ArrowDown", imageAlignRight: "Ctrl+Alt+ArrowRight",
   tableAddRow: "Ctrl+Alt+Shift+N", tableAddColumn: "Ctrl+Alt+Shift+C", tableHeader: "Ctrl+Alt+Shift+T", tableAlignLeft: "Ctrl+Alt+Shift+ArrowLeft", tableAlignCenter: "Ctrl+Alt+Shift+ArrowDown", tableAlignRight: "Ctrl+Alt+Shift+ArrowRight", tableDeleteRow: "Ctrl+Alt+Delete", tableDeleteColumn: "Ctrl+Alt+Shift+Delete",

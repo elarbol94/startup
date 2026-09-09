@@ -50,7 +50,6 @@ function PageHeaderActions({ onExport, favorite, onNewSubpage, onToggleFavorite,
       <DropdownMenuSeparator />
       <DropdownMenuItem onClick={() => onExport("pdf", true)}><Eye />{t("document.previewPdf")}</DropdownMenuItem>
       <DropdownMenuItem onClick={() => onExport("pdf")}><Download />{t("document.downloadPdf")}</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onExport("markdown")}><FileText />Markdown</DropdownMenuItem>
       <DropdownMenuItem onClick={() => onExport("html")}><FileText />HTML</DropdownMenuItem>
       <DropdownMenuItem onClick={() => onExport("docx")}><FileText />DOCX</DropdownMenuItem>
       <DropdownMenuSeparator />
