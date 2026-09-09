@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { acceptPlatformInvitation } from "@/modules/settings/user-actions";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export function InvitationForm({ token, email }: { token: string; email: string | null }) {
+export function InvitationForm({ token, email, signedInAs }: { token: string; email: string | null; signedInAs: string | null }) {
   const t = useTranslations("invitation");
   const [nickname, setNickname] = useState("");
   const [password, setPassword] = useState("");
@@ -18,6 +18,22 @@ export function InvitationForm({ token, email }: { token: string; email: string 
   const [complete, setComplete] = useState(false);
   const [invalid, setInvalid] = useState(!email);
   const [error, setError] = useState<string | null>(null);
+
+  async function goToLogin() {
+    if (pending) return;
+    setPending(true);
+    setError(null);
+    try {
+      // Explicit account switching only: opening an email never changes a session.
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Sign out failed");
+      // A full navigation discards cached pages belonging to the previous account.
+      window.location.replace("/login");
+    } catch {
+      setError(t("switchFailed"));
+      setPending(false);
+    }
+  }
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -54,8 +70,13 @@ export function InvitationForm({ token, email }: { token: string; email: string 
         <CardDescription>{t(complete ? "completeDescription" : invalid ? "invalidInvitation" : "description")}</CardDescription>
       </CardHeader>
       <CardContent>
+        {signedInAs && <p className="mb-4 rounded-lg border bg-muted/40 p-3 text-sm">{t("signedInNotice", { name: signedInAs })}</p>}
         {complete || invalid ? (
-          <Button nativeButton={false} render={<Link href="/login" />} className="w-full">{t("signIn")}</Button>
+          <div className="flex flex-col gap-3">
+            {complete && <p className="break-all text-sm">{t("loginNickname", { nickname })}</p>}
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+            <Button onClick={goToLogin} disabled={pending} className="w-full">{t(pending ? "switching" : "signIn")}</Button>
+          </div>
         ) : (
           <form onSubmit={onSubmit}>
             <fieldset disabled={pending} className="flex min-w-0 flex-col gap-4">

@@ -61,6 +61,7 @@ export function CategoriesManager({ categories }: { categories: Category[] }) {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setPending(true);
     try {
       await upsertCategory({ id: editing?.id, name, kind, color, template });
@@ -174,92 +175,94 @@ export function CategoriesManager({ categories }: { categories: Category[] }) {
         </div>
       ))}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(value) => { if (!pending) setDialogOpen(value); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>
               {editing ? t("editCategory") : t("addCategory")}
             </DialogTitle>
           </DialogHeader>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="category-name">{t("name")}</Label>
-              <Input
-                id="category-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={100}
-              />
-            </div>
-            {!editing && (
+          <form onSubmit={onSubmit}>
+            <fieldset disabled={pending} className="flex min-w-0 flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="category-kind">{t("kind")}</Label>
+                <Label htmlFor="category-name">{t("name")}</Label>
+                <Input
+                  id="category-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  maxLength={100}
+                />
+              </div>
+              {!editing && (
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="category-kind">{t("kind")}</Label>
+                  <Select
+                    value={kind}
+                    onValueChange={(value) => {
+                      const nextKind = value as typeof kind;
+                      setKind(nextKind);
+                      setTemplate(
+                        nextKind === "income" ? "standard_income" : "standard_expense",
+                      );
+                    }}
+                  >
+                    <SelectTrigger id="category-kind">
+                      <SelectValue>
+                        {kind === "income"
+                          ? tAccounting("income")
+                          : tAccounting("expense")}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="income">
+                        {tAccounting("income")}
+                      </SelectItem>
+                      <SelectItem value="expense">
+                        {tAccounting("expense")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="category-template">{t("template")}</Label>
                 <Select
-                  value={kind}
-                  onValueChange={(value) => {
-                    const nextKind = value as typeof kind;
-                    setKind(nextKind);
-                    setTemplate(
-                      nextKind === "income" ? "standard_income" : "standard_expense",
-                    );
-                  }}
+                  value={template}
+                  onValueChange={(value) => setTemplate(value as CategoryTemplate)}
                 >
-                  <SelectTrigger id="category-kind">
-                    <SelectValue>
-                      {kind === "income"
-                        ? tAccounting("income")
-                        : tAccounting("expense")}
-                    </SelectValue>
+                  <SelectTrigger id="category-template">
+                    <SelectValue>{t(`templates.${template}`)}</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="income">
-                      {tAccounting("income")}
-                    </SelectItem>
-                    <SelectItem value="expense">
-                      {tAccounting("expense")}
-                    </SelectItem>
+                    {categoryTemplates
+                      .filter((item) =>
+                        kind === "income"
+                          ? item === "standard_income" || item === "grant_income"
+                          : item !== "standard_income" && item !== "grant_income",
+                      )
+                      .map((item) => (
+                        <SelectItem key={item} value={item}>
+                          {t(`templates.${item}`)}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="category-template">{t("template")}</Label>
-              <Select
-                value={template}
-                onValueChange={(value) => setTemplate(value as CategoryTemplate)}
-              >
-                <SelectTrigger id="category-template">
-                  <SelectValue>{t(`templates.${template}`)}</SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {categoryTemplates
-                    .filter((item) =>
-                      kind === "income"
-                        ? item === "standard_income" || item === "grant_income"
-                        : item !== "standard_income" && item !== "grant_income",
-                    )
-                    .map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {t(`templates.${item}`)}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="category-color">{t("color")}</Label>
-              <ColorPicker
-                aria-label={t("color")}
-                id="category-color"
-                value={color}
-                onChange={setColor}
-                className="h-9 w-16 cursor-pointer rounded-md border bg-background p-1"
-              />
-            </div>
-            <Button type="submit" disabled={pending}>
-              {tCommon("save")}
-            </Button>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="category-color">{t("color")}</Label>
+                <ColorPicker
+                  aria-label={t("color")}
+                  id="category-color"
+                  value={color}
+                  onChange={setColor}
+                  className="h-9 w-16 cursor-pointer rounded-md border bg-background p-1"
+                />
+              </div>
+              <Button type="submit" disabled={pending}>
+                {tCommon("save")}
+              </Button>
+          </fieldset>
           </form>
         </DialogContent>
       </Dialog>

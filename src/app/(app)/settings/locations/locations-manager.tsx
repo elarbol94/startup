@@ -39,7 +39,7 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!state) return;
+    if (!state || pending) return;
     setPending(true);
     try {
       await upsertBusinessLocation({ id: editing?.id, name, state, municipality, active: editing?.active ?? true });
@@ -54,6 +54,7 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
   }
 
   async function toggleActive(location: Location) {
+    if (togglingId) return;
     setTogglingId(location.id);
     try {
       await setBusinessLocationActive(location.id, !location.active);
@@ -74,14 +75,14 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
         {location.name === "Graz / Steiermark" && <Badge variant="secondary">{t("default")}</Badge>}
         {!location.active && <Badge variant="outline">{t("inactive")}</Badge>}
         <Button type="button" variant="ghost" size="icon-xs" onClick={() => edit(location)} aria-label={t("edit")}><Pencil className="size-3.5" /></Button>
-        <Button type="button" variant="ghost" size="icon-xs" disabled={togglingId === location.id} onClick={() => void toggleActive(location)} aria-label={location.active ? t("archive") : t("restore")}>{location.active ? <Archive className="size-3.5" /> : <ArchiveRestore className="size-3.5" />}</Button>
+        <Button type="button" variant="ghost" size="icon-xs" disabled={togglingId !== null} onClick={() => void toggleActive(location)} aria-label={location.active ? t("archive") : t("restore")}>{location.active ? <Archive className="size-3.5" /> : <ArchiveRestore className="size-3.5" />}</Button>
       </div>)}
     </div>
-    <Dialog open={open} onOpenChange={setOpen}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{editing ? t("edit") : t("add")}</DialogTitle></DialogHeader><form onSubmit={submit} className="grid gap-4">
-      <div className="grid gap-2"><Label htmlFor="location-name">{t("name")}</Label><Input id="location-name" value={name} onChange={(event) => setName(event.target.value)} required /></div>
+    <Dialog open={open} onOpenChange={(value) => { if (!pending) setOpen(value); }}><DialogContent className="sm:max-w-md"><DialogHeader><DialogTitle>{editing ? t("edit") : t("add")}</DialogTitle></DialogHeader><form onSubmit={submit}><fieldset disabled={pending} className="grid min-w-0 gap-4">
+      <div className="grid gap-2"><Label htmlFor="location-name">{t("name")}</Label><Input id="location-name" maxLength={120} value={name} onChange={(event) => setName(event.target.value)} required /></div>
       <div className="grid gap-2"><Label htmlFor="location-state">{t("state")}</Label><Select value={state} onValueChange={(value) => setState((value ?? "") as (typeof payrollStates)[number] | "")}><SelectTrigger id="location-state"><SelectValue /></SelectTrigger><SelectContent>{payrollStates.map((item) => <SelectItem key={item} value={item}>{item}</SelectItem>)}</SelectContent></Select></div>
-      <div className="grid gap-2"><Label htmlFor="location-municipality">{t("municipality")}</Label><Input id="location-municipality" value={municipality} onChange={(event) => setMunicipality(event.target.value)} required /></div>
-      <Button type="submit" disabled={pending}>{tc("save")}</Button>
-    </form></DialogContent></Dialog>
+      <div className="grid gap-2"><Label htmlFor="location-municipality">{t("municipality")}</Label><Input id="location-municipality" maxLength={120} value={municipality} onChange={(event) => setMunicipality(event.target.value)} required /></div>
+      <Button type="submit" disabled={pending || !state}>{tc("save")}</Button>
+    </fieldset></form></DialogContent></Dialog>
   </div>;
 }

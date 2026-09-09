@@ -15,7 +15,7 @@ async function SettingsChrome({
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
       <SettingsTabs isAdmin={user.role === "admin"} />
-      <div className="max-w-2xl">{children}</div>
+      <div className="w-full max-w-5xl">{children}</div>
     </div>
   );
 }

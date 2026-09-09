@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  removeUserAccount: vi.fn(), requireAdmin: vi.fn(), issueInvitation: vi.fn(), acceptInvitation: vi.fn(), revalidatePath: vi.fn(),
+  revokeInvitation: vi.fn(), removeUserAccount: vi.fn(), requireAdmin: vi.fn(), issueInvitation: vi.fn(), acceptInvitation: vi.fn(), revalidatePath: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ requireAdmin: mocks.requireAdmin }));
 vi.mock("./user-removal", () => ({ removeUserAccount: mocks.removeUserAccount }));
-vi.mock("./invitations", () => ({ issueInvitation: mocks.issueInvitation, acceptInvitation: mocks.acceptInvitation }));
+vi.mock("./invitations", () => ({ revokeInvitation: mocks.revokeInvitation, issueInvitation: mocks.issueInvitation, acceptInvitation: mocks.acceptInvitation }));
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("next-intl/server", () => ({ getLocale: async () => "en" }));
 
-import { invitePlatformUser, removePlatformUser } from "./user-actions";
+import { invitePlatformUser, removePlatformUser, revokePlatformInvitation } from "./user-actions";
 const input = { email: "colleague@example.com", role: "member" as const };
 
 beforeEach(() => {
@@ -64,5 +64,23 @@ describe("removePlatformUser", () => {
     mocks.removeUserAccount.mockReturnValue({ error: "cannotRemoveSelf" });
     expect(await removePlatformUser({ userId: "admin" })).toEqual({ error: "cannotRemoveSelf" });
     expect(mocks.revalidatePath).not.toHaveBeenCalled();
+  });
+});
+
+describe("revokePlatformInvitation", () => {
+  it("requires admin access before revoking a link", async () => {
+    mocks.requireAdmin.mockRejectedValue(new Error("Forbidden"));
+    await expect(revokePlatformInvitation({ invitationId: "test" })).rejects.toThrow("Forbidden");
+    expect(mocks.revokeInvitation).not.toHaveBeenCalled();
+  });
+  it("validates the invitation ID", async () => {
+    expect(await revokePlatformInvitation({ invitationId: " " })).toEqual({ error: "invitationUnavailable" });
+    expect(mocks.revokeInvitation).not.toHaveBeenCalled();
+  });
+  it("uses the authenticated administrator and refreshes only after success", async () => {
+    mocks.revokeInvitation.mockReturnValue({ error: null });
+    expect(await revokePlatformInvitation({ invitationId: "test" })).toEqual({ error: null });
+    expect(mocks.revokeInvitation).toHaveBeenCalledWith("test", "admin");
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/settings/users");
   });
 });

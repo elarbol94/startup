@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
@@ -15,16 +14,19 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+const subscribeToHydration = () => () => {};
+
 export function LoginForm() {
   const t = useTranslations("auth");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const router = useRouter();
   const [pending, setPending] = useState(false);
+  const ready = useSyncExternalStore(subscribeToHydration, () => true, () => false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (pending) return;
     setPending(true);
     setError(null);
 
@@ -35,11 +37,8 @@ export function LoginForm() {
         return;
       }
 
-      // No router.refresh() here. It re-rendered the route being left while this
-      // navigation was still in flight, which cancelled it and stranded the user on
-      // /login holding a valid session. It was also redundant: the session cookie is
-      // set before this runs, so the server renders "/" as the signed-in user anyway.
-      router.push("/");
+      // Discard the previous account's client-side route cache after authentication.
+      window.location.replace("/");
     } catch {
       setError(t("invalidCredentials"));
     } finally {
@@ -54,37 +53,39 @@ export function LoginForm() {
         <CardDescription>{t("loginSubtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="username">{t("username")}</Label>
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-              autoComplete="username"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="password">{t("password")}</Label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              minLength={8}
-              autoComplete="current-password"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-destructive" role="alert">
-              {error}
-            </p>
-          )}
-          <Button type="submit" disabled={pending}>
-            {t("signIn")}
-          </Button>
+        <form onSubmit={onSubmit}>
+          <fieldset disabled={!ready || pending} className="flex min-w-0 flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="username">{t("username")}</Label>
+              <Input
+                id="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                required
+                autoComplete="username"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="password">{t("password")}</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={8}
+                autoComplete="current-password"
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={pending}>
+              {t("signIn")}
+            </Button>
+        </fieldset>
         </form>
       </CardContent>
     </Card>

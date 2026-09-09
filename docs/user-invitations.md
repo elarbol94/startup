@@ -76,3 +76,19 @@ a separate new account without restoring previous access or assignments.
 The operation runs in one database transaction and rechecks the acting admin
 inside its write lock, preventing concurrent administrators from removing each
 other and leaving the platform without an administrator.
+
+## Account switching and administration
+
+Opening an invitation never changes an existing browser session. The setup page
+identifies the signed-in account. Its **Go to sign in** button explicitly signs
+that account out before opening login, including after an invalid or used link.
+The new user then signs in with their chosen nickname and password. Other
+browsers remain signed in. Authentication changes use a full navigation to
+discard pages cached for the previous account. Failed sign-out stays visible
+and can be retried.
+
+The user list identifies the current administrator and explains invitation roles.
+Pending invitations have explicit resend and revoke actions. Revoking requires
+confirmation, disables pending links (including sends already in flight), and
+does not remove existing accounts. An accepted invitation cannot be revoked;
+use account removal to withdraw an existing user's access.

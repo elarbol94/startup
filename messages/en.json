@@ -3628,7 +3628,7 @@
       "mailNotConfigured": "Invitation email is not configured. Ask the server administrator to configure email delivery and the public app URL.",
       "mailFailed": "The invitation email could not be sent. Please try again.",
       "pendingInvitations": "Pending invitations",
-      "pendingHint": "Accounts appear above after setup. To resend, invite the same email again; the new email replaces the previous link.",
+      "pendingHint": "Invitations last seven days. Resending replaces the previous link after successful delivery. Revoking disables the link immediately.",
       "expiresOn": "Expires {date}",
       "removeUser": "Remove user",
       "removeTitle": "Remove {name}?",
@@ -3641,7 +3641,20 @@
       "cannotRemoveSelf": "You cannot remove your own account.",
       "userNotFound": "This user has already been removed or no longer exists.",
       "invalidRemoval": "Select a valid user to remove.",
-      "inviterUnavailable": "Your administrator access is no longer available. Please sign in again."
+      "inviterUnavailable": "Your administrator access is no longer available. Please sign in again.",
+      "signedInAs": "Signed in as {name} ({email}) · Administrator",
+      "accountsCount": "User accounts ({count})",
+      "noPendingInvitations": "No pending invitations. Invite someone by email to give them access.",
+      "resendInvitation": "Resend invitation",
+      "revokeInvitation": "Revoke invitation",
+      "revokeDescription": "The invitation link will stop working immediately. No user account will be removed. You can invite this person again later.",
+      "revokingInvitation": "Revoking…",
+      "confirmRevoke": "Revoke link",
+      "invitationRevoked": "Invitation revoked.",
+      "invitationUnavailable": "This invitation is no longer pending. Please refresh the page.",
+      "adminHint": "Full administration access, including company settings and inviting or removing other users. Grant only to trusted people.",
+      "personnelHint": "Additional access to protected personnel, salary and tax data. Cannot manage users.",
+      "memberHint": "Work in the platform without user administration or access to protected personnel and salary data."
     },
     "language": {
       "label": "Language",
@@ -3753,7 +3766,11 @@
     "completeTitle": "Your account is ready",
     "completeDescription": "You can now sign in with your chosen nickname and password.",
     "signIn": "Go to sign in",
-    "error": "Account setup could not be completed. Please try again."
+    "error": "Account setup could not be completed. Please try again.",
+    "signedInNotice": "This browser is still signed in as {name}. “Go to sign in” signs out that account so you can sign in with your new account.",
+    "loginNickname": "Your sign-in nickname: {nickname}",
+    "switchFailed": "Sign-out failed. Please try again.",
+    "switching": "Opening sign in…"
   },
   "invitationEmail": {
     "subject": "Your invitation to management-platform",

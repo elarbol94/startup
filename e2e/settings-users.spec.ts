@@ -177,3 +177,76 @@ test("admins remove users on desktop and mobile; removed sessions and credential
     } finally { await colleague.close(); }
   }
 });
+
+test("invitation setup switches an existing admin session to the new member; pending links can be resent and revoked", async ({ page, browser }) => {
+  test.setTimeout(180_000);
+  const signup = await page.request.post("/api/auth/sign-up/email", {
+    data: { name: "E2E Admin", username: "admin", email: "admin@example.com", password: "super-secret-1" },
+  });
+  if (!signup.ok()) {
+    const login = await page.request.post("/api/auth/sign-in/username", {
+      data: { username: "admin", password: "super-secret-1" },
+    });
+    expect(login.ok()).toBe(true);
+  }
+  const otherAdmin = await browser.newContext();
+  try {
+    expect((await otherAdmin.request.post("/api/auth/sign-in/username", {
+      data: { username: "admin", password: "super-secret-1" },
+    })).ok()).toBe(true);
+    await page.goto("/settings/users");
+    const nickname = `switch.${Date.now()}`;
+    const email = `${nickname}@example.com`;
+    await page.getByRole("button", { name: "Benutzer einladen" }).click();
+    await page.getByRole("dialog").getByLabel("E-Mail", { exact: true }).fill(email);
+    await page.getByRole("dialog").getByRole("button", { name: "Einladung senden", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    const entry = page.getByRole("region", { name: "Offene Einladungen" }).getByRole("listitem").filter({ hasText: email });
+    await expect(entry).toBeVisible();
+    const firstUrl = inbox.find((message) => message.to === email)!.text.match(/https?:\/\/[^\s]+/)![0];
+    await entry.getByRole("button", { name: "Erneut senden" }).click();
+    await expect(page.getByRole("dialog").getByLabel("E-Mail", { exact: true })).toHaveValue(email);
+    await page.getByRole("dialog").getByRole("button", { name: "Einladung senden", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    const secondUrl = inbox.filter((message) => message.to === email).at(-1)!.text.match(/https?:\/\/[^\s]+/)![0];
+    expect(secondUrl).not.toBe(firstUrl);
+    await entry.getByRole("button", { name: "Einladung widerrufen" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Abbrechen", exact: true }).click();
+    await expect(entry).toBeVisible();
+    await entry.getByRole("button", { name: "Einladung widerrufen" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Link widerrufen", exact: true }).click();
+    await expect(entry).toHaveCount(0);
+    for (const url of [firstUrl, secondUrl]) {
+      await page.goto(url);
+      await expect(page.getByText("Einladung nicht verfügbar", { exact: true })).toBeVisible();
+    }
+    await page.goto("/settings/users");
+    await page.getByRole("button", { name: "Benutzer einladen" }).click();
+    await page.getByRole("dialog").getByLabel("E-Mail", { exact: true }).fill(email);
+    await page.getByRole("dialog").getByRole("button", { name: "Einladung senden", exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+    const url = inbox.filter((message) => message.to === email).at(-1)!.text.match(/https?:\/\/[^\s]+/)![0];
+    await page.goto(url);
+    await expect(page.getByText(/In diesem Browser bist du noch als E2E Admin/)).toBeVisible();
+    expect((await (await page.request.get("/api/auth/get-session")).json()).user.role).toBe("admin");
+    await page.getByLabel("Nickname", { exact: true }).fill(nickname);
+    await page.getByLabel("Passwort", { exact: true }).fill("switch-password-123");
+    await page.getByLabel("Passwort bestätigen").fill("switch-password-123");
+    await page.getByRole("button", { name: "Konto erstellen" }).click();
+    await expect(page.getByText("Dein Konto ist bereit", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Zur Anmeldung", exact: true }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await (await page.request.get("/api/auth/get-session")).json()).toBeNull();
+    expect((await (await otherAdmin.request.get("/api/auth/get-session")).json()).user.role).toBe("admin");
+    await page.getByLabel("Benutzername", { exact: true }).fill(nickname);
+    await page.getByLabel("Passwort", { exact: true }).fill("switch-password-123");
+    await page.getByRole("button", { name: "Anmelden", exact: true }).click();
+    await expect(page).toHaveURL(/\/$/);
+    expect((await (await page.request.get("/api/auth/get-session")).json()).user.username).toBe(nickname);
+    for (const section of ["users", "company", "categories", "locations"]) {
+      await page.goto(`/settings/${section}`);
+      await expect(page).toHaveURL(/\/settings\/profile$/);
+      await expect(page.getByRole("button", { name: "Benutzer einladen" })).toHaveCount(0);
+    }
+  } finally { await otherAdmin.close(); }
+});

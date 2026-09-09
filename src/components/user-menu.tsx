@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { Check, Globe, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { setLocale } from "@/i18n/actions";
@@ -25,7 +25,8 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
   const t = useTranslations("nav");
   const tLang = useTranslations("settings.language");
   const locale = useLocale();
-  const router = useRouter();
+  const tCommon = useTranslations("common");
+  const [loggingOut, setLoggingOut] = useState(false);
   const [, startTransition] = useTransition();
 
   const initials = name
@@ -36,11 +37,16 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
     .toUpperCase();
 
   async function handleLogout() {
-    await authClient.signOut();
-    // Same reason as the login form: a refresh() alongside the push re-renders the route
-    // being left and can cancel the navigation. The session is already gone, so /login
-    // renders correctly on arrival.
-    router.push("/login");
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      const result = await authClient.signOut();
+      if (result.error) throw new Error("Sign out failed");
+      window.location.replace("/login");
+    } catch {
+      toast.error(tCommon("error"));
+      setLoggingOut(false);
+    }
   }
 
   return (
@@ -84,7 +90,7 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
+        <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>
           <LogOut className="mr-2 size-4" />
           {t("logout")}
         </DropdownMenuItem>

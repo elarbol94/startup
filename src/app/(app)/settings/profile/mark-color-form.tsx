@@ -33,6 +33,7 @@ export function MarkColorForm({
 }) {
   const t = useTranslations("settings.profile");
   const router = useRouter();
+  const common = useTranslations("common");
   const [selected, setSelected] = useState<UserMarkColor>(getUserMarkColor(currentColor).key);
   const [pending, startTransition] = useTransition();
   const availabilityByKey = new Map(availability.map((item) => [item.key, item]));
@@ -41,15 +42,19 @@ export function MarkColorForm({
     const item = availabilityByKey.get(color);
     if (!item?.available || pending || color === selected) return;
     startTransition(async () => {
-      const result = await updateMyMarkColor(color);
-      if (!result.ok) {
-        toast.error(t("conflict"));
+      try {
+        const result = await updateMyMarkColor(color);
+        if (!result.ok) {
+          toast.error(t("conflict"));
+          router.refresh();
+          return;
+        }
+        setSelected(color);
+        toast.success(t("saved"));
         router.refresh();
-        return;
+      } catch {
+        toast.error(common("error"));
       }
-      setSelected(color);
-      toast.success(t("saved"));
-      router.refresh();
     });
   }
 

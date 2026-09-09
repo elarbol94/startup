@@ -22,7 +22,7 @@ vi.mock("@/lib/mail", () => ({
 import { db, sqlite } from "@/db";
 import { account, user, userInvitations, userProfilePreferences } from "@/db/schema";
 import { MailConfigurationError, sendMail } from "@/lib/mail";
-import { acceptInvitation, getInvitation, issueInvitation, listPendingInvitations } from "./invitations";
+import { acceptInvitation, getInvitation, issueInvitation, listPendingInvitations, revokeInvitation } from "./invitations";
 
 const mail = vi.mocked(sendMail);
 const invite = { email: "invitee@example.com", role: "personnel" as const };
@@ -178,5 +178,40 @@ describe("email invitations", () => {
     expect(await issueInvitation(invite, "admin", "de")).toEqual({ error: null });
     expect(mail.mock.calls[0][0].subject).toBe("Deine Einladung zu management-platform");
     expect(mail.mock.calls[0][0].text).toContain("7 Tagen");
+  });
+});
+
+describe("revoking invitations", () => {
+  it("invalidates a delivered link without creating or removing users", async () => {
+    const token = await sendInvite();
+    const id = listPendingInvitations()[0].id;
+    expect(revokeInvitation(id, "admin")).toEqual({ error: null });
+    expect(getInvitation(token)).toBeNull();
+    expect(await acceptInvitation({ token, ...credentials })).toEqual({ error: "invalidInvitation" });
+    expect(db.select().from(user).all()).toHaveLength(1);
+  });
+  it("rejects non-admin and removed administrators", async () => {
+    const token = await sendInvite();
+    const id = listPendingInvitations()[0].id;
+    db.update(user).set({ role: "member" }).run();
+    expect(() => revokeInvitation(id, "admin")).toThrow("Forbidden");
+    db.update(user).set({ role: "admin", removedAt: new Date() }).run();
+    expect(() => revokeInvitation(id, "admin")).toThrow("Forbidden");
+    expect(getInvitation(token)).not.toBeNull();
+  });
+  it("prevents a resend already in flight from reactivating a revoked invitation", async () => {
+    const token = await sendInvite();
+    const id = listPendingInvitations()[0].id;
+    mail.mockImplementationOnce(async () => { expect(revokeInvitation(id, "admin")).toEqual({ error: null }); });
+    expect(await issueInvitation(invite, "admin", "en")).toEqual({ error: "mailFailed" });
+    expect(getInvitation(token)).toBeNull();
+    expect(getInvitation(latestToken())).toBeNull();
+  });
+  it("does not affect an account when its invitation has already been accepted", async () => {
+    const token = await sendInvite();
+    const id = listPendingInvitations()[0].id;
+    await acceptInvitation({ token, ...credentials });
+    expect(revokeInvitation(id, "admin")).toEqual({ error: "invitationUnavailable" });
+    expect(db.select().from(account).all()).toHaveLength(1);
   });
 });

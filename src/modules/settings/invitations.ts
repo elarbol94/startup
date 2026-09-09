@@ -93,6 +93,22 @@ export function listPendingInvitations() {
   )).orderBy(userInvitations.createdAt).all();
 }
 
+/** Revoke all pending sends to this address, including email already in flight. */
+export function revokeInvitation(id: string, adminId: string) {
+  return db.transaction((tx) => {
+    const admin = tx.select().from(user).where(eq(user.id, adminId)).get();
+    if (!admin || admin.removedAt || admin.banned || admin.role !== "admin") throw new Error("Forbidden");
+    const invitation = tx.select().from(userInvitations).where(and(
+      eq(userInvitations.id, id), isNull(userInvitations.acceptedAt),
+    )).get();
+    if (!invitation) return { error: "invitationUnavailable" as const };
+    tx.delete(userInvitations).where(and(
+      eq(userInvitations.email, invitation.email), isNull(userInvitations.acceptedAt),
+    )).run();
+    return { error: null };
+  }, { behavior: "immediate" });
+}
+
 export async function acceptInvitation(input: unknown) {
   const parsed = acceptInvitationSchema.safeParse(input);
   if (!parsed.success) return { error: "invalidInput" as const };

@@ -27,6 +27,7 @@ export function SettingsTabs({ isAdmin }: { isAdmin: boolean }) {
         <Link
           key={tab.href}
           href={tab.href}
+          aria-current={pathname.startsWith(tab.href) ? "page" : undefined}
           className={cn(
             "shrink-0 whitespace-nowrap border-b-2 px-4 py-2 text-sm font-medium transition-colors",
             pathname.startsWith(tab.href)

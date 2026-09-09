@@ -3630,7 +3630,7 @@
       "mailNotConfigured": "Der E-Mail-Versand ist noch nicht eingerichtet. Bitte die Serveradministration, den E-Mail-Versand und die öffentliche App-Adresse zu konfigurieren.",
       "mailFailed": "Die Einladungs-E-Mail konnte nicht versendet werden. Bitte versuche es erneut.",
       "pendingInvitations": "Offene Einladungen",
-      "pendingHint": "Konten erscheinen nach der Einrichtung oben. Lade dieselbe E-Mail-Adresse erneut ein, um einen neuen Link zu senden; dieser ersetzt den bisherigen Link.",
+      "pendingHint": "Einladungen sind sieben Tage gültig. Erneutes Senden ersetzt den bisherigen Link nach erfolgreichem Versand. Widerrufen sperrt den Link sofort.",
       "expiresOn": "Gültig bis {date}",
       "removeUser": "Benutzer entfernen",
       "removeTitle": "{name} entfernen?",
@@ -3643,7 +3643,20 @@
       "cannotRemoveSelf": "Du kannst dein eigenes Konto nicht entfernen.",
       "userNotFound": "Dieser Benutzer wurde bereits entfernt oder existiert nicht mehr.",
       "invalidRemoval": "Wähle einen gültigen Benutzer zum Entfernen.",
-      "inviterUnavailable": "Dein Administratorzugang ist nicht mehr verfügbar. Bitte melde dich erneut an."
+      "inviterUnavailable": "Dein Administratorzugang ist nicht mehr verfügbar. Bitte melde dich erneut an.",
+      "signedInAs": "Angemeldet als {name} ({email}) · Administrator",
+      "accountsCount": "Benutzerkonten ({count})",
+      "noPendingInvitations": "Keine offenen Einladungen. Lade eine Person per E-Mail ein, um ihr Zugang zu geben.",
+      "resendInvitation": "Erneut senden",
+      "revokeInvitation": "Einladung widerrufen",
+      "revokeDescription": "Der Einladungslink wird sofort ungültig. Es wird kein Benutzerkonto entfernt. Du kannst die Person später erneut einladen.",
+      "revokingInvitation": "Wird widerrufen …",
+      "confirmRevoke": "Link widerrufen",
+      "invitationRevoked": "Einladung widerrufen.",
+      "invitationUnavailable": "Diese Einladung ist nicht mehr offen. Bitte aktualisiere die Seite.",
+      "adminHint": "Voller Verwaltungszugriff, einschließlich Firmeneinstellungen und Einladen oder Entfernen anderer Benutzer. Nur an vertrauenswürdige Personen vergeben.",
+      "personnelHint": "Zusätzlicher Zugriff auf geschützte Personal-, Gehalts- und Steuerdaten. Keine Benutzerverwaltung.",
+      "memberHint": "Mitarbeit in der Plattform ohne Benutzerverwaltung oder Zugriff auf geschützte Personal- und Gehaltsdaten."
     },
     "language": {
       "label": "Sprache",
@@ -3755,7 +3768,11 @@
     "completeTitle": "Dein Konto ist bereit",
     "completeDescription": "Du kannst dich jetzt mit deinem gewählten Nicknamen und Passwort anmelden.",
     "signIn": "Zur Anmeldung",
-    "error": "Das Konto konnte nicht eingerichtet werden. Bitte versuche es erneut."
+    "error": "Das Konto konnte nicht eingerichtet werden. Bitte versuche es erneut.",
+    "signedInNotice": "In diesem Browser bist du noch als {name} angemeldet. „Zur Anmeldung“ meldet dieses Konto ab, damit du dich mit deinem neuen Konto anmelden kannst.",
+    "loginNickname": "Dein Nickname für die Anmeldung: {nickname}",
+    "switchFailed": "Die Abmeldung ist fehlgeschlagen. Bitte versuche es erneut.",
+    "switching": "Anmeldung wird geöffnet …"
   },
   "invitationEmail": {
     "subject": "Deine Einladung zu management-platform",

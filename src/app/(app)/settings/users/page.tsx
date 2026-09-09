@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { RevokeInvitationDialog } from "./revoke-invitation-dialog";
 import { RemoveUserDialog } from "./remove-user-dialog";
 import { InviteUserDialog } from "./invite-user-dialog";
 
@@ -41,6 +42,8 @@ export default async function UsersSettingsPage() {
         <InviteUserDialog />
       </CardHeader>
       <CardContent>
+        <p className="mb-4 rounded-lg border bg-muted/40 p-3 text-sm">{t("signedInAs", { name: currentUser.name, email: currentUser.email })}</p>
+        <h2 className="mb-3 font-semibold">{t("accountsCount", { count: users.length })}</h2>
         <div className="grid gap-3 md:hidden">
           {users.map((user) => (
             <article key={user.id} className="rounded-xl border bg-background p-4">
@@ -106,10 +109,10 @@ export default async function UsersSettingsPage() {
           </TableBody>
         </Table>
         </div>
-        {invitations.length > 0 && (
           <section className="mt-6 border-t pt-6" aria-labelledby="pending-invitations">
             <h2 id="pending-invitations" className="font-semibold">{t("pendingInvitations")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("pendingHint")}</p>
+            {invitations.length === 0 && <p className="mt-3 rounded-lg border border-dashed p-4 text-sm text-muted-foreground">{t("noPendingInvitations")}</p>}
             <ul className="mt-3 divide-y">
               {invitations.map((invitation) => (
                 <li key={invitation.id} className="flex flex-wrap items-center justify-between gap-2 py-3 text-sm">
@@ -120,11 +123,14 @@ export default async function UsersSettingsPage() {
                   <Badge variant="secondary">
                     {invitation.role === "admin" ? t("roleAdmin") : invitation.role === "personnel" ? t("rolePersonnel") : t("roleMember")}
                   </Badge>
+                  <div className="flex w-full flex-wrap gap-2">
+                    <InviteUserDialog invitation={{ email: invitation.email, role: invitation.role }} />
+                    <RevokeInvitationDialog invitationId={invitation.id} email={invitation.email} />
+                  </div>
                 </li>
               ))}
             </ul>
           </section>
-        )}
       </CardContent>
     </Card>
   );

@@ -26,17 +26,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-export function InviteUserDialog() {
+export function InviteUserDialog({ invitation }: { invitation?: InviteUserInput } = {}) {
   const t = useTranslations("settings.users");
   const tCommon = useTranslations("common");
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<InviteUserInput>({
-    email: "",
-    role: "member",
-  });
+  const [form, setForm] = useState<InviteUserInput>(invitation ?? { email: "", role: "member" });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -70,15 +67,15 @@ export function InviteUserDialog() {
       if (pending) return;
       setOpen(nextOpen);
       setError(null);
-      if (!nextOpen) setForm({ email: "", role: "member" });
+      setForm(invitation ?? { email: "", role: "member" });
     }}>
       <DialogTrigger render={<Button size="sm" />}>
         <Plus className="size-4" />
-        {t("inviteUser")}
+        {t(invitation ? "resendInvitation" : "inviteUser")}
       </DialogTrigger>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
         <DialogHeader>
-          <DialogTitle>{t("inviteUser")}</DialogTitle>
+          <DialogTitle>{t(invitation ? "resendInvitation" : "inviteUser")}</DialogTitle>
           <DialogDescription>{t("inviteHint")}</DialogDescription>
         </DialogHeader>
         <form onSubmit={onSubmit}>
@@ -119,6 +116,7 @@ export function InviteUserDialog() {
                   <SelectItem value="admin">{t("roleAdmin")}</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-sm text-muted-foreground">{t(form.role === "admin" ? "adminHint" : form.role === "personnel" ? "personnelHint" : "memberHint")}</p>
             </div>
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <Button type="submit" disabled={pending}>
