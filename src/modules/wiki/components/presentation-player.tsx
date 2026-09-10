@@ -1,4 +1,5 @@
 "use client";
+import { clientUUID } from "@/lib/client-uuid";
 
 import "@xyflow/react/dist/style.css";
 
@@ -48,7 +49,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(() => Math.min(Math.max(follow?.stepIndex ?? 0, 0), Math.max(presentation.steps.length - 1, 0)));
-  const [presenterSession] = useState(() => globalThis.crypto.randomUUID());
+  const [presenterSession] = useState(() => clientUUID());
   const [reducedMotion, setReducedMotion] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [playing, setPlaying] = useState(false);

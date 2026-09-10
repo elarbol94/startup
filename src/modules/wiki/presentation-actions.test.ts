@@ -25,7 +25,7 @@ import { getAttachment } from "@/lib/files";
 import { changePresentationStudio } from "./presentation-studio";
 import { presentationIdForToken, presentationRole } from "./presentation-access";
 import { presentationSourcePreviews, documentPresentationLinks, getPresentationSourceDocument } from "./presentation-source-queries";
-import { getPresentation } from "./presentation-queries";
+import { getPresentation, listPresentationOverview } from "./presentation-queries";
 import { publicPresentation, renderPresentationHtml } from "./presentation-delivery";
 
 const sessionId = "editor-session-one";
@@ -267,4 +267,16 @@ describe("presentation comment management", () => {
     await expect(changePresentationStudio(id, { action: "deleteComment", commentId: own.id })).rejects.toThrow();
     expect(sqlite.prepare("SELECT body FROM wiki_presentation_comments WHERE id = ?").get(own.id)).toEqual({ body: "Own edit" });
   });
+});
+
+it("keeps restricted presentation metadata out of the overview until access is granted", async () => {
+  const { id } = await createPresentation({ title: "Restricted overview entry" });
+  await changePresentationStudio(id, { action: "access", restricted: true, coediting: false });
+  expect(listPresentationOverview({ id: "other" })).toEqual([]);
+  expect(listPresentationOverview({ id: "author" }).map(row => row.id)).toEqual([id]);
+  await changePresentationStudio(id, { action: "member", userId: "other", role: "view" });
+  const [row] = listPresentationOverview({ id: "other" });
+  expect(row.title).toBe("Restricted overview entry");
+  expect(row).not.toHaveProperty("elementsJson");
+  expect(row).not.toHaveProperty("pathJson");
 });

@@ -1,4 +1,5 @@
 "use client";
+import { clientUUID } from "@/lib/client-uuid";
 import * as Y from "yjs";
 import { decode, encode, REMOTE, type Kind } from "./codec";
 
@@ -6,7 +7,7 @@ export type Presence = { client: string; name: string; userId: string; cursor?: 
 export type CollaborationStatus = "connecting" | "saving" | "saved" | "reconnecting" | "denied" | "error";
 export class CollaborationProvider {
   readonly doc = new Y.Doc();
-  readonly client = globalThis.crypto.randomUUID();
+  readonly client = clientUUID();
   status: CollaborationStatus = "connecting";
   ready = false;
   recoveryAvailable = true;

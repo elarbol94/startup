@@ -1,3 +1,4 @@
+import { clientUUID } from "@/lib/client-uuid";
 import { Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { Mapping } from "@tiptap/pm/transform";
@@ -21,7 +22,7 @@ export function headingIdentityPlugin() {
           if (node.type.name !== "heading") return;
           const id = String(node.attrs.id ?? "");
           if (!id || seen.has(id) || (originals.has(id) && originals.get(id) !== position)) {
-            transaction.setNodeMarkup(position, undefined, { ...node.attrs, id: globalThis.crypto.randomUUID() });
+            transaction.setNodeMarkup(position, undefined, { ...node.attrs, id: clientUUID() });
           } else seen.add(id);
         });
         return transaction.docChanged ? transaction : null;

@@ -1,5 +1,6 @@
 "use client";
 
+import { OverviewTable, OverviewColumnPicker, useOverviewTable } from "./overview-table";
 import { UserIdentity } from "@/components/user-identity";
 import { DeadlineDetails } from "./deadline-details";
 
@@ -7,11 +8,8 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import {
-  BookOpen,
   CalendarClock,
   Check,
-  FileSearch,
-  MapPin,
   MoreHorizontal,
   Pencil,
   RotateCcw,
@@ -43,7 +41,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  deadlineDayState,
   deadlineEditOptions,
   isDeadlineOverdue,
 } from "../deadline-utils";
@@ -67,13 +64,6 @@ type OverviewDeadline = {
   href: string;
 };
 
-const originIcons = {
-  wikiPage: BookOpen,
-  wikiSource: FileSearch,
-  pdf: FileSearch,
-  app: MapPin,
-};
-
 function localDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -92,6 +82,7 @@ export function DeadlineOverview({
 }) {
   const t = useTranslations("deadlines");
   const format = useFormatter();
+  const layoutT = useTranslations("overviewLayout");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { openDeadlineCreator } = useDeadlineCreator();
@@ -149,9 +140,17 @@ export function DeadlineOverview({
     });
   }
 
+  const table = useOverviewTable("deadlines", deadlines, [
+    { id: "title", label: t("title"), width: 220, value: deadline => deadline.title, render: deadline => <DeadlineDetails deadline={deadline} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</span></DeadlineDetails> },
+    { id: "origin", label: layoutT("origin"), value: deadline => deadline.contextLabel || t("origins.app") },
+    { id: "assignee", label: t("assignee"), value: deadline => deadline.assigneeName, render: deadline => <UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName || t("unassigned")} compact /> },
+    { id: "date", label: t("dateTime"), width: 185, value: deadline => deadline.deadlineAt ? Date.parse(deadline.deadlineAt) : new Date(`${deadline.deadlineDate}T23:59:59`).getTime(), render: deadline => <span className={`text-xs ${isDeadlineOverdue(deadline, now) ? "text-destructive" : "text-muted-foreground"}`}>{format.dateTime(localDate(deadline.deadlineDate), { dateStyle: "medium" })} · {deadline.deadlineAt ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" }) : t("allDay")}</span> },
+    { id: "status", label: t("status"), width: 115, value: deadline => deadline.status === "done" ? 1 : 0, render: deadline => <Badge variant={isDeadlineOverdue(deadline, now) ? "destructive" : "outline"}>{isDeadlineOverdue(deadline, now) ? t("overdue") : t(`statuses.${deadline.status}`)}</Badge> },
+  ], "deadlineSort");
+
   return (
-    <section className="overflow-hidden rounded-2xl border border-t-2 border-t-amber-500 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
-      <header className="border-b px-4 py-4 sm:px-5">
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+      <header className="border-b border-border/70 px-4 py-5 sm:px-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
@@ -162,9 +161,11 @@ export function DeadlineOverview({
                 <h2 className="text-base font-semibold tracking-tight">{t("overview")}</h2>
                 <Badge variant="secondary" className="font-mono tabular-nums">{deadlines.length}</Badge>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">{t("overviewDescription")}</p>
+
             </div>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <Popover>
             <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={t("filter")} />}>
               <SlidersHorizontal />
@@ -214,8 +215,7 @@ export function DeadlineOverview({
               </Button>
             </PopoverContent>
           </Popover>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+
           <button type="button" onClick={() => setFilter("deadlineAssignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}<X className="size-3" />
           </button>
@@ -232,70 +232,11 @@ export function DeadlineOverview({
           <button type="button" onClick={() => setFilter("deadlineStatus", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {statusLabel}<X className="size-3" />
           </button>
+          <OverviewColumnPicker table={table} />
         </div>
       </header>
 
-      <div className={pending ? "opacity-55 transition-opacity" : "transition-opacity"}>
-        {deadlines.length === 0 ? (
-          <div className="grid min-h-56 place-items-center px-6 py-10 text-center">
-            <div>
-              <Check className="mx-auto mb-3 size-8 text-emerald-500" />
-              <p className="text-sm text-muted-foreground">{t("empty")}</p>
-              <div className="mt-4 flex justify-center gap-2">
-                <Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button>
-                <Button size="sm" className="bg-amber-600 text-white hover:bg-amber-700" onClick={() => openDeadlineCreator()}>{t("createDeadline")}</Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {deadlines.map((deadline) => {
-              const OriginIcon = deadline.contextType ? originIcons[deadline.contextType] : MapPin;
-              const overdue = isDeadlineOverdue(deadline, now);
-              const dayState = deadlineDayState(deadline, now);
-              const origin = deadline.contextLabel || t("origins.app");
-              const stateLabel = dayState === "overdue"
-                ? t("overdue")
-                : dayState === "today"
-                  ? t("today")
-                  : dayState === "tomorrow"
-                    ? t("tomorrow")
-                    : null;
-              return (
-                <article key={deadline.id} className="group grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                  <DeadlineDetails
-                    deadline={deadline}
-                    className="flex min-w-0 items-center gap-3 rounded-md text-left outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
-                  >
-                    <span className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm dark:border-amber-900">
-                      <span className={`py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white ${overdue ? "bg-red-600" : deadline.status === "done" ? "bg-emerald-600" : "bg-amber-600"}`}>
-                        {format.dateTime(localDate(deadline.deadlineDate), { month: "short" })}
-                      </span>
-                      <span className="py-1 font-mono text-base font-semibold leading-none">
-                        {Number(deadline.deadlineDate.slice(-2))}
-                      </span>
-                    </span>
-                    <span className="min-w-0">
-                      <span className={`block truncate text-sm font-semibold ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</span>
-                      {deadline.description && <span className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{deadline.description}</span>}
-                      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                        <span className="flex min-w-0 items-center gap-1">
-                          <OriginIcon className="size-3.5 shrink-0" />
-                          <span className="max-w-40 truncate">{origin}</span>
-                        </span>
-                        <span>{deadline.assigneeName ? <UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName} /> : t("unassigned")}</span>
-                        <span className={`font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
-                          {deadline.deadlineAt
-                            ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" })
-                            : t("allDay")}
-                        </span>
-                      </span>
-                    </span>
-                  </DeadlineDetails>
-                  <div className="flex items-center gap-1">
-                    <Badge variant={overdue ? "destructive" : "outline"}>
-                      {stateLabel || t(`statuses.${deadline.status}`)}
-                    </Badge>
+      <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openDeadlineCreator()}>{t("createDeadline")}</Button></div></div>} actions={deadline => (
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -306,13 +247,7 @@ export function DeadlineOverview({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      )} />
     </section>
   );
 }

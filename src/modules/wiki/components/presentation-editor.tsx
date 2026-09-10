@@ -1,5 +1,6 @@
 "use client";
 import { UserIdentity } from "@/components/user-identity";
+import { clientUUID } from "@/lib/client-uuid";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { PresentationRichText } from "./presentation-rich-text";
@@ -386,7 +387,7 @@ function Editor({
   const canvasRef = useRef<HTMLDivElement>(null);
   const formatClipboard = useRef<PresentationFormat | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  const [sessionId] = useState(() => globalThis.crypto.randomUUID());
+  const [sessionId] = useState(() => clientUUID());
   const canEdit = presentation.role === "owner" || presentation.role === "edit";
 
   const [lockedBy] = useState<string | null>(null);

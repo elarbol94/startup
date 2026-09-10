@@ -1,18 +1,14 @@
 "use client";
 
+import { OverviewTable, OverviewColumnPicker, useOverviewTable } from "./overview-table";
 import { UserIdentity } from "@/components/user-identity";
 import { ItemDetails } from "./item-details";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import {
-  BookOpen,
-  CalendarDays,
   Check,
-  FileSearch,
-  FolderKanban,
   ListChecks,
-  MapPin,
   MoreHorizontal,
   Pencil,
   RotateCcw,
@@ -68,13 +64,6 @@ type OverviewTask = {
   href: string;
 };
 
-const originIcons = {
-  wikiPage: BookOpen,
-  wikiSource: FileSearch,
-  pdf: FileSearch,
-  app: MapPin,
-};
-
 function localDate(date: string) {
   const [year, month, day] = date.split("-").map(Number);
   return new Date(year, month - 1, day);
@@ -93,6 +82,7 @@ export function TaskOverview({
 }) {
   const t = useTranslations("tasks");
   const format = useFormatter();
+  const layoutT = useTranslations("overviewLayout");
   const router = useRouter();
   const searchParams = useSearchParams();
   const { openTaskCreator } = useTaskCreator();
@@ -170,9 +160,25 @@ export function TaskOverview({
     });
   }
 
+  const table = useOverviewTable("tasks", tasks, [
+    { id: "status", label: t("status"), width: 88, value: task => task.status === "done" ? 1 : 0,
+      render: task => <button type="button" disabled={pending} onClick={() => toggle(task)} aria-label={task.status === "done" ? t("reopen") : t("markDone")} className={`grid size-6 place-items-center rounded-full border ${task.status === "done" ? "border-emerald-600 bg-emerald-600 text-white" : "hover:border-emerald-500"}`}>{task.status === "done" ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}</button> },
+    { id: "title", label: t("title"), width: 220, value: task => task.title, render: task => <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={task.contextLabel || task.projectName || t("origins.app")} href={task.href}
+      fields={[
+        { label: t("assignee"), value: task.assignees.length ? <span className="inline-flex flex-wrap gap-2">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />)}</span> : t("unassigned") },
+        { label: t("priority"), value: t(`priorities.${task.priority}`) },
+        { label: t("status"), value: t(`statuses.${task.status}`) },
+        { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },
+      ]} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${task.status === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</span></ItemDetails> },
+    { id: "origin", label: layoutT("origin"), value: task => task.contextLabel || task.projectName || task.columnName || t("origins.app") },
+    { id: "assignee", label: t("assignee"), value: task => task.assignees.map(person => person.name).join(", ") || null, render: task => <span className="inline-flex max-w-full gap-2 text-xs">{task.assignees.length ? task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact />) : t("unassigned")}</span> },
+    { id: "date", label: t("dueDate"), width: 145, value: task => task.dueDate, render: task => <span className={`text-xs ${task.status === "open" && task.dueDate && task.dueDate < today ? "text-destructive" : "text-muted-foreground"}`}>{task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "medium" }) : "—"}</span> },
+    { id: "priority", label: t("priority"), width: 110, value: task => ({ high: 3, medium: 2, low: 1 })[task.priority], render: task => <Badge variant={task.priority === "high" ? "destructive" : "outline"}>{t(`priorities.${task.priority}`)}</Badge> },
+  ], "taskSort");
+
   return (
-    <section className="overflow-hidden rounded-2xl border border-t-2 border-t-indigo-500 bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
-      <header className="border-b px-4 py-4 sm:px-5">
+    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
+      <header className="border-b border-border/70 px-4 py-5 sm:px-6">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">
             <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
@@ -183,9 +189,11 @@ export function TaskOverview({
                 <h2 className="text-base font-semibold tracking-tight">{t("overview")}</h2>
                 <Badge variant="secondary" className="font-mono tabular-nums">{tasks.length}</Badge>
               </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">{t("overviewDescription")}</p>
+
             </div>
           </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-1.5">
           <Popover>
             <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={t("filter")} />}>
               <SlidersHorizontal />
@@ -229,8 +237,7 @@ export function TaskOverview({
               </Button>
             </PopoverContent>
           </Popover>
-        </div>
-        <div className="mt-3 flex flex-wrap gap-1.5">
+
           <button type="button" onClick={() => setFilter("assignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}<X className="size-3" />
           </button>
@@ -242,68 +249,11 @@ export function TaskOverview({
           <button type="button" onClick={() => setFilter("status", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {statusLabel}<X className="size-3" />
           </button>
+          <OverviewColumnPicker table={table} />
         </div>
       </header>
 
-      <div className={pending ? "opacity-55 transition-opacity" : "transition-opacity"}>
-        {tasks.length === 0 ? (
-          <div className="grid min-h-56 place-items-center px-6 py-10 text-center">
-            <div>
-              <Check className="mx-auto mb-3 size-8 text-emerald-500" />
-              <p className="text-sm text-muted-foreground">{t("empty")}</p>
-              <div className="mt-4 flex justify-center gap-2">
-                <Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button>
-                <Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="divide-y">
-            {tasks.map((task) => {
-              const OriginIcon = task.contextType ? originIcons[task.contextType] : FolderKanban;
-              const overdue = task.status === "open" && Boolean(task.dueDate && task.dueDate < today);
-              const origin = task.contextLabel || task.projectName || task.columnName || t("origins.app");
-              return (
-                <article key={task.id} className="group grid min-h-20 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                  <button
-                    type="button"
-                    onClick={() => toggle(task)}
-                    className={`grid size-7 place-items-center rounded-full border transition-colors ${task.status === "done" ? "border-emerald-600 bg-emerald-600 text-white" : "border-border hover:border-emerald-500 hover:text-emerald-600"}`}
-                    aria-label={task.status === "done" ? t("reopen") : t("markDone")}
-                  >
-                    {task.status === "done" ? <Check className="size-4" /> : <span className="size-2 rounded-full bg-current opacity-15" />}
-                  </button>
-                  <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={origin} href={task.href}
-                    fields={[
-                      { label: t("filterAssignee"), value: task.assignees.length ? <span className="inline-flex flex-wrap gap-2">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />)}</span> : t("unassigned") },
-                      { label: t("filterPriority"), value: t(`priorities.${task.priority}`) },
-                      { label: t("filterStatus"), value: t(`statuses.${task.status}`) },
-                      { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },
-                    ]} className="min-w-0 rounded-md">
-                    <p className={`truncate text-sm font-semibold ${task.status === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex min-w-0 items-center gap-1">
-                        <span className="h-4 w-0.5 shrink-0 rounded-full" style={{ backgroundColor: task.projectColor || "#4F46E5" }} />
-                        <OriginIcon className="size-3.5 shrink-0" />
-                        <span className="max-w-56 truncate">{origin}</span>
-                      </span>
-                      <span className="inline-flex flex-wrap gap-1">{task.assignees.length ? task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />) : t("unassigned")}</span>
-                      {task.dueDate && (
-                        <span className={`flex items-center gap-1 font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
-                          <CalendarDays className="size-3" />
-                          {format.dateTime(localDate(task.dueDate), { dateStyle: "medium" })}
-                          {overdue && ` · ${t("overdue")}`}
-                        </span>
-                      )}
-                    </div>
-                  </ItemDetails>
-                  <div className="flex items-center gap-1">
-                    <Badge
-                      variant={task.priority === "high" ? "destructive" : "outline"}
-                      className={task.priority === "low" ? "text-muted-foreground" : ""}
-                    >
-                      {t(`priorities.${task.priority}`)}
-                    </Badge>
+      <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button></div></div>} actions={task => (
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -314,13 +264,7 @@ export function TaskOverview({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                  </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </div>
+      )} />
     </section>
   );
 }

@@ -79,3 +79,5 @@ port or separate collaboration server is needed. Keep application instances on
 one shared SQLite database; independent databases will not synchronize.
 
 The implementation follows the official [Yjs document update API](https://docs.yjs.dev/api/document-updates) and [Tiptap collaboration interface](https://tiptap.dev/docs/editor/extensions/functionality/collaboration).
+
+Client session and heading IDs use a UUID generator backed by Web Crypto, including on private HTTP previews where `crypto.randomUUID` is unavailable. IDs remain opaque; authentication and authorization still come from the signed-in session.

@@ -120,3 +120,11 @@ export function getLiveSessionByCode(code: string) {
 }
 
 export type PresentationLiveSession = NonNullable<ReturnType<typeof getLiveSessionByCode>>;
+
+/** Lightweight, access-filtered metadata for the overview; no canvas parsing. */
+export function listPresentationOverview(viewer: { id: string; role?: string | null }) {
+  return db.select({ id: wikiPresentations.id, title: wikiPresentations.title, updatedAt: wikiPresentations.updatedAt, updatedByName: user.name })
+    .from(wikiPresentations).leftJoin(user, eq(wikiPresentations.updatedBy, user.id))
+    .orderBy(desc(wikiPresentations.updatedAt)).all()
+    .filter(row => presentationRole(row.id, viewer));
+}

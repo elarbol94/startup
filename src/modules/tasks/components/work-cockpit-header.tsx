@@ -1,47 +1,12 @@
 "use client";
 import { UserIdentity } from "@/components/user-identity";
-
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import {
-  AlertTriangle,
-  CalendarClock,
-  CalendarRange,
-  ClipboardCheck,
-  ClipboardPlus,
-} from "lucide-react";
+import { CalendarClock, ClipboardPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  addLocalDays,
-  compareDeadlineTiming,
-  isDeadlineOverdue,
-  todayLocal,
-} from "../deadline-utils";
 import { useDeadlineCreator } from "./deadline-create-provider";
 import { useTaskCreator } from "./task-create-provider";
-
-import { DeadlineDetails } from "./deadline-details";
-
-import type { DeadlineWithContext } from "../types";
-
-type PersonalWorkSummary = {
-  openTaskCount: number;
-  taskDueDates: Array<string | null>;
-  deadlines: (DeadlineWithContext & { assigneeName?: string | null })[];
-};
-
-function localDate(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return new Date(year, month - 1, day);
-}
-
-export function WorkCockpitHeader({
-  userName,
-  summary,
-}: {
-  userName: string;
-  summary: PersonalWorkSummary;
-}) {
+export function WorkCockpitHeader({ userName }: { userName: string }) {
   const t = useTranslations("dashboard");
   const tTasks = useTranslations("tasks");
   const tDeadlines = useTranslations("deadlines");
@@ -49,49 +14,25 @@ export function WorkCockpitHeader({
   const { openTaskCreator } = useTaskCreator();
   const { openDeadlineCreator } = useDeadlineCreator();
   const [now] = useState(() => new Date());
-
-  const metrics = useMemo(() => {
-    const today = todayLocal(now);
-    const weekEnd = addLocalDays(today, 7);
-    const overdueTasks = summary.taskDueDates.filter((date) => Boolean(date && date < today)).length;
-    const overdueDeadlines = summary.deadlines.filter((deadline) => (
-      isDeadlineOverdue({ ...deadline, status: "open" }, now)
-    )).length;
-    const upcomingDeadlines = summary.deadlines
-      .filter((deadline) => (
-        deadline.deadlineDate >= today
-        && deadline.deadlineDate <= weekEnd
-        && !isDeadlineOverdue({ ...deadline, status: "open" }, now)
-      ))
-      .sort(compareDeadlineTiming);
-    const nextDeadline = summary.deadlines
-      .filter((deadline) => !isDeadlineOverdue({ ...deadline, status: "open" }, now))
-      .sort(compareDeadlineTiming)[0] ?? null;
-    return {
-      overdue: overdueTasks + overdueDeadlines,
-      upcoming: upcomingDeadlines.length,
-      nextDeadline,
-    };
-  }, [now, summary]);
-
   return (
-    <section className="overflow-hidden rounded-2xl border bg-card shadow-[0_1px_2px_rgb(0_0_0/0.04)]">
-      <div className="flex flex-col gap-5 border-b px-5 py-5 sm:px-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("title")}</p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">{t("todayInView")}</h1>
+    <section>
+      <div className="flex flex-col gap-5 py-2 lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("title")} <span aria-hidden="true" className="mx-2 opacity-40">/</span> <span className="font-normal normal-case tracking-normal">{format.dateTime(now, { weekday: "long", day: "numeric", month: "long" })}</span></p>
+          <h1 className="mt-3 break-words text-3xl font-semibold tracking-[-0.04em] sm:text-4xl"><UserIdentity name={userName} avatarOnly /> {t("welcome", { name: userName })}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            <UserIdentity name={userName} compact avatarOnly /> {t("welcome", { name: userName })} {t("workDescription")}
+            {t("workDescription")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="lg" onClick={() => openTaskCreator()}>
-            <ClipboardPlus className="text-indigo-600" />
+          <Button size="lg" className="rounded-xl bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400" onClick={() => openTaskCreator()}>
+            <ClipboardPlus />
             {tTasks("createTask")}
           </Button>
           <Button
             size="lg"
-            className="bg-amber-600 text-white hover:bg-amber-700 dark:bg-amber-500 dark:text-amber-950 dark:hover:bg-amber-400"
+            variant="outline"
+            className="rounded-xl bg-card"
             onClick={() => openDeadlineCreator()}
           >
             <CalendarClock />
@@ -100,61 +41,6 @@ export function WorkCockpitHeader({
         </div>
       </div>
 
-      <div className="grid divide-y bg-[#F6F7F9] dark:bg-muted/20 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-[0.85fr_0.85fr_0.85fr_1.45fr]">
-        <div className="flex min-h-28 items-center gap-3 px-5 py-4">
-          <span className="grid size-9 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
-            <ClipboardCheck className="size-4.5" />
-          </span>
-          <div>
-            <p className="font-mono text-2xl font-semibold tabular-nums">{summary.openTaskCount}</p>
-            <p className="text-xs text-muted-foreground">{t("openTasks")}</p>
-          </div>
-        </div>
-        <div className="flex min-h-28 items-center gap-3 px-5 py-4">
-          <span className="grid size-9 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-            <CalendarRange className="size-4.5" />
-          </span>
-          <div>
-            <p className="font-mono text-2xl font-semibold tabular-nums">{metrics.upcoming}</p>
-            <p className="text-xs text-muted-foreground">{t("nextSevenDays")}</p>
-          </div>
-        </div>
-        <div className="flex min-h-28 items-center gap-3 px-5 py-4">
-          <span className={`grid size-9 place-items-center rounded-xl ${metrics.overdue ? "bg-red-50 text-red-600 dark:bg-red-950/45 dark:text-red-300" : "bg-background text-muted-foreground"}`}>
-            <AlertTriangle className="size-4.5" />
-          </span>
-          <div>
-            <p className="font-mono text-2xl font-semibold tabular-nums">{metrics.overdue}</p>
-            <p className="text-xs text-muted-foreground">{t("overdueItems")}</p>
-          </div>
-        </div>
-        <div className="min-h-28 px-5 py-4">
-          <p className="text-xs font-medium text-muted-foreground">{t("nextDeadline")}</p>
-          {metrics.nextDeadline ? (
-            <DeadlineDetails deadline={metrics.nextDeadline} className="mt-2 flex text-left items-center gap-3 rounded-xl outline-none ring-offset-2 transition-opacity hover:opacity-75 focus-visible:ring-2 focus-visible:ring-ring">
-              <span className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm dark:border-amber-900">
-                <span className="bg-amber-600 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
-                  {format.dateTime(localDate(metrics.nextDeadline.deadlineDate), { month: "short" })}
-                </span>
-                <span className="py-1 font-mono text-base font-semibold leading-none">
-                  {Number(metrics.nextDeadline.deadlineDate.slice(-2))}
-                </span>
-              </span>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-semibold">{metrics.nextDeadline.title}</span>
-                <span className="block font-mono text-xs text-muted-foreground">
-                  {format.dateTime(localDate(metrics.nextDeadline.deadlineDate), { dateStyle: "medium" })}
-                  {metrics.nextDeadline.deadlineAt
-                    ? ` · ${format.dateTime(new Date(metrics.nextDeadline.deadlineAt), { timeStyle: "short" })}`
-                    : ` · ${tDeadlines("allDay")}`}
-                </span>
-              </span>
-            </DeadlineDetails>
-          ) : (
-            <p className="mt-3 text-sm text-muted-foreground">{t("noNextDeadline")}</p>
-          )}
-        </div>
-      </div>
     </section>
   );
 }

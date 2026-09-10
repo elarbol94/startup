@@ -168,6 +168,12 @@ Open pages refresh the identity palette every 15 seconds while visible and on
 focus, without reloading editors or replacing their unsaved content. The saving
 page updates immediately. Existing unique-color availability rules still apply.
 
+### Overview workspace
+
+The overview has sortable task and deadline tables and a customizable panel layout.
+See [docs/overview-layout.md](docs/overview-layout.md) for moving, resizing, hiding,
+restoring and saving sections.
+
 ### Version Control
 
 Administrators can inspect saved-record history under **Settings → Version Control**,

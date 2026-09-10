@@ -1,0 +1,21 @@
+.grid { display: flex; flex-wrap: wrap; position: relative; gap: 1.25rem; align-items: start; }
+.panel { width: calc((100% + 1.25rem) * var(--panel-width) / 12 - 1.25rem); flex: 0 0 auto; min-width: 0; position: relative; }
+.content { height: var(--panel-height); min-height: 0; overflow: hidden; border-radius: 1rem; }
+.content > section { height: 100%; display: flex; min-height: 0; }
+.content > section > header { flex-shrink: 0; }
+.edge { position: absolute; z-index: 30; touch-action: none; border-radius: 4px; }
+.edge:focus-visible { outline: 2px solid var(--ring); }
+.edge:hover, .edge:focus-visible { background: color-mix(in srgb, var(--ring) 35%, transparent); }
+.edge[data-edge="n"] { top: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
+.edge[data-edge="s"] { bottom: -4px; left: 14px; right: 14px; height: 8px; cursor: ns-resize; }
+.edge[data-edge="e"] { right: -4px; top: 14px; bottom: 14px; width: 8px; cursor: ew-resize; }
+.edge[data-edge="w"] { left: -4px; top: 14px; bottom: 14px; width: 8px; cursor: ew-resize; }
+.edge[data-edge="ne"], .edge[data-edge="nw"], .edge[data-edge="se"], .edge[data-edge="sw"] { width: 14px; height: 14px; }
+.edge[data-edge="ne"] { right: -4px; top: -4px; cursor: nesw-resize; }
+.edge[data-edge="nw"] { left: -4px; top: -4px; cursor: nwse-resize; }
+.edge[data-edge="se"] { right: -4px; bottom: -4px; cursor: nwse-resize; }
+.edge[data-edge="sw"] { left: -4px; bottom: -4px; cursor: nesw-resize; }
+@media (max-width: 1023px) { .panel { width: 100%; } .panel[data-card="true"] { width: calc(50% - .625rem); } }
+@media (pointer: coarse) { .edge[data-edge="n"], .edge[data-edge="s"] { height: 12px; } .edge[data-edge="e"], .edge[data-edge="w"] { width: 12px; } }
+
+.guide { position: absolute; pointer-events: none; z-index: 45; background: #a78bfa; }

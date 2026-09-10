@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import {
   user,
@@ -565,7 +565,7 @@ export function listFavorites(userId: string) {
   }>;
 }
 
-export function listNotifications(userId: string) {
+export function listNotifications(userId: string, unreadOnly = false) {
   return db
     .select({
       id: wikiNotifications.id,
@@ -595,9 +595,9 @@ export function listNotifications(userId: string) {
     .leftJoin(wikiCommentThreads, eq(wikiNotifications.threadId, wikiCommentThreads.id))
     .leftJoin(tasks, eq(wikiNotifications.taskId, tasks.id))
     .leftJoin(taskContexts, eq(wikiNotifications.taskId, taskContexts.taskId))
-    .where(eq(wikiNotifications.userId, userId))
+    .where(and(eq(wikiNotifications.userId, userId), unreadOnly ? isNull(wikiNotifications.readAt) : undefined))
     .orderBy(desc(wikiNotifications.createdAt))
-    .limit(100)
+    .limit(unreadOnly ? -1 : 100)
     .all()
     .map((notification) => ({
       ...notification,
@@ -716,4 +716,15 @@ export function listWorkspacePages(userId: string): WorkspacePage[] {
       };
       return { ...result, favorite: Boolean(result.favorite) };
     }) as WorkspacePage[];
+}
+
+/** The wiki's shared, non-deleted document metadata, without document bodies. */
+export function listDocumentOverview() {
+  return db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, status: wikiPages.status, updatedAt: wikiPages.updatedAt, updatedByName: user.name })
+    .from(wikiPages).innerJoin(user, eq(wikiPages.updatedBy, user.id))
+    .where(isNull(wikiPages.deletedAt)).orderBy(desc(wikiPages.updatedAt)).all();
+}
+
+export function getUnreadNotificationCount(userId: string) {
+  return db.select({ value: count() }).from(wikiNotifications).where(and(eq(wikiNotifications.userId, userId), isNull(wikiNotifications.readAt))).get()?.value ?? 0;
 }
