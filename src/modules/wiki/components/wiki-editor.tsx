@@ -57,7 +57,7 @@ import { sanitizePastedHtml } from "../lib/paste-html";
 import { calculateWritingStats, type WritingStats } from "../lib/editor-writing";
 import { readEditorStorage, removeEditorStorage, writeEditorStorage } from "../lib/editor-draft";
 import { exportSavedDocument } from "../lib/editor-export";
-import { userMarkColorStyle, type UserMarkColor } from "@/lib/user-mark-colors";
+import { userMarkColorStyle, userIdentityColor, type UserMarkColor } from "@/lib/user-mark-colors";
 import { MermaidDiagram, MERMAID_PLACEHOLDER } from "./mermaid-extension";
 import { SuggestionDelete, SuggestionInsert, SuggestionMode } from "./suggestion-extension";
 import { acceptSuggestions, countSuggestions, rejectSuggestions } from "../lib/suggestions";
@@ -336,6 +336,16 @@ const PdfEvidence = Node.create({
   },
 });
 
+function referencePeople(value: unknown, fallback: string): import("@tiptap/pm/model").DOMOutputSpec[] {
+  const people = Array.isArray(value) ? value.filter((person): person is { id: string; name: string } =>
+    person !== null && typeof person === "object" && typeof person.id === "string" && typeof person.name === "string") : [];
+  if (!people.length) return fallback ? [["small", {}, fallback]] : [];
+  return people.map(person => ["span", {
+    "data-user-id": person.id,
+    style: `display:inline-flex;align-items:center;border-left:3px solid ${userIdentityColor(person.id)};background:${userIdentityColor(person.id, "highlight")};padding:1px 5px;margin-right:4px;border-radius:3px`,
+  }, person.name]);
+}
+
 const TaskReference = Node.create({
   name: "taskReference",
   group: "block",
@@ -348,10 +358,11 @@ const TaskReference = Node.create({
       status: { default: "open" },
       priority: { default: "medium" },
       assigneeName: { default: "" },
+      assignees: { default: [], rendered: false },
     };
   },
   parseHTML() { return [{ tag: "aside[data-task-reference]" }]; },
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     const done = HTMLAttributes.status === "done";
     return ["aside", mergeAttributes(HTMLAttributes, {
       "data-task-reference": HTMLAttributes.taskId,
@@ -362,7 +373,8 @@ const TaskReference = Node.create({
       ["span", { class: "wiki-task-reference-check" }, done ? "✓" : ""],
       ["span", { class: "wiki-task-reference-body" },
         ["strong", {}, HTMLAttributes.title || "Aufgabe"],
-        ["small", {}, [HTMLAttributes.assigneeName, HTMLAttributes.priority].filter(Boolean).join(" · ")],
+        ["small", {}, HTMLAttributes.priority || ""],
+        ...referencePeople(node.attrs.assignees, HTMLAttributes.assigneeName),
       ],
     ];
   },
@@ -380,11 +392,12 @@ const DeadlineReference = Node.create({
       description: { default: "" },
       status: { default: "open" },
       assigneeName: { default: "" },
+      assignees: { default: [], rendered: false },
       deadlineAt: { default: "" },
     };
   },
   parseHTML() { return [{ tag: "aside[data-deadline-reference]" }]; },
-  renderHTML({ HTMLAttributes }) {
+  renderHTML({ node, HTMLAttributes }) {
     const done = HTMLAttributes.status === "done";
     return ["aside", mergeAttributes(HTMLAttributes, {
       "data-deadline-reference": HTMLAttributes.deadlineId,
@@ -394,7 +407,8 @@ const DeadlineReference = Node.create({
       ["span", { class: "wiki-deadline-reference-icon" }, done ? "✓" : "◷"],
       ["span", { class: "wiki-deadline-reference-body" },
         ["strong", {}, HTMLAttributes.title || "Deadline"],
-        ["small", {}, [HTMLAttributes.deadlineAt, HTMLAttributes.assigneeName].filter(Boolean).join(" · ")],
+        ["small", {}, HTMLAttributes.deadlineAt || ""],
+        ...referencePeople(node.attrs.assignees, HTMLAttributes.assigneeName),
       ],
     ];
   },
@@ -1665,6 +1679,7 @@ function CollaborativeWikiEditor({
         status: task.status,
         priority: task.priority,
         assigneeName: task.assigneeName ?? "",
+        assignees: task.assignees,
       };
       if (JSON.stringify(nextAttrs) !== JSON.stringify(node.attrs)) {
         transaction.setNodeMarkup(position, undefined, nextAttrs);
@@ -1696,6 +1711,7 @@ function CollaborativeWikiEditor({
         description: deadline.description,
         status: deadline.status,
         assigneeName: deadline.assigneeName ?? "",
+        assignees: deadline.assigneeId ? [{ id: deadline.assigneeId, name: deadline.assigneeName ?? "" }] : [],
         deadlineAt: [dateLabel, timeLabel].filter(Boolean).join(", "),
       };
       if (JSON.stringify(nextAttrs) !== JSON.stringify(node.attrs)) {

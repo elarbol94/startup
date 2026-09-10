@@ -106,6 +106,7 @@ export function getPageMeta(pageId: string) {
   return db
     .select({
       updatedAt: wikiPages.updatedAt,
+      updatedBy: wikiPages.updatedBy,
       updatedByName: user.name,
     })
     .from(wikiPages)

@@ -1,7 +1,7 @@
 "use client";
 
 import { userIdentityColor } from "@/lib/user-mark-colors";
-import { UserIdentity } from "@/components/user-identity";
+import { UserIdentity, UserIdentities } from "@/components/user-identity";
 
 import {
   useEffect,
@@ -40,7 +40,6 @@ import {
   SlidersHorizontal,
   Sparkles,
   Trash2,
-  UserRound,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -2118,9 +2117,10 @@ export function CalendarClient({
                       return (
                         <label
                           key={member.id}
+                          style={checked ? { borderColor: userIdentityColor(member.id), backgroundColor: userIdentityColor(member.id, "highlight") } : undefined}
                           className={cn(
                             "flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-xs",
-                            checked && "border-[#6D5EF7]/45 bg-[#6D5EF7]/10",
+                            checked && "ring-1 ring-current",
                           )}
                         >
                           <input
@@ -2138,8 +2138,7 @@ export function CalendarClient({
                             }
                             className="sr-only"
                           />
-                          <UserRound className="size-3.5" />
-                          {member.name}
+                          <UserIdentity userId={member.id} name={member.name} compact />
                         </label>
                       );
                     })}
@@ -2699,7 +2698,7 @@ function FlowWeek({
                   title={item.title}
                 >
                   <SourceIcon kind={item.kind} />
-                  <span className="truncate font-medium">{item.title}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span><CalendarItemPeople item={item} compact />
                 </button>
               ))}
               {(allDayByDate.get(day)?.length ?? 0) > 4 && (
@@ -2780,7 +2779,7 @@ function FlowWeek({
                     borderLeftColor: item.color,
                   }}
                 >
-                  <span className="block truncate font-semibold">{item.title}</span>
+                  <span className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span><CalendarItemPeople item={item} compact /></span>
                   <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground">
                     {formatMinutes(startMinutes(item, preferences.timezone))}–
                     {formatMinutes(endMinutes(item, preferences.timezone))}
@@ -2904,7 +2903,7 @@ function MonthView({
                     }).format(new Date(item.startAt!))}
                     </span>
                   )}
-                  <span className="truncate">{item.title}</span>
+                  <span className="min-w-0 flex-1 truncate">{item.title}</span><CalendarItemPeople item={item} compact />
                 </button>
               ))}
               {dayItems.length > 3 && (
@@ -3005,6 +3004,7 @@ function AgendaView({
                         }).format(new Date(item.startAt!))}
                     {item.location ? ` · ${item.location}` : ""}
                   </span>
+                  <CalendarItemPeople item={item} />
                 </span>
               </button>
             ))}
@@ -3082,7 +3082,7 @@ function TeamView({
                       className="w-full truncate rounded-md border-l-[3px] bg-muted/35 px-2 py-1.5 text-left text-[10px]"
                       style={{ borderLeftColor: item.color }}
                     >
-                      {item.title}
+                      <span className="block truncate">{item.title}</span><CalendarItemPeople item={item} compact />
                     </button>
                   ))}
                   {personItems.length === 0 && (
@@ -3167,12 +3167,7 @@ function Inspector({
             {t("recurring")}
           </p>
         )}
-        {item.assigneeName && (
-          <p className="flex items-center gap-2">
-            <UserRound className="size-3.5 text-muted-foreground" />
-            <UserIdentity userId={item.assigneeId} name={item.assigneeName} />
-          </p>
-        )}
+        <CalendarItemPeople item={item} />
         {item.description && (
           <p className="whitespace-pre-wrap border-t pt-3 leading-relaxed text-muted-foreground">
             {item.description}
@@ -3233,7 +3228,8 @@ function UnscheduledTray({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-medium">{task.title}</span>
               <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
-                {task.projectName ?? task.assigneeName ?? ""}
+                {task.projectName ?? ""}
+                <UserIdentities userIds={task.assigneeIds} compact />
               </span>
             </span>
           </button>
@@ -3249,4 +3245,24 @@ function UnscheduledTray({
       </div>
     </div>
   );
+}
+
+/** Calendar queries redact all person IDs for busy-only entries. Respect that here too. */
+function CalendarItemPeople({ item, compact = false }: { item: CalendarItem; compact?: boolean }) {
+  const t = useTranslations("userIdentity");
+  if (item.detailsHidden) return null;
+  const event = item.kind === "event" || item.kind === "focus";
+  const primaryIds = event || item.kind === "project" || item.kind === "deadline"
+    ? item.assigneeId ? [item.assigneeId] : []
+    : item.attendeeIds;
+  const participantIds = event ? item.attendeeIds.filter(id => id !== item.assigneeId) : [];
+  const relation = event ? "organizer" : item.kind === "project" ? "managedBy" : "assignedTo";
+  if (compact) return <span className="inline-flex shrink-0 items-center gap-0.5">
+    {primaryIds.map(id => <span key={id} title={t(relation)}><UserIdentity userId={id} compact avatarOnly /></span>)}
+    {participantIds.map(id => <span key={id} title={t("participants")}><UserIdentity userId={id} compact avatarOnly /></span>)}
+  </span>;
+  return <span className="inline-flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+    {primaryIds.length > 0 && <span className="inline-flex flex-wrap items-center gap-1">{t(relation)} <UserIdentities userIds={primaryIds} compact /></span>}
+    {participantIds.length > 0 && <span className="inline-flex flex-wrap items-center gap-1">{t("participants")} <UserIdentities userIds={participantIds} compact /></span>}
+  </span>;
 }

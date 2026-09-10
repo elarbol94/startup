@@ -199,7 +199,7 @@ export function TaskOverview({
                 <PopoverTitle>{t("filter")}</PopoverTitle>
               </PopoverHeader>
               <Select value={filters.assignee} onValueChange={(value) => setFilter("assignee", value ?? "all")}>
-                <SelectTrigger className="w-full" aria-label={t("filterAssignee")}><SelectValue>{assigneeLabel}</SelectValue></SelectTrigger>
+                <SelectTrigger className="w-full" aria-label={t("filterAssignee")}><SelectValue>{!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("allUsers")}</SelectItem>
                   <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
@@ -232,7 +232,7 @@ export function TaskOverview({
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <button type="button" onClick={() => setFilter("assignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            {assigneeLabel}<X className="size-3" />
+            {!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}<X className="size-3" />
           </button>
           {filters.priority !== "all" && (
             <button type="button" onClick={() => setFilter("priority", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
@@ -275,7 +275,7 @@ export function TaskOverview({
                   </button>
                   <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={origin} href={task.href}
                     fields={[
-                      { label: t("filterAssignee"), value: task.assignees.map((person) => person.name).join(", ") || t("unassigned") },
+                      { label: t("filterAssignee"), value: task.assignees.length ? <span className="inline-flex flex-wrap gap-2">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />)}</span> : t("unassigned") },
                       { label: t("filterPriority"), value: t(`priorities.${task.priority}`) },
                       { label: t("filterStatus"), value: t(`statuses.${task.status}`) },
                       { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },

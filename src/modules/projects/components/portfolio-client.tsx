@@ -1454,7 +1454,7 @@ function NewProjectDialog({
           <div className="grid gap-2"><Label htmlFor="portfolio-project-description">{t("description")}</Label><Textarea id="portfolio-project-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></div>
           <div className="grid grid-cols-[5rem_1fr] gap-3">
             <div className="grid gap-2"><Label htmlFor="portfolio-project-color">{t("color")}</Label><ColorPicker aria-label={t("color")} id="portfolio-project-color" value={color} onChange={setColor} className="h-9 w-full cursor-pointer rounded-md border bg-background p-1" /></div>
-            <div className="grid gap-2"><Label htmlFor="portfolio-project-manager">{t("manager")}</Label><Select value={managerId} onValueChange={(value) => setManagerId(value ?? "none")}><SelectTrigger id="portfolio-project-manager" className="w-full"><SelectValue>{managerId === "none" ? t("unassigned") : members.find((member) => member.id === managerId)?.name ?? t("unassigned")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select></div>
+            <div className="grid gap-2"><Label htmlFor="portfolio-project-manager">{t("manager")}</Label><Select value={managerId} onValueChange={(value) => setManagerId(value ?? "none")}><SelectTrigger id="portfolio-project-manager" className="w-full"><SelectValue>{managerId === "none" ? t("unassigned") : <UserIdentity userId={managerId} />}</SelectValue></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select></div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2"><Label htmlFor="portfolio-project-start">{t("plannedStart")}</Label><Input id="portfolio-project-start" type="date" value={plannedStartDate} onChange={(event) => setPlannedStartDate(event.target.value)} /></div>
@@ -4316,7 +4316,7 @@ export function PortfolioClient({
                 </div>
               )}
             </div>
-            <Select value={owner} onValueChange={(value) => setOwner(value ?? "all")}><SelectTrigger className="w-36" aria-label={t("allOwners")}><SelectValue>{owner === "all" ? t("allOwners") : schedule.members.find((member) => member.id === owner)?.name ?? t("allOwners")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allOwners")}</SelectItem>{schedule.members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select>
+            <Select value={owner} onValueChange={(value) => setOwner(value ?? "all")}><SelectTrigger className="w-36" aria-label={t("allOwners")}><SelectValue>{owner === "all" ? t("allOwners") : <UserIdentity userId={owner} />}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allOwners")}</SelectItem>{schedule.members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select>
             <Select value={health} onValueChange={(value) => setHealth((value ?? "all") as typeof health)}><SelectTrigger className="w-32" aria-label={t("allHealth")}><SelectValue>{health === "risk" ? t("atRisk") : health === "track" ? t("onTrack") : t("allHealth")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allHealth")}</SelectItem><SelectItem value="track">{t("onTrack")}</SelectItem><SelectItem value="risk">{t("atRisk")}</SelectItem></SelectContent></Select>
             <div className="ml-auto hidden rounded-md border p-0.5 md:flex">
               {(["week", "month", "quarter"] as const).map((option) => <Button key={option} size="xs" variant={zoom === option ? "secondary" : "ghost"} onClick={() => setTimelineZoom(option)}>{t(option)}</Button>)}
@@ -5094,7 +5094,7 @@ export function PortfolioClient({
                       >
                         {row.label}
                       </button>
-                      {row.task?.assignees.length ? <span className="max-w-24 truncate text-[10px] text-muted-foreground" title={row.task.assigneeName ?? undefined}>{row.task.assigneeName}</span> : null}
+                      {row.task?.assignees.length ? <span className="flex min-w-0 flex-wrap gap-1 text-[10px]">{row.task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact />)}</span> : null}
                       {isRisk && <AlertTriangle className="size-3.5 text-amber-600" aria-label={t("atRisk")} />}
                       {isConflict && <GitBranch className="size-3.5 text-red-600" aria-label={t("dependencyConflict")} />}
                       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
@@ -5422,7 +5422,7 @@ export function PortfolioClient({
                               ? "font-semibold leading-[12px]"
                               : "font-medium leading-6",
                           )}>{row.label}</span>}
-                          {manager && <span className="pointer-events-none absolute right-5 top-1/2 z-[2] max-w-40 -translate-y-1/2 truncate rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover:opacity-100">{manager}</span>}
+                          {manager && <span className="pointer-events-none absolute right-5 top-1/2 z-[2] max-w-40 -translate-y-1/2 truncate rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover:opacity-100"><UserIdentity userId={project.managerId} name={manager} compact /></span>}
                         </button>
                       )}
                       {resizeControls}

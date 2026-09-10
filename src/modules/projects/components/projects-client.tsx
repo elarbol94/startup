@@ -1,6 +1,6 @@
 "use client";
 
-import { UserIdentity } from "@/components/user-identity";
+import { UserIdentity, UserAttribution } from "@/components/user-identity";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -179,7 +179,7 @@ export function ProjectsClient({
                     className="inline-block size-3 shrink-0 rounded-full"
                     style={{ backgroundColor: project.color }}
                   />
-                  <CardTitle className="truncate">{project.name}</CardTitle>
+                  <CardTitle className="truncate">{project.name}</CardTitle><UserAttribution userId={project.managerId} relation="managedBy" />
                 </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -245,7 +245,7 @@ export function ProjectsClient({
                   style={{ backgroundColor: project.color }}
                 />
                 <span className="flex-1 text-sm text-muted-foreground">
-                  {project.name}
+                  {project.name}<br /><UserAttribution userId={project.managerId} relation="managedBy" />
                 </span>
                 <Badge variant="secondary">{t("archive")}</Badge>
                 <Button
@@ -319,7 +319,7 @@ export function ProjectsClient({
                   <SelectValue>
                     {managerId === "none"
                       ? t("unassigned")
-                      : (members.find((member) => member.id === managerId)?.name ?? "")}
+                      : <UserIdentity userId={managerId} />}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>

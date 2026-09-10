@@ -97,6 +97,7 @@ export function getPersonnelWorkspace(viewer: SessionUser, year = new Date().get
     id: projectHourAllocations.id,
     employeeId: projectHourAllocations.employeeId,
     employeeName: employees.name,
+    employeeUserId: employees.userId,
     projectId: projectHourAllocations.projectId,
     projectName: projects.name,
     payrollMonth: projectHourAllocations.payrollMonth,

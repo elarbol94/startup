@@ -1,3 +1,4 @@
+import { UserAttribution } from "@/components/user-identity";
 import Link from "next/link";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import {
@@ -178,7 +179,7 @@ export async function DocumentsWorkspace({
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-semibold">{invoice.invoiceNumber}</p>
+                    <p className="font-semibold">{invoice.invoiceNumber}</p><UserAttribution userId={invoice.createdBy} relation="createdBy" />
                     <p className="mt-1 truncate text-sm text-muted-foreground">{invoice.customerName}</p>
                   </div>
                   <p className="shrink-0 font-semibold tabular-nums">{formatCents(invoice.grossCents, locale)}</p>
@@ -233,7 +234,7 @@ export async function DocumentsWorkspace({
                         {invoice.invoiceNumber}
                       </a>
                     </TableCell>
-                    <TableCell>{invoice.customerName}</TableCell>
+                    <TableCell>{invoice.customerName}<br /><UserAttribution userId={invoice.createdBy} relation="createdBy" /></TableCell>
                     <TableCell className="whitespace-nowrap">
                       {invoice.dueDate
                         ? format.dateTime(new Date(invoice.dueDate), {
@@ -319,7 +320,7 @@ export async function DocumentsWorkspace({
                         <ArrowRight className="size-3.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
                       </a>
                       <p className="mt-1 truncate text-sm text-muted-foreground">
-                        {receipt.counterparty || receipt.description}
+                        {receipt.counterparty || receipt.description}<br /><UserAttribution userId={receipt.uploadedBy} relation="uploadedBy" />
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                         <span>

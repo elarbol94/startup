@@ -1,3 +1,4 @@
+import { UserAttribution } from "@/components/user-identity";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getLocale } from "next-intl/server";
@@ -56,7 +57,7 @@ export default async function ProjectBoardPage({
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-semibold tracking-tight">
             {project.name}
-          </h1>
+          </h1><UserAttribution userId={project.managerId} relation="managedBy" /><UserAttribution userId={project.createdBy} relation="createdBy" />
           {project.description && (
             <p className="mt-0.5 max-w-2xl truncate text-xs text-muted-foreground">
               {project.description}

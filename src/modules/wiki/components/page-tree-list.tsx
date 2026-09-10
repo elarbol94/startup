@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -135,7 +136,7 @@ export function PageTreeList({ pages }: { pages: WorkspacePage[] }) {
     {parseTagList(row.tags).slice(0, 2).map((tag) => <Link key={tag.id} href={`/wiki/tags/${tag.id}`} className="rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground hover:text-foreground">{tag.name}</Link>)}
     {parseTagList(row.tags).length > 2 && <Popover><PopoverTrigger render={<Button size="xs" variant="ghost" aria-label={t("workspace.moreTags", { count: parseTagList(row.tags).length - 2 })} />}>+{parseTagList(row.tags).length - 2}</PopoverTrigger><PopoverContent className="flex w-60 flex-wrap gap-2">{parseTagList(row.tags).slice(2).map((tag) => <Link key={tag.id} href={`/wiki/tags/${tag.id}`} className="rounded-md bg-muted px-2 py-1 text-xs">{tag.name}</Link>)}</PopoverContent></Popover>}
     <span className="rounded-md px-2 py-1 text-xs text-muted-foreground">{t(`pageStatuses.${row.status}`)}</span>
-    <span className="hidden items-center gap-1 text-xs text-muted-foreground lg:flex"><UserRound className="size-3" />{row.updatedByName}</span>
+    <span className="hidden items-center gap-1 text-xs text-muted-foreground lg:flex"><UserRound className="size-3" /><UserIdentity userId={row.updatedBy} name={row.updatedByName} compact /></span>
     <span className="flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" />{format.dateTime(new Date(row.updatedAt), { dateStyle: "medium" })}</span>
   </>;
 

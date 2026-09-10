@@ -325,7 +325,7 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
               <div className="space-y-2">
                 <Label htmlFor="deadline-assignee">{t("assignee")}</Label>
                 <Select value={assigneeId} onValueChange={(next) => setAssigneeId(next ?? NONE)}>
-                  <SelectTrigger id="deadline-assignee" className="w-full"><SelectValue>{assigneeLabel}</SelectValue></SelectTrigger>
+                  <SelectTrigger id="deadline-assignee" className="w-full"><SelectValue>{assigneeId === NONE ? assigneeLabel : <UserIdentity userId={assigneeId} name={assigneeLabel} />}</SelectValue></SelectTrigger>
                   <SelectContent>
                     <SelectItem value={NONE}>{t("unassigned")}</SelectItem>
                     {options?.members.map((member) => (

@@ -1,4 +1,15 @@
 {
+  "userIdentity": {
+    "organizer": "Organisiert von",
+    "participants": "Teilnehmende",
+    "unknownUser": "Unbekannter Benutzer",
+    "unassigned": "Nicht zugewiesen",
+    "createdBy": "Erstellt von",
+    "updatedBy": "Bearbeitet von",
+    "assignedTo": "Zugewiesen an",
+    "managedBy": "Projektleitung",
+    "uploadedBy": "Hochgeladen von"
+  },
   "colorPicker": {
     "themeColors": "Designfarben",
     "standardColors": "Standardfarben",

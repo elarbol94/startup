@@ -176,7 +176,7 @@ export function DeadlineOverview({
             <PopoverContent align="end" className="w-80 gap-3 p-3">
               <PopoverHeader><PopoverTitle>{t("filter")}</PopoverTitle></PopoverHeader>
               <Select value={filters.assignee} onValueChange={(value) => setFilter("deadlineAssignee", value ?? "all")}>
-                <SelectTrigger className="w-full" aria-label={t("filterAssignee")}><SelectValue>{assigneeLabel}</SelectValue></SelectTrigger>
+                <SelectTrigger className="w-full" aria-label={t("filterAssignee")}><SelectValue>{!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">{t("allUsers")}</SelectItem>
                   <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
@@ -217,7 +217,7 @@ export function DeadlineOverview({
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <button type="button" onClick={() => setFilter("deadlineAssignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
-            {assigneeLabel}<X className="size-3" />
+            {!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}<X className="size-3" />
           </button>
           {filters.from && (
             <button type="button" onClick={() => setFilter("deadlineFrom", "")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 font-mono text-xs text-muted-foreground transition-colors hover:text-foreground">

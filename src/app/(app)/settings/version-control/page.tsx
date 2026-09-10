@@ -1,3 +1,4 @@
+import { UserAttribution } from "@/components/user-identity";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth";
@@ -50,6 +51,12 @@ export default async function VersionControlPage({ searchParams }: { searchParam
               <div className="min-w-0 flex-1">
                 <p className="font-medium truncate" title={title}>{title}</p>
                 <p className="text-sm text-muted-foreground">{t.has(`tables.${row.table_name}`) ? t(`tables.${row.table_name}`) : row.table_name.replaceAll("_", " ")} · {t(`operations.${row.operation}`)} · #{row.id}</p>
+                <span className="flex flex-wrap gap-3">
+                  {typeof snapshot.created_by === "string" && <UserAttribution userId={snapshot.created_by} relation="createdBy" />}
+                  {typeof snapshot.updated_by === "string" && <UserAttribution userId={snapshot.updated_by} relation="updatedBy" />}
+                  {typeof snapshot.assignee_id === "string" && <UserAttribution userId={snapshot.assignee_id} relation="assignedTo" />}
+                  {typeof snapshot.manager_id === "string" && <UserAttribution userId={snapshot.manager_id} relation="managedBy" />}
+                </span>
                 {row.restore_reason && <p className="text-sm text-muted-foreground">{t("restoreReason", { reason: row.restore_reason })}</p>}
                 <time className="text-xs text-muted-foreground" dateTime={new Date(row.created_at).toISOString()}>{format.dateTime(new Date(row.created_at), { dateStyle: "medium", timeStyle: "medium" })}</time>
               </div>

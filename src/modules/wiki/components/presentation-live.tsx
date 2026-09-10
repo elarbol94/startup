@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import Link from "next/link";
@@ -239,7 +240,7 @@ export function PresentationJoinForm() {
  * running, and the way out. The exit is a link rather than a keystroke because the player
  * covers the whole viewport and Escape does not exist on a phone.
  */
-export function PresentationFollowBadge({ live, hostName }: { live: boolean; hostName: string }) {
+export function PresentationFollowBadge({ live, hostName, hostUserId }: { live: boolean; hostName: string; hostUserId: string | null }) {
   const t = useTranslations("wiki");
   return (
     <div className="absolute inset-x-0 bottom-0 flex justify-center p-4">
@@ -247,6 +248,7 @@ export function PresentationFollowBadge({ live, hostName }: { live: boolean; hos
         <span className={`size-2 rounded-full ${live ? "bg-indigo-500" : "bg-muted-foreground"}`} />
         {/* Only the status text is the live region: an announcement should not re-read the
             exit link every time the session flips to ended. */}
+        {hostUserId && <UserIdentity userId={hostUserId} name={hostName} compact avatarOnly />}
         <span role="status" aria-live="polite">
           {live
             ? hostName ? t("presentations.followingHost", { name: hostName }) : t("presentations.following")

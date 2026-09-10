@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 
 import { useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -80,7 +81,7 @@ export function WorkCockpitHeader({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">{t("title")}</p>
           <h1 className="mt-1 text-3xl font-semibold tracking-[-0.035em]">{t("todayInView")}</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            {t("welcome", { name: userName })} {t("workDescription")}
+            <UserIdentity name={userName} compact avatarOnly /> {t("welcome", { name: userName })} {t("workDescription")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">

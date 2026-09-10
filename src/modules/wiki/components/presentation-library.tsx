@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -46,7 +47,7 @@ export function PresentationLibrary({ presentations, pages }: { presentations: P
           <h2 className="line-clamp-2 px-4 pt-4 text-base font-medium tracking-tight">{item.title}</h2>
         </Link>
         <div className="flex items-center gap-2 px-4 pt-2 pb-4">
-          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={item.updatedByName ?? undefined}>{format.dateTime(item.updatedAt, { dateStyle: "medium", timeZone: "Europe/Vienna" })}{item.updatedByName && ` · ${item.updatedByName}`}</p>
+          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={item.updatedByName ?? undefined}>{format.dateTime(item.updatedAt, { dateStyle: "medium", timeZone: "Europe/Vienna" })}{item.updatedByName && <> · <UserIdentity userId={item.updatedBy} name={item.updatedByName} compact /></>}</p>
           {item.stepCount > 0 && <Link href={`/wiki/presentations/${item.id}/present`} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium hover:bg-accent"><Play className="size-3.5" />{t("presentations.present")}</Link>}
           <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.itemActions", { title: item.title })} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem render={<Link href={`/wiki/presentations/${item.id}`} />}>{t("edit")}</DropdownMenuItem>

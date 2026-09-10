@@ -156,6 +156,14 @@ Settings → Profile → Your identity assigns the account's existing personal c
 across avatars, assignments, calendar people, wiki comments and PDF evidence,
 and live document/presentation collaboration. Names and initials accompany color.
 Changing a color preserves authorship and recolors existing contributions.
+User badges also identify personnel linked to accounts, calendar organizers and
+participants, project managers, record creators, uploaders and revision authors.
+Task and deadline references inside documents and PDFs show their assignees.
+Person pickers use the same identity in their options and selected values.
+Names and IDs, never name matching, determine the association. Unlinked employees
+and unknown accounts use neutral badges; busy-only calendar entries disclose no
+people. Status, category and project colors retain their separate meanings.
+
 Open pages refresh the identity palette every 15 seconds while visible and on
 focus, without reloading editors or replacing their unsaved content. The saving
 page updates immediately. Existing unique-color availability rules still apply.

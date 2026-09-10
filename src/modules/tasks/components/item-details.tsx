@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 
 export function ItemDetails({ title, description, origin, href, fields, children, className, onEdit }: {
   title: string; description?: string | null; origin: string; href: string | null;
-  fields: Array<{ label: string; value: string }>;
+  fields: Array<{ label: string; value: ReactNode }>;
   children: ReactNode; className?: string; onEdit?: () => void;
 }) {
   const t = useTranslations("overviewDetails");

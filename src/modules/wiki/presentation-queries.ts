@@ -20,6 +20,7 @@ export function listPresentations(viewer: { id: string; role?: string | null }) 
       elementsJson: wikiPresentations.elementsJson,
       pathJson: wikiPresentations.pathJson,
       updatedAt: wikiPresentations.updatedAt,
+      updatedBy: wikiPresentations.updatedBy,
       updatedByName: user.name,
     })
     .from(wikiPresentations)
@@ -74,6 +75,7 @@ export function listPresentationRevisions(presentationId: string, viewer: { id: 
     .select({
       id: wikiPresentationRevisions.id,
       createdAt: wikiPresentationRevisions.createdAt,
+      createdBy: wikiPresentationRevisions.createdBy,
       createdByName: user.name,
     })
     .from(wikiPresentationRevisions)
@@ -100,6 +102,7 @@ export function getLiveSessionByCode(code: string) {
       stepIndex: wikiPresentationLiveSessions.stepIndex,
       heartbeatAt: wikiPresentationLiveSessions.heartbeatAt,
       hostName: user.name,
+      hostUserId: wikiPresentationLiveSessions.hostUserId,
     })
     .from(wikiPresentationLiveSessions)
     .leftJoin(user, eq(wikiPresentationLiveSessions.hostUserId, user.id))
@@ -111,6 +114,7 @@ export function getLiveSessionByCode(code: string) {
     code: row.code,
     stepIndex: row.stepIndex,
     hostName: row.hostName ?? "",
+    hostUserId: row.hostUserId,
     live: !isLiveSessionStale(row.heartbeatAt.getTime(), Date.now()),
   };
 }

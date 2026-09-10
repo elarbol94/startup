@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity, UserAttribution } from "@/components/user-identity";
 
 import { Fragment, useState } from "react";
 import Link from "next/link";
@@ -55,7 +56,7 @@ export function LedgerClient({
   canManagePersonnel: boolean;
   taxSettings: { kleinunternehmer: boolean; defaultVatRate: number };
   fundingProjects: Array<{ id: string; name: string }>;
-  personnelEmployees: Array<{ id: string; name: string; personnelNumber: string; employmentType: string; locationId: string | null }>;
+  personnelEmployees: Array<{ id: string; name: string; userId: string | null; personnelNumber: string; employmentType: string; locationId: string | null }>;
   personnelLocations: Array<{ id: string; name: string; state: string; municipality: string }>;
   payrollMonthContexts: Array<{ payrollMonth: string; internalPayrollCents: number; externalPayrollCents: number; externalMarginalPayrollCents: number; marginalPayrollCents: number }>;
 }) {
@@ -213,7 +214,7 @@ export function LedgerClient({
         </div>
       </section>
 
-      <section className="grid gap-3 md:hidden" aria-label={t("bookings")}>
+      <section className="grid gap-3 md:hidden" aria-label={tBookings("title")}>
         {entries.length === 0 ? (
           <div className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-8 text-center text-sm text-[#7a8782] dark:text-muted-foreground">{t("noEntries")}</div>
         ) : entries.map((entry) => {
@@ -234,7 +235,7 @@ export function LedgerClient({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate font-semibold text-[#213c35] dark:text-foreground">{entry.description}</p>
-                  <p className="mt-1 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty || "—"}</p>
+                  <UserAttribution userId={entry.createdBy} relation="createdBy" /><p className="mt-1 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty || "—"}</p>
                 </div>
                 <p className={`shrink-0 font-semibold tabular-nums ${entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"}`}>
                   {formatCents(sign * entry.grossAmountCents, locale)}
@@ -327,6 +328,7 @@ export function LedgerClient({
                     })}
                   </TableCell>
                   <TableCell className="max-w-72">
+                    <UserAttribution userId={entry.createdBy} relation="createdBy" />
                     <span className="flex items-center gap-2">
                       <button
                         type="button"
@@ -426,7 +428,7 @@ export function LedgerClient({
                             {entry.auditHistory.map((item) => (
                               <div key={item.id} className="grid gap-1 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1fr]">
                                 <span className="whitespace-nowrap text-[#71807a] dark:text-muted-foreground">{format.dateTime(item.changedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
-                                <span className="text-[#52635d] dark:text-muted-foreground">{tBookings(`auditActions.${item.action}`)} · {item.changedByName}{item.reason ? ` — ${item.reason}` : ""}</span>
+                                <span className="text-[#52635d] dark:text-muted-foreground">{tBookings(`auditActions.${item.action}`)} · <UserIdentity userId={item.changedBy} name={item.changedByName} compact />{item.reason ? ` — ${item.reason}` : ""}</span>
                               </div>
                             ))}
                           </div>

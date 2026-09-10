@@ -29,7 +29,7 @@ import { elementsToNodes, presentationNodeTypes, type PresentationNode } from ".
 import { PresentationFollowBadge, PresentationLiveControl, usePresentationFollower } from "./presentation-live";
 
 /** Set when this player is a remote follower mirroring someone else's live session. */
-type FollowSource = { code: string; hostName: string; stepIndex?: number; live?: boolean };
+type FollowSource = { code: string; hostName: string; hostUserId?: string; stepIndex?: number; live?: boolean };
 
 // How long a free pan/zoom gesture is left alone before the camera snaps back to the
 // current step's framing. Short enough that the view doesn't stay adrift, long enough
@@ -444,7 +444,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         </div>
       )}
 
-      {following && <PresentationFollowBadge live={remoteLive} hostName={follow?.hostName ?? ""} />}
+      {following && <PresentationFollowBadge live={remoteLive} hostName={follow?.hostName ?? ""} hostUserId={follow?.hostUserId ?? null} />}
 
       {/* The strip spans the whole viewport width, so it must stay transparent to pointers:
           only the pill itself is a control, and only the pill may swallow a canvas click. */}

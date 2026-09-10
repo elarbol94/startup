@@ -113,7 +113,7 @@ export function listInboxPages() {
     .prepare(
       `
     SELECT p.id, p.title, p.slug, p.content_text AS contentText, p.updated_at AS updatedAt,
-           u.name AS updatedByName,
+           p.updated_by AS updatedBy, u.name AS updatedByName,
            group_concat(DISTINCT t.name) AS tags
     FROM wiki_pages p
     JOIN user u ON u.id = p.updated_by
@@ -129,6 +129,7 @@ export function listInboxPages() {
     slug: string;
     contentText: string;
     updatedAt: number;
+    updatedBy: string;
     updatedByName: string;
     tags: string | null;
   }>;
@@ -302,6 +303,7 @@ export function getSourceById(id: string) {
     .select({
       id: wikiSourceRevisions.id,
       version: wikiSourceRevisions.version,
+      createdBy: wikiSourceRevisions.createdBy,
       createdAt: wikiSourceRevisions.createdAt,
       createdByName: user.name,
     })
@@ -446,6 +448,7 @@ export function getPageResearchMeta(pageId: string, userId: string) {
     .select({
       id: wikiPageRevisions.id,
       version: wikiPageRevisions.version,
+      createdBy: wikiPageRevisions.createdBy,
       contentVersion: wikiPageRevisions.contentVersion,
       contentHash: wikiPageRevisions.contentHash,
       label: wikiPageRevisions.label,
@@ -676,6 +679,7 @@ export type WorkspacePage = {
   status: "inbox" | "working" | "evergreen";
   citationLocale: "de-DE" | "en-US";
   updatedAt: number;
+  updatedBy: string;
   updatedByName: string;
   tags: string | null;
   favorite: boolean;
@@ -691,7 +695,7 @@ export function listWorkspacePages(userId: string): WorkspacePage[] {
     SELECT p.id, p.title, p.slug, p.content_text AS contentText, p.status,
            p.citation_locale AS citationLocale, p.updated_at AS updatedAt,
            p.parent_id AS parentId, p.sort_order AS sortOrder, p.created_at AS createdAt,
-           u.name AS updatedByName, group_concat(DISTINCT t.id || ':' || t.name) AS tags,
+           p.updated_by AS updatedBy, u.name AS updatedByName, group_concat(DISTINCT t.id || ':' || t.name) AS tags,
            EXISTS(
              SELECT 1 FROM wiki_favorites f
              WHERE f.user_id = ? AND f.entity_type = 'page' AND f.entity_id = p.id

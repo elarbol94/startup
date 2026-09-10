@@ -34,5 +34,5 @@ export default async function FollowLiveSessionPage({ params }: { params: Promis
   if (!presentation) notFound();
   // Speaker notes are private to the author/presenter; don't serialize them to followers.
   const audiencePresentation = { ...presentation, steps: presentation.steps.map(({ id, elementId, durationMs, action, animationMs }) => ({ id, elementId, durationMs, action, animationMs })) };
-  return <PresentationPlayer presentation={audiencePresentation} follow={{ code: session.code, hostName: session.hostName, stepIndex: session.stepIndex, live: session.live }} />;
+  return <PresentationPlayer presentation={audiencePresentation} follow={{ code: session.code, hostName: session.hostName, hostUserId: session.hostUserId, stepIndex: session.stepIndex, live: session.live }} />;
 }

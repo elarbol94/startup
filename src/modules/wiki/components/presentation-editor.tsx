@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { PresentationRichText } from "./presentation-rich-text";
@@ -1761,7 +1762,7 @@ function Editor({
                   <li key={revision.id} className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5 text-xs">
                     <span className="min-w-0 flex-1">
                       <span className="block truncate">{format.dateTime(revision.createdAt, { dateStyle: "short", timeStyle: "short", timeZone: "Europe/Vienna" })}</span>
-                      <span className="block truncate text-muted-foreground">{revision.createdByName}</span>
+                      <span className="block truncate text-muted-foreground"><UserIdentity userId={revision.createdBy} name={revision.createdByName} compact /></span>
                     </span>
                     <Button
                       type="button"

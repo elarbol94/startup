@@ -1,3 +1,4 @@
+import { UserAttribution } from "@/components/user-identity";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
@@ -55,7 +56,7 @@ export default async function InvoiceDetailPage({
         <h1 className="text-2xl font-semibold tracking-tight">
           {invoice.invoiceNumber}
         </h1>
-        <InvoiceStatusBadge status={invoice.status} />
+        <InvoiceStatusBadge status={invoice.status} /><UserAttribution userId={invoice.createdBy} relation="createdBy" />
         <div className="ml-auto flex items-center gap-2">
           <Button
             variant="outline"

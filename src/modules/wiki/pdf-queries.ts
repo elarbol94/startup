@@ -29,6 +29,7 @@ export function listPdfDocumentsForSource(sourceId: string) {
     error: wikiPdfDocuments.error,
     fileName: attachments.fileName,
     sizeBytes: attachments.sizeBytes,
+    uploadedBy: attachments.uploadedBy,
     createdAt: wikiPdfDocuments.createdAt,
   }).from(wikiPdfDocuments)
     .innerJoin(attachments, eq(wikiPdfDocuments.attachmentId, attachments.id))
@@ -58,6 +59,7 @@ export function listPdfDocumentsForSources(sourceIds: string[]) {
       error: wikiPdfDocuments.error,
       fileName: attachments.fileName,
       sizeBytes: attachments.sizeBytes,
+      uploadedBy: attachments.uploadedBy,
       createdAt: wikiPdfDocuments.createdAt,
     })
     .from(wikiPdfDocuments)

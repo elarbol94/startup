@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -55,7 +56,7 @@ export function VersionDialog({ id, title, hasBefore, hasAfter }: { id: number; 
           {preview.problem && <p role="status" className="rounded-md border bg-muted p-3 text-sm">{t(`problems.${preview.problem}`)}</p>}
           <div className="max-h-72 overflow-auto rounded-md border">
             <table className="w-full text-sm text-left"><thead><tr className="bg-muted"><th className="p-2">{t("field")}</th><th className="p-2">{t("current")}</th><th className="p-2">{t("selected")}</th></tr></thead>
-              <tbody>{preview.changes.map(change => <tr key={change.field} className="border-t align-top"><th className="p-2 font-medium">{t.has(`fields.${change.field}`) ? t(`fields.${change.field}`) : change.field.replaceAll("_", " ")}</th><td className="p-2 max-w-64 whitespace-pre-wrap break-words">{String(change.current ?? "—").slice(0, 1000)}</td><td className="p-2 max-w-64 whitespace-pre-wrap break-words">{String(change.target ?? "—").slice(0, 1000)}</td></tr>)}</tbody>
+              <tbody>{preview.changes.map(change => <tr key={change.field} className="border-t align-top"><th className="p-2 font-medium">{t.has(`fields.${change.field}`) ? t(`fields.${change.field}`) : change.field.replaceAll("_", " ")}</th><td className="p-2 max-w-64 whitespace-pre-wrap break-words"><VersionValue field={change.field} value={change.current} /></td><td className="p-2 max-w-64 whitespace-pre-wrap break-words"><VersionValue field={change.field} value={change.target} /></td></tr>)}</tbody>
             </table>
           </div>
           <Button variant="outline" size="sm" className="w-fit" onClick={download}>{t("download")}</Button>
@@ -68,4 +69,9 @@ export function VersionDialog({ id, title, hasBefore, hasAfter }: { id: number; 
       </DialogContent>
     </Dialog>
   </>;
+}
+
+function VersionValue({ field, value }: { field: string; value: string | number | null }) {
+  const userField = ["created_by", "updated_by", "changed_by", "uploaded_by", "author_id", "actor_id", "user_id", "assignee_id", "manager_id", "host_user_id"].includes(field);
+  return <>{userField && typeof value === "string" && value && <><UserIdentity userId={value} compact /><br /></>}{String(value ?? "—").slice(0, 1000)}</>;
 }

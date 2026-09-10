@@ -40,7 +40,7 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
     allTags={listTags()}
     research={getPageResearchMeta(page.id, currentUser.id)}
     comments={getPageComments(page.id)} currentUserId={currentUser.id} users={listUsers()}
-    attachments={listAttachmentsFor("wikiPage", page.id).filter((file) => !graphicAttachmentIds.has(file.id)).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes }))}
+    attachments={listAttachmentsFor("wikiPage", page.id).filter((file) => !graphicAttachmentIds.has(file.id)).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, uploadedBy: file.uploadedBy }))}
     documentTemplates={listDocumentTemplates(currentUser.id)}
     typography={getWikiTypographyForUser(page.createdBy)}
     editableTypography={currentUserTypography.typography}
@@ -52,6 +52,6 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
     insertEvidenceId={query.insertEvidence}
     focusDeadlineId={query.deadline}
     proposalData={proposalData}
-    meta={meta ? { updatedAt: meta.updatedAt.getTime(), updatedByName: meta.updatedByName } : null}
+    meta={meta ? { updatedAt: meta.updatedAt.getTime(), updatedBy: meta.updatedBy, updatedByName: meta.updatedByName } : null}
   />;
 }

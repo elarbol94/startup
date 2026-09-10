@@ -1,4 +1,5 @@
 "use client";
+import { UserAttribution } from "@/components/user-identity";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -230,7 +231,7 @@ export function AccountingOverview({
   canManagePersonnel: boolean;
   taxSettings: { kleinunternehmer: boolean; defaultVatRate: number };
   fundingProjects: Array<{ id: string; name: string }>;
-  personnelEmployees: Array<{ id: string; name: string; personnelNumber: string; employmentType: string; locationId: string | null }>;
+  personnelEmployees: Array<{ id: string; name: string; userId: string | null; personnelNumber: string; employmentType: string; locationId: string | null }>;
   personnelLocations: Array<{ id: string; name: string; state: string; municipality: string }>;
   payrollMonthContexts: Array<{ payrollMonth: string; internalPayrollCents: number; externalPayrollCents: number; externalMarginalPayrollCents: number; marginalPayrollCents: number }>;
 }) {
@@ -489,6 +490,7 @@ export function AccountingOverview({
                         <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
                           {entry.description}
                         </span>
+                        <UserAttribution userId={entry.createdBy} relation="createdBy" />
                         {entry.counterparty && (
                           <span className="block truncate text-xs text-[#84908c] dark:text-muted-foreground">
                             {entry.counterparty}

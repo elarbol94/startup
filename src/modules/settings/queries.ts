@@ -74,6 +74,6 @@ export function listMarkColorAvailability(userId: string) {
 
 // Include retained accounts so historical contributions keep their identity.
 export function listUserIdentities() {
-  return db.select({ id: userProfilePreferences.userId, markColor: userProfilePreferences.markColor })
-    .from(userProfilePreferences).all();
+  return db.select({ id: userProfilePreferences.userId, name: user.name, markColor: userProfilePreferences.markColor })
+    .from(userProfilePreferences).innerJoin(user, eq(userProfilePreferences.userId, user.id)).all();
 }

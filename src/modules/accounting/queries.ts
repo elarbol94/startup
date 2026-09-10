@@ -103,6 +103,7 @@ export function listReceiptDocuments(paging?: {
       mimeType: attachments.mimeType,
       sizeBytes: attachments.sizeBytes,
       uploadedAt: attachments.createdAt,
+      uploadedBy: attachments.uploadedBy,
       entryId: entries.id,
       entryKind: entries.kind,
       entryDate: entries.date,
@@ -208,6 +209,7 @@ export function listEntries(
       warningOverrideReason: entries.warningOverrideReason,
       specialFields: entries.specialFields,
       createdAt: entries.createdAt,
+      createdBy: entries.createdBy,
     })
     .from(entries)
     .innerJoin(categories, eq(entries.categoryId, categories.id))
@@ -272,6 +274,7 @@ export function listEntries(
       action: entryAuditLog.action,
       reason: entryAuditLog.reason,
       changedAt: entryAuditLog.changedAt,
+      changedBy: entryAuditLog.changedBy,
       changedByName: user.name,
     })
     .from(entryAuditLog)

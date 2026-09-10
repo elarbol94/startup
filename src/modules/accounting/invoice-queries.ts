@@ -73,6 +73,7 @@ export function listInvoices(paging?: { cursor?: string; limit?: number }) {
     .select({
       id: invoices.id,
       invoiceNumber: invoices.invoiceNumber,
+      createdBy: invoices.createdBy,
       customerId: invoices.customerId,
       customerName: customers.name,
       issueDate: invoices.issueDate,

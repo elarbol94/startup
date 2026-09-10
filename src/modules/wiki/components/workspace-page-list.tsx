@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -322,7 +323,7 @@ export function WorkspacePageList({
                             </span>
                             <span className="flex items-center gap-1">
                               <UserRound className="size-3" />
-                              {page.updatedByName}
+                              <UserIdentity userId={page.updatedBy} name={page.updatedByName} compact />
                             </span>
                           </p>
                         </div>

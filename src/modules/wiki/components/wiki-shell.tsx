@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity, UserAttribution } from "@/components/user-identity";
 
 import { useRef, useState, type ComponentProps } from "react";
 import { toast } from "sonner";
@@ -65,9 +66,9 @@ export function WikiShell(props: ComponentProps<typeof WikiShellContent>) {
 function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, sources, research, comments, currentUserId, users, attachments, documentTemplates, typography, editableTypography, typographyTemplates, proofingPrefs, tasks, deadlines, focusTaskId, focusDeadlineId, insertEvidenceId, proposalData, allTags, meta }: {
   page: { id: string; title: string; slug: string; contentJson: string; status: "inbox" | "working" | "evergreen"; citationLocale: string; citationStyle: CitationStyle; verifiedUntil: string | null; proofingLanguage: ProofingLanguage; version: number; contentVersion: number; documentMode: boolean; documentSettingsJson: string; createdBy: string };
   backlinks: PageRef[]; unlinkedMentions?: PageRef[]; allPages: PageRef[]; sources: SourceRef[];
-  research: { tags: Array<{ id: string; name: string; color: string }>; supportingSources: Array<{ id: string; title: string; issuedDate: string; relation: string }>; favorite: boolean; revisions: Array<{ id: string; version: number; contentVersion: number; contentHash: string; label: string | null; kind: string; createdAt: Date; createdByName: string; contentJson: string; documentSettingsJson: string }> };
+  research: { tags: Array<{ id: string; name: string; color: string }>; supportingSources: Array<{ id: string; title: string; issuedDate: string; relation: string }>; favorite: boolean; revisions: Array<{ id: string; version: number; contentVersion: number; contentHash: string; label: string | null; kind: string; createdAt: Date; createdBy: string; createdByName: string; contentJson: string; documentSettingsJson: string }> };
   comments: CommentThread[]; currentUserId: string; users: Array<{ id: string; name: string; markColor: UserMarkColor }>;
-  attachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number }>;
+  attachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string }>;
   documentTemplates: StoredDocumentTemplate[];
   typography: WikiTypographySettingsV1;
   editableTypography: WikiTypographySettingsV1;
@@ -80,7 +81,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   focusDeadlineId?: string;
   proposalData: ProposalWorkspaceData;
   allTags: Array<{ id: string; name: string }>;
-  meta: { updatedAt: number; updatedByName: string } | null;
+  meta: { updatedAt: number; updatedBy: string; updatedByName: string } | null;
 }) {
   const t = useTranslations("wiki"); const common = useTranslations("common"); const format = useFormatter(); const locale = useLocale(); const router = useRouter();
   const { isFocused } = useFocusMode();
@@ -175,7 +176,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
 
   return <div className="wiki-calm-document mx-auto min-h-dvh max-w-[112rem] px-3 py-4 md:px-6">
     <header className="mb-3 border-b border-border/60 pb-3">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-2"><Link href="/wiki" aria-label={t("backToWikiStart")} title={t("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link><div className="min-w-0"><button type="button" aria-label={`${t("rename")}: ${page.title}`} onClick={rename} className="max-w-4xl break-words text-left text-xl font-semibold tracking-tight hover:text-indigo-700 dark:hover:text-indigo-300">{page.title}</button>{!isFocused && meta && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" />{t("lastEdited", { name: meta.updatedByName })} · {format.dateTime(new Date(meta.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</p>}</div></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-2"><Link href="/wiki" aria-label={t("backToWikiStart")} title={t("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link><div className="min-w-0"><button type="button" aria-label={`${t("rename")}: ${page.title}`} onClick={rename} className="max-w-4xl break-words text-left text-xl font-semibold tracking-tight hover:text-indigo-700 dark:hover:text-indigo-300">{page.title}</button>{!isFocused && meta && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" /><UserAttribution userId={meta.updatedBy} relation="updatedBy" /> · {format.dateTime(new Date(meta.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</p>}</div></div>
         <div className="flex items-center gap-1"><span data-testid="document-save-status" role={saveState === "error" || saveState === "conflict" ? "alert" : "status"} className={`mr-2 text-xs ${saveState === "error" || saveState === "conflict" || saveState === "offline" ? "text-destructive" : "text-muted-foreground"}`}>{saveState === "idle" ? "" : saveState === "saving" ? t("saving") : saveState === "saved" ? t("saved") : saveState === "conflict" ? t("editConflict") : t(`editor.save.${saveState}`)}</span><PageHeaderActions onExport={(format, inline = false) => { void exportSavedDocument(page.id, format, inline, () => editorActions.current?.flushSave() ?? Promise.resolve(false), () => toast.error(t("document.exportSaveFailed"))); }} favorite={research.favorite} onNewSubpage={async () => { const title = prompt(t("pageTitle")); if (!title?.trim()) return; const child = await createPage({ title: title.trim(), parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); router.refresh(); }} onToggleFavorite={async () => { await toggleFavorite("page", page.id); router.refresh(); }} onVerify={() => void runVerify(6)} onDelete={remove} onHistory={() => setHistoryOpen(true)} /><FocusModeToggle compact={isFocused} /></div></div>
     </header>
 
@@ -204,7 +205,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
           <nav className="max-h-[65dvh] space-y-1 overflow-y-auto border-r pr-3" aria-label={t("history")}>
             <Button type="button" variant={savedRevisionsOnly ? "secondary" : "outline"} size="xs" aria-pressed={savedRevisionsOnly} className="mb-2 w-full" onClick={() => setSavedRevisionsOnly((value) => !value)}><BookMarked className="size-3" />{t("savedVersionsOnly")}</Button>
             {visibleRevisions.length === 0 && <p className="px-2 py-3 text-xs text-muted-foreground">{t("noSavedVersions")}</p>}
-            {visibleRevisions.map((revision) => <button key={revision.id} type="button" onClick={() => setSelectedRevisionId(revision.id)} className={`w-full rounded-md px-2 py-2 text-left text-xs ${selectedRevision?.id === revision.id ? "bg-accent" : "hover:bg-accent/60"}`}><span className="font-medium">v{revision.contentVersion}</span> · {revision.label || t(`revisionKinds.${revision.kind}`)}<span className="mt-0.5 block text-muted-foreground">{revision.createdByName} · {format.dateTime(new Date(revision.createdAt), { dateStyle: "medium", timeStyle: "short" })}</span></button>)}
+            {visibleRevisions.map((revision) => <button key={revision.id} type="button" onClick={() => setSelectedRevisionId(revision.id)} className={`w-full rounded-md px-2 py-2 text-left text-xs ${selectedRevision?.id === revision.id ? "bg-accent" : "hover:bg-accent/60"}`}><span className="font-medium">v{revision.contentVersion}</span> · {revision.label || t(`revisionKinds.${revision.kind}`)}<span className="mt-0.5 block text-muted-foreground"><UserIdentity userId={revision.createdBy} name={revision.createdByName} compact /> · {format.dateTime(new Date(revision.createdAt), { dateStyle: "medium", timeStyle: "short" })}</span></button>)}
           </nav>
           <div className="flex min-h-0 flex-col gap-2">
             <div className="flex items-center gap-2">
