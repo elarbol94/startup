@@ -937,6 +937,20 @@
     "dayLoad": "{percent}% belegt"
   },
   "tasks": {
+    "planner": {
+      "title": "Zeitplanung · {project}",
+      "description": "Neue Aufgabe: Entwurf bis zum Speichern im Aufgabenformular. Änderungen an bestehenden Aufgaben werden sofort gespeichert und bleiben auch beim Abbrechen erhalten.",
+      "draftTitle": "Entwurf: {title}",
+      "untitled": "Neue Aufgabe",
+      "startDate": "Startdatum",
+      "dueDate": "Enddatum",
+      "loading": "Projektzeitplan wird geladen …",
+      "loadError": "Der aktuelle Zeitplan konnte nicht geladen werden. Der Aufgabenentwurf bleibt erhalten.",
+      "retry": "Erneut versuchen",
+      "back": "Zurück zur Aufgabe",
+      "open": "Gantt-Zeitplanung öffnen",
+      "invalidDates": "Das Enddatum muss am oder nach dem Startdatum liegen."
+    },
     "createTask": "Aufgabe erstellen",
     "quickAction": "Aufgabe",
     "editTask": "Aufgabe bearbeiten",

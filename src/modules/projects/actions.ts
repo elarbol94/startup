@@ -40,6 +40,8 @@ import {
   calendarDayDistance,
 } from "@/modules/projects/schedule";
 
+import { getPortfolioSchedule } from "./queries";
+
 const SORT_GAP = 1000;
 
 /** Applies project successors after their predecessor's finish moves. */
@@ -817,6 +819,7 @@ const contextualTaskSchema = z.object({
   description: z.string().trim().max(5000).default(""),
   assigneeId: z.string().nullable().default(null),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
+  startDate: z.iso.date().nullable().optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
   deadlineAt: z.string().datetime().nullable().default(null),
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
@@ -830,6 +833,9 @@ const contextualTaskSchema = z.object({
     anchorJson: z.string().max(20_000).default("{}"),
   }).nullable().default(null),
 }).superRefine((data, context) => {
+  if (data.kind === "task" && data.startDate && (!data.dueDate || data.dueDate < data.startDate)) {
+    context.addIssue({ code: "custom", path: ["dueDate"], message: "Completion must be on or after start" });
+  }
   if (data.kind === "deadline" && !data.localDate) {
     context.addIssue({
       code: "custom",
@@ -864,6 +870,17 @@ export async function getContextualTaskOptions() {
       .orderBy(asc(projects.name))
       .all(),
   };
+}
+
+/** Authenticated schedule read used by the document task planner. */
+export async function getContextualProjectSchedule(projectId: string) {
+  await requireUserOrThrow();
+  const id = z.string().min(1).parse(projectId);
+  const schedule = getPortfolioSchedule();
+  if (!schedule.projects.some((project) => project.id === id)) throw new Error("Active project not found");
+  // Keep the full graph for the same cross-project conflict/cascade checks as
+  // the portfolio. The embedded view limits visible rows to this project.
+  return schedule;
 }
 
 export async function getContextualTaskForEdit(id: string) {
@@ -990,7 +1007,7 @@ export async function upsertContextualTask(
         : existing?.description ?? data.description,
       assigneeId: data.assigneeId,
       dueDate: data.kind === "deadline" ? data.localDate : data.dueDate,
-      startDate: data.kind === "deadline" ? data.localDate : existing?.startDate ?? null,
+      startDate: data.kind === "deadline" ? data.localDate : data.startDate !== undefined ? data.startDate : existing?.startDate ?? null,
       deadlineAt: data.kind === "deadline" && data.deadlineAt
         ? new Date(data.deadlineAt)
         : null,

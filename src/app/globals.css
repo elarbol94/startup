@@ -467,12 +467,17 @@
   .wiki-editor-surface .ProseMirror ul[data-type="taskList"] li > label,
   .wiki-typography-preview ul[data-type="taskList"] li > label {
     flex: 0 0 auto;
-    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    height: 1lh;
     user-select: none;
   }
 
   .wiki-editor-surface .ProseMirror ul[data-type="taskList"] li > label input,
   .wiki-typography-preview ul[data-type="taskList"] li > label input {
+    width: 14px;
+    height: 14px;
+    margin: 0;
     cursor: pointer;
     accent-color: var(--wiki-accent-color);
   }

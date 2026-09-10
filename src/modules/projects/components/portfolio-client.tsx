@@ -818,6 +818,8 @@ function ScheduleInspector({
   onFocusTask,
   isTaskFocused,
   onTaskSaved,
+  onScheduleChanged,
+  embedded = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -833,6 +835,8 @@ function ScheduleInspector({
   onOpenTask: (task: PortfolioTask) => void;
   onFocusTask: (task: PortfolioTask) => void;
   isTaskFocused: boolean;
+  onScheduleChanged?: () => Promise<void>;
+  embedded?: boolean;
   onTaskSaved: (taskId: string, parentTaskId: string | null) => void;
 }) {
   const t = useTranslations("projects");
@@ -941,7 +945,8 @@ function ScheduleInspector({
       onTaskSaved(saved.id, parentTaskId);
       toast.success(tCommon("saved"));
       onOpenChange(false);
-      router.refresh();
+      if (onScheduleChanged) await onScheduleChanged();
+      else router.refresh();
     } catch {
       toast.error(tCommon("error"));
     } finally {
@@ -963,7 +968,8 @@ function ScheduleInspector({
       setPredecessorId("none");
       setDependencyType("finish_to_start");
       setLagDays(0);
-      router.refresh();
+      if (onScheduleChanged) await onScheduleChanged();
+      else router.refresh();
     } catch (error) {
       toast.error(error instanceof Error && error.message.includes("cycle") ? t("dependencyCycle") : tCommon("error"));
     }
@@ -995,7 +1001,8 @@ function ScheduleInspector({
         routeOffsetRows: dependencyEditorDraft.routeOffsetRows,
       });
       setDependencyEditorDraft(null);
-      router.refresh();
+      if (onScheduleChanged) await onScheduleChanged();
+      else router.refresh();
       toast.success(t("dependencySaved"));
     } catch (error) {
       toast.error(
@@ -1014,7 +1021,8 @@ function ScheduleInspector({
     try {
       await deleteTaskDependency(dependencyEditorDraft.id);
       setDependencyEditorDraft(null);
-      router.refresh();
+      if (onScheduleChanged) await onScheduleChanged();
+      else router.refresh();
       toast.success(t("dependencyDeleted"));
     } catch {
       toast.error(t("dependencySaveError"));
@@ -1035,7 +1043,7 @@ function ScheduleInspector({
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {task && (
+          {task && !embedded && (
             <Button
               type="button"
               variant={isTaskFocused ? "secondary" : "ghost"}
@@ -1219,9 +1227,9 @@ function ScheduleInspector({
                     })}
                   </p>
                 </div>
-                <Button type="button" variant="outline" size="sm" onClick={() => onAddSubtask(task)}>
+                {!embedded && <Button type="button" variant="outline" size="sm" onClick={() => onAddSubtask(task)}>
                   <Plus className="size-3.5" />{t("newSubtask")}
-                </Button>
+                </Button>}
               </div>
               {childTasks.length === 0 ? (
                 <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">{t("noSubtasks")}</p>
@@ -1268,7 +1276,8 @@ function ScheduleInspector({
                     </button>
                     <Button type="button" variant="ghost" size="icon-xs" aria-label={tCommon("delete")} onClick={async () => {
                       await deleteTaskDependency(dependency.id);
-                      router.refresh();
+                      if (onScheduleChanged) await onScheduleChanged();
+                      else router.refresh();
                     }}><Trash2 className="size-3.5" /></Button>
                   </div>
                 );
@@ -1466,20 +1475,36 @@ function NewProjectDialog({
   );
 }
 
+export type EmbeddedProjectPlanner = {
+  projectId: string;
+  draftTask: PortfolioTask;
+  onDraftDatesChange: (dates: { startDate: string; dueDate: string }) => void;
+  onRefresh: () => Promise<void>;
+};
+
 export function PortfolioClient({
   schedule,
   projects,
   initialFocusedTaskId = null,
+  embedded,
 }: {
   schedule: PortfolioSchedule;
   projects: ProjectCard[];
   initialFocusedTaskId?: string | null;
+  embedded?: EmbeddedProjectPlanner;
 }) {
   const t = useTranslations("projects");
   const tDeadlines = useTranslations("deadlines");
   const tCommon = useTranslations("common");
   const format = useFormatter();
   const router = useRouter();
+  const refreshSchedule = useCallback(() => {
+    if (embedded) return embedded.onRefresh();
+    router.refresh();
+    return Promise.resolve();
+  }, [embedded, router]);
+  const isEmbedded = Boolean(embedded);
+  const isDraftTask = (id: string) => id === embedded?.draftTask.id;
   const desktopInspector = useMediaQuery("(min-width: 960px)");
   const compactInspector = useMediaQuery("(max-width: 767px)");
   const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
@@ -1488,8 +1513,11 @@ export function PortfolioClient({
   const [view, setView] = useState<"timeline" | "projects">("timeline");
   const [zoom, setZoom] = useState<Zoom>("month");
   const [dayWidth, setDayWidth] = useState(ZOOM_WIDTH.month);
-  const [treeWidth, setTreeWidth] = useState(LEFT_WIDTH);
+  const [preferredTreeWidth, setTreeWidth] = useState(LEFT_WIDTH);
   const [ganttViewportWidth, setGanttViewportWidth] = useState(0);
+  const treeWidth = embedded && ganttViewportWidth > 0 && ganttViewportWidth < 600
+    ? Math.min(preferredTreeWidth, Math.max(140, Math.floor(ganttViewportWidth * 0.60)))
+    : preferredTreeWidth;
   const [query, setQuery] = useState("");
   const [owner, setOwner] = useState("all");
   const [health, setHealth] = useState<"all" | "risk" | "track">("all");
@@ -1691,6 +1719,7 @@ export function PortfolioClient({
   }, [initialFocusedTaskId]);
 
   useEffect(() => {
+    if (isEmbedded) return;
     const stored = takeStoredReparentView();
     if (!stored) return;
 
@@ -1722,7 +1751,7 @@ export function PortfolioClient({
       if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
       if (focusFrame !== null) cancelAnimationFrame(focusFrame);
     };
-  }, []);
+  }, [isEmbedded]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -1815,7 +1844,7 @@ export function PortfolioClient({
     schedule.tasks,
   ]);
 
-  const effectiveSchedule = useMemo<PortfolioSchedule>(() => {
+  const persistedPreview = useMemo<PortfolioSchedule>(() => {
     const schedulePreview = dependencyDraft
       ? dependencySchedulePreview
       : activePreview;
@@ -1874,6 +1903,16 @@ export function PortfolioClient({
     effectiveDependencies,
     schedule,
   ]);
+
+  // The draft is a display row only: persisted schedule previews and actions
+  // never receive its ID, including project-wide cascades and dependency edits.
+  const effectiveSchedule = useMemo<PortfolioSchedule>(() => {
+    if (!embedded) return persistedPreview;
+    const draftTask = draft?.taskId === embedded.draftTask.id
+      ? { ...embedded.draftTask, startDate: draft.startDate, dueDate: draft.dueDate }
+      : embedded.draftTask;
+    return { ...persistedPreview, tasks: [...persistedPreview.tasks, draftTask], deadlines: [] };
+  }, [persistedPreview, embedded, draft]);
 
   const selectedTask =
     effectiveSchedule.tasks.find((task) => task.id === selectedTaskId) ?? null;
@@ -1954,6 +1993,7 @@ export function PortfolioClient({
       return effectiveSchedule.projects.filter((project) => project.id === focusedTask.projectId);
     }
     return effectiveSchedule.projects.filter((project) => {
+      if (embedded && project.id !== embedded.projectId) return false;
       const projectTasks = tasksByProject.get(project.id) ?? [];
       const matchesOwner =
         owner === "all" ||
@@ -1963,20 +2003,20 @@ export function PortfolioClient({
       const matchesHealth = health === "all" || (health === "risk" ? risk : !risk);
       return matchesOwner && matchesHealth;
     });
-  }, [effectiveSchedule.projects, tasksByProject, owner, health, today, focusedTask]);
+  }, [effectiveSchedule.projects, tasksByProject, owner, health, today, focusedTask, embedded]);
 
   const searchResults = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return { projects: [], tasks: [] };
     return {
       projects: effectiveSchedule.projects
-        .filter((project) => project.name.toLocaleLowerCase().includes(needle))
+        .filter((project) => (!embedded || project.id === embedded.projectId) && project.name.toLocaleLowerCase().includes(needle))
         .slice(0, 5),
       tasks: effectiveSchedule.tasks
-        .filter((task) => task.title.toLocaleLowerCase().includes(needle))
+        .filter((task) => (!embedded || task.projectId === embedded.projectId) && task.title.toLocaleLowerCase().includes(needle))
         .slice(0, 8),
     };
-  }, [query, effectiveSchedule.projects, effectiveSchedule.tasks]);
+  }, [query, effectiveSchedule.projects, effectiveSchedule.tasks, embedded]);
 
   const portfolioRows = useMemo(() => {
     const result: Row[] = [];
@@ -2126,7 +2166,7 @@ export function PortfolioClient({
       ...schedule.tasks
         .filter((task) => visibleProjectIds.has(task.projectId))
         .flatMap((task) => [task.startDate, task.dueDate]),
-      ...schedule.deadlines.map((deadline) => deadline.dueDate),
+      ...(embedded ? [embedded.draftTask.startDate, embedded.draftTask.dueDate] : schedule.deadlines.map((deadline) => deadline.dueDate)),
     ].filter((value): value is string => Boolean(value));
     const earliest = minDate(scheduled) ?? today;
     const latest = maxDate(scheduled) ?? today;
@@ -2137,6 +2177,7 @@ export function PortfolioClient({
   }, [
     focusedTaskId,
     schedule.tasks,
+    embedded,
     schedule.projects,
     schedule.deadlines,
     visibleProjects,
@@ -2154,7 +2195,7 @@ export function PortfolioClient({
   const timelineWidth = dayCount * dayWidth;
   const totalWidth = treeWidth + timelineWidth;
   const deadlineLaneHeight =
-    !focusedTask && effectiveSchedule.deadlines.length > 0
+    !embedded && !focusedTask && effectiveSchedule.deadlines.length > 0
       ? DEADLINE_LANE_HEIGHT
       : 0;
   const totalHeight = HEADER_HEIGHT + deadlineLaneHeight + rows.length * ROW_HEIGHT;
@@ -2244,6 +2285,7 @@ export function PortfolioClient({
   }
 
   function openTask(task: PortfolioTask) {
+    if (isDraftTask(task.id)) return;
     setSelectedTaskId(task.id);
     setNewTaskContext(null);
     setInspectorOpen(true);
@@ -2266,6 +2308,7 @@ export function PortfolioClient({
   }
 
   function enterTaskFocus(task: PortfolioTask) {
+    if (embedded) { openTask(task); return; }
     if (!focusedTaskId) {
       portfolioViewRef.current = {
         dayWidth: dayWidthRef.current,
@@ -2344,6 +2387,7 @@ export function PortfolioClient({
     projectId: string,
     parentTaskId: string | null = null,
   ) {
+    if (embedded) return;
     if (parentTaskId) {
       const ancestors = taskAncestors(schedule.tasks, parentTaskId);
       setExpandedTasks((current) => {
@@ -2380,6 +2424,9 @@ export function PortfolioClient({
     nextProjectDraft: ProjectDraft | null,
     dependencies?: PortfolioDependency[],
   ): DragPreview {
+    if (input.entityType === "task" && isDraftTask(input.entityId)) {
+      return { preview: null, draft: taskDraft, projectDraft: null };
+    }
     try {
       const preview = localSchedulePreview(input, dependencies);
       return { preview, draft: taskDraft, projectDraft: nextProjectDraft, dependencies };
@@ -2429,6 +2476,7 @@ export function PortfolioClient({
   }
 
   function validDependencyTarget(targetId: string) {
+    if (isDraftTask(targetId)) return false;
     const sourceId = dependencySourceId;
     if (!sourceId || sourceId === targetId) return false;
     if (
@@ -2534,7 +2582,7 @@ export function PortfolioClient({
         dependencyType: dependencyTypeOf(persisted),
         isNew: false,
       });
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("dependencyRouteSaved"));
     } catch {
       setDependencyDraft(dependency);
@@ -2745,7 +2793,7 @@ export function PortfolioClient({
         isNew: false,
       });
       setDependencyEditorOpen(false);
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("dependencySaved"));
     } catch (error) {
       toast.error(
@@ -2771,7 +2819,7 @@ export function PortfolioClient({
       await deleteTaskDependency(dependencyDraft.id);
       setDependencyDraft(null);
       setDependencyEditorOpen(false);
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("dependencyDeleted"));
     } catch {
       toast.error(t("dependencySaveError"));
@@ -2963,14 +3011,14 @@ export function PortfolioClient({
       await revertPortfolioScheduleChange(changeSetId);
       setUndoChangeSetId(null);
       setRedoChangeSetId(changeSetId);
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("scheduleRestored"));
     } catch {
       toast.error(t("undoUnavailable"));
     } finally {
       setUndoPending(false);
     }
-  }, [router, t, undoChangeSetId, undoPending]);
+  }, [refreshSchedule, t, undoChangeSetId, undoPending]);
 
   const redoScheduleChange = useCallback(async (changeSetId = redoChangeSetId) => {
     if (!changeSetId || redoPending) return;
@@ -2979,14 +3027,14 @@ export function PortfolioClient({
       await reapplyPortfolioScheduleChange(changeSetId);
       setRedoChangeSetId(null);
       setUndoChangeSetId(changeSetId);
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("scheduleSaved"));
     } catch {
       toast.error(t("redoUnavailable"));
     } finally {
       setRedoPending(false);
     }
-  }, [redoChangeSetId, redoPending, router, t]);
+  }, [redoChangeSetId, redoPending, refreshSchedule, t]);
 
   useEffect(() => {
     function handleUndoShortcut(event: KeyboardEvent) {
@@ -3123,6 +3171,12 @@ export function PortfolioClient({
     lagAdjustments: DependencyLagAdjustment[] = [],
   ) {
     if (scheduleCommitPending) return;
+    if (embedded && input.entityType === "task" && isDraftTask(input.entityId)) {
+      if (!input.startDate || !input.dueDate) return;
+      embedded.onDraftDatesChange({ startDate: input.startDate, dueDate: input.dueDate });
+      clearDrag();
+      return;
+    }
     setScheduleCommitPending(true);
     let savedAdjustments: DependencyLagAdjustment[] = [];
     try {
@@ -3138,7 +3192,7 @@ export function PortfolioClient({
         ...input,
         expectedPreview: { changes: preview.changes },
       });
-      router.refresh();
+      await refreshSchedule();
       offerScheduleUndo(
         result.changeSetId,
         scheduleImpactDescription(preview),
@@ -3155,7 +3209,7 @@ export function PortfolioClient({
         }
       }
       clearDrag();
-      router.refresh();
+      await refreshSchedule();
       toast.error(
         error instanceof Error && error.message.includes("another session")
           ? t("scheduleChanged")
@@ -3333,6 +3387,10 @@ export function PortfolioClient({
     row: Row,
   ) {
     if (!row.task) return;
+    if (isDraftTask(row.task.id) && event.altKey && (event.key === "ArrowLeft" || event.key === "ArrowRight")) {
+      event.preventDefault();
+      return;
+    }
     if (
       event.altKey &&
       (event.key === "ArrowLeft" || event.key === "ArrowRight")
@@ -3415,7 +3473,7 @@ export function PortfolioClient({
     setPendingDelete(null);
     try {
       await deleteTask(task.id);
-      router.refresh();
+      await refreshSchedule();
       toast.success(tCommon("deleted"));
     } catch {
       toast.error(tCommon("error"));
@@ -3432,7 +3490,7 @@ export function PortfolioClient({
         await reparentTask({ taskId: child.id, parentTaskId: task.parentTaskId ?? null });
       }
       await deleteTask(task.id);
-      router.refresh();
+      await refreshSchedule();
       toast.success(tCommon("deleted"));
     } catch {
       toast.error(tCommon("error"));
@@ -3444,6 +3502,7 @@ export function PortfolioClient({
    * summary, so its own dates give way to the rollup of its children.
    */
   async function indentRow(task: PortfolioTask) {
+    if (embedded) return;
     const siblings = schedule.tasks.filter((candidate) => candidate.projectId === task.projectId);
     const target = indentTarget(siblings, task.id);
     if (!target) {
@@ -3470,6 +3529,7 @@ export function PortfolioClient({
 
   /** Lifts a task out to its grandparent (R5). */
   async function outdentRow(task: PortfolioTask) {
+    if (embedded) return;
     const siblings = schedule.tasks.filter((candidate) => candidate.projectId === task.projectId);
     const target = outdentTarget(siblings, task.id);
     if (target === undefined) {
@@ -3777,7 +3837,7 @@ export function PortfolioClient({
         expectedUpdatedAt: deadline.updatedAt,
       });
       setDeadlinePreview({ id: deadline.id, ...result.current });
-      router.refresh();
+      await refreshSchedule();
       toast.success(t("scheduleSaved"), {
         action: {
           label: t("undo"),
@@ -3791,7 +3851,7 @@ export function PortfolioClient({
                   deadlineAt: result.previous.deadlineAt,
                   expectedUpdatedAt: result.current.updatedAt,
                 });
-                router.refresh();
+                await refreshSchedule();
               } catch {
                 setDeadlinePreview({ id: deadline.id, ...result.current });
                 toast.error(t("undoUnavailable"));
@@ -4166,7 +4226,7 @@ export function PortfolioClient({
           </div>
         </section>
       ) : (
-      <header className="flex flex-wrap items-start justify-between gap-4">
+      !embedded && <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
@@ -4186,10 +4246,10 @@ export function PortfolioClient({
       )}
 
       {!focusedTask && <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        <div className="flex rounded-md bg-muted p-1">
+        {!embedded && <div className="flex rounded-md bg-muted p-1">
           <Button size="sm" variant={view === "timeline" ? "secondary" : "ghost"} onClick={() => setView("timeline")}><CalendarClock className="size-4" />{t("timeline")}</Button>
           <Button size="sm" variant={view === "projects" ? "secondary" : "ghost"} onClick={() => setView("projects")}><FolderKanban className="size-4" />{t("projectOverview")}</Button>
-        </div>
+        </div>}
         {view === "timeline" && (
           <>
             <div className="relative min-w-48 flex-1 sm:max-w-xs">
@@ -4317,7 +4377,7 @@ export function PortfolioClient({
               </Button>
             </div>
           )}
-          <div className="grid gap-2 p-2 md:hidden" role="tree" aria-label={t("workBreakdown")}>
+          <div className={embedded ? "hidden" : "grid gap-2 p-2 md:hidden"} role="tree" aria-label={t("workBreakdown")}>
             {!focusedTask && schedule.deadlines.map((deadline) => {
               const separator = deadline.contextRoute?.includes("?") ? "&" : "?";
               const href = deadline.contextRoute
@@ -4371,8 +4431,9 @@ export function PortfolioClient({
             ref={scrollRef}
             onWheel={handleTimelineWheel}
             className={cn(
-              "gantt-scrollbar hidden overflow-auto bg-card md:block",
-              focusedTask
+              "gantt-scrollbar overflow-auto bg-card",
+              !embedded && "hidden md:block",
+              embedded ? "max-h-[55dvh]" : focusedTask
                 ? "max-h-[calc(100dvh-7.5rem)]"
                 : "max-h-[calc(100dvh-15rem)]",
             )}
@@ -4933,7 +4994,7 @@ export function PortfolioClient({
                     </button>
                   </>
                 ) : null;
-                const endpointConnector = row.task && scheduled ? (
+                const endpointConnector = row.task && !isDraftTask(row.task.id) && scheduled ? (
                   <button
                     type="button"
                     aria-label={t("dependencyConnector", { name: row.label })}
@@ -4996,6 +5057,7 @@ export function PortfolioClient({
                     className={cn(
                       "group/row relative z-[2] flex border-b last:border-b-0",
                       row.kind === "project" && "bg-muted/20",
+                      row.task && isDraftTask(row.task.id) && "bg-indigo-50/60 dark:bg-indigo-950/30",
                     )}
                     style={{ width: totalWidth, height: ROW_HEIGHT }}
                   >
@@ -5030,7 +5092,7 @@ export function PortfolioClient({
                       <button
                         type="button"
                         onClick={() => row.task ? openTask(row.task) : undefined}
-                        onFocus={() => row.task && setSelectedTaskId(row.task.id)}
+                        onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                         onKeyDown={(event) => row.task && handleTaskScheduleKey(event, row)}
                         className={cn(
                           "min-w-0 flex-1 truncate rounded-sm text-left text-sm focus-visible:outline-2 focus-visible:outline-ring",
@@ -5043,7 +5105,7 @@ export function PortfolioClient({
                       {isRisk && <AlertTriangle className="size-3.5 text-amber-600" aria-label={t("atRisk")} />}
                       {isConflict && <GitBranch className="size-3.5 text-red-600" aria-label={t("dependencyConflict")} />}
                       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
-                      {row.kind === "project" && (
+                      {!embedded && row.kind === "project" && (
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
@@ -5065,7 +5127,7 @@ export function PortfolioClient({
                               onClick={async () => {
                                 try {
                                   const result = await fitProjectToTasks(row.projectId);
-                                  router.refresh();
+                                  await refreshSchedule();
                                   offerScheduleUndo(result.changeSetId);
                                 } catch {
                                   toast.error(tCommon("error"));
@@ -5082,7 +5144,7 @@ export function PortfolioClient({
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
-                      {row.task && (
+                      {row.task && !isDraftTask(row.task.id) && (
                         <DropdownMenu>
                           <DropdownMenuTrigger
                             render={
@@ -5100,11 +5162,11 @@ export function PortfolioClient({
                             <DropdownMenuItem onClick={() => row.task && openTask(row.task)}>
                               <PanelRightClose className="size-3.5" />{t("openDetails")}
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => row.task && enterTaskFocus(row.task)}>
+                            {!embedded && <DropdownMenuItem onClick={() => row.task && enterTaskFocus(row.task)}>
                               <Focus className="size-3.5" />{t("focusTask")}
                               <DropdownMenuShortcut>F</DropdownMenuShortcut>
-                            </DropdownMenuItem>
-                            {!row.isMilestone && (
+                            </DropdownMenuItem>}
+                            {!embedded && !row.isMilestone && (
                               <DropdownMenuItem onClick={() => row.task && newTask(row.projectId, row.task.id)}>
                                 <Plus className="size-3.5" />{t("newSubtask")}
                               </DropdownMenuItem>
@@ -5115,7 +5177,7 @@ export function PortfolioClient({
                                   if (!row.task) return;
                                   try {
                                     const result = await fitTaskToChildren(row.task.id);
-                                    router.refresh();
+                                    await refreshSchedule();
                                     offerScheduleUndo(result.changeSetId);
                                   } catch {
                                     toast.error(tCommon("error"));
@@ -5127,14 +5189,14 @@ export function PortfolioClient({
                             )}
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
-                              disabled={!row.task.parentTaskId}
+                              disabled={Boolean(embedded) || !row.task.parentTaskId}
                               onClick={() => row.task && outdentRow(row.task)}
                             >
                               <IndentDecrease className="size-3.5" />{t("outdentTask")}
                               <DropdownMenuShortcut>Alt+←</DropdownMenuShortcut>
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              disabled={!indentTarget(tasksByProject.get(row.projectId) ?? [], row.task.id)}
+                              disabled={Boolean(embedded) || !indentTarget(tasksByProject.get(row.projectId) ?? [], row.task.id)}
                               onClick={() => row.task && indentRow(row.task)}
                             >
                               <IndentIncrease className="size-3.5" />{t("indentTask")}
@@ -5206,7 +5268,7 @@ export function PortfolioClient({
                           onPointerEnter={() => isDependencyTarget && setDependencyHoverId(row.task!.id)}
                           onPointerLeave={() => setDependencyHoverId((current) => current === row.task?.id ? null : current)}
                           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
-                          onFocus={() => row.task && setSelectedTaskId(row.task.id)}
+                          onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                           aria-current={selectedTaskId === row.task.id ? "true" : undefined}
                           className={cn(
                             "group absolute top-2 h-7 cursor-grab overflow-visible rounded-md border border-dashed border-indigo-400 bg-indigo-50/80 text-left shadow-xs active:cursor-grabbing dark:bg-indigo-950/30",
@@ -5249,7 +5311,7 @@ export function PortfolioClient({
                           onPointerEnter={() => isDependencyTarget && setDependencyHoverId(row.task!.id)}
                           onPointerLeave={() => setDependencyHoverId((current) => current === row.task?.id ? null : current)}
                           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
-                          onFocus={() => row.task && setSelectedTaskId(row.task.id)}
+                          onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                           className={cn(
                             "group absolute top-2 h-7 cursor-grab overflow-visible rounded-md focus-visible:ring-2 focus-visible:ring-ring",
                             isCritical && criticalVisible && "ring-2 ring-red-500",
@@ -5277,7 +5339,7 @@ export function PortfolioClient({
                           onPointerEnter={() => isDependencyTarget && setDependencyHoverId(row.task!.id)}
                           onPointerLeave={() => setDependencyHoverId((current) => current === row.task?.id ? null : current)}
                           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
-                          onFocus={() => row.task && setSelectedTaskId(row.task.id)}
+                          onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                           data-summary-bracket="true"
                           className={cn(
                             "group absolute top-[13px] h-[18px] cursor-grab overflow-visible rounded-[4px] focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing",
@@ -5327,7 +5389,7 @@ export function PortfolioClient({
                           onPointerEnter={() => isDependencyTarget && setDependencyHoverId(row.task!.id)}
                           onPointerLeave={() => setDependencyHoverId((current) => current === row.task?.id ? null : current)}
                           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
-                          onFocus={() => row.task && setSelectedTaskId(row.task.id)}
+                          onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                           className={cn(
                             "group absolute overflow-visible border transition-shadow motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-ring",
                             "cursor-grab active:cursor-grabbing",
@@ -5430,6 +5492,8 @@ export function PortfolioClient({
               window.localStorage.setItem("projects.inspectorWidth", String(next));
             }}
             schedule={schedule}
+            onScheduleChanged={embedded ? refreshSchedule : undefined}
+            embedded={isEmbedded}
             task={selectedTask}
             defaultProjectId={newTaskContext?.projectId ?? null}
             defaultParentTaskId={newTaskContext?.parentTaskId ?? null}

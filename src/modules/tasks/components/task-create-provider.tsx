@@ -47,6 +47,7 @@ import type {
   TaskPriority,
   TaskStatus,
 } from "../types";
+import { TaskProjectPlanner } from "./task-project-planner";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { canonicalTaskHref } from "@/modules/context/routes";
 
@@ -54,6 +55,7 @@ type OpenTaskOptions = {
   origin?: TaskOrigin;
   task?: EditableTask;
   initialTitle?: string;
+  showProjectSchedule?: boolean;
   onCreated?: (taskId: string) => void;
 };
 
@@ -95,6 +97,9 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState("");
   const [assigneeId, setAssigneeId] = useState(NONE);
   const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [startDate, setStartDate] = useState("");
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const submitting = useRef(false);
   const [dueDate, setDueDate] = useState("");
   const [status, setStatus] = useState<TaskStatus>("open");
   const [projectId, setProjectId] = useState(NONE);
@@ -102,7 +107,10 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   const [errors, setErrors] = useState<{ title?: string; save?: string }>({});
 
   const openTaskCreator = useCallback((next: OpenTaskOptions = {}) => {
+    if (submitting.current) return;
     setRequest(next);
+    setStartDate("");
+    setPlannerOpen(false);
     setTitle(next.task?.title ?? next.initialTitle ?? "");
     setAssigneeId(next.task?.assigneeId ?? NONE);
     setPriority(next.task?.priority ?? "medium");
@@ -144,7 +152,9 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   }, [deepLinkedTaskId, openTaskCreator, tCommon]);
 
   function setDialogOpen(next: boolean) {
+    if (submitting.current) return;
     setOpen(next);
+    if (!next) setPlannerOpen(false);
     if (next || pathname !== "/") return;
     const params = new URLSearchParams(window.location.search);
     params.delete("task");
@@ -183,10 +193,16 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
+    if (submitting.current) return;
     if (!title.trim()) {
       setErrors({ title: t("titleRequired") });
       return;
     }
+    if (request.showProjectSchedule && startDate && (!dueDate || dueDate < startDate)) {
+      setErrors({ save: t("planner.invalidDates") });
+      return;
+    }
+    submitting.current = true;
     setPending(true);
     setErrors({});
     try {
@@ -196,6 +212,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
         assigneeId: assigneeId === NONE ? null : assigneeId,
         priority,
         dueDate: dueDate || null,
+        ...(request.showProjectSchedule && !request.task ? { startDate: startDate || null } : {}),
         status,
         projectId: projectId === NONE ? null : projectId,
         context: request.task && !request.origin
@@ -207,11 +224,13 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
       });
       request.onCreated?.(result.id);
       toast.success(request.task ? t("updated") : t("created"));
+      submitting.current = false;
       setDialogOpen(false);
       router.refresh();
     } catch {
       setErrors({ save: t("saveError") });
     } finally {
+      submitting.current = false;
       setPending(false);
     }
   }
@@ -292,7 +311,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="context-task-due">{t("dueDate")}</Label>
-                <Input id="context-task-due" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+                <Input id="context-task-due" type="date" min={startDate || undefined} value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="context-task-status">{t("status")}</Label>
@@ -307,7 +326,11 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
               </div>
               <div className="space-y-2">
               <Label htmlFor="context-task-project">{t("project")}</Label>
-              <Select value={projectId} onValueChange={(value) => setProjectId(value ?? NONE)}>
+              <Select value={projectId} onValueChange={(value) => {
+                const next = value ?? NONE;
+                setProjectId(next);
+                setPlannerOpen(Boolean(request.showProjectSchedule && !request.task && next !== NONE));
+              }}>
                 <SelectTrigger id="context-task-project" className="w-full"><SelectValue>{projectLabel}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value={NONE}>{t("noProject")}</SelectItem>
@@ -317,6 +340,8 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                 </SelectContent>
               </Select>
               </div>
+              {request.showProjectSchedule && !request.task && projectId !== NONE && <Button type="button" variant="outline" onClick={() => setPlannerOpen(true)}>{t("planner.open")}</Button>}
+              {request.showProjectSchedule && startDate && <p className="text-sm text-muted-foreground">{t("planner.startDate")}: {startDate}</p>}
               <WorkItemSaveError>{errors.save}</WorkItemSaveError>
             </div>
             <DialogFooter className="shrink-0 border-t bg-background px-6 py-4">
@@ -328,6 +353,16 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
             </DialogFooter>
           </form>
         </DialogContent>
+        {open && plannerOpen && projectId !== NONE && <TaskProjectPlanner
+          key={projectId}
+          projectId={projectId}
+          projectName={projectLabel}
+          title={title}
+          startDate={startDate}
+          dueDate={dueDate}
+          onDatesChange={(dates) => { setStartDate(dates.startDate); setDueDate(dates.dueDate); }}
+          onClose={() => setPlannerOpen(false)}
+        />}
       </Dialog>
     </TaskCreatorContext.Provider>
   );

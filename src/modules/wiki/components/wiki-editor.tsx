@@ -101,6 +101,8 @@ import {
   type WikiShortcutAction,
 } from "../lib/wiki-shortcuts";
 import { displayShortcut } from "../lib/shortcut-display";
+import { resolveTaskOrigin } from "../lib/task-origin";
+import { applyEditorLink } from "../lib/editor-link";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import { localDateValue } from "@/modules/tasks/deadline-utils";
@@ -621,7 +623,7 @@ function ImageRegionSelector({ rootRef, nodeId, label, onSelect, onCancel }: {
 
 function PageLinkPicker({ editor, pages, open, onOpenChange }: { editor: Editor; pages: PageRef[]; open: boolean; onOpenChange: (open: boolean) => void }) {
   const t = useTranslations("wiki"); const [query, setQuery] = useState("");
-  return <Popover open={open} onOpenChange={onOpenChange}><PopoverTrigger render={<Button type="button" variant="ghost" size="icon-sm" title={t("linkPage")} aria-label={t("linkPage")} />}><Link2 className="size-4" /></PopoverTrigger><PopoverContent className="w-72 p-2"><Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("filterPages")} className="mb-2 h-8" /><div className="max-h-60 overflow-y-auto">{pages.filter((page) => page.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((page) => <button key={page.id} type="button" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => { const { empty } = editor.state.selection; const href = `/wiki/pages/${page.slug}`; if (empty) editor.chain().focus().insertContent({ type: "text", text: page.title, marks: [{ type: "link", attrs: { href } }] }).run(); else editor.chain().focus().setLink({ href }).run(); onOpenChange(false); }}>{page.title}</button>)}</div></PopoverContent></Popover>;
+  return <Popover open={open} onOpenChange={onOpenChange}><PopoverTrigger render={<Button type="button" variant="ghost" size="icon-sm" title={t("linkPage")} aria-label={t("linkPage")} />}><Link2 className="size-4" /></PopoverTrigger><PopoverContent finalFocus={() => editor.isDestroyed ? false : editor.view.dom} className="w-72 p-2"><Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("filterPages")} className="mb-2 h-8" /><div className="max-h-60 overflow-y-auto">{pages.filter((page) => page.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((page) => <button key={page.id} type="button" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => { const href = `/wiki/pages/${page.slug}`; applyEditorLink(editor, href, page.title); onOpenChange(false); }}>{page.title}</button>)}</div></PopoverContent></Popover>;
 }
 
 function CitationPicker({ editor, sources, locale, pageSlug, open, onOpenChange }: { editor: Editor; sources: SourceRef[]; locale: string; pageSlug: string; open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -1146,19 +1148,8 @@ export function WikiEditor({
         label: pageTitle,
         anchor: { quote, from, to },
       },
-      onCreated: (taskId) => {
-        targetEditor.chain().focus().insertContent({
-          type: "taskReference",
-          attrs: {
-            taskId,
-            title: quote || tTasks("title"),
-            status: "open",
-            priority: "medium",
-            assigneeName: "",
-          },
-        }).run();
-        router.refresh();
-      },
+      showProjectSchedule: true,
+      onCreated: () => router.refresh(),
     });
   }
 
@@ -1956,11 +1947,14 @@ export function WikiEditor({
         marker.scrollIntoView({ behavior: "smooth", block: "center" });
         marker.focus({ preventScroll: true });
       } else {
-        toast.info(tTasks("sourceFallback"));
+        const task = contextTasks.find((candidate) => candidate.id === focusTaskId);
+        const range = task ? resolveTaskOrigin(editor.state.doc, task.anchorJson) : null;
+        if (range) editor.chain().setTextSelection(range).scrollIntoView().run();
+        else toast.info(tTasks("sourceFallback"));
       }
     }, 80);
     return () => window.clearTimeout(timeout);
-  }, [editor, focusTaskId, tTasks]);
+  }, [editor, focusTaskId, contextTasks, tTasks]);
 
   useEffect(() => {
     if (!editor || !focusDeadlineId) return;
