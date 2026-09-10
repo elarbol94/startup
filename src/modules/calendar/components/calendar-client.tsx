@@ -1,5 +1,9 @@
 "use client";
 
+import { timedDaySegment } from "../event-time";
+import { TimelineEvent } from "./timeline-event";
+import { layoutEventColumns } from "../event-layout";
+
 import { userIdentityColor } from "@/lib/user-mark-colors";
 import { UserIdentity, UserIdentities } from "@/components/user-identity";
 
@@ -23,7 +27,6 @@ import {
   BriefcaseBusiness,
   CalendarDays,
   Check,
-  ChevronRight,
   CircleAlert,
   Clock3,
   ExternalLink,
@@ -36,9 +39,7 @@ import {
   MapPin,
   Plus,
   Repeat2,
-  Search,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -86,7 +87,6 @@ import {
 } from "../import-parser";
 import {
   addDays,
-  dateAndMinutesInZone,
   dateRange,
   daysBetween,
   isoDate,
@@ -111,7 +111,6 @@ import { canonicalTaskHref } from "@/modules/context/routes";
 
 const SOURCE_TYPES = ["event", "focus", "deadline", "task", "project"] as const;
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
-const PX_PER_MINUTE = 1;
 const subscribeToClock = (onStoreChange: () => void) => {
   const timer = window.setInterval(onStoreChange, 60_000);
   return () => window.clearInterval(timer);
@@ -173,35 +172,6 @@ function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
-function dateForTimedItem(item: CalendarItem, fallbackTimezone: string) {
-  if (!item.startAt) return "";
-  return dateAndMinutesInZone(
-    new Date(item.startAt),
-    fallbackTimezone,
-  ).date;
-}
-
-function startMinutes(item: CalendarItem, fallbackTimezone: string) {
-  if (!item.startAt) return 0;
-  return dateAndMinutesInZone(
-    new Date(item.startAt),
-    fallbackTimezone,
-  ).minutes;
-}
-
-function endMinutes(item: CalendarItem, fallbackTimezone: string) {
-  if (!item.endAt) return startMinutes(item, fallbackTimezone) + 30;
-  const timezone = fallbackTimezone;
-  const start = item.startAt
-    ? dateAndMinutesInZone(new Date(item.startAt), timezone)
-    : null;
-  const end = dateAndMinutesInZone(new Date(item.endAt), timezone);
-  return (
-    end.minutes +
-    (start ? Math.max(0, daysBetween(start.date, end.date)) * 24 * 60 : 0)
-  );
-}
-
 function typeSource(item: CalendarItem) {
   if (item.kind === "milestone") return "task";
   return item.kind;
@@ -224,7 +194,7 @@ function blankDraft(
     address: "",
     allDay: false,
     startDate: date,
-    endDate: addDays(date, 1),
+    endDate: startHour === 23 ? addDays(date, 1) : date,
     startTime: `${String(startHour).padStart(2, "0")}:00`,
     endTime: `${String(endHour).padStart(2, "0")}:00`,
     timezone,
@@ -461,7 +431,7 @@ function MiniMonth({
   const gridStart = startOfWeek(monthStart, 1);
   const days = dateRange(gridStart, addDays(gridStart, 42));
   return (
-    <div>
+    <div className="w-56 max-w-full">
       <p className="mb-2 text-sm font-semibold">
         {new Intl.DateTimeFormat(locale, {
           month: "long",
@@ -539,9 +509,8 @@ export function CalendarClient({
   const t = useTranslations("calendar");
   const locale = useLocale();
   const router = useRouter();
-  const defaultCalendarId = workspace.calendars.find(
-    (calendar) => calendar.role === "owner" || calendar.role === "editor",
-  )?.id;
+  const defaultCalendarId = workspace.calendars.find((calendar) => calendar.role === "owner")?.id
+    ?? workspace.calendars.find((calendar) => calendar.role === "editor")?.id;
   const [pending, startTransition] = useTransition();
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const incomingFilterKey = JSON.stringify(initialFilters);
@@ -553,6 +522,7 @@ export function CalendarClient({
   const [eventOpen, setEventOpen] = useState(shouldOpenNewEvent);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [showCalendarColors, setShowCalendarColors] = useState(false);
   const [calendarDraft, setCalendarDraft] = useState<CalendarDraft>({
     name: "",
     color: "#6D5EF7",
@@ -612,8 +582,7 @@ export function CalendarClient({
       if (!visibleSources.has(typeSource(item))) return false;
       if (
         filters.calendars.length > 0 &&
-        item.calendarId &&
-        !filters.calendars.includes(item.calendarId)
+        (!item.calendarId || !filters.calendars.includes(item.calendarId))
       ) {
         return false;
       }
@@ -643,6 +612,11 @@ export function CalendarClient({
       return true;
     });
   }, [filters, visibleSources, workspace.items]);
+  const displayItems = useMemo(() => filteredItems.map((item) => ({ ...item, color: showCalendarColors ? item.color : "var(--muted-foreground)" })), [filteredItems, showCalendarColors]);
+  const ownCalendarIds = workspace.calendars.filter((calendar) => calendar.role === "owner").map((calendar) => calendar.id);
+  function selectCalendars(ids: string[]) {
+    updateFilters({ sources: [], people: [], projects: [], calendars: ids, query: "" });
+  }
   const filteredUnscheduledTasks = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase();
     if (!visibleSources.has("task")) return [];
@@ -659,22 +633,6 @@ export function CalendarClient({
     [range.from, range.to],
   );
   const weekDays = days.slice(0, 7);
-  const sourceColors = useMemo(() => {
-    const fallback = {
-      event: workspace.calendars[0]?.color ?? "#0284C7",
-      focus: "#6D5EF7",
-      deadline: "#D97706",
-      task: workspace.projects[0]?.color ?? "#059669",
-      project: workspace.projects[0]?.color ?? "#059669",
-    } as const;
-    return Object.fromEntries(
-      SOURCE_TYPES.map((source) => [
-        source,
-        workspace.items.find((item) => typeSource(item) === source)?.color ??
-          fallback[source],
-      ]),
-    ) as Record<(typeof SOURCE_TYPES)[number], string>;
-  }, [workspace.calendars, workspace.items, workspace.projects]);
 
   useEffect(() => {
     let active = true;
@@ -774,7 +732,17 @@ export function CalendarClient({
     field: K,
     value: EventDraft[K],
   ) {
-    setDraft((current) => ({ ...current, [field]: value }));
+    setDraft((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "startDate") {
+        next.endDate = addDays(String(value), Math.max(current.allDay ? 1 : 0, daysBetween(current.startDate, current.endDate)));
+      }
+      if (field === "allDay") {
+        next.endDate = addDays(current.endDate, value ? 1 : -1);
+        if (next.endDate < next.startDate) next.endDate = next.startDate;
+      }
+      return next;
+    });
     setManuallyEditedFields((current) => new Set(current).add(field));
   }
 
@@ -833,17 +801,15 @@ export function CalendarClient({
     }
     if (
       suggestion.endDate &&
-      suggestion.allDay &&
       !manuallyEditedFields.has("endDate")
     ) {
       next.endDate = suggestion.endDate;
       fields.push("endDate");
     } else if (
       suggestion.startDate &&
-      suggestion.allDay &&
       !manuallyEditedFields.has("endDate")
     ) {
-      next.endDate = addDays(suggestion.startDate, 1);
+      next.endDate = addDays(suggestion.startDate, next.allDay || next.endTime <= next.startTime ? 1 : 0);
     }
     if (suggestion.timezone && !manuallyEditedFields.has("timezone")) {
       next.timezone = suggestion.timezone;
@@ -948,7 +914,7 @@ export function CalendarClient({
     const values = current.includes(value)
       ? current.filter((item) => item !== value)
       : [...current, value];
-    updateFilters({ ...filters, [group]: values });
+    updateFilters({ ...filters, [group]: values.length === 0 && (group === "sources" || group === "calendars") ? ["__none__"] : values.filter((id) => id !== "__none__") });
   }
 
   function movePeriod(direction: number) {
@@ -1064,10 +1030,7 @@ export function CalendarClient({
           },
           draft.timezone,
         ).toISOString();
-    const timedEndDate =
-      draft.endTime <= draft.startTime
-        ? addDays(draft.startDate, 1)
-        : draft.startDate;
+    const timedEndDate = draft.endDate;
     const [endYear, endMonth, endDay] = timedEndDate.split("-").map(Number);
     const [endHour, endMinute] = draft.endTime.split(":").map(Number);
     const endAt = draft.allDay
@@ -1082,6 +1045,10 @@ export function CalendarClient({
           },
           draft.timezone,
         ).toISOString();
+    if ((!draft.allDay && endAt! <= startAt!) || (draft.allDay && draft.endDate <= draft.startDate)) {
+      toast.error(t("endAfterStart"));
+      return;
+    }
     if (
       draft.id &&
       draft.recurring &&
@@ -1318,7 +1285,7 @@ export function CalendarClient({
     }
     const [year, month, day] = targetDate.split("-").map(Number);
     const start = zonedDateTimeToUtc(
-      { year, month, day, hour, minute: 0 },
+      { year, month, day, hour: Math.floor(hour), minute: Math.round((hour % 1) * 60) },
       workspace.preferences.timezone,
     );
     const end = new Date(start.getTime() + 60 * 60_000);
@@ -1382,6 +1349,30 @@ export function CalendarClient({
     }
   }
 
+  async function changeEventTime(item: CalendarItem, startAt: string, endAt: string) {
+    if (!item.editable) return false;
+    if (item.recurring) {
+      setDraft(itemDraft({ ...item, startAt, endAt }, defaultCalendarId ?? "", workspace.preferences.timezone));
+      setConflicts([]);
+      resetImport();
+      setEventOpen(true);
+      return false;
+    }
+    try {
+      const input = { id: item.sourceId, startAt, endAt, expectedUpdatedAt: item.updatedAt };
+      const result = await moveCalendarEvent(input);
+      if (result.status === "conflict") {
+        if (!window.confirm(t("conflictDescription"))) return false;
+        await moveCalendarEvent({ ...input, allowConflicts: true });
+      }
+      router.refresh();
+      return true;
+    } catch {
+      toast.error(t("timeChangeError"));
+      return false;
+    }
+  }
+
   async function saveView() {
     const name = window.prompt(t("viewName"));
     if (!name) return;
@@ -1430,16 +1421,9 @@ export function CalendarClient({
     <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-4">
       <header className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
         <div>
-          <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:block">
-            {t("eyebrow")}
-          </p>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-            <span className="font-mono text-sm text-muted-foreground">
-              {periodLabel}
-            </span>
+            <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{periodLabel}</h1>
           </div>
-          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">{t("description")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex min-h-11 items-center rounded-lg border bg-background p-0.5">
@@ -1497,9 +1481,12 @@ export function CalendarClient({
           >
             {(["week", "month", "agenda", "team"] as const).map((mode) => <option key={mode} value={mode}>{t(mode)}</option>)}
           </select>
+          <Button variant="outline" className="h-11 px-3" disabled={!ownCalendarIds.length}
+            aria-pressed={ownCalendarIds.length > 0 && filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id))}
+            onClick={() => selectCalendars(filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id)) ? [] : ownCalendarIds)}>{t("myCalendars")}</Button>
           <Button
             variant="outline"
-            className="h-11 px-3 lg:hidden"
+            className="h-11 px-3"
             aria-label={t("filters")}
             onClick={() => setFiltersOpen(true)}
           >
@@ -1514,156 +1501,25 @@ export function CalendarClient({
         </div>
       </header>
 
-      <div className="grid min-h-[44rem] gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]">
-        <aside className="hidden rounded-2xl border bg-card p-4 lg:flex lg:flex-col lg:gap-5">
-          <MiniMonth
-            date={date}
-            today={clientToday}
-            locale={locale}
-            onSelect={(nextDate) => navigate({ date: nextDate })}
-          />
-          <div className="border-t pt-4">
-            <label className="relative block">
-              <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={filters.query}
-                onChange={(event) =>
-                  updateFilters({ ...filters, query: event.target.value })
-                }
-                placeholder={t("searchPlaceholder")}
-                className="pl-8"
-              />
-            </label>
-          </div>
-          <FilterGroup title={t("workSources")}>
-            {SOURCE_TYPES.map((source) => (
-              <FilterToggle
-                key={source}
-                checked={visibleSources.has(source)}
-                label={
-                  source === "event"
-                    ? t("events")
-                    : source === "focus"
-                      ? t("focus")
-                      : source === "deadline"
-                        ? t("deadlines")
-                        : source === "task"
-                          ? t("tasks")
-                          : t("projects")
-                }
-                color={sourceColors[source]}
-                onChange={() => toggleFilter("sources", source)}
-              />
-            ))}
-          </FilterGroup>
-          <FilterGroup title={t("calendars")}>
-            {workspace.calendars.map((calendar) => {
-              const checked =
-                filters.calendars.length === 0 ||
-                filters.calendars.includes(calendar.id);
-              return (
-                <div key={calendar.id} className="flex items-center gap-1">
-                  <FilterToggle
-                    checked={checked}
-                    label={calendar.name}
-                    color={calendar.color}
-                    onChange={() => toggleFilter("calendars", calendar.id)}
-                    detail={
-                      calendar.visibility === "private"
-                        ? t("calendarPrivate")
-                        : calendar.visibility === "busy"
-                          ? t("calendarBusyOnly")
-                          : t("calendarShared")
-                    }
-                  />
-                  {calendar.role === "owner" && (
-                    <button
-                      type="button"
-                      className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-                      aria-label={t("editCalendar")}
-                      onClick={() => openEditCalendar(calendar)}
-                    >
-                      <MoreHorizontal className="size-3.5" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-            <button
-              type="button"
-              className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-              onClick={openNewCalendar}
-            >
-              <Plus className="size-3.5" />
-              {t("addCalendar")}
-            </button>
-          </FilterGroup>
-          <FilterGroup title={t("people")}>
-            {workspace.members.map((member) => (
-              <FilterToggle
-                key={member.id}
-                checked={filters.people.includes(member.id)}
-                label={member.id === currentUser.id ? `${member.name} · ${t("me")}` : member.name}
-                color={userIdentityColor(member.id)}
-                onChange={() => toggleFilter("people", member.id)}
-              />
-            ))}
-          </FilterGroup>
-          {workspace.savedViews.length > 0 && (
-            <FilterGroup title={t("savedViews")}>
-              {workspace.savedViews.map((saved) => (
-                <button
-                  type="button"
-                  key={saved.id}
-                  className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs hover:bg-muted"
-                  onClick={() => {
-                    setFilters({
-                      sources: saved.filters.sources ?? [],
-                      people: saved.filters.people ?? [],
-                      projects: saved.filters.projects ?? [],
-                      calendars: saved.filters.calendars ?? [],
-                      query: saved.filters.query ?? "",
-                    });
-                    navigate({
-                      view: saved.view,
-                      filters: {
-                        sources: saved.filters.sources ?? [],
-                        people: saved.filters.people ?? [],
-                        projects: saved.filters.projects ?? [],
-                        calendars: saved.filters.calendars ?? [],
-                        query: saved.filters.query ?? "",
-                      },
-                    });
-                  }}
-                >
-                  <span className="truncate">{saved.name}</span>
-                  <ChevronRight className="size-3.5 text-muted-foreground" />
-                </button>
-              ))}
-            </FilterGroup>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-auto w-full"
-            onClick={() => void saveView()}
-          >
-            <Sparkles />
-            {t("saveView")}
-          </Button>
-        </aside>
+      {showCalendarColors && <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label={t("colorsByCalendar")}>
+        {workspace.calendars.filter((calendar) => !filters.calendars.length || filters.calendars.includes(calendar.id)).map((calendar) => <span key={calendar.id} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{backgroundColor:calendar.color}} />{calendar.name}</span>)}
+      </div>}
+
+      <div className="grid min-h-[44rem] gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
+
 
         <div className="min-w-0 rounded-2xl border bg-card">
           {view === "week" && (
             <FlowWeek
               days={weekDays}
               today={clientToday}
-              items={filteredItems}
+              items={displayItems}
               draggingId={draggingId}
               locale={locale}
               t={t}
               preferences={workspace.preferences}
               onSelect={setSelected}
+              onCommit={changeEventTime}
               onEdit={openEditEvent}
               onNew={openNewEvent}
               onDragStart={(event, item) => {
@@ -1682,7 +1538,7 @@ export function CalendarClient({
               days={days}
               date={date}
               today={clientToday}
-              items={filteredItems}
+              items={displayItems}
               locale={locale}
               timezone={workspace.preferences.timezone}
               t={t}
@@ -1699,7 +1555,7 @@ export function CalendarClient({
           {view === "agenda" && (
             <AgendaView
               days={days}
-              items={filteredItems}
+              items={displayItems}
               locale={locale}
               timezone={workspace.preferences.timezone}
               t={t}
@@ -1709,7 +1565,7 @@ export function CalendarClient({
           {view === "team" && (
             <TeamView
               days={weekDays}
-              items={filteredItems}
+              items={displayItems}
               members={workspace.members}
               locale={locale}
               timezone={workspace.preferences.timezone}
@@ -1753,105 +1609,49 @@ export function CalendarClient({
         </aside>
       </div>
 
-      <MobileBottomSheet
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        title={t("filters")}
-        description={t("filterDescription")}
-        closeLabel={t("close")}
-      >
-        <div className="space-y-5 [&_label]:min-h-11" data-testid="calendar-mobile-filters">
-          <MiniMonth
-            date={date}
-            today={clientToday}
-            locale={locale}
-            onSelect={(nextDate) => navigate({ date: nextDate })}
-          />
-          <label className="relative block border-t pt-4">
-            <Search className="absolute top-[calc(50%+0.5rem)] left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={filters.query}
-              onChange={(event) => updateFilters({ ...filters, query: event.target.value })}
-              placeholder={t("searchPlaceholder")}
-              className="h-11 pl-9"
-            />
-          </label>
-          <FilterGroup title={t("workSources")}>
-            {SOURCE_TYPES.map((source) => (
-              <FilterToggle
-                key={source}
-                checked={visibleSources.has(source)}
-                label={source === "event" ? t("events") : source === "focus" ? t("focus") : source === "deadline" ? t("deadlines") : source === "task" ? t("tasks") : t("projects")}
-                color={sourceColors[source]}
-                onChange={() => toggleFilter("sources", source)}
-              />
-            ))}
-          </FilterGroup>
-          <FilterGroup title={t("calendars")}>
-            {workspace.calendars.map((calendar) => (
-              <div key={calendar.id} className="flex items-center gap-1">
-                <FilterToggle
-                  checked={filters.calendars.length === 0 || filters.calendars.includes(calendar.id)}
-                  label={calendar.name}
-                  color={calendar.color}
-                  onChange={() => toggleFilter("calendars", calendar.id)}
-                  detail={calendar.visibility === "private" ? t("calendarPrivate") : calendar.visibility === "busy" ? t("calendarBusyOnly") : t("calendarShared")}
-                />
-                {calendar.role === "owner" ? (
-                  <button type="button" className="grid size-11 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground" aria-label={t("editCalendar")} onClick={() => openEditCalendar(calendar)}>
-                    <MoreHorizontal className="size-4" />
-                  </button>
-                ) : null}
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("filters")}</DialogTitle>
+            <DialogDescription>{t("compactFilterHint")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4" data-testid="calendar-mobile-filters">
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" onClick={() => selectCalendars([])}>{t("allCalendars")}</Button>
+              <Button size="sm" variant="outline" disabled={!ownCalendarIds.length} onClick={() => selectCalendars(ownCalendarIds)}>{t("myCalendars")}</Button>
+            </div>
+            <Input aria-label={t("searchPlaceholder")} value={filters.query} onChange={(event) => updateFilters({ ...filters, query: event.target.value })} placeholder={t("searchPlaceholder")} />
+            <FilterGroup title={t("calendars")}>
+              <div className="max-h-52 overflow-y-auto">
+                {workspace.calendars.map((calendar) => (
+                  <div key={calendar.id} className="flex items-center gap-1">
+                    <div className="min-w-0 flex-1"><FilterToggle checked={!filters.calendars.length || filters.calendars.includes(calendar.id)} label={calendar.name} color="var(--muted-foreground)" onChange={() => toggleFilter("calendars", calendar.id)} /></div>
+                    <Button size="sm" variant="ghost" aria-label={t("onlyCalendar", { name: calendar.name })} onClick={() => selectCalendars([calendar.id])}>{t("only")}</Button>
+                    {calendar.role === "owner" && <Button size="icon-sm" variant="ghost" aria-label={t("editCalendar")} onClick={() => openEditCalendar(calendar)}><MoreHorizontal /></Button>}
+                  </div>
+                ))}
               </div>
-            ))}
-            <button type="button" className="mt-1 flex min-h-11 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground hover:bg-muted hover:text-foreground" onClick={openNewCalendar}>
-              <Plus className="size-4" />
-              {t("addCalendar")}
-            </button>
-          </FilterGroup>
-          <FilterGroup title={t("people")}>
-            {workspace.members.map((member) => (
-              <FilterToggle
-                key={member.id}
-                checked={filters.people.includes(member.id)}
-                label={member.id === currentUser.id ? `${member.name} · ${t("me")}` : member.name}
-                color={userIdentityColor(member.id)}
-                onChange={() => toggleFilter("people", member.id)}
-              />
-            ))}
-          </FilterGroup>
-          {workspace.savedViews.length ? (
-            <FilterGroup title={t("savedViews")}>
-              {workspace.savedViews.map((saved) => (
-                <button
-                  type="button"
-                  key={saved.id}
-                  className="flex min-h-11 w-full items-center justify-between rounded-md px-2 text-left text-sm hover:bg-muted"
-                  onClick={() => {
-                    const savedFilters = {
-                      sources: saved.filters.sources ?? [],
-                      people: saved.filters.people ?? [],
-                      projects: saved.filters.projects ?? [],
-                      calendars: saved.filters.calendars ?? [],
-                      query: saved.filters.query ?? "",
-                    };
-                    setFilters(savedFilters);
-                    navigate({ view: saved.view, filters: savedFilters });
-                    setFiltersOpen(false);
-                  }}
-                >
-                  <span className="truncate">{saved.name}</span>
-                  <ChevronRight className="size-4 text-muted-foreground" />
-                </button>
-              ))}
             </FilterGroup>
-          ) : null}
-          <Button variant="outline" className="h-11 w-full" onClick={() => void saveView()}>
-            <Sparkles />
-            {t("saveView")}
-          </Button>
-        </div>
-      </MobileBottomSheet>
+            <label className="flex items-center gap-2 text-xs"><input type="checkbox" className="accent-foreground" checked={showCalendarColors} onChange={(event) => setShowCalendarColors(event.target.checked)} />{t("colorsByCalendar")}</label>
+            {showCalendarColors && <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">{workspace.calendars.filter((calendar) => !filters.calendars.length || filters.calendars.includes(calendar.id)).map((calendar) => <span key={calendar.id} className="flex items-center gap-1"><span className="size-2 rounded-full" style={{backgroundColor:calendar.color}} />{calendar.name}</span>)}</div>}
+            <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary>
+              <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <FilterGroup title={t("workSources")}>{SOURCE_TYPES.map((source) => <FilterToggle key={source} checked={visibleSources.has(source)} label={source === "event" ? t("events") : source === "focus" ? t("focus") : source === "deadline" ? t("deadlines") : source === "task" ? t("tasks") : t("projects")} color="var(--muted-foreground)" onChange={() => toggleFilter("sources", source)} />)}</FilterGroup>
+                <FilterGroup title={t("people")}>{workspace.members.map((member) => <FilterToggle key={member.id} checked={filters.people.includes(member.id)} label={member.name} color="var(--muted-foreground)" onChange={() => toggleFilter("people", member.id)} />)}</FilterGroup>
+              </div>
+            </details>
+            <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">{t("jumpToDate")}</summary>
+              <div className="mt-3"><MiniMonth date={date} today={clientToday} locale={locale} onSelect={(nextDate) => navigate({date:nextDate})} /></div>
+            </details>
+            <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">{t("savedViews")}</summary>
+              <div className="mt-2 space-y-2">{workspace.savedViews.map((saved) => <Button key={saved.id} variant="ghost" size="sm" onClick={() => {const next = {sources:saved.filters.sources ?? [],people:saved.filters.people ?? [],projects:saved.filters.projects ?? [],calendars:saved.filters.calendars ?? [],query:saved.filters.query ?? ""};setFilters(next);navigate({view:saved.view,filters:next});setFiltersOpen(false);}}>{saved.name}</Button>)}
+                <Button size="sm" variant="outline" onClick={() => void saveView()}>{t("saveView")}</Button>
+              </div>
+            </details>
+            <div className="flex justify-between border-t pt-3"><Button size="sm" variant="ghost" onClick={openNewCalendar}><Plus />{t("addCalendar")}</Button><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <MobileBottomSheet
         open={Boolean(selected)}
@@ -1883,7 +1683,7 @@ export function CalendarClient({
           <form onSubmit={submitEvent}>
             <DialogHeader>
               <DialogTitle>{draft.id ? t("editEvent") : t("newEvent")}</DialogTitle>
-              <DialogDescription>{t("description")}</DialogDescription>
+              <DialogDescription>{t("eventFormHint")}</DialogDescription>
             </DialogHeader>
             <div className="mt-5 grid gap-4">
               {draft.recurring && (
@@ -1919,6 +1719,81 @@ export function CalendarClient({
                   placeholder={t("eventTitlePlaceholder")}
                 />
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={draft.allDay}
+                  onChange={(event) =>
+                    editDraft("allDay", event.target.checked)
+                  }
+                  className="size-4 accent-foreground"
+                />
+                {t("allDay")}
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-medium">{t("start")}</span>
+                  <div
+                    className={cn(
+                      "grid min-w-0 gap-2",
+                      draft.allDay
+                        ? "grid-cols-1"
+                        : "grid-cols-[minmax(0,1fr)_6.5rem]",
+                    )}
+                  >
+                    <AustrianDateInput
+                      key={`start-date-${draft.startDate}`}
+                      value={draft.startDate}
+                      onChange={(value) =>
+                        editDraft("startDate", value)
+                      }
+                      label={t("startDate")}
+                      pickerLabel={t("chooseDate", { label: t("startDate") })}
+                      placeholder={t("datePlaceholder")}
+                      invalidMessage={t("invalidDate")}
+                    />
+                    {!draft.allDay && (
+                      <AustrianTimeInput
+                        key={`start-time-${draft.startTime}`}
+                        value={draft.startTime}
+                        onChange={(value) =>
+                          editDraft("startTime", value)
+                        }
+                        label={t("startTime")}
+                        invalidMessage={t("invalidTime")}
+                      />
+                    )}
+                  </div>
+                </label>
+                <label className="grid gap-1.5">
+                  <span className="text-xs font-medium">{t("end")}</span>
+                  <div className={cn("grid min-w-0 gap-2", draft.allDay ? "grid-cols-1" : "grid-cols-[minmax(0,1fr)_6.5rem]")}>
+                    <AustrianDateInput
+                        key={`end-date-${draft.endDate}`}
+                        value={draft.allDay ? addDays(draft.endDate, -1) : draft.endDate}
+                        min={draft.startDate}
+                        onChange={(value) =>
+                          editDraft("endDate", draft.allDay ? addDays(value, 1) : value)
+                        }
+                        label={t("endDate")}
+                        pickerLabel={t("chooseDate", { label: t("endDate") })}
+                        placeholder={t("datePlaceholder")}
+                        invalidMessage={t("invalidDate")}
+                      />
+                    {!draft.allDay && (
+                      <AustrianTimeInput
+                        key={`end-time-${draft.endTime}`}
+                        value={draft.endTime}
+                        onChange={(value) =>
+                          editDraft("endTime", value)
+                        }
+                        label={t("endTime")}
+                        invalidMessage={t("invalidTime")}
+                      />
+                    )}
+                  </div>
+                </label>
+              </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="grid gap-1.5">
                   <span className="text-xs font-medium">{t("calendarLabel")}</span>
@@ -1963,83 +1838,9 @@ export function CalendarClient({
                   autoComplete="street-address"
                 />
               </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={draft.allDay}
-                  onChange={(event) =>
-                    editDraft("allDay", event.target.checked)
-                  }
-                  className="size-4 accent-foreground"
-                />
-                {t("allDay")}
-              </label>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-1.5">
-                  <span className="text-xs font-medium">{t("start")}</span>
-                  <div
-                    className={cn(
-                      "grid min-w-0 gap-2",
-                      draft.allDay
-                        ? "grid-cols-1"
-                        : "grid-cols-[minmax(9.5rem,1fr)_minmax(6.5rem,7rem)]",
-                    )}
-                  >
-                    <AustrianDateInput
-                      key={`start-date-${draft.startDate}`}
-                      value={draft.startDate}
-                      onChange={(value) =>
-                        editDraft("startDate", value)
-                      }
-                      label={t("startDate")}
-                      pickerLabel={t("chooseDate", { label: t("startDate") })}
-                      placeholder={t("datePlaceholder")}
-                      invalidMessage={t("invalidDate")}
-                    />
-                    {!draft.allDay && (
-                      <AustrianTimeInput
-                        key={`start-time-${draft.startTime}`}
-                        value={draft.startTime}
-                        onChange={(value) =>
-                          editDraft("startTime", value)
-                        }
-                        label={t("startTime")}
-                        invalidMessage={t("invalidTime")}
-                      />
-                    )}
-                  </div>
-                </label>
-                <label className="grid gap-1.5">
-                  <span className="text-xs font-medium">{t("end")}</span>
-                  <div className="grid min-w-0 grid-cols-1 gap-2">
-                    {draft.allDay && (
-                      <AustrianDateInput
-                        key={`end-date-${draft.endDate}`}
-                        value={draft.endDate}
-                        min={addDays(draft.startDate, 1)}
-                        onChange={(value) =>
-                          editDraft("endDate", value)
-                        }
-                        label={t("endDate")}
-                        pickerLabel={t("chooseDate", { label: t("endDate") })}
-                        placeholder={t("datePlaceholder")}
-                        invalidMessage={t("invalidDate")}
-                      />
-                    )}
-                    {!draft.allDay && (
-                      <AustrianTimeInput
-                        key={`end-time-${draft.endTime}`}
-                        value={draft.endTime}
-                        onChange={(value) =>
-                          editDraft("endTime", value)
-                        }
-                        label={t("endTime")}
-                        invalidMessage={t("invalidTime")}
-                      />
-                    )}
-                  </div>
-                </label>
-              </div>
+              <details className="rounded-lg border p-3">
+                <summary className="cursor-pointer text-sm font-medium">{t("eventOptions")}</summary>
+                <div className="mt-3 grid gap-4">
               <div className="grid gap-4 sm:grid-cols-3">
                 <label className="grid gap-1.5">
                   <span className="text-xs font-medium">{t("repeat")}</span>
@@ -2154,6 +1955,10 @@ export function CalendarClient({
                   rows={3}
                 />
               </label>
+                </div>
+              </details>
+              <details className="rounded-lg border p-3">
+                <summary className="cursor-pointer text-sm font-medium">{t("importTitle")}</summary>
               <section
                 className={cn(
                   "rounded-xl border border-dashed bg-muted/15 p-3 transition-colors",
@@ -2290,6 +2095,7 @@ export function CalendarClient({
                   )}
                 </div>
               </section>
+              </details>
               {conflicts.length > 0 && (
                 <div className="rounded-xl border border-[#E11D48]/30 bg-[#E11D48]/5 p-3">
                   <div className="flex gap-2">
@@ -2314,7 +2120,7 @@ export function CalendarClient({
                 </div>
               )}
             </div>
-            <DialogFooter className="mt-5">
+            <DialogFooter className="sticky -bottom-6 z-10 mt-5 border-t bg-background py-4">
               {draft.id && (
                 <Button
                   type="button"
@@ -2510,6 +2316,7 @@ function FlowWeek({
   t,
   preferences,
   onSelect,
+  onCommit,
   onEdit,
   onNew,
   onDragStart,
@@ -2525,6 +2332,7 @@ function FlowWeek({
   t: ReturnType<typeof useTranslations<"calendar">>;
   preferences: CalendarWorkspace["preferences"];
   onSelect: (item: CalendarItem) => void;
+  onCommit: (item: CalendarItem, startAt: string, endAt: string) => Promise<boolean>;
   onEdit: (item: CalendarItem) => void;
   onNew: (day: string, hour?: number) => void;
   onDragStart: (event: DragEvent, item: CalendarItem) => void;
@@ -2551,65 +2359,33 @@ function FlowWeek({
       items.filter(
         (item) =>
           !item.allDay &&
-          dateForTimedItem(item, preferences.timezone) === day,
+          Boolean(timedDaySegment(item.startAt, item.endAt, day, preferences.timezone)),
       ),
     ]),
   );
-  const workMinutes =
-    (Number(preferences.workingDayEnd.slice(0, 2)) * 60 +
-      Number(preferences.workingDayEnd.slice(3)) -
-      (Number(preferences.workingDayStart.slice(0, 2)) * 60 +
-        Number(preferences.workingDayStart.slice(3)))) ||
-    540;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const weekKey = days[0];
+  useEffect(() => {
+    if (scrollRef.current) {
+      const [hour, minute] = preferences.workingDayStart.split(":").map(Number);
+      scrollRef.current.scrollTop = Math.max(0, hour * 60 + minute - 30);
+    }
+  }, [weekKey, preferences.workingDayStart]);
+  const columnsByDate = new Map(days.map((day) => [day, layoutEventColumns(
+    (timedByDate.get(day) ?? []).map((item) => ({
+      id: item.id,
+      start: timedDaySegment(item.startAt, item.endAt, day, preferences.timezone)!.start,
+      end: Math.max(timedDaySegment(item.startAt, item.endAt, day, preferences.timezone)!.end, timedDaySegment(item.startAt, item.endAt, day, preferences.timezone)!.start + 24),
+    })),
+  )]));
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[52rem]">
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))] border-b">
-        <div className="flex items-center justify-center border-r p-1">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground [writing-mode:vertical-rl]">
-            {t("load")}
-          </span>
-        </div>
+    <div ref={scrollRef} data-testid="calendar-week-scroll" className="relative max-h-[calc(100dvh-12rem)] min-h-80 overflow-auto rounded-2xl [overflow-anchor:none]">
+      <div className="min-w-[40rem]">
+      <div className="sticky top-0 z-30 bg-card">
+      <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b">
+        <div className="border-r" />
         {days.map((day) => {
-          const dayItems = timedByDate.get(day) ?? [];
-          const busyMinutes = dayItems
-            .filter((item) => item.availability === "busy")
-            .reduce(
-              (sum, item) =>
-                sum +
-                Math.max(
-                  0,
-                  endMinutes(item, preferences.timezone) -
-                    startMinutes(item, preferences.timezone),
-                ),
-              0,
-            );
-          const focusMinutes = dayItems
-            .filter((item) => item.kind === "focus")
-            .reduce(
-              (sum, item) =>
-                sum +
-                Math.max(
-                  0,
-                  endMinutes(item, preferences.timezone) -
-                    startMinutes(item, preferences.timezone),
-                ),
-              0,
-            );
-          const conflicts = dayItems.reduce((count, item, index) => {
-            const overlaps = dayItems
-              .slice(index + 1)
-              .some(
-                (other) =>
-                  startMinutes(item, preferences.timezone) <
-                    endMinutes(other, preferences.timezone) &&
-                  endMinutes(item, preferences.timezone) >
-                    startMinutes(other, preferences.timezone),
-              );
-            return count + (overlaps ? 1 : 0);
-          }, 0);
-          const percent = Math.min(100, Math.round((busyMinutes / workMinutes) * 100));
           return (
             <div
               key={day}
@@ -2635,54 +2411,27 @@ function FlowWeek({
                     {parseDate(day).getUTCDate()}
                   </p>
                 </div>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {percent}%
-                </span>
-              </div>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
-                title={t("dayLoad", { percent })}
-              >
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-[width] motion-reduce:transition-none",
-                    conflicts > 0
-                      ? "bg-[#E11D48]"
-                      : percent > 85
-                        ? "bg-[#D97706]"
-                        : "bg-[#059669]",
-                  )}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-              <div className="mt-1 flex items-center justify-between font-mono text-[9px] text-muted-foreground">
-                <span>{t("focusMinutes", { minutes: focusMinutes })}</span>
-                {conflicts > 0 && (
-                  <span className="text-[#E11D48]">
-                    {t("conflicts", { count: conflicts })}
-                  </span>
-                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))] border-b bg-muted/[0.18]">
-        <div className="border-r px-2 py-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground [writing-mode:vertical-rl]">
-          {t("allDayLane")}
+      <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b bg-muted/[0.18]">
+        <div className="border-r px-0.5 py-2 text-[8px] text-muted-foreground">
+          {t("allDay")}
         </div>
         {days.map((day) => (
           <div
             key={day}
-            className="min-h-24 border-r p-1.5 last:border-r-0"
+            className="min-h-9 border-r p-1 last:border-r-0"
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDropDay(event, day)}
             onDoubleClick={() => onNew(day)}
             aria-label={t("dragMove", { date: day })}
           >
-            <div className="space-y-1">
-              {(allDayByDate.get(day) ?? []).slice(0, 4).map((item) => (
+            <div className="max-h-16 space-y-1 overflow-y-auto">
+              {(allDayByDate.get(day) ?? []).map((item) => (
                 <button
                   type="button"
                   draggable={item.editable}
@@ -2698,22 +2447,16 @@ function FlowWeek({
                   title={item.title}
                 >
                   <SourceIcon kind={item.kind} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span><CalendarItemPeople item={item} compact />
+                  <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
                 </button>
               ))}
-              {(allDayByDate.get(day)?.length ?? 0) > 4 && (
-                <p className="px-1 text-[10px] text-muted-foreground">
-                  {t("more", {
-                    count: (allDayByDate.get(day)?.length ?? 0) - 4,
-                  })}
-                </p>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="relative grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))]">
+      </div>
+      <div className="relative grid grid-cols-[3rem_repeat(7,minmax(0,1fr))]">
         <div className="border-r">
           {HOURS.map((hour) => (
             <div key={hour} className="h-[60px] border-b pr-2 text-right">
@@ -2726,6 +2469,7 @@ function FlowWeek({
         {days.map((day) => (
           <div
             key={day}
+            data-calendar-day={day}
             className={cn(
               "relative border-r last:border-r-0",
               day === today && "bg-[#6D5EF7]/[0.025]",
@@ -2738,60 +2482,14 @@ function FlowWeek({
                 className="block h-[60px] w-full border-b text-left outline-none hover:bg-muted/30 focus-visible:bg-muted/40"
                 onDoubleClick={() => onNew(day, hour)}
                 onDragOver={(event) => event.preventDefault()}
-                onDrop={(event) => onDropTime(event, day, hour)}
+                onDrop={(event) => { const rect = event.currentTarget.getBoundingClientRect(); onDropTime(event, day, hour + Math.min(3, Math.floor((event.clientY - rect.top) / 15)) / 4); }}
                 aria-label={`${day} ${formatMinutes(hour * 60)}`}
               />
             ))}
             {(timedByDate.get(day) ?? []).map((item) => {
-              const top = Math.max(
-                0,
-                (startMinutes(item, preferences.timezone) - HOURS[0] * 60) *
-                  PX_PER_MINUTE,
-              );
-              const height = Math.max(
-                24,
-                (endMinutes(item, preferences.timezone) -
-                  startMinutes(item, preferences.timezone)) *
-                  PX_PER_MINUTE,
-              );
-              if (top > HOURS.length * 60) return null;
-              return (
-                <button
-                  type="button"
-                  key={item.id}
-                  draggable={item.editable}
-                  onDragStart={(event) => onDragStart(event, item)}
-                  onDragEnd={onDragEnd}
-                  onClick={() => onSelect(item)}
-                  onDoubleClick={() => onEdit(item)}
-                  className={cn(
-                    "absolute inset-x-1 z-10 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left text-[10px] shadow-sm outline-none transition-[opacity,box-shadow] hover:z-20 hover:shadow-md focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
-                    item.kind === "focus"
-                      ? "bg-[#6D5EF7]/12"
-                      : item.kind === "deadline"
-                        ? "bg-[#D97706]/12"
-                        : "bg-background",
-                    draggingId === item.id && "opacity-45",
-                  )}
-                  style={{
-                    top,
-                    height,
-                    borderLeftColor: item.color,
-                  }}
-                >
-                  <span className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span><CalendarItemPeople item={item} compact /></span>
-                  <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground">
-                    {formatMinutes(startMinutes(item, preferences.timezone))}–
-                    {formatMinutes(endMinutes(item, preferences.timezone))}
-                  </span>
-                  {height > 48 && item.location && (
-                    <span className="mt-1 flex items-center gap-1 truncate text-[9px] text-muted-foreground">
-                      <MapPin className="size-2.5" />
-                      {item.location}
-                    </span>
-                  )}
-                </button>
-              );
+              const placement = columnsByDate.get(day)!.get(item.id)!;
+              return <TimelineEvent key={`${item.id}:${item.updatedAt}`} item={item} day={day} timezone={preferences.timezone}
+                column={placement.column} columns={placement.columns} onSelect={onSelect} onEdit={onEdit} onCommit={onCommit} />;
             })}
           </div>
         ))}
@@ -2854,7 +2552,7 @@ function MonthView({
         const dayItems = items.filter((item) =>
           item.allDay
             ? Boolean(item.startDate && item.endDate && item.startDate <= day && item.endDate > day)
-            : dateForTimedItem(item, timezone) === day,
+            : Boolean(timedDaySegment(item.startAt, item.endAt, day, timezone)),
         );
         return (
           <div
@@ -2941,7 +2639,7 @@ function AgendaView({
       items: items.filter((item) =>
         item.allDay
           ? Boolean(item.startDate && item.endDate && item.startDate <= day && item.endDate > day)
-          : dateForTimedItem(item, timezone) === day,
+          : Boolean(timedDaySegment(item.startAt, item.endAt, day, timezone)),
       ),
     }))
     .filter((group) => group.items.length > 0);
@@ -3069,7 +2767,7 @@ function TeamView({
                         item.startDate <= day &&
                         item.endDate > day,
                     )
-                  : dateForTimedItem(item, timezone) === day),
+                  : Boolean(timedDaySegment(item.startAt, item.endAt, day, timezone))),
             );
             return (
               <div key={day} className="border-r p-2 last:border-r-0">
