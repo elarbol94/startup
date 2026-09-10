@@ -11,7 +11,7 @@ vi.mock("@/db", async () => {
   const sqlite = new Database(":memory:");
   sqlite.pragma("foreign_keys = ON");
   sqlite.exec("CREATE TABLE user (id TEXT PRIMARY KEY, name TEXT, removedAt INTEGER); INSERT INTO user (id, name) VALUES ('author', 'Author')");
-  for (const file of ["0051_wiki_presentations.sql", "0052_wiki_presentation_history.sql", "0055_redundant_nebula.sql", "0059_tough_northstar.sql"]) {
+  for (const file of ["0051_wiki_presentations.sql", "0052_wiki_presentation_history.sql", "0055_redundant_nebula.sql", "0060_live_collaboration.sql"]) {
     sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   }
   sqlite.exec("CREATE TABLE wiki_pages (id TEXT PRIMARY KEY, title TEXT NOT NULL, slug TEXT NOT NULL, content_json TEXT NOT NULL, deleted_at INTEGER)");
