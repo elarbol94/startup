@@ -573,6 +573,7 @@ export function listNotifications(userId: string) {
       threadId: wikiNotifications.threadId,
       taskId: wikiNotifications.taskId,
       actorName: user.name,
+      actorId: wikiNotifications.actorId,
       actorMarkColor: userProfilePreferences.markColor,
       pageTitle: wikiPages.title,
       pageSlug: wikiPages.slug,

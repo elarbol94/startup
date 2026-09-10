@@ -1,5 +1,7 @@
 "use client";
 
+import { UserIdentity } from "@/components/user-identity";
+
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -177,7 +179,7 @@ export function DeadlineOverview({
                 <SelectContent>
                   <SelectItem value="all">{t("allUsers")}</SelectItem>
                   <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
-                  {members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}
+                  {members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}
                 </SelectContent>
               </Select>
               <div className="grid grid-cols-2 gap-2">
@@ -282,7 +284,7 @@ export function DeadlineOverview({
                           <OriginIcon className="size-3.5 shrink-0" />
                           <span className="max-w-40 truncate">{origin}</span>
                         </span>
-                        <span>{deadline.assigneeName || t("unassigned")}</span>
+                        <span>{deadline.assigneeName ? <UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName} /> : t("unassigned")}</span>
                         <span className={`font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
                           {deadline.deadlineAt
                             ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" })

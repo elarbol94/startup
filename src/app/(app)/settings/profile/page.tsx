@@ -46,6 +46,7 @@ export default async function ProfileSettingsPage() {
         </Card>
       )}
       <MarkColorForm
+        userId={currentUser.id}
         name={currentUser.name}
         currentColor={preferences.markColor}
         availability={availability}

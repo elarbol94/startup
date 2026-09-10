@@ -1,5 +1,7 @@
 "use client";
 
+import { UserIdentity } from "@/components/user-identity";
+
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -176,7 +178,7 @@ export function TaskOverview({
                 <SelectContent>
                   <SelectItem value="all">{t("allUsers")}</SelectItem>
                   <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
-                  {members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}
+                  {members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}
                 </SelectContent>
               </Select>
               <Select value={filters.priority} onValueChange={(value) => setFilter("priority", value ?? "all")}>
@@ -254,7 +256,7 @@ export function TaskOverview({
                         <OriginIcon className="size-3.5 shrink-0" />
                         <span className="max-w-56 truncate">{origin}</span>
                       </span>
-                      <span>{task.assigneeName || t("unassigned")}</span>
+                      <span className="inline-flex flex-wrap gap-1">{task.assignees.length ? task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />) : t("unassigned")}</span>
                       {task.dueDate && (
                         <span className={`flex items-center gap-1 font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
                           <CalendarDays className="size-3" />

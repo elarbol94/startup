@@ -1,5 +1,8 @@
 "use client";
 
+import { userIdentityColor } from "@/lib/user-mark-colors";
+import { UserIdentity } from "@/components/user-identity";
+
 import {
   useEffect,
   useMemo,
@@ -1602,7 +1605,7 @@ export function CalendarClient({
                 key={member.id}
                 checked={filters.people.includes(member.id)}
                 label={member.id === currentUser.id ? `${member.name} · ${t("me")}` : member.name}
-                color="#6D5EF7"
+                color={userIdentityColor(member.id)}
                 onChange={() => toggleFilter("people", member.id)}
               />
             ))}
@@ -1813,7 +1816,7 @@ export function CalendarClient({
                 key={member.id}
                 checked={filters.people.includes(member.id)}
                 label={member.id === currentUser.id ? `${member.name} · ${t("me")}` : member.name}
-                color="#6D5EF7"
+                color={userIdentityColor(member.id)}
                 onChange={() => toggleFilter("people", member.id)}
               />
             ))}
@@ -3052,10 +3055,7 @@ function TeamView({
           className="grid min-h-24 grid-cols-[12rem_repeat(7,minmax(7rem,1fr))] border-b"
         >
           <div className="flex items-center gap-2 border-r p-3">
-            <span className="grid size-8 place-items-center rounded-full bg-muted text-xs font-semibold">
-              {member.name.slice(0, 1).toUpperCase()}
-            </span>
-            <span className="truncate text-sm font-medium">{member.name}</span>
+            <UserIdentity userId={member.id} name={member.name} />
           </div>
           {days.map((day) => {
             const personItems = items.filter(
@@ -3170,7 +3170,7 @@ function Inspector({
         {item.assigneeName && (
           <p className="flex items-center gap-2">
             <UserRound className="size-3.5 text-muted-foreground" />
-            {item.assigneeName}
+            <UserIdentity userId={item.assigneeId} name={item.assigneeName} />
           </p>
         )}
         {item.description && (

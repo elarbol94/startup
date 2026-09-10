@@ -124,3 +124,13 @@ rsync -a /data/uploads /backups/uploads
 3. Add a route group under `src/app/(app)/<name>/`.
 4. Register it in `src/modules/registry.ts` (sidebar) and add a `nav.<name>`
    key plus a message namespace to `messages/de.json` and `messages/en.json`.
+
+### Personal identity
+
+Settings → Profile → Your identity assigns the account's existing personal color
+across avatars, assignments, calendar people, wiki comments and PDF evidence,
+and live document/presentation collaboration. Names and initials accompany color.
+Changing a color preserves authorship and recolors existing contributions.
+Open pages refresh the identity palette every 15 seconds while visible and on
+focus, without reloading editors or replacing their unsaved content. The saving
+page updates immediately. Existing unique-color availability rules still apply.

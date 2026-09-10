@@ -1,5 +1,7 @@
 "use client";
 
+import { UserIdentity } from "@/components/user-identity";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -37,7 +39,6 @@ import {
 } from "lucide-react";
 import { moveTask, deleteColumn, upsertColumn } from "@/modules/projects/actions";
 import type { projects as projectsTable } from "@/modules/projects/schema";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -64,15 +65,6 @@ const PRIORITY_STYLES: Record<string, string> = {
   medium: "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300",
   low: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
 };
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-}
 
 function descendantLeaves(
   taskId: string,
@@ -269,9 +261,7 @@ function TaskCard({
         {task.assignees.length > 0 && (
           <div className="ml-auto flex flex-wrap gap-1">
             {task.assignees.map((person) => (
-              <Avatar key={person.id} className="size-5" title={person.name}>
-                <AvatarFallback className="text-[9px]">{initials(person.name)}</AvatarFallback>
-              </Avatar>
+              <UserIdentity key={person.id} userId={person.id} name={person.name} avatarOnly className="[&>span:first-child]:size-5" />
             ))}
           </div>
         )}

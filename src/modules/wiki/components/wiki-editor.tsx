@@ -1140,7 +1140,7 @@ function CollaborativeWikiEditor({
       root.querySelectorAll<HTMLElement>("mark.wiki-highlight").forEach((mark) => {
         const author = users.find((person) => person.id === mark.dataset.highlightAuthor);
         if (!author) return;
-        const style = userMarkColorStyle(author.markColor);
+        const style = userMarkColorStyle(author.markColor, author.id);
         for (const [property, value] of Object.entries(style)) mark.style.setProperty(property, String(value));
       });
     };

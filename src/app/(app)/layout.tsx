@@ -1,3 +1,6 @@
+import { UserIdentityProvider } from "@/components/user-identity";
+import { listUserIdentities } from "@/modules/settings/queries";
+import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -41,7 +44,10 @@ export default async function AppLayout({
   // With Cache Components enabled, Next can otherwise place those reads in a
   // prerendered shell and serve stale rows after a mutation.
   await connection();
+  const currentUser = await requireUser();
+  ensureUserMarkColor(currentUser.id);
   return (
+    <UserIdentityProvider currentUserId={currentUser.id} identities={listUserIdentities()}>
     <TaskCreateProvider>
       <DeadlineCreateProvider>
       <style>{`
@@ -71,5 +77,6 @@ export default async function AppLayout({
       </div>
       </DeadlineCreateProvider>
     </TaskCreateProvider>
+    </UserIdentityProvider>
   );
 }

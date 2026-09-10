@@ -1,4 +1,5 @@
 "use client";
+import { UserIdentity } from "@/components/user-identity";
 import { createContext, useContext, useEffect, useReducer, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CollaborationProvider } from "./provider";
@@ -20,7 +21,7 @@ export function CollaborationStatus({ provider }: { provider: CollaborationProvi
   const t = useTranslations("collaboration");
   return <div className="flex flex-wrap items-center gap-2 text-xs" role="status" data-testid="collaboration-status">
     <span>{t(provider.status)}</span>
-    {[...new Map(provider.people.map(person => [person.userId, person])).values()].map(person => <span className="rounded-full bg-indigo-100 px-2 py-1 text-indigo-950" key={person.userId}>{person.name}{person.selectedIds?.length ? ` · ${t("selected", { count: person.selectedIds.length })}` : ""}</span>)}
+    {[...new Map(provider.people.map(person => [person.userId, person])).values()].map(person => <span className="rounded-full border px-2 py-1" key={person.userId}><UserIdentity userId={person.userId} name={person.name} />{person.selectedIds?.length ? ` · ${t("selected", { count: person.selectedIds.length })}` : ""}</span>)}
     {!provider.recoveryAvailable && <span className="text-amber-700">{t("recoveryUnavailable")}</span>}
   </div>;
 }

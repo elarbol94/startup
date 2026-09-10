@@ -12,6 +12,7 @@ type AnchorGeometry = {
   id: string;
   resolved: boolean;
   markColor: UserMarkColor;
+  userId: string;
   x: number;
   y: number;
   imageRect?: { left: number; top: number; width: number; height: number };
@@ -67,7 +68,7 @@ export function CommentAnchorOverlay({
         if (!last) continue;
         const clientRects = [...last.getClientRects()];
         const rect = clientRects.at(-1) ?? last.getBoundingClientRect();
-        next.push({ id: thread.id, resolved: !!thread.resolvedAt, markColor: thread.createdByMarkColor, x: rect.right - rootRect.left + 8, y: rect.top - rootRect.top - 8 });
+        next.push({ id: thread.id, resolved: !!thread.resolvedAt, markColor: thread.createdByMarkColor, userId: thread.createdBy, x: rect.right - rootRect.left + 8, y: rect.top - rootRect.top - 8 });
         continue;
       }
       if (anchor.type !== "image") continue;
@@ -83,7 +84,7 @@ export function CommentAnchorOverlay({
       next.push({
         id: thread.id,
         resolved: !!thread.resolvedAt,
-        markColor: thread.createdByMarkColor,
+        markColor: thread.createdByMarkColor, userId: thread.createdBy,
         x: absolute.left + absolute.width - rootRect.left + 8,
         y: absolute.top - rootRect.top - 8,
         imageRect: {
@@ -127,14 +128,14 @@ export function CommentAnchorOverlay({
       key={"region-" + item.id}
       data-testid={"image-comment-highlight-" + item.id}
       className={cn("absolute rounded border-2 transition", item.resolved && "opacity-60", activeThreadId === item.id && "ring-2")}
-      style={{ ...item.imageRect, ...userMarkColorStyle(item.markColor), borderColor: "var(--user-mark-solid)", backgroundColor: activeThreadId === item.id ? "var(--user-mark-hover)" : "var(--user-mark-highlight)", boxShadow: activeThreadId === item.id ? "0 0 0 2px var(--user-mark-highlight)" : undefined }}
+      style={{ ...item.imageRect, ...userMarkColorStyle(item.markColor, item.userId), borderColor: "var(--user-mark-solid)", backgroundColor: activeThreadId === item.id ? "var(--user-mark-hover)" : "var(--user-mark-highlight)", boxShadow: activeThreadId === item.id ? "0 0 0 2px var(--user-mark-highlight)" : undefined }}
     />)}
     {geometry.map((item) => <button
       key={"anchor-" + item.id}
       type="button"
       aria-label={t("openComment")}
       className={cn("pointer-events-auto absolute size-4 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-background shadow-sm", item.resolved && "opacity-60")}
-      style={{ left: item.x, top: item.y, ...userMarkColorStyle(item.markColor), backgroundColor: "var(--user-mark-solid)" }}
+      style={{ left: item.x, top: item.y, ...userMarkColorStyle(item.markColor, item.userId), backgroundColor: "var(--user-mark-solid)" }}
       onClick={() => onActiveThreadChange(item.id)}
     />)}
   </div>;

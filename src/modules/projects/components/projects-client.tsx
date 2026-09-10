@@ -1,5 +1,7 @@
 "use client";
 
+import { UserIdentity } from "@/components/user-identity";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -324,7 +326,7 @@ export function ProjectsClient({
                   <SelectItem value="none">{t("unassigned")}</SelectItem>
                   {members.map((member) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.name}
+                      <UserIdentity userId={member.id} name={member.name} />
                     </SelectItem>
                   ))}
                 </SelectContent>
