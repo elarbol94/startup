@@ -7,6 +7,10 @@ import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "r
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import * as Y from "yjs";
+import { PresentationBridge } from "../collaboration/presentation-bridge";
+import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
+import { presentationJSON, decode, REMOTE } from "../collaboration/codec";
 import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
 import { copyPresentationFormat, pastePresentationFormat, type PresentationFormat } from "../lib/presentation-format";
 import { arrangePresentation, layoutRoots, presentationAlignments, presentationTextFits } from "../lib/presentation-layout";
@@ -19,65 +23,11 @@ import { readLinkedPosition, rememberLinkedPosition } from "../lib/linked-naviga
 import { useFormatter, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import {
-  Background,
-  Controls,
-  MiniMap,
-  ReactFlow,
-  ReactFlowProvider,
-  ViewportPortal,
-  useStore,
-  useReactFlow,
-  useViewport,
-  type NodeChange,
-} from "@xyflow/react";
-import {
-  DndContext,
-  KeyboardSensor,
-  PointerSensor,
-  closestCenter,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  SortableContext,
-  sortableKeyboardCoordinates,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  ArrowDownToLine,
-  ArrowUpToLine,
-  Check,
-  Copy,
-  FileDown,
-  GripVertical,
-  History,
-  ImagePlus,
-  Loader2,
-  Lock,
-  Maximize2,
-  PanelRight,
-  PanelLeft,
-  MoreHorizontal,
-  Share2,
-  Play,
-  Plus,
-  Redo2,
-  RotateCw,
-  Save,
-  Settings,
-  Shapes,
-  Square,
-  Target,
-  Trash2,
-  TriangleAlert,
-  Type,
-  Undo2,
-  X,
-} from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, Check, Copy, FileDown, GripVertical, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Plus, Redo2, RotateCw, Save, Settings, Shapes, Square, Target, Trash2, TriangleAlert, Type, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
@@ -88,54 +38,19 @@ import { WorkspacePanel } from "./workspace-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import {
-  restorePresentationRevision,
-  savePresentation,
-} from "../presentation-actions";
+import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
-import {
-  PRESENTATION_CAMERA_PADDING,
-  PRESENTATION_SNAP_TOLERANCE,
-  duplicatePresentationTree,
-  presentationDescendants,
-  presentationAncestors,
-  isPresentationElementLocked,
-  applyGeometryChanges,
-  initialPresentationCanvasState,
-  presentationCanvasReducer,
-  presentationCameraBounds,
-  parseSecondsInput,
-  moveStep,
-  presentationCameraEasings,
-  presentationFrameShapes,
-  presentationShapeKinds,
-  reorderElement,
-  retargetStep,
-  rotateElements,
-  scaleElements,
-  stepLabel,
-  stepTarget,
-  unionBounds,
-  type PresentationBounds,
-  type PresentationCameraEasing,
-  type PresentationCanvasState,
-  type PresentationElement,
-  type PresentationGeometryChange,
-  type PresentationSettings,
-  type PresentationStep,
-  type SnapGuide,
-} from "../lib/presentation";
+import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, parseSecondsInput, moveStep, presentationCameraEasings, presentationFrameShapes, presentationShapeKinds, reorderElement, retargetStep, rotateElements, scaleElements, stepLabel, stepTarget, unionBounds, type PresentationBounds, type PresentationCameraEasing, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
 import { PresentationSelectionTools } from "./presentation-selection-tools";
 import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
-import { mergePresentation, presentationValuesEqual } from "../lib/presentation-merge";
+import { presentationValuesEqual } from "../lib/presentation-merge";
 
 const AUTOSAVE_DELAY = 1_200;
 const CAMERA_DURATION = 700;
 const MAX_IMAGE_SIDE = 480;
 /** Well inside the server's lease timeout, so a live editor never looks abandoned. */
-const LEASE_HEARTBEAT_INTERVAL = 15_000;
 type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
 
 async function requestEditLease(id: string, sessionId: string, action: "acquire" | "takeover" | "heartbeat" | "release"): Promise<{ editable?: boolean; holderName?: string }> {
@@ -452,6 +367,7 @@ function Editor({
   presentation: PresentationRecord;
   revisions: PresentationRevisionItem[];
 }) {
+  const collaboration = useCollaborationContext();
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
   const linkText = useTranslations("documentPresentationLinks");
@@ -468,17 +384,16 @@ function Editor({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => globalThis.crypto.randomUUID());
   const canEdit = presentation.role === "owner" || presentation.role === "edit";
-  const baseSnapshot = useRef(presentation);
 
-  const [lockedBy, setLockedBy] = useState<string | null>(null);
-  const [leaseReady, setLeaseReady] = useState(false);
-  const [conflict, setConflict] = useState(false);
+  const [lockedBy] = useState<string | null>(null);
+  const leaseReady = !canEdit || !!collaboration?.ready;
+  const [conflict] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "sources" | "design" | "assets" | "comments" | null>(null);
   const [pathOpen, setPathOpen] = useState(false);
   const [workspaceDialog, setWorkspaceDialog] = useState<"sharing" | "history" | "playback" | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
-  const readOnly = !canEdit || !leaseReady || lockedBy !== null || conflict;
+  const readOnly = !canEdit || !leaseReady || lockedBy !== null || conflict || collaboration?.status === "denied" || collaboration?.status === "error";
   const disabled = readOnly || restoring !== null;
   const paused = useRef(false);
   const savedVersion = useRef(presentation.updatedAt);
@@ -488,11 +403,15 @@ function Editor({
    * React re-renders, so every canvas change is expressed as a pure transition instead of a
    * read-modify-write. The stack lives for this editing session only.
    */
-  const [canvas, dispatch] = useReducer(
+  const [canvas, rawDispatch] = useReducer(
     presentationCanvasReducer,
     presentation,
     (source) => initialPresentationCanvasState(source.elements, source.steps, source.background, source.settings, source.title),
   );
+  const [bridge] = useState(() => new PresentationBridge(collaboration, canvas, rawDispatch));
+  const dispatch = bridge.dispatch;
+  const undo = bridge.undo;
+  useEffect(() => bridge.connect(), [bridge]);
   const { elements, steps, guides, background, settings, title } = canvas;
   const sourcePreviews = usePresentationSourcePreviews(elements.map((element) => element.source));
   useEffect(() => {
@@ -510,7 +429,7 @@ function Editor({
     sync();
     document.addEventListener("focusout", sync);
     return () => { cancelAnimationFrame(frame); document.removeEventListener("focusout", sync); };
-  }, [disabled, elements, sourcePreviews.error, sourcePreviews.previews]);
+  }, [disabled, elements, sourcePreviews.error, sourcePreviews.previews, dispatch]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectionKey = selectedIds.join(":");
   const [inspectedSelection, setInspectedSelection] = useState(selectionKey);
@@ -550,105 +469,26 @@ function Editor({
   const commitElements = useCallback(
     (update: (current: PresentationElement[]) => PresentationElement[]) =>
       dispatch({ type: "edit", at: Date.now(), elements: update }),
-    [],
+    [dispatch],
   );
 
   const commitSteps = useCallback(
     (update: (current: PresentationStep[]) => PresentationStep[]) =>
       dispatch({ type: "edit", at: Date.now(), steps: update }),
-    [],
+    [dispatch],
   );
 
   /** Writes one canvas and reports whether it reached the database. Writes queue behind
    * each other so a flush during a save cannot race the older canvas back over the newer. */
-  const persist = useCallback((state: PresentationCanvasState, afterNavigation = false) => {
+  const persist = useCallback(() => {
     const write = async () => {
-      setStatus("saving");
-      try {
-        const draft = {
-          id: presentation.id,
-          elements: state.elements,
-          steps: state.steps,
-          background: state.background,
-          settings: state.settings,
-          sessionId,
-          title: state.title,
-          expectedUpdatedAt: savedVersion.current,
-          base: presentation.coediting ? baseSnapshot.current : undefined,
-        };
-        let result: Awaited<ReturnType<typeof savePresentation>>;
-        if (afterNavigation || presentation.coediting) {
-          const body = JSON.stringify(draft);
-          const response = await fetch(`/api/wiki/presentations/${presentation.id}`, {
-            method: "PATCH", headers: { "Content-Type": "application/json" }, body,
-            // Browsers cap keepalive requests at 64 KiB. Larger canvases still save on
-            // client navigation; closing the tab remains guarded by beforeunload.
-            keepalive: new Blob([body]).size < 60_000,
-          });
-          if (!response.ok && response.status !== 409) throw new Error("Save failed");
-          result = await response.json();
-        } else {
-          result = await savePresentation(draft);
-        }
-        // Someone took over while this tab was editing: stop writing rather than
-        // overwriting their canvas with a stale one.
-        if (result.locked) {
-          setLockedBy(result.holderName);
-          dispatch({ type: "failed" });
-          setStatus("error");
-          // The banner alone is easy to miss when the write was triggered by leaving.
-          toast.error(result.holderName
-            ? t("presentations.lockedBy", { name: result.holderName })
-            : t("presentations.locked"));
-          return false;
-        }
-        if (result.conflict) {
-          setConflict(true);
-          dispatch({ type: "failed" });
-          setStatus("error");
-          toast.error(t("presentations.saveConflict"));
-          return false;
-        }
-        savedVersion.current = result.savedAt;
-        if (result.snapshot) {
-          baseSnapshot.current = { ...presentation, ...result.snapshot, updatedAt: result.savedAt };
-          const expected = { elements: state.elements, steps: state.steps, background: state.background, settings: state.settings, title: state.title };
-          if (!presentationValuesEqual(expected, result.snapshot)) {
-            // The user may keep typing while the server merges this save. A conflict
-            // with those newer keystrokes must also stop editing, not merely autosave.
-            const rebased = mergePresentation(state, latest.current.canvas, result.snapshot);
-            if (rebased.conflicts.length) {
-              setConflict(true); dispatch({ type: "failed" }); setStatus("error");
-              toast.error(t("presentations.saveConflict")); return false;
-            }
-            dispatch({ type: "remote", base: state, snapshot: result.snapshot });
-            setStatus("saved"); return true;
-          }
-        }
-        lastPersisted.current = state;
-        dispatch({
-          type: "saved",
-          elements: state.elements,
-          steps: state.steps,
-          background: state.background,
-          settings: state.settings,
-          title: state.title,
-        });
-        setStatus("saved");
-        return true;
-      } catch {
-        // Parked, not retried: the next edit clears `failed` and re-arms the autosave, so
-        // a server that is down produces one toast instead of one per debounce.
-        dispatch({ type: "failed" });
-        setStatus("error");
-        toast.error(t("presentations.saveFailed"));
-        return false;
-      }
+      if (!collaboration) return true;
+      const saved = await collaboration.flush();
+      setStatus(saved ? "saved" : "error");
+      return saved;
     };
-    const next = (inFlight.current ?? Promise.resolve(true)).then(write, write);
-    inFlight.current = next;
-    return next;
-  }, [presentation, sessionId, t]);
+    const next = write(); inFlight.current = next; return next;
+  }, [collaboration]);
 
   /** Writes whatever is on the canvas right now, waiting for a save already in flight.
    * Used by every exit that would otherwise drop the pending debounce on the floor. Leaving
@@ -661,16 +501,16 @@ function Editor({
     });
     await inFlight.current?.catch(() => false);
     const current = latest.current;
-    if (!current.canvas.dirty) return true;
+    if (!current.canvas.dirty) return collaboration ? collaboration.flush() : true;
     if (current.readOnly) return false;
-    return persist(current.canvas);
-  }, [persist]);
+    return persist();
+  }, [persist, collaboration]);
 
   // Debounced autosave: every edit marks the canvas unsaved, and the last edit of a
   // burst is the one that writes.
   useEffect(() => {
     if (!canvas.dirty || canvas.failed || readOnly || restoring || status === "saving") return;
-    const timer = setTimeout(() => { if (!paused.current) void persist(canvas); }, AUTOSAVE_DELAY);
+    const timer = setTimeout(() => { if (!paused.current) void persist(); }, AUTOSAVE_DELAY);
     return () => clearTimeout(timer);
   }, [canvas, status, persist, readOnly, restoring]);
 
@@ -687,73 +527,30 @@ function Editor({
       await inFlight.current;
       const current = latest.current;
       if (paused.current || current.readOnly || !current.canvas.dirty || current.canvas === lastPersisted.current) return;
-      await persist(current.canvas, true);
+      await persist();
     };
     void saveOnExit().catch(() => undefined);
   }, [persist]);
 
-  // Edit lease: claim it on open, keep it warm while the tab lives, hand it back on exit.
-  // A missed release is harmless — the lease expires on its own.
   useEffect(() => {
-    if (!canEdit) return;
-    let disposed = false;
-    const claim = (takeover = false) => {
-      void requestEditLease(presentation.id, sessionId, takeover ? "takeover" : "acquire")
-        .then((result) => {
-          if (disposed) return;
-          setLockedBy(result.editable ? null : result.holderName ?? "");
-          setLeaseReady(true);
-          // The lock refused the last write and parked the autosave; now that it has
-          // lifted, the edit still sitting here deserves another try.
-          if (result.editable) dispatch({ type: "recovered" });
-        })
-        .catch(() => { if (!disposed) setLockedBy(""); });
+    if (!collaboration) return;
+    const update = () => {
+      setStatus(collaboration.status === "saved" ? "saved" : collaboration.status === "saving" ? "saving" : "error");
     };
-    // A reload leaves the previous page load's lease behind for up to a minute, so the
-    // first claim takes over -- but only ever from this same user, enforced server-side.
-    claim(true);
-    const timer = window.setInterval(() => {
-      if (disposed) return;
-      // While locked out, keep asking: the holder's lease expires and this tab takes over
-      // without the author having to reload.
-      void requestEditLease(presentation.id, sessionId, "heartbeat")
-        .then((result) => {
-          if (!disposed && !result.editable) claim();
-        })
-        .catch(() => undefined);
-    }, LEASE_HEARTBEAT_INTERVAL);
-    return () => {
-      disposed = true;
-      window.clearInterval(timer);
-      // The route may already be hidden. Server actions post to the new document URL
-      // and can fail during partial rendering; the fixed endpoint is independent of it.
-      void requestEditLease(presentation.id, sessionId, "release").catch(() => undefined);
-    };
-  }, [presentation.id, sessionId, canEdit]);
-
+    const unsubscribe = collaboration.subscribe(update);
+    return unsubscribe;
+  }, [collaboration]);
+  useEffect(() => { collaboration?.setPresence({ selectedIds }); }, [collaboration, selectedIds]);
+  // Viewers continue using the redacted read API: shared state contains speaker notes.
   useEffect(() => {
-    if (!presentation.coediting && canEdit) return;
-    let disposed = false;
-    let polling = false;
-    const poll = async () => {
-      if (polling || inFlight.current && latest.current.canvas.dirty || paused.current) return;
-      polling = true;
-      try {
-        const response = await fetch(`/api/wiki/presentations/${presentation.id}`, { cache: "no-store" });
-        if (!response.ok) { if (!disposed) setLockedBy(""); return; }
-        const remote = await response.json() as PresentationRecord;
-        if (disposed || remote.updatedAt === savedVersion.current) return;
-        if (remote.role !== presentation.role) { setLockedBy(""); return; }
-        const merged = mergePresentation(baseSnapshot.current, latest.current.canvas, remote);
-        if (merged.conflicts.length) { setConflict(true); return; }
-        dispatch({ type: "remote", base: baseSnapshot.current, snapshot: remote });
-        baseSnapshot.current = remote; savedVersion.current = remote.updatedAt;
-      } catch { /* Offline edits remain local and retry through normal save recovery. */ }
-      finally { polling = false; }
-    };
-    const timer = setInterval(() => void poll(), 2000);
-    return () => { disposed = true; clearInterval(timer); };
-  }, [presentation.id, presentation.coediting, presentation.role, canEdit]);
+    if (canEdit) return;
+    const timer = setInterval(() => {
+      void fetch(`/api/wiki/presentations/${presentation.id}`, { cache: "no-store" }).then(async response => {
+        if (response.ok) rawDispatch({ type: "reset", snapshot: await response.json() });
+      }).catch(() => undefined);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [canEdit, presentation.id]);
 
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
@@ -784,7 +581,7 @@ function Editor({
 
   const updateSettings = useCallback((update: Partial<PresentationSettings>) => {
     dispatch({ type: "touch", settings: update });
-  }, []);
+  }, [dispatch]);
 
   const updateStepDuration = useCallback(
     (id: string, durationMs: number | undefined) => {
@@ -800,8 +597,8 @@ function Editor({
     [updateElement],
   );
 
-  const startGesture = useCallback(() => dispatch({ type: "gesture-start" }), []);
-  const endGesture = useCallback(() => dispatch({ type: "gesture-end" }), []);
+  const startGesture = useCallback(() => dispatch({ type: "gesture-start" }), [dispatch]);
+  const endGesture = useCallback(() => dispatch({ type: "gesture-end" }), [dispatch]);
   useEffect(() => {
     // A release/cancellation need not include geometry. Run after the canvas
     // library's final pointer/mouse update, including releases outside the canvas.
@@ -826,9 +623,13 @@ function Editor({
     };
   }, [endGesture]);
 
+  const collaboratorPresence = collaboration?.people;
   const nodes = useMemo(
-    () => elementsToNodes(elements, { editable: !disabled, selectedIds: selectedSet, onTextChange, onGestureStart: startGesture, onGestureEnd: endGesture }),
-    [elements, selectedSet, onTextChange, disabled, startGesture, endGesture],
+    () => elementsToNodes(elements, { editable: !disabled, selectedIds: selectedSet, onTextChange, onGestureStart: startGesture, onGestureEnd: endGesture }).map(node => {
+      const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
+      return collaborators.length ? { ...node, style: { ...node.style, outline: "2px solid #6366f1", outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
+    }),
+    [elements, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence],
   );
 
   /**
@@ -884,7 +685,7 @@ function Editor({
       });
       if (ended) endGesture();
     },
-    [reactFlow, disabled, elements, endGesture],
+    [reactFlow, disabled, elements, endGesture, dispatch],
   );
 
   const rotateSelection = useCallback(
@@ -956,7 +757,7 @@ function Editor({
       });
       setSelectedIds((current) => current.filter((id) => !removed.has(id)));
     },
-    [elements],
+    [elements, dispatch],
   );
 
   const duplicateSelection = useCallback(
@@ -993,7 +794,7 @@ function Editor({
     const ids = new Set(compatible.map(e => e.id));
     dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => pastePresentationFormat(current, ids, format) });
     toast.success(t("presentations.format.pasted", { count: compatible.length }));
-  }, [disabled, elements, selection, t]);
+  }, [disabled, dispatch, elements, selection, t]);
 
   /**
    * Delete, Ctrl+D and undo/redo are handled here rather than by React Flow's own key
@@ -1039,7 +840,7 @@ function Editor({
     };
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [deleteSelection, duplicateSelection, selectedIds, disabled, flush, copyObjectFormat, pasteObjectFormat]);
+  }, [deleteSelection, duplicateSelection, selectedIds, disabled, flush, copyObjectFormat, pasteObjectFormat, dispatch]);
 
   const addText = useCallback(() => {
     const { x, y } = viewportCenter();
@@ -1421,6 +1222,7 @@ function Editor({
 </>);
   return (
     <div className="flex h-[calc(100dvh-7rem)] min-h-0 min-w-0 flex-col md:h-dvh" data-testid="presentation-editor" data-presentation-workspace>
+      {collaboration && <CollaborationStatus provider={collaboration} />}
       <header className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background px-4 py-3">
         {documentResumeToken && <Button size="sm" variant="outline" onClick={() => void returnToDocument()}>{linkText("backDocument")}</Button>}
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
@@ -1515,7 +1317,7 @@ function Editor({
           size="icon-sm"
           aria-label={t("presentations.undo")}
           title={t("presentations.undo")}
-          disabled={disabled || !canvas.past.length}
+          disabled={disabled || !(undo ? undo.canUndo() : canvas.past.length)}
           onClick={() => dispatch({ type: "undo" })}
         >
           <Undo2 className="size-4" />
@@ -1526,7 +1328,7 @@ function Editor({
           size="icon-sm"
           aria-label={t("presentations.redo")}
           title={t("presentations.redo")}
-          disabled={disabled || !canvas.future.length}
+          disabled={disabled || !(undo ? undo.canRedo() : canvas.future.length)}
           onClick={() => dispatch({ type: "redo" })}
         >
           <Redo2 className="size-4" />
@@ -1961,6 +1763,7 @@ function Editor({
                         try {
                           if (!await flush()) return;
                           const restored = await restorePresentationRevision({ revisionId: revision.id, sessionId, expectedUpdatedAt: savedVersion.current });
+                          if (collaboration && "collaboration" in restored && restored.collaboration) Y.applyUpdate(collaboration.doc, decode(restored.collaboration.update), REMOTE);
                           savedVersion.current = restored.savedAt;
                           dispatch({ type: "reset", snapshot: restored.snapshot });
                           setSelectedIds([]);
@@ -2035,16 +1838,12 @@ function Editor({
   );
 }
 
-export function PresentationEditor({
-  presentation,
-  revisions,
-}: {
-  presentation: PresentationRecord;
-  revisions: PresentationRevisionItem[];
-}) {
-  return (
-    <ReactFlowProvider>
-      <Editor key={presentation.id} presentation={presentation} revisions={revisions} />
-    </ReactFlowProvider>
-  );
+export function PresentationEditor({ presentation, revisions }: { presentation: PresentationRecord; revisions: PresentationRevisionItem[] }) {
+  const canEdit = presentation.role === "owner" || presentation.role === "edit";
+  const collaboration = useCollaboration("presentation", presentation.id, canEdit);
+  if (canEdit && !collaboration.ready) return <CollaborationStatus provider={collaboration} />;
+  const source = canEdit ? { ...presentation, ...presentationJSON(collaboration.doc) } : presentation;
+  return <CollaborationContext.Provider value={canEdit ? collaboration : null}>
+    <ReactFlowProvider><Editor key={presentation.id} presentation={source} revisions={revisions} /></ReactFlowProvider>
+  </CollaborationContext.Provider>;
 }

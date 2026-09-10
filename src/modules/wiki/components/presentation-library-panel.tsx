@@ -83,9 +83,8 @@ export function PresentationLibraryPanel({ section, id, selectedId, canEdit, flu
     </section>
     <section hidden={section !== "sharing"} className="space-y-4" aria-label={t("sharing")}>
       {studio?.role === "owner" && <>
-        <label className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={busy || !canEdit} checked={studio.access.coediting} onChange={(event) => void act({ action: "access", restricted: studio.access.restricted, coediting: event.target.checked }, () => window.location.reload())} />{t("coediting")}</label>
-        <p className="text-xs text-muted-foreground">{t("coeditingHint")}</p>
-        <label className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={busy || !canEdit} checked={studio.access.restricted} onChange={(event) => void act({ action: "access", restricted: event.target.checked, coediting: studio.access.coediting })} />{t("restricted")}</label>
+        <p className="text-xs text-muted-foreground">{t("coeditingAutomatic")}</p>
+        <label className="flex items-center gap-2 text-xs"><input type="checkbox" disabled={busy || !canEdit} checked={studio.access.restricted} onChange={(event) => void act({ action: "access", restricted: event.target.checked, coediting: true })} />{t("restricted")}</label>
         <p className="text-xs text-muted-foreground">{t("permissionsHint")}</p>
         {studio.users.map((user) => <label className="flex items-center gap-2 text-xs" key={user.id}><span className="min-w-0 flex-1 truncate">{user.name}</span><select className="h-8 rounded border bg-background" aria-label={`${t("permission")} ${user.name}`} disabled={busy || !canEdit} value={studio.members.find((member) => member.userId === user.id)?.role ?? "remove"} onChange={(event) => void act({ action: "member", userId: user.id, role: event.target.value })}>{["remove", "view", "comment", "edit"].map((role) => <option key={role} value={role}>{t(`roles.${role}`)}</option>)}</select></label>)}
         <p className="text-xs text-muted-foreground">{t("publicHint")}</p>

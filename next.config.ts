@@ -12,7 +12,7 @@ const nextConfig: NextConfig = {
   output: "standalone",
   // sqlite-vec ships a native .so and @huggingface/transformers loads onnxruntime
   // bindings; both must stay out of the bundle and be required at runtime.
-  serverExternalPackages: ["better-sqlite3", "playwright", "@citation-js/core", "@citation-js/plugin-csl", "sqlite-vec", "@huggingface/transformers"],
+  serverExternalPackages: ["yjs", "@tiptap/y-tiptap", "better-sqlite3", "playwright", "@citation-js/core", "@citation-js/plugin-csl", "sqlite-vec", "@huggingface/transformers"],
   // Keep each Git worktree isolated when multiple package-lock files exist.
   turbopack: { root: process.cwd() },
   // The local ChatGPT browser proxies the dev server through loopback.

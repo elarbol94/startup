@@ -1,5 +1,7 @@
 "use server";
 
+import { roomExists, mutateRoom, wireRoom } from "./collaboration/store";
+import { patchPresentation, presentationJSON, patchMap, LOCAL } from "./collaboration/codec";
 import { z } from "zod";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
@@ -102,6 +104,10 @@ export async function renamePresentation(input: { id: string; title: string; ses
   const currentUser = await requireUserOrThrow();
   const data = z.object({ id: idSchema, title: titleSchema, sessionId: sessionSchema.optional() }).parse(input);
   requirePresentationAccess(data.id, currentUser, "edit");
+  if (roomExists("presentation", data.id)) {
+    mutateRoom("presentation", data.id, currentUser, doc => doc.transact(() => patchMap(doc.getMap("settings"), { title: presentationJSON(doc).title }, { title: data.title }), LOCAL));
+    revalidatePresentations(data.id); return { ok: true as const };
+  }
   if (activeLease(data.id, { sessionId: data.sessionId ?? "", userId: currentUser.id })) throw new Error("Presentation is locked");
   db.update(wikiPresentations)
     .set({ title: data.title, updatedBy: currentUser.id, updatedAt: new Date() })
@@ -244,6 +250,7 @@ export async function savePresentation(input: {
   const current = db.select().from(wikiPresentations).where(eq(wikiPresentations.id, data.id)).get();
   if (!current) throw new Error("Presentation not found");
   requirePresentationAccess(data.id, currentUser, "edit");
+  if (roomExists("presentation", data.id)) throw new Error("Reload to join live collaboration");
   // No takeover on save: a stale tab whose lease was taken over must stop writing.
   if (presentationAccessSettings(data.id)?.coediting && (!data.base || data.expectedUpdatedAt === undefined)) return { locked: false as const, conflict: true as const };
   const holder = activeLease(data.id, { sessionId: data.sessionId ?? "", userId: currentUser.id });
@@ -313,6 +320,20 @@ export async function restorePresentationRevision(input: { revisionId: string; s
   if (!current) throw new Error("Presentation not found");
   requirePresentationAccess(current.id, currentUser, "edit");
 
+  if (roomExists("presentation", current.id)) {
+    const snapshot = { ...parsePresentationCanvas(revision.elementsJson), steps: parsePresentationSteps(revision.pathJson), title: revision.title };
+    const restoredRoom = mutateRoom("presentation", current.id, currentUser, doc => {
+      snapshotPresentation(current, currentUser.id, true);
+      // A restored object receives a new identity if its old identity was deleted.
+      const deleted = doc.getMap("elements-deleted");
+      const ids = new Map(snapshot.elements.filter(element => deleted.has(element.id)).map(element => [element.id, crypto.randomUUID()]));
+      snapshot.elements = snapshot.elements.map(element => ({ ...element, id: ids.get(element.id) ?? element.id, ...(element.parentId ? { parentId: ids.get(element.parentId) ?? element.parentId } : {}) }));
+      snapshot.steps = snapshot.steps.map(step => ({ ...step, id: doc.getMap("steps-deleted").has(step.id) ? crypto.randomUUID() : step.id, elementId: ids.get(step.elementId) ?? step.elementId }));
+      patchPresentation(doc, presentationJSON(doc), snapshot);
+    });
+    revalidatePresentations(current.id);
+    return { ok: true as const, savedAt: Date.now(), snapshot, collaboration: wireRoom(restoredRoom) };
+  }
   if (activeLease(current.id, { sessionId: sessionId ?? "", userId: currentUser.id })) throw new Error("Presentation is locked");
   if (expectedUpdatedAt !== undefined && expectedUpdatedAt !== current.updatedAt.getTime()) throw new Error("Presentation changed");
   if (presentationAccessSettings(current.id)?.coediting && expectedUpdatedAt === undefined) throw new Error("Presentation changed");

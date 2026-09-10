@@ -320,23 +320,18 @@ test("PDF notes are opt-in and keyboard activation advances exactly one stop", a
   await player.getByRole("button", { name: "Präsentation beenden" }).click();
 });
 
-test("a tab that loses its lease disables all editing controls", async ({ page, context }) => {
-  test.setTimeout(120_000);
+test("opening another tab keeps both presentation editors enabled", async ({ page, context }) => {
   await login(page);
-  await openNewPitchEditor(page, `E2E Locked ${Date.now()}`);
-  await page.getByTestId("rf__node-pitch-title").click();
+  await openNewPitchEditor(page, `E2E Shared ${Date.now()}`);
   const second = await context.newPage();
-  await second.goto(page.url());
-  await expect(second.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
-  await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toBeDisabled({ timeout: 30_000 });
-  await expect(page.getByRole("textbox", { name: "Text", exact: true })).toBeDisabled();
-  await pathPanel(page);
-  await expect(page.getByRole("button", { name: "Auswahl als Station" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Element löschen" })).toBeDisabled();
-  await action(page, "Wiedergabeeinstellungen");
-  await expect(page.getByLabel("Standard-Stationsdauer (s)")).toBeDisabled();
-  await second.getByTestId("presentation-editor").getByRole("link", { name: "Präsentationen", exact: true }).click();
-  await second.close();
+  try {
+    await second.goto(page.url());
+    await expect(second.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
+    await expect(page.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
+    const title = page.getByRole("textbox", { name: "Titel der Präsentation" });
+    await title.fill("Title from the first tab"); await title.blur();
+    await expect(second.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue("Title from the first tab");
+  } finally { await second.close(); }
 });
 
 test("browser Back preserves an edit made during the autosave debounce", async ({ page }) => {
@@ -475,7 +470,7 @@ test("presenting flushes the pending autosave instead of losing the last edit", 
  * proves it: while the stale lease still counts as foreign the autosave is refused, so
  * "Gespeichert" never arrives.
  */
-test("reloading the editor reclaims the author's own lease so edits still save", async ({ page }) => {
+test("reloading the editor rejoins collaboration so edits still save", async ({ page }) => {
   test.setTimeout(120_000);
   await login(page);
 

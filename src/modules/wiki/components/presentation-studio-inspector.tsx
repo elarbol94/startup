@@ -52,7 +52,7 @@ export function PresentationStudioInspector({ elements, selectedIds, activeStep,
       <summary className="cursor-pointer text-sm font-semibold">{t("content")}</summary>
       <fieldset disabled={disabled || locked} className="space-y-3">
       {selected?.type === "text" && <>
-        <PresentationRichText key={selected.id} content={selected.content} disabled={disabled || locked} onChange={(next) => onUpdate({ ...selected, content: next })} />
+        <PresentationRichText elementId={selected.id} key={selected.id} content={selected.content} disabled={disabled || locked} onChange={(next) => onUpdate({ ...selected, content: next })} />
         <label className="block text-xs">{t("font")}<select className={selectClass} value={selected.content.font ?? "sans"} onChange={(event) => content({ font: event.target.value })}>{presentationFonts.map((font) => <option key={font} value={font}>{t(`fonts.${font}`)}</option>)}</select></label>
         <label className="block text-xs">{t("listStyle")}<select className={selectClass} value={selected.content.list ?? "none"} onChange={(event) => content({ list: event.target.value })}>{["none", "bullet", "number"].map((list) => <option key={list} value={list}>{t(list)}</option>)}</select></label>
       </>}

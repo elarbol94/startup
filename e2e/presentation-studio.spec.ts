@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
-test.use({ viewport: { width: 1440, height: 1000 } });
+test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
 async function tool(page: Page, name: string) {
   await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
   await page.getByRole("menuitem", { name, exact: true }).click();
@@ -12,8 +12,7 @@ async function save(page: Page) {
 }
 async function properties(page: Page) {
   await tool(page, "Eigenschaften");
-  const structure = page.locator("summary").filter({ hasText: /^Struktur$/ });
-  if (await structure.locator("..").getAttribute("open") === null) await structure.click();
+
 }
 
 async function login(page: Page) {
@@ -64,12 +63,15 @@ test("PowerPoint import is available from the presentation list", async ({ page 
 
 test("nested groups persist, transform descendants, lock and ungroup", async ({ page }, info) => {
   await login(page); const id = await seed(page); await open(page, id);
-  await page.locator('[data-testid="rf__node-a"]').click();
+  await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator('[data-testid="rf__node-b"]').click({ modifiers: ["Shift"] });
+  await page.locator("summary").filter({ hasText: /^Struktur$/ }).click();
   await page.getByRole("button", { name: "Auswahl gruppieren", exact: true }).click();
+  await page.getByRole("button", { name: "Aussehen", exact: true }).click();
   await page.getByRole("spinbutton", { name: "Drehung (Grad)" }).fill("30");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((element: { id: string }) => element.id === "a").rotation).toBe(30);
+  await page.locator("summary").filter({ hasText: /^Struktur$/ }).click();
   await page.getByRole("button", { name: "Objekt sperren", exact: true }).click();
   await save(page);
   const saved = await documentOf(page, id);
@@ -84,7 +86,7 @@ test("nested groups persist, transform descendants, lock and ungroup", async ({ 
 
 test("rich text, charts, icons and reveal/hide playback survive saving", async ({ page }, info) => {
   await login(page); const id = await seed(page); await open(page, id);
-  await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("a");
+  await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
   const rich = page.getByRole("textbox", { name: "Formatierter Text" });
   await rich.fill("Formatted idea");
@@ -97,7 +99,7 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   await page.getByRole("combobox", { name: "Diagrammtyp" }).selectOption("pie");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).click();
-  await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("a");
+  await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator("summary").filter({ hasText: /^Animation$/ }).click();
   await page.getByRole("button", { name: "Einblenden", exact: true }).click();
   await page.getByRole("button", { name: "Ausblenden", exact: true }).click();
@@ -120,10 +122,9 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
 
 test("co-editing syncs independent edits in two browser windows", async ({ page, context }) => {
   await login(page); const id = await seed(page);
-  expect((await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "access", restricted: false, coediting: true } })).ok()).toBe(true);
   await open(page, id); const second = await context.newPage(); await open(second, id);
-  await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("a");
-  await second.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("b");
+  await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
+  await second.locator('[data-testid="rf__node-b"]').click();
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Alice's edit"); await page.getByRole("textbox", { name: "Text", exact: true }).blur();
   await second.getByRole("textbox", { name: "Text", exact: true }).fill("Bob's edit"); await second.getByRole("textbox", { name: "Text", exact: true }).blur();
   await expect.poll(async () => (await documentOf(page, id)).elements.filter((element: { type: string }) => element.type === "text").map((element: { content: { text: string } }) => element.content.text)).toEqual(["Alice's edit", "Bob's edit"]);
@@ -136,7 +137,7 @@ test("public links, embeds and offline files work without sign-in and exclude no
   await login(page); const id = await seed(page);
   const published = await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "public", enabled: true } });
   const { token } = await published.json(); expect(token).toMatch(/^[a-f0-9]{64}$/);
-  const anonymous = await browser.newContext({ baseURL: "http://localhost:3100" }); const viewer = await anonymous.newPage();
+  const anonymous = await browser.newContext({ baseURL: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3100}` }); const viewer = await anonymous.newPage();
   const errors: string[] = []; viewer.on("pageerror", (error) => errors.push(error.message));
   const response = await viewer.goto(`/share/presentations/${token}?embed=1`);
   expect(response?.status()).toBe(200); await expect(viewer.locator("#counter")).toHaveText("1 / 2");
@@ -155,38 +156,29 @@ test("public links, embeds and offline files work without sign-in and exclude no
   await anonymous.close();
 });
 
-test("typing during a merged save retains the local draft when it conflicts", async ({ page }) => {
-  await login(page); const id = await seed(page);
-  await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "access", restricted: false, coediting: true } });
-  await open(page, id);
-  const base = await documentOf(page, id);
+test("typing during a delayed shared save retains newer local edits", async ({ page }) => {
+  await login(page); const id = await seed(page); await open(page, id);
   let release!: () => void, ready!: () => void;
-  const gate = new Promise<void>((resolve) => { release = resolve; });
-  const responseReady = new Promise<void>((resolve) => { ready = resolve; });
+  const gate = new Promise<void>(resolve => { release = resolve; });
+  const responseReady = new Promise<void>(resolve => { ready = resolve; });
   let intercepted = false;
-  await page.route(`**/api/wiki/presentations/${id}`, async (route) => {
-    if (route.request().method() !== "PATCH" || intercepted) return route.continue();
+  await page.route(`**/api/wiki/collaboration/presentation/${id}`, async route => {
+    if (route.request().method() !== "POST" || !route.request().postDataJSON().update || intercepted) return route.continue();
     intercepted = true;
-    const remote = { ...base, elements: base.elements.map((element: { id: string; content: object }) => element.id === "a" ? { ...element, content: { ...element.content, text: "Remote change" } } : element), base, expectedUpdatedAt: base.updatedAt, sessionId: "remote-save-session" };
-    expect((await page.request.patch(`/api/wiki/presentations/${id}`, { data: remote })).ok()).toBe(true);
-    const response = await route.fetch();
-    expect(response.ok()).toBe(true); ready(); await gate;
+    const response = await route.fetch(); expect(response.ok()).toBe(true); ready(); await gate;
     await route.fulfill({ response });
   });
   try {
-    await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("b");
+    await page.locator('[data-testid="rf__node-b"]').click();
     await page.getByRole("textbox", { name: "Text", exact: true }).fill("Local change on B");
     await page.getByRole("textbox", { name: "Text", exact: true }).blur();
     await responseReady;
-    await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("a");
-    await page.getByRole("textbox", { name: "Text", exact: true }).fill("Local change on A");
+    await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
+    await page.getByRole("textbox", { name: "Text", exact: true }).fill("Newer local change on A");
     await page.getByRole("textbox", { name: "Text", exact: true }).blur();
     release();
-    await expect(page.getByRole("button", { name: "Lokalen Entwurf herunterladen" })).toBeVisible();
-    await expect(page.getByTestId("rf__node-a")).toContainText("Local change on A");
-    const remote = await documentOf(page, id);
-    expect(remote.elements.find((element: { id: string }) => element.id === "a").content.text).toBe("Remote change");
-    expect(remote.elements.find((element: { id: string }) => element.id === "b").content.text).toBe("Local change on B");
+    await expect.poll(async () => (await documentOf(page, id)).elements.find((element: { id: string }) => element.id === "a").content.text).toBe("Newer local change on A");
+    expect((await documentOf(page, id)).elements.find((element: { id: string }) => element.id === "b").content.text).toBe("Local change on B");
   } finally { release(); }
 });
 
@@ -209,7 +201,7 @@ test("company themes, templates and object comments are usable from the inspecto
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.length).toBe(3);
   await properties(page);
-  await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("a");
+  await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await tool(page, "Kommentare");
   await page.getByRole("textbox", { name: "Neuer Kommentar" }).fill("Clarify this idea");
   await page.getByRole("button", { name: "Kommentar senden" }).click();
@@ -237,11 +229,11 @@ test("presenter previews, editable notes and pause/reset timer", async ({ page }
 test("viewer and commenter roles protect editing, notes and restricted attachments", async ({ page, browser }) => {
   await login(page); const id = await seed(page);
   const email = `viewer-${Date.now()}@example.com`, password = "studio-test-password";
-  const created = await page.request.post("/api/auth/admin/create-user", { headers: { Origin: "http://localhost:3100" }, data: { name: "Studio viewer", email, password, role: "member" } });
+  const created = await page.request.post("/api/auth/admin/create-user", { headers: { Origin: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3100}` }, data: { name: "Studio viewer", email, password, role: "member" } });
   expect(created.ok(), await created.text()).toBe(true);
   const { user } = await created.json();
   await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "access", restricted: true, coediting: false } });
-  const viewerContext = await browser.newContext({ baseURL: "http://localhost:3100" });
+  const viewerContext = await browser.newContext({ baseURL: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3100}` });
   const viewer = await viewerContext.newPage();
   expect((await viewer.request.post("/api/auth/sign-in/email", { data: { email, password } })).ok()).toBe(true);
   expect((await viewer.request.get(`/api/wiki/presentations/${id}`)).status()).toBe(404);
@@ -256,7 +248,7 @@ test("viewer and commenter roles protect editing, notes and restricted attachmen
   await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "member", userId: user.id, role: "comment" } });
   await viewer.goto(`/wiki/presentations/${id}`);
   await expect(viewer.getByRole("button", { name: "Text", exact: true })).toBeDisabled();
-  await viewer.locator('[data-testid="rf__node-a"]').click();
+  await viewer.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await tool(viewer, "Kommentare");
   await viewer.getByRole("textbox", { name: "Neuer Kommentar" }).fill("Commenter feedback");
   await viewer.getByRole("button", { name: "Kommentar senden" }).click();
@@ -277,7 +269,7 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   const image = { id: "image", type: "image", x: 420, y: 250, width: 200, height: 180, rotation: 0, parentId: "frame", content: { attachmentId: attachment.id, alt: "Brand image" } };
   expect((await page.request.patch(`/api/wiki/presentations/${id}`, { data: { ...source, elements: [...source.elements, image], expectedUpdatedAt: source.updatedAt, sessionId: "studio-fixture-session" } })).ok()).toBe(true);
   await open(page, id);
-  await page.getByRole("combobox", { name: "Objekt auswählen" }).selectOption("image");
+  await page.locator('[data-testid="rf__node-image"]').click();
   await page.getByRole("combobox", { name: "Bildmaske" }).selectOption("circle");
   await page.getByRole("combobox", { name: "Bildanpassung" }).selectOption("cover");
   const wave = Buffer.alloc(1644);
@@ -290,7 +282,7 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   const spoofed = await page.request.post("/api/files", { multipart: { entityType: "wikiPresentation", entityId: id, file: { name: "fake.mp4", mimeType: "video/mp4", buffer: Buffer.from("<html>not a video</html>") } } });
   expect(spoofed.status()).toBe(400);
   const { token } = await (await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "public", enabled: true } })).json();
-  const anonymous = await browser.newContext({ baseURL: "http://localhost:3100" }); const viewer = await anonymous.newPage();
+  const anonymous = await browser.newContext({ baseURL: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 3100}` }); const viewer = await anonymous.newPage();
   expect((await viewer.request.get(`/api/files/${attachment.id}`)).status()).toBe(401);
   const partial = await viewer.request.get(`/share/presentations/${token}/media/${audio.content.attachmentId}`, { headers: { Range: "bytes=0-15" } });
   expect(partial.status()).toBe(206); expect((await partial.body()).length).toBe(16);
