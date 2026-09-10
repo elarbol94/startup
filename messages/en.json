@@ -937,6 +937,20 @@
     "dayLoad": "{percent}% occupied"
   },
   "tasks": {
+    "planner": {
+      "title": "Schedule · {project}",
+      "description": "The new task remains a draft until you save the task form. Changes to existing tasks are saved immediately and remain saved even if you cancel.",
+      "draftTitle": "Draft: {title}",
+      "untitled": "New task",
+      "startDate": "Start date",
+      "dueDate": "End date",
+      "loading": "Loading project schedule …",
+      "loadError": "The current schedule could not be loaded. Your task draft is preserved.",
+      "retry": "Retry",
+      "back": "Back to task",
+      "open": "Open Gantt planner",
+      "invalidDates": "The end date must be on or after the start date."
+    },
     "createTask": "Create task",
     "quickAction": "Task",
     "editTask": "Edit task",

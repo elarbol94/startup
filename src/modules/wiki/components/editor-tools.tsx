@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
+import { applyEditorLink } from "../lib/editor-link";
 import { isAllowedUri } from "@tiptap/extension-link";
 import { useTranslations } from "next-intl";
 import { CaseSensitive, Check, ChevronDown, ExternalLink, Link2, Replace, Search, WholeWord, X } from "lucide-react";
@@ -55,17 +56,7 @@ export function EditorLinkPopover({ editor, pages, request = 0 }: { editor: Edit
   function apply(href = url, text = label) {
     const normalized = normalizeUrl(href);
     if (!normalized || !isAllowedUri(normalized)) { setError(t("link.invalid")); return; }
-    const { from, to } = range.current;
-    const chain = editor.chain().focus();
-    if (from === to) {
-      chain.setTextSelection(from).insertContent({
-        type: "text",
-        text: text.trim() || normalized,
-        marks: [{ type: "link", attrs: { href: normalized } }],
-      }).run();
-    } else {
-      chain.setTextSelection({ from, to }).setLink({ href: normalized }).run();
-    }
+    applyEditorLink(editor, normalized, text.trim() || normalized, range.current);
     setOpen(false);
   }
 
@@ -79,7 +70,7 @@ export function EditorLinkPopover({ editor, pages, request = 0 }: { editor: Edit
     <PopoverTrigger render={<Button type="button" variant={editor.isActive("link") ? "secondary" : "ghost"} size="icon-sm" aria-label={t("link.button")} aria-pressed={editor.isActive("link")} onMouseDown={(event) => event.preventDefault()} onClick={prepare} />}>
       <Link2 className="size-4 rotate-45" />
     </PopoverTrigger>
-    <PopoverContent className="w-[min(24rem,calc(100vw-2rem))] space-y-3 p-3">
+    <PopoverContent finalFocus={() => editor.isDestroyed ? false : editor.view.dom} className="w-[min(24rem,calc(100vw-2rem))] space-y-3 p-3">
       <div>
         <p className="text-sm font-medium">{t("link.title")}</p>
         <p className="text-xs text-muted-foreground">{t("link.description")}</p>

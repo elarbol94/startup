@@ -64,6 +64,29 @@ the next heading of the same or higher level. Hidden blocks and their pagination
 spacers do not reserve space. Revealing a section through a presentation link
 recalculates pagination without changing document content.
 
+## Tasks and links
+
+Creating a project task from a document selection preserves the document's text,
+formatting and structure. Its context stores the selection and quote; returning
+from the task selects the original text (or a unique relocated quote). Existing
+inserted task references continue to work.
+
+For new tasks created in the document, choosing a project opens its Gantt planner.
+The labelled draft row can be moved or resized, or scheduled with the date fields.
+Its dates remain local until the task form is saved. Closing/reopening the planner
+and switching projects retain those dates. Cancelling the task discards the draft.
+Changes to existing tasks in the planner are saved immediately, including when
+the new task is later cancelled. The planner uses the existing scheduling actions
+and full dependency graph for conflict checks, while showing the chosen project.
+Failed schedule reads offer retry without losing the task draft.
+
+After applying an external or wiki link, typing resumes at its end without link
+formatting; other text marks are retained. Task-list checkboxes are 14px and
+aligned to the first text line, including wrapped and nested items.
+
+Regression coverage: `e2e/document-editor.spec.ts` and
+`src/modules/wiki/lib/task-origin.test.ts`.
+
 ## Saving and recovery
 
 - A successful response acknowledges only the submitted text and layout. Edits
