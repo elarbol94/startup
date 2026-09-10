@@ -422,7 +422,6 @@ export function searchKnowledgeCandidates(query: string) {
       id: wikiPdfDocuments.id,
       sourceId: wikiSources.id,
       title: wikiSources.title,
-      text: wikiPdfPages.text,
     })
     .from(wikiPdfDocuments)
     .innerJoin(wikiSources, eq(wikiPdfDocuments.sourceId, wikiSources.id))
