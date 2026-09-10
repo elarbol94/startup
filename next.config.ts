@@ -5,6 +5,11 @@ const withNextIntl = createNextIntlPlugin();
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // The production runner sets this only after native validation succeeds.
+  // Direct `next build` calls retain Next.js's standard TypeScript check.
+  typescript: {
+    ignoreBuildErrors: process.env.MANAGEMENT_NATIVE_TYPECHECK_PASSED === "1",
+  },
   // The dev indicator sits bottom-left, over the sidebar's user menu, and its portal
   // swallows clicks aimed at it. Hidden for end-to-end runs only; compile and runtime
   // errors are still surfaced.
@@ -31,6 +36,8 @@ const nextConfig: NextConfig = {
     // On Windows this project's persistent Turbopack cache grew past 4 GB,
     // causing long cache compactions and excessive memory use in development.
     turbopackFileSystemCacheForDev: false,
+    // Reuse production compilation work through Docker's .next/cache mount.
+    turbopackFileSystemCacheForBuild: true,
   },
 };
 

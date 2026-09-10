@@ -8,3 +8,12 @@ data
 e2e
 *.md
 .env*
+
+# Local worktrees and generated reports are not application build inputs.
+.worktrees
+output
+playwright-report
+test-results
+
+# Local TypeScript checks must not invalidate the Docker compilation layer.
+*.tsbuildinfo

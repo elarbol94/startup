@@ -97,6 +97,31 @@ allows only one dev server per project.
 docker compose up --build -d
 ```
 
+Repeat Docker builds reuse dependency downloads and the Next.js production
+compilation cache. Keep Docker build caches between deployments to benefit;
+the first build still performs a full compilation. Production filesystem caching
+is experimental in Next.js 16.2.10 and can be disabled by setting
+`experimental.turbopackFileSystemCacheForBuild` to `false` in `next.config.ts`.
+Development caching and deployment commands are unchanged. Local worktrees and
+generated reports (`.worktrees/`, `output/`, `playwright-report/`, `test-results/`)
+are excluded from Docker builds. Local TypeScript incremental files
+(`*.tsbuildinfo`) are also excluded so running a local type check does not
+invalidate Docker's compilation layer; Docker retains its own TypeScript cache
+under `.next/cache`.
+
+`npm run build` generates current Next.js route types, runs the pinned native
+TypeScript checker, and only then compiles the application. A failed check stops
+the build. `npm run build:verified` uses the same sequence before checking the
+performance budget. Docker already invokes this build command.
+
+The native checker uses `tsconfig.build.json` to exclude stale development route
+types while retaining the project's strict checks, and stores its incremental
+cache separately under `.next/cache/native.tsbuildinfo`. The preview compiler is
+pinned to the version tested with this project. The standard TypeScript package
+remains available for Next.js, editor tooling, and `npm run typecheck`.
+Direct `next build` calls still perform the standard TypeScript check; the build
+runner skips that duplicate check only after native validation succeeds.
+
 To put the application behind Cloudflare Access using the opt-in Tunnel
 sidecar, follow [docs/cloudflare-access.md](docs/cloudflare-access.md).
 
