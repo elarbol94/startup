@@ -10,6 +10,9 @@ import { PresentationScene } from "./presentation-scene";
 import { documentSectionHref, presentationSource, synchronizePresentationHeadings, sourceKey, sourceReviewStatus } from "../lib/presentation-source";
 import { stepLabel, stepTarget } from "../lib/presentation";
 import { formatElapsed, parsePresenterMessage, presenterChannelName } from "../lib/presenter";
+import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
+import * as Y from "yjs";
+import { LOCAL, patchPresentation, presentationJSON } from "../collaboration/codec";
 import type { PresentationRecord } from "../presentation-queries";
 
 const subscribeHydration = () => () => {};
@@ -19,19 +22,36 @@ const subscribeHydration = () => () => {};
  * It never drives its own camera — it only mirrors the player's current step over
  * BroadcastChannel, and its prev/next buttons steer the player rather than itself.
  */
-export function PresentationPresenterView({ presentation, sessionId }: { presentation: PresentationRecord; sessionId?: string }) {
+export function PresentationPresenterView(props: { presentation: PresentationRecord; sessionId?: string }) {
+  const provider = useCollaboration("presentation", props.presentation.id);
+  return <CollaborationContext.Provider value={provider}>
+    {provider.ready ? <SharedPresenterView {...props} /> : <CollaborationStatus provider={provider} />}
+  </CollaborationContext.Provider>;
+}
+function SharedPresenterView({ presentation: initial, sessionId }: { presentation: PresentationRecord; sessionId?: string }) {
+  const collaboration = useCollaborationContext()!;
+  const undo = useRef<Y.UndoManager | null>(null);
+  useEffect(() => {
+    undo.current = new Y.UndoManager(collaboration.doc, { trackedOrigins: new Set([LOCAL]) });
+    return () => { undo.current?.destroy(); undo.current = null; };
+  }, [collaboration]);
+  const [snapshot, setSnapshot] = useState(() => presentationJSON(collaboration.doc));
+  useEffect(() => {
+    const update = () => setSnapshot(presentationJSON(collaboration.doc));
+    collaboration.doc.on("afterTransaction", update);
+    return () => { collaboration.doc.off("afterTransaction", update); };
+  }, [collaboration]);
+  const presentation = { ...initial, ...snapshot };
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
   const linkText = useTranslations("documentPresentationLinks");
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const { steps } = presentation;
   const sourcePreviews = usePresentationSourcePreviews(presentation.elements.map((element) => element.source));
-  const elements = useMemo(() => synchronizePresentationHeadings(presentation.elements, sourcePreviews.previews), [presentation.elements, sourcePreviews.previews]);
+  const elements = useMemo(() => synchronizePresentationHeadings(snapshot.elements, sourcePreviews.previews), [snapshot.elements, sourcePreviews.previews]);
   const [index, setIndex] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [running, setRunning] = useState(true);
-  const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const channelRef = useRef<BroadcastChannel | null>(null);
 
@@ -88,25 +108,28 @@ export function PresentationPresenterView({ presentation, sessionId }: { present
   }
   const nextStep = steps[index + 1] ?? null;
   const nextTarget = nextStep ? stepTarget(nextStep, elements) : null;
-  const notesValue = currentStep ? drafts[currentStep.id] ?? savedNotes[currentStep.id] ?? currentStep.notes ?? "" : "";
+  const notesValue = currentStep?.notes ?? "";
+  const editable = hydrated && collaboration.status !== "denied" && collaboration.status !== "error";
+  const updateNotes = (notes: string) => {
+    if (!currentStep || !editable) return;
+    const before = presentationJSON(collaboration.doc);
+    patchPresentation(collaboration.doc, before, { ...before, steps: before.steps.map(step => step.id === currentStep.id ? { ...step, notes } : step) });
+  };
   const saveNotes = async () => {
     if (!currentStep || saving) return;
     setSaving(true);
     try {
-      const response = await fetch(`/api/wiki/presentations/${presentation.id}/studio`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "notes", stepId: currentStep.id, notes: notesValue, previous: savedNotes[currentStep.id] ?? currentStep.notes ?? "" }) });
-      if (!response.ok) throw new Error("Save failed");
-      const result = await response.json();
-      if (result.conflict) { toast.error(studio("notesConflict")); return; }
-      setSavedNotes((notes) => ({ ...notes, [currentStep.id]: notesValue })); toast.success(studio("notesSaved"));
+      if (!await collaboration.flush()) throw new Error("Save failed");
+      toast.success(studio("notesSaved"));
     } catch { toast.error(studio("operationFailed")); } finally { setSaving(false); }
   };
   useEffect(() => {
     const warn = (event: BeforeUnloadEvent) => {
-      if (!steps.some((step) => drafts[step.id] !== undefined && drafts[step.id] !== (savedNotes[step.id] ?? step.notes ?? ""))) return;
+      if (collaboration.status === "saved") return;
       event.preventDefault(); event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn); return () => window.removeEventListener("beforeunload", warn);
-  }, [drafts, savedNotes, steps]);
+  }, [collaboration]);
 
   return (
     <div className="fixed inset-0 z-50 flex h-dvh flex-col bg-background p-4 sm:p-6">
@@ -125,6 +148,7 @@ export function PresentationPresenterView({ presentation, sessionId }: { present
         </div>
       </header>
 
+      <CollaborationStatus provider={collaboration} />
       <main className="mt-6 flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
         <div className="grid shrink-0 grid-cols-[2fr_1fr] gap-3 sm:gap-4">
           <section className="min-w-0"><h2 className="mb-2 text-sm font-medium">{studio("currentPreview")}</h2><div className="h-[22dvh] min-h-28 overflow-hidden rounded-md border sm:h-[32dvh]"><PresentationScene presentation={presentation} index={index} /></div></section>
@@ -140,7 +164,11 @@ export function PresentationPresenterView({ presentation, sessionId }: { present
             <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void openSource()}>{linkText("presenterSource")}</Button><Button size="sm" variant="ghost" onClick={sourcePreviews.refresh}>{linkText("refreshSources")}</Button></div>
           </div>}
           {!currentStep && <p className="mt-4 text-sm text-muted-foreground">{t("presentations.noNotes")}</p>}
-          {currentStep && <><textarea className="mt-3 min-h-28 w-full rounded-md border p-3 text-base" disabled={!hydrated} aria-label={t("presentations.speakerNotes")} value={notesValue} maxLength={5000} onChange={(event) => { const value = event.target.value; setDrafts((drafts) => ({ ...drafts, [currentStep.id]: value })); }} /><Button type="button" className="mt-2" size="sm" disabled={!hydrated || saving || notesValue === (savedNotes[currentStep.id] ?? currentStep.notes ?? "")} onClick={() => void saveNotes()}>{studio("saveNotes")}</Button></>}
+          {currentStep && <><textarea className="mt-3 min-h-28 w-full rounded-md border p-3 text-base" disabled={!editable} aria-label={t("presentations.speakerNotes")} value={notesValue} maxLength={5000} onChange={(event) => updateNotes(event.target.value)} onKeyDown={(event) => {
+            if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+              event.preventDefault(); if (event.shiftKey) undo.current?.redo(); else undo.current?.undo();
+            }
+          }} /><Button type="button" className="mt-2" size="sm" disabled={!editable || saving} onClick={() => void saveNotes()}>{studio("saveNotes")}</Button></>}
         </section>
 
         {nextStep && <section className="shrink-0 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">

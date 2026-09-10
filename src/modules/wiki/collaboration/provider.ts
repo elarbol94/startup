@@ -18,6 +18,7 @@ export class CollaborationProvider {
   private recovered = new Map<string, string>();
   private source?: EventSource;
   private retry?: ReturnType<typeof setInterval>;
+  private presenceTimer?: ReturnType<typeof setTimeout>;
   private inFlight?: Promise<boolean>;
   private disposed = true;
   private generation = 0;
@@ -52,7 +53,14 @@ export class CollaborationProvider {
       }
     } catch { this.recoveryAvailable = false; this.emit(); }
   }
-  setPresence(presence: Pick<Presence, "cursor" | "selectedIds">) { this.presence = presence; }
+  setPresence(presence: Pick<Presence, "cursor" | "selectedIds">) {
+    if (JSON.stringify(presence) === JSON.stringify(this.presence)) return;
+    this.presence = presence;
+    if (!this.presenceTimer) this.presenceTimer = setTimeout(() => {
+      this.presenceTimer = undefined;
+      if (this.ready && !this.disposed) void this.flush();
+    }, 250);
+  }
   async start() {
     this.disposed = false;
     const generation = ++this.generation;
@@ -122,5 +130,5 @@ export class CollaborationProvider {
     })();
     return this.inFlight.then(ok => ok && this.pending.length ? this.flush() : ok);
   }
-  stop() { this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); this.journal(); }
+  stop() { this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); clearTimeout(this.presenceTimer); this.presenceTimer = undefined; this.journal(); }
 }

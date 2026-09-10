@@ -9,6 +9,7 @@ API and never receive the shared state containing speaker notes.
 
 Document text and presentation rich text use Yjs/Tiptap collaboration. Both the
 presentation canvas text editor and its properties editor share the same fragment.
+Speaker notes also synchronize live in the editor and the authorized presenter view.
 Independent property changes merge; concurrent writes to the same scalar converge
 to Yjs's deterministic winner. Deleted presentation identities stay deleted when
 an older peer sends movement/text updates. Viewports and selections remain local;
@@ -66,7 +67,7 @@ limit. Extended large-document/offline endurance testing remains useful.
 ## Verification and deployment
 
 Run `npm run check`, `npm run build`, and `npm run e2e --
-e2e/multi-user-collaboration.spec.ts`. Focused state/persistence/recovery tests are
+e2e/multi-user-collaboration.spec.ts e2e/collaboration-restart.spec.ts`. Focused state/persistence/recovery tests are
 `npx vitest run src/modules/wiki/collaboration --maxWorkers=1`.
 The browser suite uses its worktree's disposable `data/e2e.db`; configure an unused
 `PLAYWRIGHT_PORT` when other worktrees have test servers. On a heavily loaded host,
@@ -76,3 +77,5 @@ Deploy through the existing manual workflow, taking the usual database backup.
 All active browser tabs should reload after upgrade. No paid service, additional
 port or separate collaboration server is needed. Keep application instances on
 one shared SQLite database; independent databases will not synchronize.
+
+The implementation follows the official [Yjs document update API](https://docs.yjs.dev/api/document-updates) and [Tiptap collaboration interface](https://tiptap.dev/docs/editor/extensions/functionality/collaboration).

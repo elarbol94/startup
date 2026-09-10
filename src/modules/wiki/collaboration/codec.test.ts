@@ -58,3 +58,32 @@ describe("shared presentation", () => {
     expect(presentationJSON(a).elements[0]).toMatchObject({ x: 0, y: 200 });
   });
 });
+
+it("converges property conflicts, element ordering and simultaneous speaker notes", () => {
+  const base = seeded();
+  const initial = { ...deck, elements: [...deck.elements, { ...deck.elements[0], id: "b" }, { ...deck.elements[0], id: "c" }], steps: [{ id: "step", elementId: "a", notes: "Notes" }] };
+  patchPresentation(base, deck, initial);
+  const peers = [clone(base), clone(base), clone(base)];
+  peers.forEach((doc, index) => {
+    const before = presentationJSON(doc); const after = structuredClone(before);
+    after.elements[0].x = index * 100;
+    after.steps[0].notes += ` writer${index}`;
+    if (index === 0) after.elements.reverse();
+    patchPresentation(doc, before, after);
+  });
+  merge(peers);
+  const result = presentationJSON(peers[0]);
+  expect(result.elements.map(element => element.id)).toEqual(["c", "b", "a"]);
+  for (let index = 0; index < 3; index++) expect(result.steps[0].notes).toContain(`writer${index}`);
+  for (const peer of peers) expect(presentationJSON(peer)).toEqual(result);
+});
+
+it("preserves images, tables, references and comment marks during document initialization", () => {
+  const document = { type: "doc", content: [
+    { type: "image", attrs: { src: "/api/files/image-1", alt: "Existing image", width: 320 } },
+    { type: "table", content: [{ type: "tableRow", content: [{ type: "tableCell", attrs: { colspan: 1, rowspan: 1, colwidth: [150] }, content: [{ type: "paragraph", content: [{ type: "text", text: "Cell", marks: [{ type: "bold", attrs: {} }] }] }] }] }] },
+    { type: "paragraph", content: [{ type: "text", text: "Commented", marks: [{ type: "comment", attrs: { id: "thread-1" } }] }, { type: "citation", attrs: { items: [{ sourceId: "source-1" }] } }] },
+  ] };
+  const doc = new Y.Doc(); seedPage(doc, document, true, {});
+  expect(documentJSON(clone(doc))).toEqual(document);
+});

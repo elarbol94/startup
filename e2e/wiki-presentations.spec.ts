@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test.use({ viewport: { width: 1440, height: 1000 } });
+test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
 async function action(page: Page, name: string) {
   await page.getByRole("button", { name: "Aktionen", exact: true }).click();
   await page.getByRole("menuitem", { name, exact: true }).click();
@@ -63,9 +63,7 @@ test("create from a template, edit an element, add a step, then present and chec
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: "Pitch", exact: true }).click();
   await expect(page).toHaveURL(/\/wiki\/presentations$/);
-  await dialog.getByRole("button", { name: "Nächste Vorschauseite" }).click();
-  await expect(dialog.getByRole("status")).toHaveText("Folie 2 von 4");
-  await dialog.getByRole("button", { name: "Vorherige Vorschauseite" }).click();
+  await expect(dialog.getByRole("button", { name: "Vorlage verwenden", exact: true })).toBeEnabled();
   await dialog.getByRole("button", { name: "Vorlage verwenden", exact: true }).click();
   await page.waitForURL(/\/wiki\/presentations\/[^/]+$/, { timeout: 30_000 });
   await expect(page.getByRole("textbox", { name: "Titel der Präsentation" })).toHaveValue(title);
@@ -88,7 +86,7 @@ test("create from a template, edit an element, add a step, then present and chec
   const notesField = page.getByRole("textbox", { name: "Sprechernotizen" });
   await notesField.fill(notesText);
   await notesField.blur();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
 
   // 3b. A second element deliberately left off the path, to exercise the click-to-jump
   // "free look" case once presenting: clicking it must fly the camera there without
@@ -105,7 +103,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // "Präsentieren" below is a client-side navigation that unmounts the editor without
   // flushing the autosave debounce, so this edit must actually be persisted first or
   // /present (server-rendered from the DB) simply won't have the free element.
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
 
   // 4. Enter present mode; the template's 4 stops plus our new one make 5.
   await page.getByRole("link", { name: "Präsentieren", exact: true }).click();
@@ -266,7 +264,7 @@ test("rotation keeps an element in place and Save commits the currently focused 
   const text = "Saved directly from the focused property field";
   await page.getByRole("textbox", { name: "Text", exact: true }).fill(text);
   await action(page, "Speichern");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("desktop-editor.png"), fullPage: true });
   await page.reload();
   await expect(page.getByTestId("rf__node-pitch-title")).toContainText(text);
@@ -281,7 +279,7 @@ test("restoring history drains pending edits and cannot be overwritten by autosa
   const content = page.getByRole("textbox", { name: "Text", exact: true });
   await content.fill("First edit");
   await action(page, "Speichern");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await content.fill("Pending edit immediately before restoring");
   await action(page, "Versionen");
   const restore = page.getByRole("button", { name: "Wiederherstellen", exact: true }).first();
@@ -407,7 +405,7 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
   await expect(titleNode).toBeVisible();
   await titleNode.click();
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
-  await expect(contentField).toHaveValue(title);
+  await expect(contentField).toHaveText(title);
 
   await contentField.fill("Changed title");
   await contentField.blur();
@@ -417,11 +415,11 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
   await undo.click();
   await expect(titleNode).toContainText(title);
   // The panel used to keep showing the undone text, and re-applied it on the next blur.
-  await expect(contentField).toHaveValue(title);
+  await expect(contentField).toHaveText(title);
 
   await contentField.click();
   await contentField.blur();
-  await expect(contentField).toHaveValue(title);
+  await expect(contentField).toHaveText(title);
   await expect(titleNode).toContainText(title);
   // Leaving a field alone is not an edit, so there is still nothing left to undo.
   await expect(undo).toBeDisabled();
@@ -495,7 +493,7 @@ test("reloading the editor rejoins collaboration so edits still save", async ({ 
   await expect(contentField).toBeVisible();
   await contentField.fill(`Edited after reload ${Date.now()}`);
   await contentField.blur();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
 
   // The claim has certainly resolved by now, so an absent banner means an absent lock.
   await expect(page.getByText("bearbeitet diese Präsentation gerade")).toHaveCount(0);

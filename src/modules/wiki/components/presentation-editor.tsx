@@ -1,5 +1,7 @@
 "use client";
 
+import { PresentationRichText } from "./presentation-rich-text";
+
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
 
@@ -1206,7 +1208,7 @@ function Editor({
               </label>
               <p className="mt-1 text-[11px] text-muted-foreground">{t("presentations.stepDurationHint")}</p>
               <h2 className="mt-3 text-xs font-semibold tracking-wide uppercase">{t("presentations.speakerNotes")}</h2>
-              <DraftTextarea
+              <Textarea
                 key={activeStep.id}
                 aria-label={t("presentations.speakerNotes")}
                 value={activeStep.notes ?? ""}
@@ -1214,7 +1216,12 @@ function Editor({
                 rows={4}
                 className="mt-2"
                 placeholder={t("presentations.speakerNotesPlaceholder")}
-                onCommit={(notes) => updateStepNotes(activeStep.id, notes)}
+                onChange={(event) => updateStepNotes(activeStep.id, event.target.value)}
+                onKeyDown={(event) => {
+                  if (collaboration && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
+                    event.preventDefault(); dispatch({ type: event.shiftKey ? "redo" : "undo" });
+                  }
+                }}
               />
             </section>
           )}
@@ -1515,6 +1522,9 @@ function Editor({
 
               {selected.type === "text" && (
                 <div className="mt-3 space-y-3">
+                  {collaboration ? <PresentationRichText key={selected.id} elementId={selected.id}
+                    content={selected.content} onChange={() => {}} disabled={disabled}
+                    inline autoFocus={false} label={t("presentations.textContent")} /> : (
                   <DraftTextarea
                     key={selected.id}
                     aria-label={t("presentations.textContent")}
@@ -1523,6 +1533,7 @@ function Editor({
                     rows={4}
                     onCommit={(text) => onTextChange(selected.id, text)}
                   />
+                  )}
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox checked={Boolean(selected.content.autoFit)} onCheckedChange={(checked) => updateElement(selected.id, element => element.type === "text" ? { ...element, content: { ...element.content, autoFit: checked ? { minFontSize: Math.min(12, element.content.fontSize), maxFontSize: element.content.fontSize } : undefined } } : element)} />
                     {t("presentations.layout.autoFit")}
