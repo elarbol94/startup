@@ -1,3 +1,4 @@
+import { canonicalTaskHref, withWorkItemFocus } from "@/modules/context/routes";
 import { assignedTo, unassignedTask, taskAssigneeFields } from "./assignees";
 import { and, asc, desc, eq, gte, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
@@ -239,6 +240,7 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
     .select({
       id: tasks.id,
       title: tasks.title,
+      description: tasks.description,
       ...taskAssigneeFields,
       priority: tasks.priority,
       status: tasks.status,
@@ -268,13 +270,12 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
     .all();
 
   return rows.map((task) => {
-    const separator = task.contextRoute?.includes("?") ? "&" : "?";
     return {
       ...task,
       href: task.contextRoute
-        ? `${task.contextRoute}${separator}task=${encodeURIComponent(task.id)}`
+        ? withWorkItemFocus(task.contextRoute, task.id, "task")
         : task.projectId
-          ? `/projects?focus=${encodeURIComponent(task.id)}`
+          ? canonicalTaskHref(task.id, task.projectId)
           : "/",
     };
   });
@@ -329,13 +330,12 @@ export function listDeadlineOverview(filters: DeadlineOverviewFilters = {}) {
     )
     .all()
     .map((deadline) => {
-      const separator = deadline.contextRoute?.includes("?") ? "&" : "?";
       return {
         ...deadline,
         deadlineDate: deadline.deadlineDate ?? "",
         deadlineAt: deadline.deadlineAt?.toISOString() ?? null,
         href: deadline.contextRoute
-          ? `${deadline.contextRoute}${separator}deadline=${encodeURIComponent(deadline.id)}`
+          ? withWorkItemFocus(deadline.contextRoute, deadline.id, "deadline")
           : "/",
       };
     });

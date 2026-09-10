@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   addLocalDays,
-  deadlineEditOptions,
   compareDeadlineTiming,
   isDeadlineOverdue,
   todayLocal,
@@ -20,12 +19,14 @@ import {
 import { useDeadlineCreator } from "./deadline-create-provider";
 import { useTaskCreator } from "./task-create-provider";
 
+import { DeadlineDetails } from "./deadline-details";
+
 import type { DeadlineWithContext } from "../types";
 
 type PersonalWorkSummary = {
   openTaskCount: number;
   taskDueDates: Array<string | null>;
-  deadlines: DeadlineWithContext[];
+  deadlines: (DeadlineWithContext & { assigneeName?: string | null })[];
 };
 
 function localDate(date: string) {
@@ -129,7 +130,7 @@ export function WorkCockpitHeader({
         <div className="min-h-28 px-5 py-4">
           <p className="text-xs font-medium text-muted-foreground">{t("nextDeadline")}</p>
           {metrics.nextDeadline ? (
-            <button type="button" onClick={() => metrics.nextDeadline && openDeadlineCreator(deadlineEditOptions(metrics.nextDeadline, tDeadlines("origins.app")))} className="mt-2 flex text-left items-center gap-3 rounded-xl outline-none ring-offset-2 transition-opacity hover:opacity-75 focus-visible:ring-2 focus-visible:ring-ring">
+            <DeadlineDetails deadline={metrics.nextDeadline} className="mt-2 flex text-left items-center gap-3 rounded-xl outline-none ring-offset-2 transition-opacity hover:opacity-75 focus-visible:ring-2 focus-visible:ring-ring">
               <span className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm dark:border-amber-900">
                 <span className="bg-amber-600 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white">
                   {format.dateTime(localDate(metrics.nextDeadline.deadlineDate), { month: "short" })}
@@ -147,7 +148,7 @@ export function WorkCockpitHeader({
                     : ` · ${tDeadlines("allDay")}`}
                 </span>
               </span>
-            </button>
+            </DeadlineDetails>
           ) : (
             <p className="mt-3 text-sm text-muted-foreground">{t("noNextDeadline")}</p>
           )}

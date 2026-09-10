@@ -4010,5 +4010,19 @@
     "error": "Changes could not be saved. Keep this page open.",
     "selected": "{count} selected",
     "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until saved."
+  },
+  "overviewDetails": {
+    "hint": "Review the details, then use the button to open the original location.",
+    "origin": "Created in",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "unavailable": "The original item is no longer available.",
+    "close": "Close",
+    "edit": "Edit",
+    "openOrigin": "Go to origin",
+    "news": "News",
+    "newsHint": "Your recent notifications. Click an item to see its details.",
+    "date": "When",
+    "actor": "From"
   }
 }

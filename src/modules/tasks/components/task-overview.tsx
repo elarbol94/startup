@@ -1,8 +1,7 @@
 "use client";
 
 import { UserIdentity } from "@/components/user-identity";
-
-import Link from "next/link";
+import { ItemDetails } from "./item-details";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -50,6 +49,7 @@ import type { TaskPriority, TaskStatus } from "../types";
 type OverviewTask = {
   id: string;
   title: string;
+  description: string;
   assigneeIds: string[];
   assignees: Array<{ id: string; name: string }>;
   assigneeName: string | null;
@@ -135,6 +135,31 @@ export function TaskOverview({
       next.delete("assignee");
       next.delete("priority");
       next.delete("status");
+    });
+  }
+
+  function editTask(task: OverviewTask) {
+    openTaskCreator({
+      task: {
+        id: task.id,
+        title: task.title,
+        assigneeIds: task.assigneeIds,
+        assignees: task.assignees,
+        priority: task.priority,
+        dueDate: task.dueDate,
+        status: task.status,
+        projectId: task.projectId,
+      },
+      origin: task.contextType && task.contextRoute ? {
+        type: task.contextType,
+        entityId: task.contextEntityId || "",
+        route: task.contextRoute,
+        label: task.contextLabel || task.projectName || t("origins.app"),
+        anchor: (() => {
+          try { return JSON.parse(task.contextAnchorJson || "{}") as Record<string, unknown>; }
+          catch { return {}; }
+        })(),
+      } : undefined,
     });
   }
 
@@ -248,7 +273,13 @@ export function TaskOverview({
                   >
                     {task.status === "done" ? <Check className="size-4" /> : <span className="size-2 rounded-full bg-current opacity-15" />}
                   </button>
-                  <Link href={task.href} className="min-w-0 rounded-md outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
+                  <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={origin} href={task.href}
+                    fields={[
+                      { label: t("filterAssignee"), value: task.assignees.map((person) => person.name).join(", ") || t("unassigned") },
+                      { label: t("filterPriority"), value: t(`priorities.${task.priority}`) },
+                      { label: t("filterStatus"), value: t(`statuses.${task.status}`) },
+                      { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },
+                    ]} className="min-w-0 rounded-md">
                     <p className={`truncate text-sm font-semibold ${task.status === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                       <span className="flex min-w-0 items-center gap-1">
@@ -265,7 +296,7 @@ export function TaskOverview({
                         </span>
                       )}
                     </div>
-                  </Link>
+                  </ItemDetails>
                   <div className="flex items-center gap-1">
                     <Badge
                       variant={task.priority === "high" ? "destructive" : "outline"}
@@ -276,28 +307,7 @@ export function TaskOverview({
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openTaskCreator({
-                          task: {
-                            id: task.id,
-                            title: task.title,
-                            assigneeIds: task.assigneeIds,
-                            assignees: task.assignees,
-                            priority: task.priority,
-                            dueDate: task.dueDate,
-                            status: task.status,
-                            projectId: task.projectId,
-                          },
-                          origin: task.contextType && task.contextRoute ? {
-                            type: task.contextType,
-                            entityId: task.contextEntityId || "",
-                            route: task.contextRoute,
-                            label: task.contextLabel || origin,
-                            anchor: (() => {
-                              try { return JSON.parse(task.contextAnchorJson || "{}") as Record<string, unknown>; }
-                              catch { return {}; }
-                            })(),
-                          } : undefined,
-                        })}><Pencil />{t("edit")}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => editTask(task)}><Pencil />{t("edit")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toggle(task)}>
                           {task.status === "done" ? <RotateCcw /> : <Check />}
                           {task.status === "done" ? t("reopen") : t("markDone")}

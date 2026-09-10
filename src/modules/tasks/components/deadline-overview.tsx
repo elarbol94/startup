@@ -1,6 +1,7 @@
 "use client";
 
 import { UserIdentity } from "@/components/user-identity";
+import { DeadlineDetails } from "./deadline-details";
 
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -262,11 +263,9 @@ export function DeadlineOverview({
                     : null;
               return (
                 <article key={deadline.id} className="group grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                  <button
-                    type="button"
-                    onClick={() => editDeadline(deadline)}
+                  <DeadlineDetails
+                    deadline={deadline}
                     className="flex min-w-0 items-center gap-3 rounded-md text-left outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
-                    aria-label={`${deadline.title}, ${format.dateTime(localDate(deadline.deadlineDate), { dateStyle: "medium" })}`}
                   >
                     <span className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm dark:border-amber-900">
                       <span className={`py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white ${overdue ? "bg-red-600" : deadline.status === "done" ? "bg-emerald-600" : "bg-amber-600"}`}>
@@ -292,7 +291,7 @@ export function DeadlineOverview({
                         </span>
                       </span>
                     </span>
-                  </button>
+                  </DeadlineDetails>
                   <div className="flex items-center gap-1">
                     <Badge variant={overdue ? "destructive" : "outline"}>
                       {stateLabel || t(`statuses.${deadline.status}`)}
