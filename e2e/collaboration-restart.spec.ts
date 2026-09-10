@@ -1,10 +1,18 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
+import type { Editor } from "@tiptap/core";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:net";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { randomUUID } from "node:crypto";
+
+// Read document content without the collaborator cursor labels rendered in the DOM.
+async function expectRecoveredText(editor: Locator) {
+  await expect.poll(() => editor.evaluate(element =>
+    (element as HTMLElement & { editor?: Editor }).editor?.getText(),
+  )).toBe("Accepted before crash plus downtime edit");
+}
 
 // This test owns a separate application process and database so it can crash the
 // server without affecting the suite's web server or another worktree.
@@ -44,8 +52,8 @@ test("durable updates replay after a server crash and recover edits made during 
     await start();
     await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert", { timeout: 30_000 });
     const joined = await context.newPage(); await joined.goto(`/wiki/pages/${id}`);
-    await expect(joined.locator(".ProseMirror").first()).toHaveText("Accepted before crash plus downtime edit");
-    await page.reload(); await expect(editor).toHaveText("Accepted before crash plus downtime edit");
+    await expectRecoveredText(joined.locator(".ProseMirror").first());
+    await page.reload(); await expectRecoveredText(editor);
   } finally {
     await context.close(); await crash();
     if (info.status !== info.expectedStatus) await info.attach("server-log", { body: log, contentType: "text/plain" });
