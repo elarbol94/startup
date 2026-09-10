@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { FocusModeProvider } from "@/components/focus-mode";
@@ -8,6 +8,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 export const unstable_instant = false;
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+};
 
 export const metadata: Metadata = {
   title: "management-platform",

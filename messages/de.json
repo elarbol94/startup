@@ -197,6 +197,7 @@
     "selectionOnly": "Nur Kommentare zur Auswahl"
   },
   "common": {
+    "close": "Schließen",
     "appName": "management-platform",
     "save": "Speichern",
     "cancel": "Abbrechen",

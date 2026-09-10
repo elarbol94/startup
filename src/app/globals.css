@@ -1222,3 +1222,67 @@
   --xy-minimap-background-color: var(--background);
   --xy-minimap-node-background-color: var(--muted-foreground);
 }
+
+
+/* Phone controls stay readable when the virtual keyboard opens. These rules
+   target application controls, leaving document typography and exports intact. */
+@media screen and (max-width: 767px), screen and (pointer: coarse) {
+  [data-slot="button"],
+  [data-slot="select-trigger"],
+  [data-slot="tabs-trigger"],
+  [data-slot="dropdown-menu-item"],
+  [data-slot="dropdown-menu-checkbox-item"],
+  [data-slot="select-item"] {
+    min-height: 2.75rem;
+  }
+
+  [data-slot="button"][data-size^="icon"] {
+    min-width: 2.75rem;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="hidden"]),
+  textarea,
+  select {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+
+  [data-slot="tabs-list"] {
+    height: auto;
+    flex-shrink: 0;
+  }
+
+  [data-slot="tabs-trigger"] {
+    flex-shrink: 0;
+  }
+
+}
+
+@media screen and (max-width: 767px) {
+  [data-slot="dialog-content"] {
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100dvh - 1rem - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    overflow-y: auto;
+  }
+
+  [data-slot="sheet-content"] {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  [data-app-main] {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  [data-testid="app-mobile-header"] {
+    height: calc(3.5rem + env(safe-area-inset-top));
+    padding-top: env(safe-area-inset-top);
+    padding-left: max(.75rem, env(safe-area-inset-left));
+    padding-right: max(.75rem, env(safe-area-inset-right));
+  }
+
+  #app-mobile-navigation :is(button, a),
+  [data-testid="research-navigation-sheet"] nav :is(button, a) {
+    min-height: 2.75rem;
+    flex-shrink: 0;
+  }
+}

@@ -14,6 +14,10 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Local tooling and vault data are not application source.
     ".claude/worktrees/**",
+    ".worktrees/**",
+    "output/**",
+    "playwright-report/**",
+    "test-results/**",
     ".obsidian/**",
     ".cache/**",
     // Generated third-party browser assets are copied verbatim from npm packages.

@@ -60,6 +60,9 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expectWidth(researchSidebar, 256);
   await page.locator("[data-app-main]").hover();
   await expectWidth(researchSidebar, 56);
+  // The compact rail shows a search icon; hovering reveals the input.
+  await researchSidebar.hover();
+  await expectWidth(researchSidebar, 256);
   const desktopResearchSearch = researchSidebar.getByRole("textbox", {
     name: "Dokumente und Quellen durchsuchen…",
   });

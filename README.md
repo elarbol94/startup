@@ -150,6 +150,12 @@ rsync -a /data/uploads /backups/uploads
 4. Register it in `src/modules/registry.ts` (sidebar) and add a `nav.<name>`
    key plus a message namespace to `messages/de.json` and `messages/en.json`.
 
+### Phone use
+
+The platform adapts to phone browsers: touch-sized controls, scrollable dialogs,
+mobile navigation and search, and stacked invoice lines. See
+[docs/mobile-use.md](docs/mobile-use.md) for gestures and validation.
+
 ### Personal identity
 
 Settings → Profile → Your identity assigns the account's existing personal color

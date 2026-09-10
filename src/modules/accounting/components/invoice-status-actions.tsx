@@ -32,7 +32,7 @@ export function InvoiceStatusActions({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {status === "draft" && (
         <Button size="sm" disabled={pending} onClick={() => transition("sent")}>
           <Send className="size-4" />

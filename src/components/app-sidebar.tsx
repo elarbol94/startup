@@ -7,7 +7,8 @@ import { useTranslations } from "next-intl";
 import {
   DndContext,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCenter,
   useSensor,
   useSensors,
@@ -175,6 +176,11 @@ function SortableNavLink({
         pointerMovedRef.current = true;
         suppressNavigationUntilRef.current = Number.POSITIVE_INFINITY;
       }}
+      onPointerCancelCapture={() => {
+        pointerStartRef.current = null;
+        pointerMovedRef.current = false;
+        suppressNavigationUntilRef.current = Date.now() + 500;
+      }}
       onPointerUpCapture={() => {
         if (pointerMovedRef.current) {
           suppressNavigationUntilRef.current = Date.now() + 500;
@@ -246,7 +252,8 @@ function AppNavigation({
   const [navigationOrder, setNavigationOrder] = useState<string[]>(loadNavigationOrder);
   const navigationItems = useMemo(() => orderedNavigationItems(navigationOrder), [navigationOrder]);
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
   const isActive = (href: string) =>
@@ -465,6 +472,9 @@ export function AppSidebar({ userName, userEmail }: { userName: string; userEmai
         <Link href="/" className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
           {tCommon("appName")}
         </Link>
+        <Button type="button" variant="ghost" size="icon" aria-label={tCommon("search")} onClick={() => setSearchOpen(true)}>
+          <Search className="size-5" />
+        </Button>
         <UserMenu name={userName} email={userEmail} compact />
       </header>
 

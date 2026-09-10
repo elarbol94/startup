@@ -1,6 +1,6 @@
 "use client";
 import { useContext, useRef, useState, type ReactNode, type CSSProperties } from "react";
-import { DndContext, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLocale, useTranslations } from "next-intl";
@@ -67,7 +67,7 @@ export function OverviewTable<T extends { id: string }>({ table, label, empty, a
   const start = useRef<{ id: string; x: number; width: number } | null>(null);
   const cancel = () => { start.current = null; setResizing(null); };
   const widthOf = (column: OverviewColumn<T>) => resizing?.id === column.id ? resizing.width : table.widths[column.id] ?? column.width ?? 150;
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
+  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 8 } }), useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }));
   const visible = table.columns.filter(column => table.visible.includes(column.id));
   return <div role="region" aria-label={label} tabIndex={0} aria-busy={pending} className={`min-h-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:outline-ring ${pending ? "opacity-55" : ""}`}>
     {table.failed && <p role="status" className="p-3 text-xs text-destructive">{t("saveFailed")}</p>}
@@ -85,7 +85,7 @@ export function OverviewTable<T extends { id: string }>({ table, label, empty, a
                 const target = visible[visible.findIndex(entry => entry.id === column.id) + (event.key === "ArrowRight" ? 1 : -1)];
                 if (target) table.reorder(column.id, target.id);
               }
-            }} title={t("columnHeaderHint")} aria-label={t("sortColumn", { column: column.label })} className="inline-flex max-w-full touch-none cursor-grab items-center gap-1.5 rounded py-1 text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
+            }} title={t("columnHeaderHint")} aria-label={t("sortColumn", { column: column.label })} className="inline-flex max-w-full cursor-grab items-center gap-1.5 rounded py-1 text-left hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring">
               <span className="truncate">{column.label}</span><Icon aria-hidden className={`size-3 shrink-0 ${rule ? "text-foreground" : "opacity-40"}`} />
               {rule && table.rules.length > 1 && <span className="text-[10px] tabular-nums" aria-label={t("sortPriority", { priority: index + 1 })}>{index + 1}</span>}
             </button>

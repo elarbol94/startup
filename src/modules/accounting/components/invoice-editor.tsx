@@ -157,7 +157,7 @@ export function InvoiceEditor({
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-3xl flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-customer">{t("customer")}</Label>
           <Select
@@ -202,8 +202,8 @@ export function InvoiceEditor({
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium">{t("items")}</p>
         <div className="overflow-x-auto pb-1">
-        <div className="flex min-w-[640px] flex-col gap-2">
-          <div className="grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+        <div className="flex flex-col gap-3 md:min-w-[640px] md:gap-2">
+          <div className="hidden md:grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
             <span>{t("itemDescription")}</span>
             <span>{t("quantity")}</span>
             <span>{t("unitPrice")}</span>
@@ -216,23 +216,34 @@ export function InvoiceEditor({
             return (
               <div
                 key={index}
-                className="grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2"
+                className="grid grid-cols-2 items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_90px_120px_90px_100px_32px] md:items-center md:gap-2 md:border-0 md:p-0"
               >
+                <div className="min-w-0 space-y-1 col-span-2 md:col-span-1">
+                  <Label className="md:hidden" htmlFor={`invoice-description-${index}`}>{t("itemDescription")}</Label>
                 <Input
+                  id={`invoice-description-${index}`}
                   aria-label={`${t("itemDescription")} ${index + 1}`}
                   value={item.description}
                   onChange={(e) => updateItem(index, { description: e.target.value })}
                   placeholder={t("itemDescription")}
                   data-testid={`item-description-${index}`}
                 />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-quantity-${index}`}>{t("quantity")}</Label>
                 <Input
+                  id={`invoice-quantity-${index}`}
                   aria-label={`${t("quantity")} ${index + 1}`}
                   value={item.quantityText}
                   onChange={(e) => updateItem(index, { quantityText: e.target.value })}
                   inputMode="decimal"
                   data-testid={`item-quantity-${index}`}
                 />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-price-${index}`}>{t("unitPrice")}</Label>
                 <Input
+                  id={`invoice-price-${index}`}
                   aria-label={`${t("unitPrice")} ${index + 1}`}
                   value={item.unitPriceText}
                   onChange={(e) => updateItem(index, { unitPriceText: e.target.value })}
@@ -240,13 +251,16 @@ export function InvoiceEditor({
                   placeholder="0,00"
                   data-testid={`item-price-${index}`}
                 />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-vat-${index}`}>{tAccounting("vat")}</Label>
                 <Select
                   value={String(item.vatRate)}
                   onValueChange={(value) =>
                     updateItem(index, { vatRate: Number(value) })
                   }
                 >
-                  <SelectTrigger className="w-full" aria-label={`${tAccounting("vat")} ${index + 1}`}>
+                  <SelectTrigger id={`invoice-vat-${index}`} className="w-full" aria-label={`${tAccounting("vat")} ${index + 1}`}>
                     <SelectValue>{item.vatRate} %</SelectValue>
                   </SelectTrigger>
                   <SelectContent>
@@ -259,7 +273,9 @@ export function InvoiceEditor({
                     ))}
                   </SelectContent>
                 </Select>
-                <span className="text-right text-sm tabular-nums">
+                </div>
+                <span className="min-w-0 self-center text-right text-sm tabular-nums">
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">{t("lineTotal")}</span>
                   {parsed
                     ? formatCents(
                         Math.floor(
@@ -275,6 +291,7 @@ export function InvoiceEditor({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
+                  className="col-span-2 justify-self-end md:col-span-1"
                   aria-label={tCommon("delete")}
                   disabled={items.length === 1}
                   onClick={() =>

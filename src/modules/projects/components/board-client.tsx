@@ -9,7 +9,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   closestCorners,
   useSensor,
   useSensors,
@@ -224,6 +225,8 @@ function TaskCard({
           type="button"
           className="w-fit max-w-full text-left font-medium hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
           onKeyDown={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
@@ -272,6 +275,8 @@ function TaskCard({
             type="button"
             className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
             onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
             onClick={(event) => {
               event.stopPropagation();
               onToggleExpanded?.();
@@ -322,6 +327,8 @@ function TaskCard({
           data-add-subtask-for={task.id}
           className="mt-0.5 flex w-fit items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
           onPointerDown={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
           onClick={(event) => {
             event.stopPropagation();
             onAddSubtask(task);
@@ -530,7 +537,8 @@ export function BoardClient({
   const dragStartBoardRef = useRef<Record<string, BoardTaskDto[]> | null>(null);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
   );
 
   const taskIndex = useMemo(() => {

@@ -197,6 +197,7 @@
     "selectionOnly": "Only comments on selection"
   },
   "common": {
+    "close": "Close",
     "appName": "management-platform",
     "save": "Save",
     "cancel": "Cancel",

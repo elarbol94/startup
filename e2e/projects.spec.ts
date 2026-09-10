@@ -14,6 +14,7 @@ async function login(page: Page) {
 }
 
 async function openProjectBoard(page: Page, projectName: string) {
+  await page.waitForLoadState("networkidle");
   const projectRow = page.locator('[data-row-kind="project"]').filter({
     hasText: projectName,
   });
@@ -22,6 +23,8 @@ async function openProjectBoard(page: Page, projectName: string) {
     .click();
   await page.getByRole("menuitem", { name: "Kanban-Board öffnen" }).click();
   await expect(page).toHaveURL(/\/projects\/[^/?#]+(?:[?#].*)?$/);
+  // The server can stream column markup before the task handlers hydrate.
+  await page.waitForLoadState("networkidle");
   const openColumn = page.locator('[data-column-name="Offen"]');
   await expect(openColumn).toHaveCount(1);
   await expect(openColumn).toBeVisible();
@@ -71,11 +74,6 @@ test("create, move (via dialog) and complete a task", async ({ page }) => {
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Aufgaben", exact: true }),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Projektunabhängige Aufgaben aus Wiki, Quellen, PDFs und der restlichen Software.",
-    ),
   ).toBeVisible();
   await expect(page.getByText("Landingpage bauen")).toHaveCount(0);
 

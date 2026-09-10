@@ -51,10 +51,8 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
     .toBe(240);
   await appSidebar.getByRole("button", { name: "Kalender" }).click();
   await expect(page).toHaveURL(/\/calendar/, { timeout: 30_000 });
-  await expect(
-    page.getByRole("heading", { name: "Flow-Kalender" }),
-  ).toBeVisible();
-  await expect(page.getByText("Auslastung").first()).toBeVisible();
+  await expect(page.getByTestId("calendar-week-scroll")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Filter", exact: true })).toBeVisible();
   await page.goto("/calendar?date=2026-07-29&view=week");
 
   await page.getByRole("button", { name: "Neuer Termin" }).click();
@@ -87,7 +85,7 @@ test("global new-event shortcut opens and clears the calendar dialog state", asy
 
   await expect(page).toHaveURL(/\/calendar\?.*new=event/);
   await expect(page.getByRole("dialog", { name: "Neuer Termin" })).toBeVisible();
-  await page.getByRole("button", { name: "Close" }).click();
+  await page.getByRole("button", { name: "Schließen", exact: true }).click();
   await expect(page).not.toHaveURL(/new=event/);
 });
 
@@ -107,7 +105,7 @@ test("calendar exposes month, agenda, and team views through URL state", async (
   await expect(page.getByText("E2E Admin").last()).toBeVisible();
 });
 
-test("calendar defaults to agenda and exposes filters in bottom sheets on mobile", async ({ page }) => {
+test("calendar defaults to agenda and exposes filters and event details on mobile", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await login(page);
   await page.goto("/calendar?date=2026-07-29");
@@ -120,6 +118,7 @@ test("calendar defaults to agenda and exposes filters in bottom sheets on mobile
   const filtersSheet = page.getByRole("dialog", { name: "Filter" });
   await expect(filtersSheet).toBeVisible();
   await expect(filtersSheet.getByPlaceholder("Kalender durchsuchen…")).toBeVisible();
+  await filtersSheet.getByText("Personen & Terminarten", { exact: true }).click();
   await expect(filtersSheet.getByText("Arbeitsquellen")).toBeVisible();
   await filtersSheet.getByRole("button", { name: "Schließen" }).click();
 
