@@ -1,4 +1,7 @@
 "use server";
+import { roomExists, mutateRoom } from "./collaboration/store";
+import { parseDocumentSettings as collaborationDocumentSettings } from "./lib/document-settings";
+import { seedPage } from "./collaboration/codec";
 
 import fs from "node:fs";
 import path from "node:path";
@@ -393,6 +396,14 @@ export async function restorePageRevision(revisionId: string) {
   if (!revision) throw new Error("Revision not found");
   const page = db.select().from(wikiPages).where(eq(wikiPages.id, revision.pageId)).get();
   if (!page) throw new Error("Page not found");
+  if (roomExists("page", page.id)) {
+    db.transaction(() => {
+      db.insert(wikiPageRevisions).values({ pageId: page.id, version: page.version, contentVersion: page.contentVersion, contentHash: pageSnapshotHash(page), title: page.title, contentJson: page.contentJson, status: page.status, citationLocale: page.citationLocale, citationStyle: page.citationStyle, documentMode: page.documentMode, documentSettingsJson: page.documentSettingsJson, documentTemplateId: page.documentTemplateId, kind: "restore", createdBy: currentUser.id }).run();
+      db.update(wikiPages).set({ title: revision.title, status: revision.status, citationLocale: revision.citationLocale, citationStyle: revision.citationStyle, documentTemplateId: revision.documentTemplateId }).where(eq(wikiPages.id, page.id)).run();
+      mutateRoom("page", page.id, currentUser, doc => seedPage(doc, parseStoredDocument(revision.contentJson), revision.documentMode, collaborationDocumentSettings(revision.documentSettingsJson) as unknown as Record<string, unknown>));
+    });
+    revalidateWiki(); return;
+  }
   const restoredDocument = parseStoredDocument(revision.contentJson);
   const restoredContentJson = JSON.stringify(restoredDocument);
   const contentText = extractText(restoredDocument);

@@ -717,6 +717,7 @@ export type PresentationCanvasAction =
   }
   | { type: "touch"; background?: string; settings?: Partial<PresentationSettings>; title?: string }
   | { type: "reset"; snapshot: PresentationSnapshot }
+  | { type: "shared"; snapshot: PresentationSnapshot }
   | { type: "remote"; base: PresentationSnapshot; snapshot: PresentationSnapshot }
   | { type: "failed" }
   /** The lock that refused the last write has lifted: the parked edit may go out again. */
@@ -789,6 +790,7 @@ export function presentationCanvasReducer(
       return state.gestureActive ? state : { ...state, gestureActive: true, editedAt: 0, guides: [] };
     case "gesture-end":
       return !state.gestureActive && !state.guides.length ? state : { ...state, gestureActive: false, editedAt: 0, guides: [] };
+    case "shared": return { ...state, ...action.snapshot, dirty: false, failed: false };
     case "remote": {
       const merged = mergePresentation(action.base, state, action.snapshot);
       if (merged.conflicts.length) return { ...state, failed: true };

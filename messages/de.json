@@ -176,7 +176,8 @@
     "noSteps": "Keine Präsentationsschritte",
     "importLimit": "Die Datei überschreitet die Importgrenzen.",
     "saveDraft": "Entwurf speichern",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "coeditingAutomatic": "Gemeinsames Bearbeiten startet automatisch für alle mit Bearbeitungszugriff."
   },
   "common": {
     "appName": "management-platform",
@@ -3978,5 +3979,15 @@
     },
     "conditionsHint": "Wähle ein Datenfeld und lege fest, welche Werte die gesuchten Gemeinden erfüllen sollen.",
     "dataNotes": "Datenstand und fehlende Werte"
+  },
+  "collaboration": {
+    "connecting": "Verbindung wird hergestellt…",
+    "saving": "Wird gespeichert…",
+    "saved": "Gespeichert",
+    "reconnecting": "Verbindung wird wiederhergestellt…",
+    "denied": "Bearbeitungszugriff beendet. Ausstehende Änderungen bleiben auf diesem Gerät.",
+    "error": "Änderungen konnten nicht gespeichert werden. Diese Seite geöffnet lassen.",
+    "selected": "{count} ausgewählt",
+    "recoveryUnavailable": "Lokale Wiederherstellung nicht verfügbar. Bis zum Speichern diese Seite geöffnet lassen."
   }
 }

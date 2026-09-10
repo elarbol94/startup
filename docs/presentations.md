@@ -169,31 +169,21 @@ Public players and templates strip it together with the other source metadata.
 
 ## Editing and recovery
 
-- Title, elements, stops, backgrounds and playback settings save together after
-  a 1.2-second pause. Save and Ctrl/Cmd+S also commit the field that has focus.
-- Editor links, PDF export and Present wait for pending saves. Browser Back and
-  other navigation without a link click use the fixed PATCH endpoint under
-  `/api/wiki/presentations/[id]` for a final queued save. Closing/reloading a tab
-  with pending work still displays the browser's unsaved-changes warning.
-- All lease operations use `/api/wiki/presentations/[id]/lease`, so editor
-  re-entry and cleanup do not post server actions to a different page.
-- By default each editor has a lease. Editing controls are disabled while checking
-  access or when another session holds the lease. Reloading can reclaim the
-  same user's lease. An optimistic `expectedUpdatedAt` check prevents an older
-  tab from overwriting a newer version even after a lease expires.
-- Owners can enable **Simultaneous editing** under Sharing. Editors synchronize
-  about every two seconds; independent field changes merge automatically, including
-  separate changes to the same object. This is not character-level collaborative
-  text editing: competing changes to one field or rich-text block cause an explicit
-  conflict. Download the local draft before reloading to retain both versions.
-  Incoming remote edits reset local undo history to avoid undoing someone else's work.
-- Failed saves remain visible and can be retried with Save. A version conflict
-  keeps the local canvas visible and offers a downloadable local draft before
-  loading the newer version.
-- Undo/redo includes the title, background and playback settings. History
-  snapshots preserve previous saved states. Restore waits for pending edits,
-  preserves the replaced state, and resets local undo history to the restored
-  canvas. Revision dates use the selected UI language and Austrian time.
+- Live editing starts automatically for authorized editors, with no editor-count
+  cap. Text changes merge character by character, including formatting. Independent
+  property changes merge; concurrent changes to one scalar have a deterministic
+  shared winner. Deletion wins over a concurrent edit to the deleted identity.
+- Names and selected objects show who is working alongside you. Viewports remain
+  local. Viewer/commenter access never exposes speaker notes through shared state.
+- Inline canvas text and properties text share the same live rich-text fragment.
+  Save/Ctrl+S also commits any remaining focused property field.
+- Export, Present and editor navigation wait for pending writes. Saved means the
+  server acknowledged a durable commit. Reconnect recovery is isolated per account,
+  item and tab; local changes remain available during an outage.
+- Undo/redo only undoes the current editor's work. Restore publishes a shared
+  change and preserves the previous state in history.
+- See [live-collaboration.md](live-collaboration.md) for persistence, compatibility,
+  API details and dedicated three-user browser tests.
 - At most 500 elements and 500 stops are supported. Geometry remains within the
   save schema's limits during group scaling.
 

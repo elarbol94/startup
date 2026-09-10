@@ -1,3 +1,5 @@
+import * as Y from "yjs";
+import { decode, documentJSON } from "../src/modules/wiki/collaboration/codec";
 import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
@@ -30,7 +32,7 @@ async function createNote(page: Page) {
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/, { timeout: 180_000 });
   const editor = page.locator(".ProseMirror");
   await expect(editor).toBeVisible();
-  // The lease endpoint may compile after the editor becomes visible in a cold preview.
+  // Collaboration initialization must finish before editing.
   await expect(editor).toHaveAttribute("contenteditable", "true", { timeout: 90_000 });
   return editor;
 }
@@ -38,10 +40,16 @@ async function createNote(page: Page) {
 test.describe.configure({ mode: "serial", timeout: 240_000 });
 
 async function trackedNote(page: Page) {
-  const lease = page.waitForRequest((request) => /\/api\/wiki\/pages\/[^/]+\/lease$/.test(request.url()));
+  const connection = page.waitForRequest(request => /\/api\/wiki\/collaboration\/page\/[^/?]+$/.test(request.url()));
   const editor = await createNote(page);
-  const request = await lease;
-  return { editor, id: request.url().split("/").at(-2)!, sessionId: request.postDataJSON().sessionId as string };
+  const request = await connection;
+  return { editor, id: request.url().split("/").at(-1)! };
+}
+async function recovery(page: Page, id: string) {
+  return page.evaluate(id => {
+    const key = Object.keys(localStorage).find(key => key.startsWith("wiki-collaboration:") && key.includes(`/page/${id}:`));
+    return key ? localStorage.getItem(key) : null;
+  }, id);
 }
 
 test("save acknowledgements retain newer text and layout in the recovery journal", async ({ page }) => {
@@ -52,7 +60,8 @@ test("save acknowledgements retain newer text and layout in the recovery journal
   const firstGate = new Promise<void>((resolve) => { firstDone = resolve; });
   const secondGate = new Promise<void>((resolve) => { secondDone = resolve; });
   let requests = 0;
-  await page.route(`**/api/wiki/pages/${id}/content`, async (route) => {
+  await page.route(`**/api/wiki/collaboration/page/${id}`, async (route) => {
+    if (route.request().method() !== "POST" || !route.request().postDataJSON().update) return route.continue();
     const index = ++requests;
     const response = await route.fetch();
     if (index === 1) await firstGate;
@@ -67,12 +76,13 @@ test("save acknowledgements retain newer text and layout in the recovery journal
   await page.getByTestId("document-mode-toggle").click();
     firstDone();
     await expect.poll(() => requests).toBe(2);
-    const journal = await page.evaluate((id) => JSON.parse(localStorage.getItem(`wiki-draft:${id}`) ?? "null"), id);
-    expect(journal.contentJson).toContain("Newer words must survive");
-    expect(journal.documentMode).toBe(true);
-    expect(journal.baseContentVersion).toBeGreaterThan(1);
+    const journal = new Y.Doc();
+    Y.applyUpdate(journal, decode((await recovery(page, id))!));
+    expect(JSON.stringify(documentJSON(journal))).toContain("Newer words must survive");
+    expect(journal.getMap("layout").get("documentMode")).toBe(true);
+    journal.destroy();
     secondDone();
-    await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
     await page.reload();
     await expect(editor).toContainText("Newer words must survive");
     await expect(page.locator(".wiki-document-canvas")).toBeVisible();
@@ -83,50 +93,47 @@ test("a lost save response retries successfully without a false conflict", async
   await login(page);
   const { editor, id } = await trackedNote(page);
   let requests = 0;
-  await page.route(`**/api/wiki/pages/${id}/content`, async (route) => {
+  await page.route(`**/api/wiki/collaboration/page/${id}`, async (route) => {
+    if (route.request().method() !== "POST" || !route.request().postDataJSON().update) return route.continue();
     if (++requests === 1) { await route.fetch(); await route.abort("failed"); }
     else await route.continue();
   });
   await editor.fill("Saved despite a lost response");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   expect(requests).toBeGreaterThanOrEqual(2);
   await page.reload();
   await expect(editor).toContainText("Saved despite a lost response");
 });
 
-test("stale local recovery cannot overwrite a newer server document", async ({ page }) => {
+test("a legacy snapshot cannot overwrite a collaborative document", async ({ page }) => {
   await login(page);
-  const { editor, id, sessionId } = await trackedNote(page);
+  const { editor, id } = await trackedNote(page);
   await editor.fill("Original words");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
-  const draft = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Stale local words" }] }] };
-  await page.evaluate(({ id, contentJson }) => localStorage.setItem(`wiki-draft:${id}`, JSON.stringify({ contentJson, baseContentVersion: 1 })), { id, contentJson: JSON.stringify(draft) });
-  await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "release", sessionId } });
+  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  const contentJson = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Stale local words" }] }] });
+  await page.evaluate(({ id, contentJson }) => localStorage.setItem(`wiki-draft:${id}`, JSON.stringify({ contentJson, baseContentVersion: 1 })), { id, contentJson });
+  const stale = await page.request.patch(`/api/wiki/pages/${id}/content`, { data: { contentJson, expectedContentVersion: 1, editorSessionId: "legacy-session" } });
+  expect(stale.status()).toBe(400);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Aktuelle laden" })).toBeVisible();
-  const current = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
-  expect(await current.text()).toContain("Original words");
-  await expect(editor).toContainText("Stale local words");
-  await page.getByRole("button", { name: "Aktuelle laden" }).click();
   await expect(editor).toContainText("Original words");
-  await expect.poll(() => page.evaluate((id) => localStorage.getItem(`wiki-draft:${id}`), id)).toBeNull();
+  expect(await page.evaluate(id => localStorage.getItem(`wiki-draft:${id}`), id)).toContain("Stale local words");
 });
 
 test("layout-only drafts recover and export includes the last keystrokes", async ({ page }) => {
   await login(page);
-  const { editor, id, sessionId } = await trackedNote(page);
+  const { editor, id } = await trackedNote(page);
   await editor.fill("Before layout recovery");
-  const savedResponse = await page.waitForResponse((response) => response.url().endsWith(`/pages/${id}/content`) && response.request().method() === "PATCH");
-  const saved = await savedResponse.json();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
-  const payload = savedResponse.request().postDataJSON();
-  await page.evaluate(({ id, payload, version }) => localStorage.setItem(`wiki-draft:${id}`, JSON.stringify({ ...payload, documentMode: true, baseContentVersion: version })), { id, payload, version: saved.contentVersion });
-  await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "release", sessionId } });
+  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  const pattern = `**/api/wiki/collaboration/page/${id}`;
+  await page.route(pattern, route => route.request().method() === "POST" ? route.abort("failed") : route.continue());
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByTestId("document-mode-toggle").click();
+  await expect.poll(() => recovery(page, id)).not.toBeNull();
+  await page.unroute(pattern);
   await page.reload();
   await expect(page.locator(".wiki-document-canvas")).toBeVisible();
   await expect(editor).toHaveAttribute("contenteditable", "true");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate((id) => localStorage.getItem(`wiki-draft:${id}`), id)).toBeNull();
+  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
   await editor.fill("Last keystrokes before export");
   await page.getByRole("button", { name: "Mehr", exact: true }).first().click();
   const downloadEvent = page.waitForEvent("download");
@@ -143,13 +150,13 @@ test("server saving still works when local recovery storage is full", async ({ p
   await page.evaluate(() => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key, value) {
-      if (key.startsWith("wiki-draft:")) throw new DOMException("Full", "QuotaExceededError");
+      if (key.startsWith("wiki-draft:") || key.startsWith("wiki-collaboration:")) throw new DOMException("Full", "QuotaExceededError");
       return original.call(this, key, value);
     };
   });
   await editor.fill("Save through a full recovery journal");
-  await expect(page.getByText(/Die lokale Wiederherstellung ist nicht verfügbar/)).toBeVisible();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText(/Lokale Wiederherstellung nicht verfügbar/)).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Save through a full recovery journal");
 });
@@ -166,7 +173,7 @@ test("applying a template preserves current text by default and uses normal savi
   await panel.getByRole("tab").nth(1).click();
   await expect(panel.getByLabel("Text durch Vorlageninhalt ersetzen")).not.toBeChecked();
   await panel.getByRole("button", { name: "Vorlage anwenden", exact: true }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Keep these current words");
   await expect(editor).toContainText("Keep these current words");
@@ -205,23 +212,21 @@ test("slash source command stays in the viewport and opens the IEEE picker", asy
   await expect(page.getByRole("button", { name: "Literaturverzeichnis" })).toHaveCount(0);
 });
 
-test("a second editor is read-only until it explicitly takes over", async ({ browser, page }) => {
+test("a second editor joins automatically without taking over", async ({ browser, page }) => {
   await login(page);
   const editor = await createNote(page);
-  await editor.fill("Protected draft");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 15_000 });
-  const storageState = await page.context().storageState();
-  const competingContext = await browser.newContext({ storageState });
-  const competingPage = await competingContext.newPage();
-  await competingPage.goto(page.url());
-  const competingEditor = competingPage.locator(".ProseMirror");
-  await expect(competingEditor).toBeVisible();
-  await expect(competingEditor).toHaveAttribute("contenteditable", "false");
-  const takeOver = competingPage.getByRole("button", { name: "Bearbeitung übernehmen" });
-  await expect(takeOver).toBeVisible();
-  await takeOver.click();
-  await expect(competingEditor).toHaveAttribute("contenteditable", "true");
-  await competingContext.close();
+  await editor.fill("Shared draft");
+  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  const competingContext = await browser.newContext({ storageState: await page.context().storageState() });
+  try {
+    const second = await competingContext.newPage(); await second.goto(page.url());
+    const otherEditor = second.locator(".ProseMirror");
+    await expect(otherEditor).toHaveAttribute("contenteditable", "true");
+    await expect(editor).toHaveAttribute("contenteditable", "true");
+    await otherEditor.click(); await otherEditor.press("Control+End"); await second.keyboard.insertText(" from another tab");
+    await expect(editor).toContainText("from another tab");
+    await expect(second.getByRole("button", { name: "Bearbeitung übernehmen" })).toHaveCount(0);
+  } finally { await competingContext.close(); }
 });
 
 test("document paper keeps its physical aspect ratio and margin guides can be toggled", async ({ page }) => {
@@ -498,7 +503,7 @@ test("proofing keeps delayed checks useful without applying stale offsets", asyn
     await page.locator(".wiki-spellcheck-issue").click({ button: "right" });
     await page.getByRole("button", { name: "Fehler", exact: true }).click();
     await expect(editor).toHaveText("Ganz neuer TextFehler alt");
-    await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   } finally { release(); }
 });
 
@@ -545,7 +550,7 @@ test("proofing recovers after service failure, selects languages directly and fi
   await expect(page.getByRole("combobox", { name: "Prüfsprache" })).toBeEnabled();
   await expect(editor).toHaveAttribute("lang", "en-US");
   await page.keyboard.press("Escape");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.reload();
   await expect(editor).toHaveAttribute("lang", "en-US");
   await page.setViewportSize({ width: 390, height: 700 });

@@ -27,7 +27,7 @@ export default defineConfig({
           command: webServerCommand,
           url: `${baseURL}/login`,
           reuseExistingServer: false,
-          timeout: 120_000,
+          timeout: Number(process.env.PLAYWRIGHT_SERVER_TIMEOUT ?? 120_000),
           env: {
             PORT: String(port),
             HOSTNAME: "127.0.0.1",

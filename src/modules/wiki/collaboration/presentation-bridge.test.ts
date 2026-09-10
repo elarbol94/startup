@@ -1,0 +1,34 @@
+import { expect, it, vi } from "vitest";
+import * as Y from "yjs";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
+import { CollaborationProvider } from "./provider";
+import { PresentationBridge } from "./presentation-bridge";
+import { defaultPresentationSettings, initialPresentationCanvasState } from "../lib/presentation";
+import { LOCAL, patchPresentation, presentationJSON, REMOTE } from "./codec";
+
+it("does not feed unchanged React Flow geometry back into the render loop", () => {
+  const provider = new CollaborationProvider("presentation", "test");
+  const doc = provider.doc;
+  const empty = { title: "Empty", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(doc, { ...empty, settings: {} as typeof defaultPresentationSettings }, { ...empty, elements: [{ id: "a", type: "text", x: 100, y: 100, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } }] });
+  doc.getMap("settings").set("background", "");
+  doc.getMap("settings").set("title", "Empty");
+  const source = presentationJSON(doc);
+  const initial = initialPresentationCanvasState(source.elements, source.steps, source.background, source.settings, source.title);
+  const render = vi.fn(); const bridge = new PresentationBridge(provider, initial, render); const stop = bridge.connect(); render.mockClear();
+  for (let i = 0; i < 100; i++) bridge.dispatch({ type: "geometry", at: i, tolerance: 0, gesture: false, changes: [{ id: "a", x: 100, y: 100 }] });
+  doc.transact(() => {}, REMOTE);
+  Y.applyUpdate(doc, Y.encodeStateAsUpdate(doc), REMOTE);
+  expect(render).not.toHaveBeenCalled();
+  bridge.dispatch({ type: "edit", at: Date.now(), elements: elements => elements.map(element => ({ ...element, x: 200 })) });
+  expect(presentationJSON(doc).elements[0].x).toBe(200); expect(render).toHaveBeenCalled();
+  render.mockClear(); doc.transact(() => doc.getMap<Y.Map<unknown>>("elements").get("a")!.set("y", 300), LOCAL);
+  expect(render).toHaveBeenCalledTimes(1);
+  bridge.undo!.stopCapturing();
+  const text = (doc.getXmlFragment("rich:a").get(0) as Y.XmlElement).get(0) as Y.XmlText;
+  doc.transact(() => text.insert(5, " local"), ySyncPluginKey);
+  bridge.dispatch({ type: "undo" });
+  expect(text.toString()).toBe("Hello");
+  expect(presentationJSON(doc).elements[0]).toMatchObject({ x: 200, y: 300 });
+  stop();
+});

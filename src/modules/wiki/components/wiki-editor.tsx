@@ -4,6 +4,10 @@ import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useRe
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
+import Collaboration from "@tiptap/extension-collaboration";
+import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
+import { documentJSON, patchMap, LOCAL } from "../collaboration/codec";
+import { collaborationCursors } from "../collaboration/cursors";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
 import { Mark, Node, mergeAttributes } from "@tiptap/core";
@@ -31,8 +35,7 @@ import { CommentRail, type CommentRailHandle, type CommentThread } from "./comme
 import { CommentAnchorOverlay } from "./comment-anchor-overlay";
 import { DocumentPresentationLinks } from "./document-presentation-links";
 import { HeadingIdentity } from "./heading-identity";
-import { withDocumentSectionIds } from "../lib/document-sections";
-import type { TiptapNode } from "../lib/tiptap";
+
 import { CollapsibleHeading, HeadingListItem, headingVisibilityChanged } from "./collapsible-heading";
 import { MarkdownDocumentExtensions, MarkdownShortcutMarks } from "./markdown-shortcut-extension";
 import { flushSync } from "react-dom";
@@ -50,7 +53,7 @@ import { WikiProofingMenu, WikiProofingSuggestions, type OpenProofingIssue } fro
 import type { WikiProofingPrefsV1 } from "../lib/wiki-proofing-prefs";
 import { sanitizePastedHtml } from "../lib/paste-html";
 import { calculateWritingStats, type WritingStats } from "../lib/editor-writing";
-import { parseEditorDraft, readEditorStorage, removeEditorStorage, sameEditorSnapshot, writeEditorStorage } from "../lib/editor-draft";
+import { readEditorStorage, removeEditorStorage, writeEditorStorage } from "../lib/editor-draft";
 import { exportSavedDocument } from "../lib/editor-export";
 import { userMarkColorStyle, type UserMarkColor } from "@/lib/user-mark-colors";
 import { MermaidDiagram, MERMAID_PLACEHOLDER } from "./mermaid-extension";
@@ -60,14 +63,7 @@ import { DocumentExtensions, getDocumentPaginationBreaks, samePaginationBreaks, 
 import { computeDocumentPagination, type PaginationItem, type PaginationSplit } from "../lib/document-pagination";
 import { DocumentLayoutPanel } from "./document-layout-panel";
 import { WikiTypographyDialog, type WikiEditorPreferences } from "./wiki-typography-dialog";
-import {
-  collectDocumentPreflightIssues,
-  localizeDocumentSettings,
-  parseDocumentSettings,
-  serializeDocumentSettings,
-  type DocumentPreflightIssue,
-  type DocumentSettingsV1,
-} from "../lib/document-settings";
+import { collectDocumentPreflightIssues, localizeDocumentSettings, normalizeDocumentSettings, parseDocumentSettings, serializeDocumentSettings, type DocumentPreflightIssue, type DocumentSettingsV1 } from "../lib/document-settings";
 import { figureMime, hasFigureList, isFigure, stripFigureNumber } from "../lib/figure";
 import { CommentableImage, FigureIdentity, figureRepairs } from "./figure-extension";
 import { FigureUploads, addUpload, removeUpload, uploadPosition } from "./figure-upload";
@@ -78,28 +74,10 @@ import { FigurePanel } from "./figure-panel";
 import { FigurePicker } from "./figure-picker";
 import { FigureReferencePicker } from "./figure-reference-picker";
 import type { FigureAssetDto } from "../lib/figure-types";
-import {
-  normalizeWikiTypography,
-  wikiTypographyCssVariables,
-  type WikiTypographySettingsV1,
-  type WikiTypographyTemplate,
-} from "../lib/wiki-typography";
+import { normalizeWikiTypography, wikiTypographyCssVariables, type WikiTypographySettingsV1, type WikiTypographyTemplate } from "../lib/wiki-typography";
 import type { StoredDocumentTemplate } from "../document-queries";
-import {
-  addMarkdownTableColumn,
-  addMarkdownTableRow,
-  deleteMarkdownTableColumn,
-  deleteMarkdownTableRow,
-  setMarkdownTableCellAlignment,
-  toggleMarkdownTableHeader,
-} from "../lib/document-table";
-import {
-  DEFAULT_WIKI_SHORTCUT_BINDINGS,
-  normalizeWikiShortcut,
-  parseWikiShortcutBindings,
-  WIKI_SHORTCUT_ACTIONS,
-  type WikiShortcutAction,
-} from "../lib/wiki-shortcuts";
+import { addMarkdownTableColumn, addMarkdownTableRow, deleteMarkdownTableColumn, deleteMarkdownTableRow, setMarkdownTableCellAlignment, toggleMarkdownTableHeader } from "../lib/document-table";
+import { DEFAULT_WIKI_SHORTCUT_BINDINGS, normalizeWikiShortcut, parseWikiShortcutBindings, WIKI_SHORTCUT_ACTIONS, type WikiShortcutAction } from "../lib/wiki-shortcuts";
 import { displayShortcut } from "../lib/shortcut-display";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
@@ -120,33 +98,6 @@ export type WikiEditorHandle = {
 type FigureCaption = { nodeId: string; caption: string };
 type TableCaption = { tableId: string; caption: string };
 type CitationTarget = { sourceId: string; documentId?: string; annotationId?: string; locator?: string };
-type WikiSaveInput = {
-  id: string;
-  contentJson: string;
-  baseContentJson?: string;
-  documentMode?: boolean;
-  documentSettingsJson?: string;
-  baseDocumentMode?: boolean;
-  baseDocumentSettingsJson?: string;
-  expectedContentVersion: number;
-  editorSessionId: string;
-};
-type WikiSaveResult =
-  | { saved: true; conflict: false; contentVersion: number }
-  | { saved: false; conflict?: false; locked?: boolean; contentVersion?: number }
-  | { saved: false; conflict: true; contentVersion: number; revisionId: string; contentJson: string; documentMode: boolean; documentSettingsJson: string };
-
-async function savePageContentRequest(input: WikiSaveInput): Promise<WikiSaveResult> {
-  const response = await fetch(`/api/wiki/pages/${encodeURIComponent(input.id)}/content`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!response.ok) throw new Error("Save failed");
-  return response.json() as Promise<WikiSaveResult>;
-}
-
 function proofingIssueKey(issue: SpellcheckIssue) {
   return `${issue.ruleId}\u0000${issue.from}\u0000${issue.to}\u0000${issue.message}`;
 }
@@ -316,8 +267,6 @@ function loadWikiShortcutBindings() {
     return { ...DEFAULT_WIKI_SHORTCUT_BINDINGS };
   }
 }
-
-
 
 const Citation = Node.create({
   name: "citation", group: "inline", inline: true, atom: true,
@@ -744,8 +693,16 @@ function evidenceInsertContent(item: EvidenceRef, locale: string) {
     ];
 }
 
+export function WikiEditor(props: WikiEditorProps) {
+  const collaboration = useCollaboration("page", props.pageId);
+  const layout = collaboration.doc.getMap("layout").toJSON();
+  return <CollaborationContext.Provider value={collaboration}>
+    <CollaborationStatus provider={collaboration} />
+    {collaboration.ready && <CollaborativeWikiEditor {...props} initialContent={JSON.stringify(documentJSON(collaboration.doc))} initialDocumentMode={layout.documentMode} initialDocumentSettings={JSON.stringify(layout.settings)} />}
+  </CollaborationContext.Provider>;
+}
 
-export function WikiEditor({
+function CollaborativeWikiEditor({
   details,
   pageId,
   pageTitle,
@@ -778,6 +735,7 @@ export function WikiEditor({
   typographyTemplates,
   isPrimaryAuthor,
 }: WikiEditorProps) {
+  const collaboration = useCollaborationContext()!;
   const t = useTranslations("wiki"); const tTasks = useTranslations("tasks"); const tDeadlines = useTranslations("deadlines"); const format = useFormatter(); const router = useRouter(); const searchParams = useSearchParams(); const externalSearchQuery = searchParams.get("search")?.trim() ?? ""; const { openTaskCreator } = useTaskCreator(); const { openDeadlineCreator } = useDeadlineCreator(); const [saveState, setSaveState] = useState<"idle" | "unsaved" | "saving" | "saved" | "offline" | "error" | "conflict">("idle");
   const { panel, setPanel, setSaveState: reportSaveState } = useDocumentWorkspace();
   useEffect(() => { reportSaveState(saveState); }, [saveState, reportSaveState]);
@@ -793,7 +751,7 @@ export function WikiEditor({
     parseDocumentSettings(initialDocumentSettings),
     citationLocale,
   );
-  const [conflictRevision, setConflictRevision] = useState<string | null>(null); const [activeThreadId, setActiveThreadId] = useState<string | null>(null); const [optimisticCommentThreads, setOptimisticCommentThreads] = useState<CommentThread[]>([]); const [commentFocusRequest, setCommentFocusRequest] = useState(0); const [inlineImagePickerOpen, setInlineImagePickerOpen] = useState(false); const [commentOpen, setCommentOpen] = useState(false); const [commentBody, setCommentBody] = useState(""); const [pendingAnchor, setPendingAnchor] = useState<CommentAnchor | null>(null); const [regionTarget, setRegionTarget] = useState<{ nodeId: string; label: string } | null>(null); const [imageError, setImageError] = useState(""); const [imageUploading, setImageUploading] = useState(false); const [assigneeId, setAssigneeId] = useState("none");
+  const [conflictRevision] = useState<string | null>(null); const [activeThreadId, setActiveThreadId] = useState<string | null>(null); const [optimisticCommentThreads, setOptimisticCommentThreads] = useState<CommentThread[]>([]); const [commentFocusRequest, setCommentFocusRequest] = useState(0); const [inlineImagePickerOpen, setInlineImagePickerOpen] = useState(false); const [commentOpen, setCommentOpen] = useState(false); const [commentBody, setCommentBody] = useState(""); const [pendingAnchor, setPendingAnchor] = useState<CommentAnchor | null>(null); const [regionTarget, setRegionTarget] = useState<{ nodeId: string; label: string } | null>(null); const [imageError, setImageError] = useState(""); const [imageUploading, setImageUploading] = useState(false); const [assigneeId, setAssigneeId] = useState("none");
   const figureLibrary = useFigureLibrary(pageId, t("figures.staleExport"));
   const [figureReferenceOpen, setFigureReferenceOpen] = useState(false);
   const [figureTargetId, setFigureTargetId] = useState("");
@@ -861,23 +819,13 @@ export function WikiEditor({
   const [wikiShortcuts, setWikiShortcuts] = useState(loadWikiShortcutBindings);
   const [initialPreferences] = useState(loadEditorPreferences);
   const [statusVisible, setStatusVisible] = useState(initialPreferences.statusVisible); const [minimalToolbar, setMinimalToolbar] = useState(initialPreferences.minimalToolbar); const [typewriterMode, setTypewriterMode] = useState(initialPreferences.typewriterMode); const typewriterModeRef = useRef(initialPreferences.typewriterMode);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const contentVersion = useRef(pageContentVersion); const lastServerContent = useRef(initialContent); const lastServerDocumentMode = useRef(initialDocumentMode); const lastServerDocumentSettings = useRef(serializeDocumentSettings(localizedInitialDocumentSettings)); const documentModeRef = useRef(initialDocumentMode); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const queuedSave = useRef<string | null>(null); const saveInFlight = useRef(false); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const editorSessionId = useRef(globalThis.crypto.randomUUID()); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const contentVersion = useRef(pageContentVersion); const lastServerContent = useRef(initialContent); const documentModeRef = useRef(initialDocumentMode); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const editorSessionId = useRef(globalThis.crypto.randomUUID()); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
   const [leaseState, setLeaseState] = useState<"checking" | "editable" | "locked">("checking");
   const leaseStateRef = useRef<"checking" | "editable" | "locked">("checking");
-  const recoveryApplied = useRef(false);
   const [recoveryAvailable, setRecoveryAvailable] = useState(true);
   const discardingDraft = useRef(false);
-  const saveCompletion = useRef<Promise<void>>(Promise.resolve());
   const flushSaveRef = useRef<() => Promise<boolean>>(async () => false);
-  const storageKey = `wiki-draft:${pageId}`; const preferencesKey = `wiki-editor-preferences`;
-  let content: object | undefined; try { content = initialContent ? JSON.parse(initialContent) : undefined; } catch { content = undefined; }
-  const [recoveredDraft] = useState(() => parseEditorDraft(readEditorStorage(storageKey), {
-    contentJson: initialContent,
-    documentMode: initialDocumentMode,
-    documentSettingsJson: serializeDocumentSettings(localizedInitialDocumentSettings),
-  }));
-  if (recoveredDraft) content = JSON.parse(recoveredDraft.contentJson);
-  if (content) content = withDocumentSectionIds(content as TiptapNode);
+  const storageKey = `wiki-draft:${currentUserId}:${pageId}`; const preferencesKey = `wiki-editor-preferences`;
 
   function currentSnapshot() {
     return {
@@ -885,17 +833,6 @@ export function WikiEditor({
       documentMode: documentModeRef.current,
       documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current),
     };
-  }
-
-  function journalSnapshot() {
-    const snapshot = currentSnapshot();
-    pendingSave.current = snapshot.contentJson;
-    writeDraft(JSON.stringify({
-      ...snapshot,
-      baseContentVersion: contentVersion.current,
-      editorSessionId: editorSessionId.current,
-      savedAt: Date.now(),
-    }));
   }
 
   const writeDraft = useCallback((value: string) => {
@@ -1013,7 +950,6 @@ export function WikiEditor({
   }
   captureZoomAnchorRef.current = captureZoomAnchor;
 
-
   function scheduleContentSync(currentEditor: Editor, changed: boolean) {
     liveEditor.current = currentEditor;
     contentSyncEditor.current = currentEditor;
@@ -1022,117 +958,25 @@ export function WikiEditor({
     contentSyncTimer.current = setTimeout(() => flushContentSyncRef.current(), CONTENT_SYNC_DELAY);
   }
 
-  async function persistContent(json: string, attempt = 0) {
+  async function persistContent(json: string) {
     pendingSave.current = json;
-    if (leaseStateRef.current !== "editable") { setSaveState(leaseStateRef.current === "locked" ? "conflict" : "unsaved"); return; }
-    if (typeof navigator !== "undefined" && !navigator.onLine) { setSaveState("offline"); return; }
-    if (conflictBlocked.current) { setSaveState("conflict"); return; }
-    if (saveInFlight.current) { queuedSave.current = json; return; }
-    if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null; }
-    const snapshot = { contentJson: json, documentMode: documentModeRef.current, documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current) };
-    if (sameEditorSnapshot(snapshot, { contentJson: lastServerContent.current, documentMode: lastServerDocumentMode.current, documentSettingsJson: lastServerDocumentSettings.current })) {
+    const saved = await collaboration.flush();
+    if (saved) {
       pendingSave.current = null;
-      const journal = readEditorStorage(storageKey);
-      try {
-        if (journal && JSON.parse(journal).editorSessionId === editorSessionId.current) removeEditorStorage(storageKey);
-      } catch { /* leave an unrecognized journal intact */ }
-      if (maxSaveTimer.current) { clearTimeout(maxSaveTimer.current); maxSaveTimer.current = null; }
+      removeEditorStorage(storageKey);
+      lastServerContent.current = JSON.stringify(documentJSON(collaboration.doc));
       setSaveState("saved");
-      return;
-    }
-    saveInFlight.current = true;
-    let completeSave!: () => void;
-    saveCompletion.current = new Promise<void>((resolve) => { completeSave = resolve; });
-    setSaveState("saving");
-    try {
-      const result = await savePageContentRequest({
-        id: pageId,
-        ...snapshot,
-        baseContentJson: lastServerContent.current,
-        baseDocumentMode: lastServerDocumentMode.current,
-        baseDocumentSettingsJson: lastServerDocumentSettings.current,
-        expectedContentVersion: contentVersion.current,
-        editorSessionId: editorSessionId.current,
-      });
-      if (result.saved) {
-        contentVersion.current = result.contentVersion;
-        lastServerContent.current = json;
-        lastServerDocumentMode.current = snapshot.documentMode;
-        lastServerDocumentSettings.current = snapshot.documentSettingsJson;
-        conflictBlocked.current = false;
-        setConflictRevision(null);
-        if (sameEditorSnapshot(snapshot, currentSnapshot())) {
-          pendingSave.current = null;
-          const journal = readEditorStorage(storageKey);
-          try {
-            if (journal && JSON.parse(journal).editorSessionId === editorSessionId.current) removeEditorStorage(storageKey);
-          } catch { /* leave an unrecognized journal intact */ }
-          setSaveState("saved");
-          if (maxSaveTimer.current) { clearTimeout(maxSaveTimer.current); maxSaveTimer.current = null; }
-        } else {
-          // The acknowledgement covers only the submitted snapshot. Journal newer
-          // text AND layout with the acknowledged version before sending it next.
-          journalSnapshot();
-          queuedSave.current = pendingSave.current;
-          setSaveState("unsaved");
-        }
-      } else if ("conflict" in result && result.conflict) {
-        contentVersion.current = result.contentVersion;
-        conflictBlocked.current = true;
-        setConflictRevision(result.revisionId);
-        setSaveState("conflict");
-      } else if ("locked" in result && result.locked) {
-        leaseStateRef.current = "locked";
-        setLeaseState("locked");
-        setSaveState("conflict");
-      } else {
-        throw new Error("Page could not be saved");
-      }
-    } catch {
-      setSaveState(typeof navigator !== "undefined" && !navigator.onLine ? "offline" : "error");
-      if (attempt < 2) saveTimer.current = setTimeout(() => {
-        if (pendingSave.current) void persistContent(currentSnapshot().contentJson, attempt + 1);
-      }, 1_000 * (2 ** attempt));
-    } finally {
-      saveInFlight.current = false;
-      const queued = queuedSave.current;
-      queuedSave.current = null;
-      if (queued && pendingSave.current && !conflictBlocked.current) void persistContent(currentSnapshot().contentJson);
-      completeSave();
-    }
+    } else setSaveState("error");
   }
   persistContentRef.current = (json: string) => persistContent(json);
   async function flushSave() {
     flushContentSyncRef.current();
-    while (saveInFlight.current) await saveCompletion.current;
-    if (pendingSave.current) {
-      await persistContent(currentSnapshot().contentJson, 2);
-      while (saveInFlight.current) await saveCompletion.current;
-    }
-    return !pendingSave.current && !conflictBlocked.current;
+    const saved = await collaboration.flush();
+    if (saved) pendingSave.current = null;
+    return saved;
   }
   flushSaveRef.current = flushSave;
-
-  async function takeOverEditing() {
-    try {
-    const response = await fetch(`/api/wiki/pages/${encodeURIComponent(pageId)}/lease`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "takeover", sessionId: editorSessionId.current }),
-    });
-    if (!response.ok) {
-      toast.error(t("editor.lease.takeoverFailed"));
-      return;
-    }
-    leaseStateRef.current = "editable";
-    setLeaseState("editable");
-    conflictBlocked.current = false;
-    setSaveState(pendingSave.current ? "unsaved" : "idle");
-    if (pendingSave.current) void persistContentRef.current(pendingSave.current);
-    } catch {
-      toast.error(t("editor.lease.takeoverFailed"));
-    }
-  }
+  async function takeOverEditing() { await collaboration.flush(); }
 
   function requestWikiTask(targetEditor: Editor) {
     const { from, to } = targetEditor.state.selection;
@@ -1227,10 +1071,10 @@ export function WikiEditor({
     slash("crossReference", "wiki", Link2, () => { rememberToolbarSelection(); setFigureReferenceOpen(true); }),
   ];
 
-  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [StarterKit.configure({ dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
+  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
       const source = liveEditor.current?.state.doc.textBetween(issue.from, issue.to) ?? "";
       setSpellcheckIssue({ issue, target, source });
-    })], content,
+    })],
     editorProps: {
       attributes: { class: "prose prose-neutral dark:prose-invert max-w-none min-h-[28rem] focus:outline-none", spellcheck: "false" },
       handlePaste(view, event) {
@@ -1318,105 +1162,27 @@ export function WikiEditor({
   }, [currentUserId, editor, users]);
 
   useEffect(() => {
-    if (!editor || recoveryApplied.current) return;
-    recoveryApplied.current = true;
-    if (!recoveredDraft) return;
-    try {
-      const recovered = recoveredDraft;
-      contentVersion.current = recovered.baseContentVersion;
-      pendingSave.current = recovered.contentJson;
-      // Claim the recovered journal so a successful save clears it. Otherwise a
-      // later visit could replay this now-obsolete draft over newer server text.
-      writeEditorStorage(storageKey, JSON.stringify({ ...recovered, editorSessionId: editorSessionId.current }));
-      let recoveredMode: boolean | undefined;
-      let recoveredSettings: DocumentSettingsV1 | undefined;
-      if (typeof recovered.documentMode === "boolean") {
-        documentModeRef.current = recovered.documentMode;
-        recoveredMode = recovered.documentMode;
-      }
-      if (typeof recovered.documentSettingsJson === "string") {
-        const settings = localizeDocumentSettings(
-          parseDocumentSettings(recovered.documentSettingsJson),
-          citationLocale,
-        );
-        documentSettingsRef.current = settings;
-        recoveredSettings = settings;
-      }
-      const applyRecoveredLayout = window.setTimeout(() => {
-        if (recoveredMode !== undefined) setDocumentMode(recoveredMode);
-        if (recoveredSettings) {
-          setDocumentSettings(recoveredSettings);
-          setDocumentIssues(collectDocumentPreflightIssues(editor.getJSON(), recoveredSettings));
-        }
-        setSaveState("unsaved");
-      }, 0);
-      return () => window.clearTimeout(applyRecoveredLayout);
-    } catch {
-      // A damaged local journal must never prevent the server version from opening.
-    }
-  }, [citationLocale, editor, recoveredDraft, storageKey]);
-
+    const update = () => {
+      const editable = collaboration.ready && !["denied", "error"].includes(collaboration.status);
+      leaseStateRef.current = editable ? "editable" : "locked";
+      setLeaseState(leaseStateRef.current);
+      setSaveState(collaboration.status === "saved" ? "saved" : collaboration.status === "saving" ? "saving" : collaboration.status === "reconnecting" ? "offline" : "error");
+    };
+    update();
+    return collaboration.subscribe(update);
+  }, [collaboration]);
   useEffect(() => {
-    if (!editor) return;
-    const requestLease = async (action: "acquire" | "heartbeat" | "takeover" | "release") => {
-      const response = await fetch(`/api/wiki/pages/${encodeURIComponent(pageId)}/lease`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, sessionId: editorSessionId.current }),
-        keepalive: action === "release",
-      });
-      if (!response.ok) throw new Error("Edit lease failed");
-      return response.json() as Promise<{ editable?: boolean }>;
+    const layout = collaboration.doc.getMap("layout");
+    const update = () => {
+      const value = layout.toJSON();
+      documentModeRef.current = value.documentMode;
+      documentSettingsRef.current = normalizeDocumentSettings(value.settings);
+      setDocumentMode(value.documentMode);
+      setDocumentSettings(documentSettingsRef.current);
     };
-    let disposed = false;
-    void requestLease("acquire")
-      .then((result) => {
-        if (disposed) return;
-        const nextLeaseState = result.editable ? "editable" : "locked";
-        leaseStateRef.current = nextLeaseState;
-        setLeaseState(nextLeaseState);
-        if (nextLeaseState === "editable" && pendingSave.current) void persistContentRef.current(pendingSave.current);
-      })
-      .catch(() => {
-        if (!disposed) {
-          leaseStateRef.current = "locked";
-          setLeaseState("locked");
-        }
-      });
-    const heartbeat = window.setInterval(() => {
-      if (disposed) return;
-      void requestLease("heartbeat").then((result) => {
-        if (!disposed && !result.editable) {
-          leaseStateRef.current = "locked";
-          setLeaseState("locked");
-        }
-      }).catch(() => undefined);
-    }, 15_000);
-    const release = () => {
-      if (discardingDraft.current) { void requestLease("release").catch(() => undefined); return; }
-      // Snapshot whatever was typed inside the last sync window before leaving.
-      flushContentSyncRef.current();
-      if (pendingSave.current) {
-        writeDraft(JSON.stringify({
-          contentJson: pendingSave.current,
-          documentMode: documentModeRef.current,
-          documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current),
-          baseContentVersion: contentVersion.current,
-          editorSessionId: editorSessionId.current,
-          savedAt: Date.now(),
-        }));
-      }
-      void requestLease("release").catch(() => undefined);
-    };
-    window.addEventListener("pagehide", release);
-    return () => {
-      if (!discardingDraft.current) flushContentSyncRef.current();
-      disposed = true;
-      window.clearInterval(heartbeat);
-      window.removeEventListener("pagehide", release);
-      void requestLease("release").catch(() => undefined);
-    };
-  }, [editor, pageId, storageKey, writeDraft]);
+    layout.observeDeep(update);
+    return () => layout.unobserveDeep(update);
+  }, [collaboration]);
   useEffect(() => { editor?.setEditable(leaseState === "editable"); }, [editor, leaseState]);
   useEffect(() => {
     if (!editor) return;
@@ -2086,6 +1852,7 @@ export function WikiEditor({
   }
   function changeDocumentSettings(settings: DocumentSettingsV1) {
     if (!activeEditor.isEditable) return;
+    collaboration.doc.transact(() => patchMap(collaboration.doc.getMap("layout"), { settings: documentSettingsRef.current }, { settings }), LOCAL);
     documentSettingsRef.current = settings;
     setDocumentSettings(settings);
     setDocumentIssues(collectDocumentPreflightIssues(activeEditor.getJSON(), settings));
@@ -2093,6 +1860,7 @@ export function WikiEditor({
   }
   function changeDocumentMode(enabled: boolean) {
     if (!activeEditor.isEditable) return;
+    collaboration.doc.transact(() => collaboration.doc.getMap("layout").set("documentMode", enabled), LOCAL);
     documentModeRef.current = enabled;
     setDocumentMode(enabled);
     if (!enabled && panel === "layout") setPanel(null);
@@ -2308,7 +2076,7 @@ export function WikiEditor({
     // Include edits made after the conflict was reported. The version check
     // still protects changes another editor made since that response.
     conflictBlocked.current = false;
-    await persistContent(currentSnapshot().contentJson, 2);
+    await persistContent(currentSnapshot().contentJson);
   }
 
   async function changeProofingLanguage(next: ProofingLanguage) {
@@ -2689,6 +2457,7 @@ export function WikiEditor({
       settings={documentSettings}
       onApplyTemplate={(settings, contentJson) => {
         if (!activeEditor.isEditable) return;
+        collaboration.doc.transact(() => patchMap(collaboration.doc.getMap("layout"), { documentMode: documentModeRef.current, settings: documentSettingsRef.current }, { documentMode: true, settings }), LOCAL);
         documentModeRef.current = true;
         setDocumentMode(true);
         documentSettingsRef.current = settings;

@@ -53,6 +53,9 @@ Docker image already includes both tools and the German/English OCR packs.
   `npm run db:seed`, `npx drizzle-kit studio`.
 - Configuration lives in `.env.local` (see `.env.example`).
 
+For automatic live document and presentation collaboration, see
+[docs/live-collaboration.md](docs/live-collaboration.md).
+
 For wiki presentation editing, save recovery, live following and PDF export,
 see [docs/presentations.md](docs/presentations.md).
 

@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { NodeResizer, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { PRESENTATION_MIN_ELEMENT_SIZE, isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
+import { useCollaborationContext } from "../collaboration/ui";
+import { PresentationRichText } from "./presentation-rich-text";
 import { PresentationContent } from "./presentation-content";
 
 /**
@@ -45,6 +47,7 @@ function Resizer({ selected, data }: { selected: boolean; data: PresentationNode
 }
 
 function TextNode({ data, selected }: NodeProps<PresentationNode>) {
+  const collaboration = useCollaborationContext();
   const [editing, setEditing] = useState(false);
   const element = data.element;
   if (element.type !== "text") return null;
@@ -60,7 +63,11 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
       )}
     >
       <Resizer selected={Boolean(selected)} data={data} />
-      {editing && data.editable ? (
+      {editing && data.editable && collaboration ? (
+        <div className="nodrag nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") setEditing(false); }}>
+          <PresentationRichText inline elementId={element.id} content={element.content} onChange={() => {}} />
+        </div>
+      ) : editing && data.editable ? (
         <textarea
           autoFocus
           // nodrag keeps the pointer inside the field instead of panning the canvas.

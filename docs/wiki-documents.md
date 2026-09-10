@@ -7,9 +7,9 @@ The document opens with its utility panel closed. **Tools / Werkzeuge** opens Ou
 For image insertion, captions, references, figure lists, live folder links and
 export behavior, see [wiki-figures.md](wiki-figures.md).
 
-The Wiki editor uses one content version for text and document layout. A save
-includes that version and the tab's edit-lease session. Metadata changes such as
-renaming a page do not invalidate a text save.
+The Wiki editor supports automatic live editing by multiple users, including
+character-level text merging, shared layout, collaborator cursors and durable
+reconnect recovery. See [live-collaboration.md](live-collaboration.md).
 
 ## Command search
 
@@ -66,36 +66,26 @@ recalculates pagination without changing document content.
 
 ## Saving and recovery
 
-- A successful response acknowledges only the submitted text and layout. Edits
-  made during the request remain in the browser recovery journal and are saved
-  next, including changes that only affect the layout.
-- Retries take the current editor snapshot. If the server already committed the
-  same snapshot but its response was lost, it acknowledges the existing version.
-- Recovered drafts retain their original content version. If the server has
-  changed, the draft becomes a recoverable conflict instead of overwriting it.
-- “Load current” discards the browser draft. “Restore mine” submits the current
-  local text, including edits made after the conflict appeared, with a version
-  check. A newer server edit can therefore produce another conflict.
-- Browser storage failures do not stop server saves. The editor displays a
-  warning when local recovery cannot be written; keep the page open until the
-  save succeeds.
-- The document header and layout-panel exports wait for pending saves. A failed
-  save or unresolved conflict prevents export of an older saved version.
-- PDF headers and footers escape quoted font names correctly and align with the
-  document's margins. Quoted font stacks previously broke their inline styles,
-  leaving almost unreadable text and collapsing the three-column layout.
+- Changes are saved as incremental shared updates. Acknowledgements cover only
+  the submitted updates; edits made during the request remain pending.
+- Reconnect retries and replay are idempotent. Local recovery is isolated by
+  account, item and tab, and merges into the current shared state.
+- Local storage failures display a warning without stopping server saves.
+- Exports wait for pending updates and stop if saving fails.
+- History restoration is a shared operation and preserves the replaced state.
+- Older whole-document save requests cannot overwrite an initialized shared item.
 
 ## Templates and Word import
 
 Templates are prepared on the server and applied inside the editor. The normal
-save path handles history, edit leases, versions, citations, backlinks and search
+save path handles history, shared updates, versions, citations, backlinks and search
 updates. Applying a template preserves existing text unless the author selects
 “Replace text with template content”. Saving a template captures the current
 editor content and layout, even before the autosave delay has elapsed.
 
 The Word importer preserves spaces around formatting, nested bold/italic marks,
 line breaks, nested lists, table paragraphs and unique heading targets. A failed
-or malformed import returns an ordinary error. If text changes or the edit lease
+or malformed import returns an ordinary error. If text changes or editing access
 is lost while an import runs, the result is rejected to preserve those edits.
 
 ## Spelling and grammar
@@ -192,11 +182,6 @@ The document PDF rendering smoke test is `npx tsx scripts/verify-document-pdf.ts
   complex pagination, advanced layout and all citation/footnote semantics need
   dedicated round-trip coverage and fuller import/export support. Use PDF for
   layout-sensitive delivery.
-- Local recovery currently has one journal per page in each browser profile.
-  Per-tab draft history with an explicit recovery chooser would better preserve
-  independent offline drafts from multiple tabs.
-- Version-history restoration is a separate workflow. It should eventually share
-  the normal editor's lease, version checks and derived-index rebuilds.
 - Very large documents and long offline sessions need extended performance and
   endurance testing; the regression suite does not establish an unlimited size
   or uptime guarantee.

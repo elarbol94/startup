@@ -1,3 +1,5 @@
+import { roomExists, mutateRoom } from "./collaboration/store";
+import { patchPresentation, presentationJSON } from "./collaboration/codec";
 import { withoutPresentationSources } from "./lib/presentation-source";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs/promises";
@@ -104,6 +106,15 @@ export async function changePresentationStudio(id: string, input: unknown) {
     const step = presentation.steps.find((step) => step.id === data.stepId);
     if (!step || (step.notes ?? "") !== data.previous) return { conflict: true };
     const steps = presentation.steps.map((step) => step.id === data.stepId ? { ...step, notes: data.notes } : step);
+    if (roomExists("presentation", id)) {
+      mutateRoom("presentation", id, viewer, doc => {
+        const current = presentationJSON(doc);
+        const target = current.steps.find(step => step.id === data.stepId);
+        if (!target || (target.notes ?? "") !== data.previous) throw new Error("Notes changed");
+        patchPresentation(doc, current, { ...current, steps: current.steps.map(step => step.id === data.stepId ? { ...step, notes: data.notes } : step) });
+      });
+      return { ok: true };
+    }
     db.transaction(() => {
       const previous = db.select().from(wikiPresentations).where(eq(wikiPresentations.id, id)).get()!;
       db.insert(wikiPresentationRevisions).values({ presentationId: id, title: previous.title, elementsJson: previous.elementsJson, pathJson: previous.pathJson, createdBy: viewer.id }).run();

@@ -176,7 +176,8 @@
     "noSteps": "No presentation steps",
     "importLimit": "The file exceeds the import limits.",
     "saveDraft": "Save draft",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "coeditingAutomatic": "Live editing starts automatically for everyone with edit permission."
   },
   "common": {
     "appName": "management-platform",
@@ -3976,5 +3977,15 @@
     },
     "conditionsHint": "Choose a data field and specify which values the municipalities should match.",
     "dataNotes": "Data dates and missing values"
+  },
+  "collaboration": {
+    "connecting": "Connecting…",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "reconnecting": "Reconnecting…",
+    "denied": "Editing access ended. Your pending changes remain on this device.",
+    "error": "Changes could not be saved. Keep this page open.",
+    "selected": "{count} selected",
+    "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until saved."
   }
 }

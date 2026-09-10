@@ -1,0 +1,279 @@
+import { createHash } from "node:crypto";
+import { z } from "zod";
+import { and, eq, inArray, isNull } from "drizzle-orm";
+import { db, sqlite } from "@/db";
+import { evidenceLinks, wikiCommentThreads, wikiLinks, wikiPageRevisions, wikiPageEditLeases, wikiPageSources, wikiPages, wikiSources, wikiPdfAnnotations } from "@/db/schema";
+import { indexText } from "./lib/vector-store.server";
+import { isCommentAnchorOrphaned, type CommentAnchor } from "./lib/comment-anchors";
+import { extractCitations, extractCommentAnchors, extractCommentNodeIds, extractEvidenceAnnotationIds, extractInternalSlugs, extractText } from "./lib/tiptap";
+import { parseEditorDocument } from "./lib/editor-document";
+import { withDocumentSectionIds } from "./lib/document-sections";
+import { normalizeDocumentSettings, serializeDocumentSettings } from "./lib/document-settings";
+const LEASE_TIMEOUT_MS = 60_000;
+const indexing = new Map<string, ReturnType<typeof setTimeout>>();
+function scheduleIndex(pageId: string, title: string, contentText: string) {
+  clearTimeout(indexing.get(pageId));
+  const timer = setTimeout(() => {
+    indexing.delete(pageId);
+    void indexText({ kind: "page", refId: pageId, text: `${title}\n\n${contentText}` })
+      .catch((error: unknown) => console.warn(JSON.stringify({ event: "page_index_failed", pageId, reason: error instanceof Error ? error.message : "unknown" })));
+  }, 1000);
+  timer.unref?.();
+  indexing.set(pageId, timer);
+}
+
+function syncFts(pageId: string, title: string, contentText: string) {
+  sqlite
+    .prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?")
+    .run(pageId);
+  sqlite
+    .prepare(
+      "INSERT INTO wiki_pages_fts (page_id, title, content_text) VALUES (?, ?, ?)",
+    )
+    .run(pageId, title, contentText);
+}
+
+function contentSnapshotHash(contentJson: string, documentMode: boolean, documentSettingsJson: string) {
+  return createHash("sha256")
+    .update(contentJson)
+    .update("\0")
+    .update(documentMode ? "1" : "0")
+    .update("\0")
+    .update(documentSettingsJson)
+    .digest("hex");
+}
+
+export const saveSchema = z.object({
+  id: z.string().min(1),
+  contentJson: z.string().max(2_000_000),
+  baseContentJson: z.string().max(2_000_000).optional(),
+  documentMode: z.boolean().optional(),
+  documentSettingsJson: z.string().max(200_000).optional(),
+  baseDocumentMode: z.boolean().optional(),
+  baseDocumentSettingsJson: z.string().max(200_000).optional(),
+  expectedContentVersion: z.number().int().positive(),
+  editorSessionId: z.string().min(8).max(200),
+});
+
+export function savePageContentInternal(input: z.infer<typeof saveSchema>, user: { id: string }, collaborative = false) {
+  const data = saveSchema.parse(input);
+
+  const page = db
+    .select()
+    .from(wikiPages)
+    .where(and(eq(wikiPages.id, data.id), isNull(wikiPages.deletedAt)))
+    .get();
+  // Autosaves can arrive after another request deleted the page. Treat that
+  // normal race as a no-op instead of surfacing a server error.
+  if (!page) return { saved: false };
+
+  const lease = db.select().from(wikiPageEditLeases).where(eq(wikiPageEditLeases.pageId, data.id)).get();
+  if (!collaborative && lease && lease.sessionId !== data.editorSessionId && Date.now() - lease.heartbeatAt.getTime() <= LEASE_TIMEOUT_MS) {
+    return { saved: false as const, locked: true as const, contentVersion: page.contentVersion };
+  }
+
+  if (!collaborative && sqlite.prepare("SELECT 1 FROM wiki_collaboration_rooms WHERE key = ?").get(`page:${data.id}`)) throw new Error("Reload to join live collaboration");
+
+  const parsedDoc = parseEditorDocument(data.contentJson);
+  const doc = withDocumentSectionIds(parsedDoc);
+  if (doc !== parsedDoc) data.contentJson = JSON.stringify(doc);
+
+  const contentText = extractText(doc);
+  const inferredTitle = /^(Unbenannte Notiz|Untitled note)$/.test(page.title)
+    ? contentText.split("\n").map((line) => line.trim()).find(Boolean)?.slice(0, 200)
+    : undefined;
+  const effectiveTitle = inferredTitle || page.title;
+  const slugs = extractInternalSlugs(doc);
+  const citations = extractCitations(doc);
+  const citationSourceIds = [...new Set(citations.map((item) => item.sourceId))];
+  const commentAnchors = new Set(extractCommentAnchors(doc));
+  const commentNodeIds = new Set(extractCommentNodeIds(doc));
+  const evidenceAnnotationIds = extractEvidenceAnnotationIds(doc);
+  const nextDocumentMode = data.documentMode ?? page.documentMode;
+  let nextDocumentSettingsJson = page.documentSettingsJson;
+  if (data.documentSettingsJson !== undefined) {
+    try {
+      nextDocumentSettingsJson = serializeDocumentSettings(normalizeDocumentSettings(JSON.parse(data.documentSettingsJson)));
+    } catch {
+      throw new Error("Invalid document settings");
+    }
+  }
+
+  const incomingHash = contentSnapshotHash(data.contentJson, nextDocumentMode, nextDocumentSettingsJson);
+  // A response can be lost after the transaction commits. Retrying that exact
+  // snapshot acknowledges the existing save instead of creating a false conflict.
+  if (incomingHash === contentSnapshotHash(page.contentJson, page.documentMode, page.documentSettingsJson)) {
+    return { saved: true as const, conflict: false as const, contentVersion: page.contentVersion };
+  }
+  if (data.expectedContentVersion !== page.contentVersion) {
+    const existingConflict = db.select({ id: wikiPageRevisions.id }).from(wikiPageRevisions)
+      .where(and(
+        eq(wikiPageRevisions.pageId, page.id),
+        eq(wikiPageRevisions.kind, "conflict"),
+        eq(wikiPageRevisions.contentHash, incomingHash),
+      ))
+      .get();
+    const revision = existingConflict ?? db
+      .insert(wikiPageRevisions)
+      .values({
+        pageId: page.id,
+        version: page.version,
+        contentVersion: data.expectedContentVersion,
+        contentHash: incomingHash,
+        title: page.title,
+        contentJson: data.contentJson,
+        status: page.status,
+        citationLocale: page.citationLocale,
+        citationStyle: page.citationStyle,
+        documentMode: nextDocumentMode,
+        documentSettingsJson: nextDocumentSettingsJson,
+        documentTemplateId: page.documentTemplateId,
+        kind: "conflict",
+        createdBy: user.id,
+      })
+      .returning({ id: wikiPageRevisions.id })
+      .get();
+    return {
+      saved: false as const,
+      conflict: true as const,
+      contentVersion: page.contentVersion,
+      revisionId: revision.id,
+      contentJson: page.contentJson,
+      documentMode: page.documentMode,
+      documentSettingsJson: page.documentSettingsJson,
+    };
+  }
+
+  const nextVersion = page.version + 1;
+  const nextContentVersion = page.contentVersion + 1;
+
+  const applied = db.transaction(() => {
+    const updated = db.update(wikiPages)
+      .set({
+        contentJson: data.contentJson,
+        contentText,
+        documentMode: nextDocumentMode,
+        documentSettingsJson: nextDocumentSettingsJson,
+        updatedBy: user.id,
+        updatedAt: new Date(),
+        version: nextVersion,
+        contentVersion: nextContentVersion,
+        ...(inferredTitle ? { title: inferredTitle } : {}),
+      })
+      .where(and(eq(wikiPages.id, data.id), eq(wikiPages.contentVersion, data.expectedContentVersion)))
+      .returning({ contentVersion: wikiPages.contentVersion })
+      .get();
+    if (!updated) return false;
+
+    // Rebuild outgoing links.
+    db.delete(wikiLinks).where(eq(wikiLinks.sourcePageId, data.id)).run();
+    if (slugs.length > 0) {
+      const targets = db
+        .select({ id: wikiPages.id })
+        .from(wikiPages)
+        .where(inArray(wikiPages.slug, slugs))
+        .all();
+      if (targets.length > 0) {
+        db.insert(wikiLinks)
+          .values(
+            targets
+              .filter((target) => target.id !== data.id)
+              .map((target) => ({
+                sourcePageId: data.id,
+                targetPageId: target.id,
+              })),
+          )
+          .onConflictDoNothing()
+          .run();
+      }
+    }
+
+    db.delete(wikiPageSources)
+      .where(and(eq(wikiPageSources.pageId, data.id), eq(wikiPageSources.relation, "citation")))
+      .run();
+    if (citationSourceIds.length > 0) {
+      const existingSources = db.select({ id: wikiSources.id }).from(wikiSources).where(inArray(wikiSources.id, citationSourceIds)).all();
+      if (existingSources.length) db.insert(wikiPageSources)
+        .values(existingSources.map(({ id: sourceId }) => ({ pageId: data.id, sourceId, relation: "citation" as const })))
+        .onConflictDoNothing()
+        .run();
+    }
+
+    db.delete(evidenceLinks)
+      .where(and(eq(evidenceLinks.targetType, "wikiPage"), eq(evidenceLinks.targetId, data.id)))
+      .run();
+    if (evidenceAnnotationIds.length > 0) {
+      const annotations = db.select({ id: wikiPdfAnnotations.id }).from(wikiPdfAnnotations)
+        .where(inArray(wikiPdfAnnotations.id, evidenceAnnotationIds)).all();
+      if (annotations.length > 0) {
+        db.insert(evidenceLinks).values(annotations.map((annotation) => ({
+          annotationId: annotation.id, targetType: "wikiPage" as const, targetId: data.id, createdBy: user.id,
+        }))).onConflictDoNothing().run();
+      }
+    }
+
+    const threads = db
+      .select({
+        id: wikiCommentThreads.id,
+        anchorQuote: wikiCommentThreads.anchorQuote,
+        anchorType: wikiCommentThreads.anchorType,
+        anchorNodeId: wikiCommentThreads.anchorNodeId,
+      })
+      .from(wikiCommentThreads)
+      .where(eq(wikiCommentThreads.pageId, data.id))
+      .all();
+    for (const thread of threads) {
+      const anchor: CommentAnchor = thread.anchorType === "image"
+        ? { type: "image", nodeId: thread.anchorNodeId ?? "", mode: "whole", label: thread.anchorQuote }
+        : thread.anchorType === "text"
+          ? { type: "text", quote: thread.anchorQuote }
+          : { type: "page" };
+      const orphaned = isCommentAnchorOrphaned(thread.id, anchor, { threadIds: commentAnchors, nodeIds: commentNodeIds, text: contentText });
+      db.update(wikiCommentThreads)
+        .set({ orphaned })
+        .where(eq(wikiCommentThreads.id, thread.id))
+        .run();
+    }
+
+    const recentRevision = sqlite
+      .prepare("SELECT id FROM wiki_page_revisions WHERE page_id = ? AND created_by = ? AND kind = 'autosave' AND created_at > ? LIMIT 1")
+      .get(data.id, user.id, Date.now() - 5 * 60_000);
+    if (!recentRevision) {
+      db.insert(wikiPageRevisions)
+        .values({
+          pageId: page.id,
+          version: page.version,
+          contentVersion: page.contentVersion,
+          contentHash: contentSnapshotHash(page.contentJson, page.documentMode, page.documentSettingsJson),
+          title: page.title,
+          contentJson: page.contentJson,
+          status: page.status,
+          citationLocale: page.citationLocale,
+          citationStyle: page.citationStyle,
+          documentMode: page.documentMode,
+          documentSettingsJson: page.documentSettingsJson,
+          documentTemplateId: page.documentTemplateId,
+          kind: "autosave",
+          createdBy: user.id,
+        })
+        .run();
+    }
+
+    syncFts(data.id, effectiveTitle, contentText);
+    scheduleIndex(data.id, effectiveTitle, contentText);
+    return true;
+  });
+  if (!applied) {
+    return {
+      saved: false as const,
+      conflict: true as const,
+      contentVersion: db.select({ contentVersion: wikiPages.contentVersion }).from(wikiPages).where(eq(wikiPages.id, data.id)).get()?.contentVersion ?? page.contentVersion,
+      revisionId: "",
+      contentJson: page.contentJson,
+      documentMode: page.documentMode,
+      documentSettingsJson: page.documentSettingsJson,
+    };
+  }
+  // No revalidatePath here: autosave must not re-render the open editor.
+  return { saved: true as const, conflict: false as const, contentVersion: nextContentVersion };
+}
