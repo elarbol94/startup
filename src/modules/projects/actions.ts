@@ -41,6 +41,7 @@ import {
 } from "@/modules/projects/schedule";
 
 import { getPortfolioSchedule } from "./queries";
+import { saveTaskAssignees, taskAssigneeFields } from "./assignees";
 
 const SORT_GAP = 1000;
 
@@ -388,7 +389,7 @@ const taskSchema = z.object({
   parentTaskId: z.string().nullable().optional().default(null),
   title: z.string().min(1).max(300),
   description: z.string().max(5000).default(""),
-  assigneeId: z.string().nullable().default(null),
+  assigneeIds: z.array(z.string().min(1)).optional(),
   dueDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -589,6 +590,7 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
     ? db.select().from(tasks).where(eq(tasks.id, data.id)).get()
     : undefined;
   if (data.id && !existing) throw new Error("Task not found");
+  if (existing && existing.kind !== "task") throw new Error("Task kind cannot be changed");
   const parent = data.parentTaskId
     ? db.select().from(tasks).where(eq(tasks.id, data.parentTaskId)).get()
     : undefined;
@@ -660,7 +662,7 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
   const values = {
     title: data.title,
     description: data.description,
-    assigneeId: data.assigneeId,
+    assigneeId: null,
     phaseId: legacyPhaseId,
     parentTaskId: data.parentTaskId,
     progress: targetColumn.isCompleted ? 100 : data.progress,
@@ -794,6 +796,8 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
         tx.insert(projectTaskDependencies).values({ predecessorProjectId: predecessor.id, successorTaskId: row.id }).run();
       }
     }
+    if (!id) throw new Error("Task was not saved");
+    saveTaskAssignees(tx, { taskId: id, assigneeIds: data.assigneeIds, actorId: user.id });
     const affectedParents = new Set(
       [existing?.parentTaskId, data.parentTaskId].filter(
         (parentTaskId): parentTaskId is string => Boolean(parentTaskId),
@@ -808,6 +812,9 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
 
   revalidatePath(`/projects/${data.projectId}`);
   revalidatePath("/projects");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/wiki", "layout");
   if (!id) throw new Error("Task was not saved");
   return { id };
 }
@@ -818,6 +825,7 @@ const contextualTaskSchema = z.object({
   title: z.string().trim().min(1).max(300),
   description: z.string().trim().max(5000).default(""),
   assigneeId: z.string().nullable().default(null),
+  assigneeIds: z.array(z.string().min(1)).optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
   startDate: z.iso.date().nullable().optional(),
   dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
@@ -890,7 +898,7 @@ export async function getContextualTaskForEdit(id: string) {
     .select({
       id: tasks.id,
       title: tasks.title,
-      assigneeId: tasks.assigneeId,
+      ...taskAssigneeFields,
       priority: tasks.priority,
       dueDate: tasks.dueDate,
       status: tasks.status,
@@ -964,7 +972,7 @@ export async function upsertContextualTask(
     ? db.select().from(tasks).where(eq(tasks.id, data.id)).get()
     : undefined;
   if (data.id && !existing) throw new Error("Task not found");
-  if (data.assigneeId && data.assigneeId !== existing?.assigneeId) {
+  if (data.kind === "deadline" && data.assigneeId && data.assigneeId !== existing?.assigneeId) {
     const member = db.select({ id: user.id }).from(user).where(and(eq(user.id, data.assigneeId), isNull(user.removedAt))).get();
     if (!member) throw new Error("Assignee not found");
   }
@@ -1005,7 +1013,7 @@ export async function upsertContextualTask(
       description: data.kind === "deadline"
         ? data.description
         : existing?.description ?? data.description,
-      assigneeId: data.assigneeId,
+      assigneeId: data.kind === "deadline" ? data.assigneeId : null,
       dueDate: data.kind === "deadline" ? data.localDate : data.dueDate,
       startDate: data.kind === "deadline" ? data.localDate : data.startDate !== undefined ? data.startDate : existing?.startDate ?? null,
       deadlineAt: data.kind === "deadline" && data.deadlineAt
@@ -1030,6 +1038,10 @@ export async function upsertContextualTask(
     }
 
     if (!id) throw new Error("Task was not saved");
+    if (data.kind === "task") saveTaskAssignees(tx, {
+      taskId: id, assigneeIds: data.assigneeIds, actorId: currentUser.id,
+      pageId: data.context?.type === "wikiPage" ? data.context.entityId : null,
+    });
     if (data.context) {
       const context = {
         taskId: id,
@@ -1070,7 +1082,7 @@ export async function upsertContextualTask(
   });
 
   if (!id) throw new Error("Task was not saved");
-  notifyTaskAssignment({
+  if (data.kind === "deadline") notifyTaskAssignment({
     taskId: id,
     actorId: currentUser.id,
     previousAssigneeId: existing?.assigneeId,
@@ -1084,6 +1096,7 @@ export async function upsertContextualTask(
   }
   revalidatePath("/");
   revalidatePath("/wiki", "layout");
+  revalidatePath("/calendar");
   return { id };
 }
 

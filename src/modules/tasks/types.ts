@@ -14,7 +14,8 @@ export type TaskOrigin = {
 export type EditableTask = {
   id: string;
   title: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  assignees: Array<{ id: string; name: string }>;
   priority: TaskPriority;
   dueDate: string | null;
   status: TaskStatus;
@@ -25,7 +26,8 @@ export type ContextTaskMarker = {
   id: string;
   projectId: string | null;
   title: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  assignees: Array<{ id: string; name: string }>;
   assigneeName: string | null;
   priority: TaskPriority;
   status: TaskStatus;
@@ -57,4 +59,12 @@ export type ContextDeadlineMarker = {
   route: string;
   label: string;
   anchorJson: string;
+};
+
+export type DeadlineWithContext = EditableDeadline & {
+  contextType: TaskContextType | null;
+  contextEntityId: string | null;
+  contextRoute: string | null;
+  contextLabel: string | null;
+  contextAnchorJson: string | null;
 };

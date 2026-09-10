@@ -87,7 +87,7 @@ export type CalendarWorkspace = {
   unscheduledTasks: {
     id: string;
     title: string;
-    assigneeId: string | null;
+    assigneeIds: string[];
     assigneeName: string | null;
     projectId: string | null;
     projectName: string | null;

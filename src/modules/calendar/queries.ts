@@ -1,3 +1,4 @@
+import { taskAssigneeFields } from "@/modules/projects/assignees";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/core-schema";
@@ -272,6 +273,8 @@ export function listCalendarWorkspace(input: {
       status: tasks.status,
       assigneeId: tasks.assigneeId,
       assigneeName: user.name,
+      taskAssigneeIds: taskAssigneeFields.assigneeIds,
+      taskAssigneeNames: taskAssigneeFields.assigneeName,
       contextRoute: taskContexts.route,
       updatedAt: tasks.updatedAt,
     })
@@ -317,9 +320,9 @@ export function listCalendarWorkspace(input: {
           availability: "busy",
           calendarId: null,
           projectId: task.projectId,
-          assigneeId: task.assigneeId,
-          assigneeName: task.assigneeName,
-          attendeeIds: task.assigneeId ? [task.assigneeId] : [],
+          assigneeId: task.kind === "deadline" ? task.assigneeId : null,
+          assigneeName: task.kind === "deadline" ? task.assigneeName : task.taskAssigneeNames,
+          attendeeIds: task.kind === "deadline" ? (task.assigneeId ? [task.assigneeId] : []) : task.taskAssigneeIds,
           occurrenceKey: null,
           recurring: false,
           recurrenceRule: null,
@@ -364,9 +367,9 @@ export function listCalendarWorkspace(input: {
       availability: "free",
       calendarId: null,
       projectId: task.projectId,
-      assigneeId: task.assigneeId,
-      assigneeName: task.assigneeName,
-      attendeeIds: task.assigneeId ? [task.assigneeId] : [],
+      assigneeId: task.kind === "deadline" ? task.assigneeId : null,
+      assigneeName: task.kind === "deadline" ? task.assigneeName : task.taskAssigneeNames,
+      attendeeIds: task.kind === "deadline" ? (task.assigneeId ? [task.assigneeId] : []) : task.taskAssigneeIds,
       occurrenceKey: null,
       recurring: false,
       recurrenceRule: null,
@@ -437,8 +440,8 @@ export function listCalendarWorkspace(input: {
     .map((task) => ({
       id: task.id,
       title: task.title,
-      assigneeId: task.assigneeId,
-      assigneeName: task.assigneeName,
+      assigneeIds: task.taskAssigneeIds,
+      assigneeName: task.taskAssigneeNames,
       projectId: task.projectId,
       projectName: task.projectName,
     }));

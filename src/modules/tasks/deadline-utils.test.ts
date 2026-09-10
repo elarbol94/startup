@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   compareDeadlineTiming,
   deadlineDayState,
+  deadlineEditOptions,
   isDeadlineOverdue,
   localDateValue,
   localDeadlineToUtc,
@@ -67,5 +68,26 @@ describe("deadline timing", () => {
       null,
       "2026-07-28T08:30:00.000Z",
     ]);
+  });
+});
+
+describe("deadline editing from the overview", () => {
+  const deadline = {
+    id: "deadline", title: "Review", description: "Keep this", assigneeId: "alice",
+    deadlineDate: "2026-09-10", deadlineAt: null, status: "open" as const,
+    contextType: "pdf" as const, contextEntityId: "document", contextRoute: "/wiki/sources/source/read/document?page=3",
+    contextLabel: "Source", contextAnchorJson: '{"page":3}',
+  };
+  it("passes the complete deadline and its origin to the editor", () => {
+    expect(deadlineEditOptions(deadline, "App")).toEqual({
+      deadline,
+      origin: { type: "pdf", entityId: "document", route: deadline.contextRoute, label: "Source", anchor: { page: 3 } },
+    });
+  });
+  it.each(["invalid", "null", "[]"])("opens a legacy deadline with a %s anchor", (contextAnchorJson) => {
+    expect(deadlineEditOptions({ ...deadline, contextAnchorJson }, "App").origin?.anchor).toEqual({});
+  });
+  it("opens deadlines without an origin", () => {
+    expect(deadlineEditOptions({ ...deadline, contextType: null, contextRoute: null }, "App").origin).toBeUndefined();
   });
 });

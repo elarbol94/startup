@@ -1,5 +1,7 @@
 "use client";
 
+import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
+
 import {
   useCallback,
   useEffect,
@@ -861,7 +863,7 @@ function ScheduleInspector({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [columnId, setColumnId] = useState("");
-  const [assigneeId, setAssigneeId] = useState("unassigned");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
@@ -890,7 +892,7 @@ function ScheduleInspector({
       setTitle(task?.title ?? "");
       setDescription(task?.description ?? "");
       setColumnId(task?.columnId ?? projectColumns[0]?.id ?? "");
-      setAssigneeId(task?.assigneeId ?? "unassigned");
+      setAssigneeIds(task?.assigneeIds ?? []);
       setPriority(task?.priority ?? "medium");
       setStartDate(task?.startDate ?? "");
       setDueDate(task?.dueDate ?? "");
@@ -932,7 +934,7 @@ function ScheduleInspector({
         columnId,
         title,
         description,
-        assigneeId: assigneeId === "unassigned" ? null : assigneeId,
+        assigneeIds,
         priority,
         startDate: startDate || null,
         dueDate: isMilestone ? startDate || null : dueDate || null,
@@ -1115,20 +1117,8 @@ function ScheduleInspector({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="schedule-task-assignee">{t("assignee")}</Label>
-              <Select value={assigneeId} onValueChange={(value) => setAssigneeId(value ?? "unassigned")}>
-                <SelectTrigger id="schedule-task-assignee" className="w-full">
-                  <SelectValue>
-                    {assigneeId === "unassigned"
-                      ? t("unassigned")
-                      : schedule.members.find((member) => member.id === assigneeId)?.name ??
-                        t("unassigned")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="unassigned">{t("unassigned")}</SelectItem>
-                  {schedule.members.map((member) => <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+                <TaskAssigneeSelect id="schedule-task-assignee" value={assigneeIds} onChange={setAssigneeIds}
+                  members={schedule.members} assignedMembers={task?.assignees} />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="schedule-task-priority">{t("priority")}</Label>
@@ -1998,7 +1988,7 @@ export function PortfolioClient({
       const matchesOwner =
         owner === "all" ||
         project.managerId === owner ||
-        projectTasks.some((task) => task.assigneeId === owner);
+        projectTasks.some((task) => task.assigneeIds.includes(owner));
       const risk = projectRisk(project, projectTasks, today);
       const matchesHealth = health === "all" || (health === "risk" ? risk : !risk);
       return matchesOwner && matchesHealth;
@@ -5098,10 +5088,11 @@ export function PortfolioClient({
                           "min-w-0 flex-1 truncate rounded-sm text-left text-sm focus-visible:outline-2 focus-visible:outline-ring",
                           row.task && "hover:underline",
                         )}
-                        title={row.label}
+                        title={row.task?.assigneeName ? `${row.label} · ${row.task.assigneeName}` : row.label}
                       >
                         {row.label}
                       </button>
+                      {row.task?.assignees.length ? <span className="max-w-24 truncate text-[10px] text-muted-foreground" title={row.task.assigneeName ?? undefined}>{row.task.assigneeName}</span> : null}
                       {isRisk && <AlertTriangle className="size-3.5 text-amber-600" aria-label={t("atRisk")} />}
                       {isConflict && <GitBranch className="size-3.5 text-red-600" aria-label={t("dependencyConflict")} />}
                       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>

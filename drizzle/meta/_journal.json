@@ -414,6 +414,13 @@
       "when": 1788937206538,
       "tag": "0058_removed_users",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "6",
+      "when": 1788982827475,
+      "tag": "0059_task_assignees",
+      "breakpoints": true
     }
   ]
 }

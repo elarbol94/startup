@@ -1,3 +1,4 @@
+import type { DeadlineWithContext, TaskOrigin } from "./types";
 import type { TaskStatus } from "./types";
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -79,4 +80,21 @@ export function compareDeadlineTiming(
   if (!left.deadlineAt && right.deadlineAt) return -1;
   if (left.deadlineAt && !right.deadlineAt) return 1;
   return (left.deadlineAt ?? "").localeCompare(right.deadlineAt ?? "");
+}
+
+/** Both deadline entry points on the overview open the same record and origin. */
+export function deadlineEditOptions(deadline: DeadlineWithContext, fallbackLabel: string) {
+  let anchor: Record<string, unknown> = {};
+  try {
+    const parsed: unknown = JSON.parse(deadline.contextAnchorJson || "{}");
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) anchor = parsed as Record<string, unknown>;
+  } catch { /* Legacy contexts may have no valid anchor. */ }
+  const origin: TaskOrigin | undefined = deadline.contextType && deadline.contextRoute ? {
+    type: deadline.contextType,
+    entityId: deadline.contextEntityId || "",
+    route: deadline.contextRoute,
+    label: deadline.contextLabel || fallbackLabel,
+    anchor,
+  } : undefined;
+  return { deadline, origin };
 }

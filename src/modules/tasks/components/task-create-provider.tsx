@@ -1,5 +1,7 @@
 "use client";
 
+import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
+
 import {
   createContext,
   useCallback,
@@ -95,7 +97,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   const [options, setOptions] = useState<Awaited<ReturnType<typeof getContextualTaskOptions>> | null>(null);
   const [request, setRequest] = useState<OpenTaskOptions>({});
   const [title, setTitle] = useState("");
-  const [assigneeId, setAssigneeId] = useState(NONE);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [startDate, setStartDate] = useState("");
   const [plannerOpen, setPlannerOpen] = useState(false);
@@ -112,7 +114,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
     setStartDate("");
     setPlannerOpen(false);
     setTitle(next.task?.title ?? next.initialTitle ?? "");
-    setAssigneeId(next.task?.assigneeId ?? NONE);
+    setAssigneeIds(next.task?.assigneeIds ?? []);
     setPriority(next.task?.priority ?? "medium");
     setDueDate(next.task?.dueDate ?? "");
     setStatus(next.task?.status ?? "open");
@@ -184,9 +186,6 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
     pathname,
     typeof window === "undefined" ? "" : window.location.search.slice(1),
   );
-  const assigneeLabel = assigneeId === NONE
-    ? t("unassigned")
-    : options?.members.find((member) => member.id === assigneeId)?.name ?? assigneeId;
   const projectLabel = projectId === NONE
     ? t("noProject")
     : options?.projects.find((project) => project.id === projectId)?.name ?? projectId;
@@ -209,7 +208,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
       const result = await upsertContextualTask({
         id: request.task?.id,
         title,
-        assigneeId: assigneeId === NONE ? null : assigneeId,
+        assigneeIds,
         priority,
         dueDate: dueDate || null,
         ...(request.showProjectSchedule && !request.task ? { startDate: startDate || null } : {}),
@@ -288,15 +287,8 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
               <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="context-task-assignee">{t("assignee")}</Label>
-                <Select value={assigneeId} onValueChange={(value) => setAssigneeId(value ?? NONE)}>
-                  <SelectTrigger id="context-task-assignee" className="w-full"><SelectValue>{assigneeLabel}</SelectValue></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>{t("unassigned")}</SelectItem>
-                    {options?.members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <TaskAssigneeSelect id="context-task-assignee" value={assigneeIds} onChange={setAssigneeIds}
+                  members={options?.members ?? []} assignedMembers={request.task?.assignees} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="context-task-priority">{t("priority")}</Label>
