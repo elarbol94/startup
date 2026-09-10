@@ -4012,5 +4012,19 @@
     "error": "Änderungen konnten nicht gespeichert werden. Diese Seite geöffnet lassen.",
     "selected": "{count} ausgewählt",
     "recoveryUnavailable": "Lokale Wiederherstellung nicht verfügbar. Bis zum Speichern diese Seite geöffnet lassen."
+  },
+  "overviewDetails": {
+    "hint": "Alle Details auf einen Blick. Über den Button gelangen Sie zum Ursprung.",
+    "origin": "Erstellt in",
+    "description": "Beschreibung",
+    "noDescription": "Keine Beschreibung hinterlegt.",
+    "unavailable": "Der ursprüngliche Eintrag ist nicht mehr verfügbar.",
+    "close": "Schließen",
+    "edit": "Bearbeiten",
+    "openOrigin": "Zum Ursprung",
+    "news": "Neuigkeiten",
+    "newsHint": "Ihre aktuellen Benachrichtigungen. Ein Klick zeigt die Details.",
+    "date": "Zeitpunkt",
+    "actor": "Von"
   }
 }

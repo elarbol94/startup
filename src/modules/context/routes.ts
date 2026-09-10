@@ -30,6 +30,15 @@ export function canonicalEntityHref(
 }
 
 export function withTaskFocus(route: string, taskId: string) {
-  const separator = route.includes("?") ? "&" : "?";
-  return `${route}${separator}task=${encodeURIComponent(taskId)}`;
+  return withWorkItemFocus(route, taskId, "task");
+}
+
+/** Keep source filters and anchors intact and replace stale focus parameters. */
+export function withWorkItemFocus(route: string, id: string, kind: "task" | "deadline") {
+  const safeRoute = route.startsWith("/") && !route.startsWith("//") && !route.includes("\\") ? route : "/";
+  const url = new URL(safeRoute, "https://workspace.invalid");
+  url.searchParams.delete("task");
+  url.searchParams.delete("deadline");
+  url.searchParams.set(kind, id);
+  return `${url.pathname}${url.search.replace(/\+/g, "%20")}${url.hash}`;
 }
