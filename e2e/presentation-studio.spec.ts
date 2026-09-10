@@ -270,10 +270,12 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   expect((await page.request.patch(`/api/wiki/presentations/${id}`, { data: { ...source, elements: [...source.elements, image], expectedUpdatedAt: source.updatedAt, sessionId: "studio-fixture-session" } })).ok()).toBe(true);
   await open(page, id);
   await page.locator('[data-testid="rf__node-image"]').click();
+  await page.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
   await page.getByRole("combobox", { name: "Bildmaske" }).selectOption("circle");
   await page.getByRole("combobox", { name: "Bildanpassung" }).selectOption("cover");
   const wave = Buffer.alloc(1644);
   wave.write("RIFF"); wave.writeUInt32LE(wave.length - 8, 4); wave.write("WAVEfmt ", 8); wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22); wave.writeUInt32LE(8000, 24); wave.writeUInt32LE(16000, 28); wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34); wave.write("data", 36); wave.writeUInt32LE(1600, 40);
+  await tool(page, "Medien");
   await page.getByLabel("Video oder Audio hochladen").setInputFiles({ name: "Voice.wav", mimeType: "audio/wav", buffer: wave });
   await expect(page.getByRole("textbox", { name: "Medientitel" })).toHaveValue("Voice.wav");
   await save(page);

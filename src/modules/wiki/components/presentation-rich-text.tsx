@@ -10,17 +10,17 @@ import { Button } from "@/components/ui/button";
 import { presentationLinkSchema } from "../lib/presentation";
 
 
-export function PresentationRichText({ content, onChange, disabled, elementId, inline = false }: { inline?: boolean; elementId: string; content: Content; onChange: (content: Content) => void; disabled?: boolean }) {
+export function PresentationRichText({ content, onChange, disabled, elementId, inline = false, autoFocus = inline, label }: { label?: string; autoFocus?: boolean; inline?: boolean; elementId: string; content: Content; onChange: (content: Content) => void; disabled?: boolean }) {
   const collaboration = useCollaborationContext();
   const t = useTranslations("presentationStudio");
   const current = useRef({ content, onChange });
   useEffect(() => { current.current = { content, onChange }; });
   const editor = useEditor({
     immediatelyRender: false,
-    autofocus: inline ? "end" : false,
+    autofocus: autoFocus ? "end" : false,
     extensions: [...richExtensions(), ...(collaboration ? [Collaboration.configure({ document: collaboration.doc, field: `rich:${elementId}` })] : [])],
     content: collaboration ? undefined : toDoc(content), editable: !disabled,
-    editorProps: { attributes: { class: inline ? "h-full min-h-12 outline-none" : "min-h-24 rounded-md border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500", role: "textbox", "aria-label": t("richText"), "aria-multiline": "true" } },
+    editorProps: { attributes: { class: inline ? "h-full min-h-12 outline-none" : "min-h-24 rounded-md border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500", role: "textbox", "aria-label": label ?? t("richText"), "aria-multiline": "true" } },
     onUpdate: ({ editor }) => {
       const next = fromDoc(editor.getJSON());
       if (next.text.length > 5000 || (next.runs?.length ?? 0) > 200) editor.commands.undo();

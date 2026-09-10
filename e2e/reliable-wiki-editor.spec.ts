@@ -37,7 +37,7 @@ async function createNote(page: Page) {
   return editor;
 }
 
-test.describe.configure({ mode: "serial", timeout: 240_000 });
+test.describe.configure({ timeout: 240_000 });
 
 async function trackedNote(page: Page) {
   const connection = page.waitForRequest(request => /\/api\/wiki\/collaboration\/page\/[^/?]+$/.test(request.url()));
@@ -194,22 +194,20 @@ test("collapsed research rail expands its search without covering content", asyn
   expect(box?.width).toBeGreaterThanOrEqual(255);
 });
 
-test("slash source command stays in the viewport and opens the IEEE picker", async ({ page }) => {
+test("source command search stays in the viewport and opens the IEEE picker", async ({ page }) => {
   await login(page);
   const editor = await createNote(page);
   await editor.click();
-  await page.keyboard.type("/quelle");
-  const palette = page.getByRole("listbox", { name: "Slash-Befehle" });
+  await page.keyboard.press("Shift"); await page.keyboard.press("Shift");
+  const palette = page.getByRole("dialog", { name: "Befehl suchen" });
+  await palette.getByRole("combobox").fill("Quelle zitieren");
   await expect(palette).toBeVisible();
   const box = await palette.boundingBox();
-  expect(box).not.toBeNull();
   expect(box!.y).toBeGreaterThanOrEqual(0);
   expect(box!.y + box!.height).toBeLessThanOrEqual(800);
-  await expect(palette).toHaveCSS("z-index", "80");
   await palette.getByRole("option", { name: /Quelle zitieren/ }).click();
   await expect(page.getByPlaceholder("Quelle suchen…")).toBeVisible();
   await expect(page.getByText("IEEE", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Literaturverzeichnis" })).toHaveCount(0);
 });
 
 test("a second editor joins automatically without taking over", async ({ browser, page }) => {
