@@ -181,11 +181,19 @@ test("new selection comments can be edited, deleted and restored without reappea
   await rail.getByRole("button", { name: "Kommentar löschen" }).click();
   await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
   await expect(page.locator(".ProseMirror mark[data-comment-thread]")).toHaveClass(/is-empty/);
+  await expect(page.locator(".ProseMirror mark[data-comment-thread]")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await rail.getByRole("button", { name: "Rückgängig", exact: true }).click();
   await expect(rail.getByText("Edited comment", { exact: true })).toBeVisible();
   await rail.getByRole("button", { name: "Kommentar löschen" }).click();
   await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
+  const deletedAnchor = page.locator(".ProseMirror mark[data-comment-thread]");
+  // Formatting recreates mark DOM without changing the document's text length.
+  await deletedAnchor.dblclick();
+  await page.keyboard.press("ControlOrMeta+b");
+  await expect(deletedAnchor).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert");
   await page.reload();
   await tool(page, "Kommentare");
   await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
+  await expect(deletedAnchor).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 });

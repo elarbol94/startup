@@ -17,7 +17,8 @@ Open **Tools → Comments** or comment on a text/image selection. A thread can b
 opened with the keyboard using its heading button. Authors can edit or delete
 individual messages; **Undo** restores the last deleted message with its anchor.
 Deleting the last message hides its thread and highlight, including immediately
-after creating it. Replies from other people are retained. Failed changes show an
+after creating it. Deleted highlights stay hidden when formatting changes or the
+document reloads; Undo restores their appearance. Replies from other people are retained. Failed changes show an
 error and retain the draft; pending submissions disable their composer.
 
 Focused browser coverage: `e2e/wiki-comments.spec.ts` (comment cases).

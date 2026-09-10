@@ -227,25 +227,30 @@ export const CommentRail = forwardRef<CommentRailHandle, {
   useEffect(() => {
     const root = editorRootRef.current;
     if (!root) return;
-    const marks = root.querySelectorAll<HTMLElement>("mark[data-comment-thread], mark[data-comment-threads]");
-    const media = root.querySelectorAll<HTMLElement>("[data-comment-node-id]");
-    marks.forEach((mark) => {
-      const ids = markThreadIds(mark).filter((id) => comments.some((thread) => thread.id === id));
-      mark.classList.toggle("is-empty", ids.length === 0);
-      const activeId = activeThreadId && ids.includes(activeThreadId) ? activeThreadId : ids[0];
-      const thread = comments.find((item) => item.id === activeId);
-      const color = userMarkColorStyle(thread?.createdByMarkColor, thread?.createdBy);
-      for (const [property, value] of Object.entries(color)) mark.style.setProperty(property, String(value));
-      mark.classList.toggle("is-active", !!activeThreadId && ids.includes(activeThreadId));
-      mark.classList.toggle("is-resolved", ids.length > 0 && ids.every((id) => comments.find((item) => item.id === id)?.resolvedAt));
-    });
-    media.forEach((element) => {
-      const thread = comments.find((item) => item.id === activeThreadId);
-      element.classList.toggle("is-comment-active", thread?.anchor.type === "image" && element.dataset.commentNodeId === thread.anchor.nodeId);
-      element.classList.toggle("is-comment-resolved", comments.some((item) => item.resolvedAt && item.anchor.type === "image" && item.anchor.nodeId === element.dataset.commentNodeId));
-    });
-    return () => { marks.forEach((mark) => { mark.classList.remove("is-active", "is-resolved", "is-empty"); mark.style.removeProperty("--user-mark-solid"); mark.style.removeProperty("--user-mark-highlight"); mark.style.removeProperty("--user-mark-hover"); mark.style.removeProperty("--user-mark-dark"); }); media.forEach((element) => element.classList.remove("is-comment-active", "is-comment-resolved")); };
-  }, [activeThreadId, comments, editorRootRef, editor.state.doc.content.size, commentsVisible]);
+    const syncHighlightStyles = () => {
+      const marks = root.querySelectorAll<HTMLElement>("mark[data-comment-thread], mark[data-comment-threads]");
+      const media = root.querySelectorAll<HTMLElement>("[data-comment-node-id]");
+      marks.forEach((mark) => {
+        const ids = markThreadIds(mark).filter((id) => comments.some((thread) => thread.id === id));
+        mark.classList.toggle("is-empty", ids.length === 0);
+        const activeId = activeThreadId && ids.includes(activeThreadId) ? activeThreadId : ids[0];
+        const thread = comments.find((item) => item.id === activeId);
+        const color = userMarkColorStyle(thread?.createdByMarkColor, thread?.createdBy);
+        for (const [property, value] of Object.entries(color)) mark.style.setProperty(property, String(value));
+        mark.classList.toggle("is-active", !!activeThreadId && ids.includes(activeThreadId));
+        mark.classList.toggle("is-resolved", ids.length > 0 && ids.every((id) => comments.find((item) => item.id === id)?.resolvedAt));
+      });
+      media.forEach((element) => {
+        const thread = comments.find((item) => item.id === activeThreadId);
+        element.classList.toggle("is-comment-active", thread?.anchor.type === "image" && element.dataset.commentNodeId === thread.anchor.nodeId);
+        element.classList.toggle("is-comment-resolved", comments.some((item) => item.resolvedAt && item.anchor.type === "image" && item.anchor.nodeId === element.dataset.commentNodeId));
+      });
+    };
+    syncHighlightStyles();
+    // ProseMirror can recreate mark DOM even when the document size is unchanged.
+    editor.on("transaction", syncHighlightStyles);
+    return () => { editor.off("transaction", syncHighlightStyles); };
+  }, [activeThreadId, comments, editorRootRef, editor, commentsVisible]);
 
   useImperativeHandle(ref, () => ({
     focusGeneralComment() {
