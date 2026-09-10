@@ -188,30 +188,30 @@
     text-decoration-line: line-through;
   }
 
+  /* Stored anchors carry identity only; live comments opt into highlighting. */
   .wiki-comment-anchor {
-    @apply cursor-pointer rounded-sm decoration-2 underline-offset-2 transition;
+    color: inherit;
+    background: transparent;
+    border: none;
+    text-decoration: none;
+    box-shadow: none;
+  }
+
+  .wiki-comment-highlight {
+    @apply cursor-pointer rounded-sm decoration-2 underline-offset-2;
     background-color: var(--user-mark-highlight, rgb(245 158 11 / 0.3));
     border: 1px solid var(--user-mark-solid, rgb(180 83 9));
     text-decoration-line: underline;
     text-decoration-color: var(--user-mark-solid, rgb(180 83 9));
   }
 
-  .wiki-comment-anchor.is-resolved {
+  .wiki-comment-highlight.is-resolved {
     opacity: 0.62;
   }
 
-  .wiki-comment-anchor.is-active {
+  .wiki-comment-highlight.is-active {
     background-color: var(--user-mark-hover, rgb(245 158 11 / 0.42));
     box-shadow: 0 0 0 2px var(--user-mark-highlight, rgb(245 158 11 / 0.3));
-  }
-
-  .wiki-comment-anchor.is-empty {
-    color: inherit;
-    background: transparent;
-    border-color: transparent;
-    text-decoration: none;
-    box-shadow: none;
-    cursor: text;
   }
 
   .wiki-highlight {

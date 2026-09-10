@@ -85,7 +85,7 @@ test("selection comments stay beside their anchors and support replies and resol
   await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(1);
 
   await anchor.click();
-  await expect(anchor).toHaveClass(/is-active/);
+  await expect(editor.locator(".wiki-comment-highlight.is-active")).toHaveCount(1);
   await page.getByTestId(`comment-reply-${threadId}`).fill("Das ist jetzt präzisiert.");
   await card.getByRole("button", { name: "Antworten" }).click();
   await expect(card).toContainText("Das ist jetzt präzisiert.");
@@ -180,7 +180,7 @@ test("new selection comments can be edited, deleted and restored without reappea
   await expect(rail.getByText("Edited comment", { exact: true })).toBeVisible();
   await rail.getByRole("button", { name: "Kommentar löschen" }).click();
   await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
-  await expect(page.locator(".ProseMirror mark[data-comment-thread]")).toHaveClass(/is-empty/);
+  await expect(page.locator(".ProseMirror .wiki-comment-highlight")).toHaveCount(0);
   await expect(page.locator(".ProseMirror mark[data-comment-thread]")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await rail.getByRole("button", { name: "Rückgängig", exact: true }).click();
   await expect(rail.getByText("Edited comment", { exact: true })).toBeVisible();

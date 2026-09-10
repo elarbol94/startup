@@ -16,7 +16,9 @@ reconnect recovery. See [live-collaboration.md](live-collaboration.md).
 Open **Tools → Comments** or comment on a text/image selection. A thread can be
 opened with the keyboard using its heading button. Authors can edit or delete
 individual messages; **Undo** restores the last deleted message with its anchor.
-Deleting the last message hides its thread and highlight, including immediately
+Comment highlighting is an editor decoration derived from threads with existing
+messages; stored anchors alone never highlight text. Deleting the last message
+hides its thread and highlight, including immediately
 after creating it. Deleted highlights stay hidden when formatting changes or the
 document reloads; Undo restores their appearance. Replies from other people are retained. Failed changes show an
 error and retain the draft; pending submissions disable their composer.
