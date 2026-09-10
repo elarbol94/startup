@@ -31,13 +31,23 @@ export function getUserMarkColor(value: unknown) {
   return USER_MARK_COLORS.find((color) => color.key === value) ?? USER_MARK_COLORS[0];
 }
 
-export function userMarkColorStyle(value: unknown): CSSProperties {
+// Encode every code point so arbitrary account IDs cannot escape a CSS variable name.
+export function identityVariable(userId: string, variant: string) {
+  return `--identity-${Array.from(userId, char => char.codePointAt(0)!.toString(16)).join("-")}-${variant}`;
+}
+
+export function userIdentityColor(userId: string | null | undefined, variant: "solid" | "highlight" | "hover" | "dark" = "solid", fallback: unknown = undefined) {
+  const color = getUserMarkColor(fallback)[variant];
+  return userId ? `var(${identityVariable(userId, variant)}, ${color})` : color;
+}
+
+export function userMarkColorStyle(value: unknown, userId?: string | null): CSSProperties {
   const color = getUserMarkColor(value);
   return {
-    "--user-mark-solid": color.solid,
-    "--user-mark-highlight": color.highlight,
-    "--user-mark-hover": color.hover,
-    "--user-mark-dark": color.dark,
+    "--user-mark-solid": userIdentityColor(userId, "solid", color.key),
+    "--user-mark-highlight": userIdentityColor(userId, "highlight", color.key),
+    "--user-mark-hover": userIdentityColor(userId, "hover", color.key),
+    "--user-mark-dark": userIdentityColor(userId, "dark", color.key),
   } as CSSProperties;
 }
 

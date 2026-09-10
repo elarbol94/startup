@@ -83,7 +83,7 @@ function CommentCard({ thread, active, orphaned, currentUserId, onActivate, onRe
     data-testid={`comment-card-${thread.id}`}
     data-comment-thread={thread.id}
     className={cn("rounded-lg border p-3 text-xs shadow-sm transition", thread.resolvedAt && "opacity-75", active && "ring-2")}
-    style={{ ...userMarkColorStyle(thread.createdByMarkColor), borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)", boxShadow: active ? "0 0 0 2px var(--user-mark-highlight)" : undefined }}
+    style={{ ...userMarkColorStyle(thread.createdByMarkColor, thread.createdBy), borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)", boxShadow: active ? "0 0 0 2px var(--user-mark-highlight)" : undefined }}
     onClick={onActivate}
   >
     <div className="mb-2 flex items-center justify-between gap-2">
@@ -96,7 +96,7 @@ function CommentCard({ thread, active, orphaned, currentUserId, onActivate, onRe
     {thread.anchor.type !== "page" && <blockquote className="mb-2 line-clamp-3 border-l-2 pl-2 italic text-muted-foreground" style={{ borderColor: "var(--user-mark-solid)" }}>“{thread.anchor.type === "text" ? thread.anchor.quote : thread.anchor.label}”</blockquote>}
     {orphaned && <p className="mb-2 rounded bg-amber-50 px-2 py-1 font-medium text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">{t("orphaned")}</p>}
     <div className="space-y-2">
-      {thread.comments.map((comment, index) => <div key={comment.id} className={cn(index > 0 && "border-l-2 pl-2")} style={index > 0 ? { ...userMarkColorStyle(comment.createdByMarkColor), borderColor: "var(--user-mark-solid)" } : undefined}>
+      {thread.comments.map((comment, index) => <div key={comment.id} className={cn(index > 0 && "border-l-2 pl-2")} style={index > 0 ? { ...userMarkColorStyle(comment.createdByMarkColor, comment.createdBy), borderColor: "var(--user-mark-solid)" } : undefined}>
         {editingCommentId === comment.id ? <div className="space-y-2" onClick={(event) => event.stopPropagation()}>
           <Textarea disabled={pending} maxLength={10000} value={editBody} onChange={(event) => setEditBody(event.target.value)} rows={3} aria-label={t("commentRail.editComment")} />
           <div className="flex justify-end gap-1"><Button type="button" size="xs" variant="ghost" disabled={pending} onClick={() => { setEditingCommentId(null); setEditBody(""); }}>{t("commentRail.cancel")}</Button><Button type="button" size="xs" disabled={!editBody.trim() || pending} onClick={async () => { setPending(true); try { await onEditComment(comment.id, editBody.trim()); setEditingCommentId(null); setEditBody(""); } catch { toast.error(t("commentRail.operationFailed")); } finally { setPending(false); } }}>{t("commentRail.save")}</Button></div>
@@ -234,7 +234,7 @@ export const CommentRail = forwardRef<CommentRailHandle, {
       mark.classList.toggle("is-empty", ids.length === 0);
       const activeId = activeThreadId && ids.includes(activeThreadId) ? activeThreadId : ids[0];
       const thread = comments.find((item) => item.id === activeId);
-      const color = userMarkColorStyle(thread?.createdByMarkColor);
+      const color = userMarkColorStyle(thread?.createdByMarkColor, thread?.createdBy);
       for (const [property, value] of Object.entries(color)) mark.style.setProperty(property, String(value));
       mark.classList.toggle("is-active", !!activeThreadId && ids.includes(activeThreadId));
       mark.classList.toggle("is-resolved", ids.length > 0 && ids.every((id) => comments.find((item) => item.id === id)?.resolvedAt));
@@ -325,7 +325,7 @@ export const CommentRail = forwardRef<CommentRailHandle, {
           const anchor = anchors[layout.id];
           if (!anchor) return null;
           const thread = partitioned.anchored.find((item) => item.id === layout.id);
-          return <path key={layout.id} data-comment-thread={layout.id} d={`M ${anchor.x} ${anchor.top} C ${anchor.x + 18} ${anchor.top}, -18 ${layout.top + 24}, 0 ${layout.top + 24}`} fill="none" strokeWidth="0.75" style={{ ...userMarkColorStyle(thread?.createdByMarkColor), stroke: "var(--user-mark-solid)" }} />;
+          return <path key={layout.id} data-comment-thread={layout.id} d={`M ${anchor.x} ${anchor.top} C ${anchor.x + 18} ${anchor.top}, -18 ${layout.top + 24}, 0 ${layout.top + 24}`} fill="none" strokeWidth="0.75" style={{ ...userMarkColorStyle(thread?.createdByMarkColor, thread?.createdBy), stroke: "var(--user-mark-solid)" }} />;
         })}
       </svg>
       {layouts.map((layout) => {

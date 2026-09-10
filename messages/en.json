@@ -3649,16 +3649,16 @@
       "locations": "Business locations"
     },
     "profile": {
-      "title": "Personal marking color",
-      "description": "This color identifies your highlights, comments, and evidence throughout the workspace. Changing it updates your existing marks too.",
-      "previewLabel": "Your identity preview",
+      "title": "Your identity",
+      "description": "Choose the color people recognize you by throughout the platform: your avatar, assignments, calendar, comments, highlights and live collaboration. Changing it also updates your existing contributions.",
+      "previewLabel": "Your identity throughout the platform",
       "sampleText": "Marked text",
       "chooseColor": "Choose your color",
       "availabilityHint": "Colors used by other people remain visible so every author stays distinct.",
       "unavailable": "Already assigned to another user",
       "unavailableColor": "{color} is already assigned to another user",
       "conflict": "This color was just selected by another user. Availability has been refreshed.",
-      "saved": "Your marking color was updated",
+      "saved": "Your identity color was updated",
       "colors": {
         "amber": "Amber",
         "orange": "Orange",
@@ -4020,5 +4020,19 @@
     "error": "Changes could not be saved. Keep this page open.",
     "selected": "{count} selected",
     "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until saved."
+  },
+  "overviewDetails": {
+    "hint": "Review the details, then use the button to open the original location.",
+    "origin": "Created in",
+    "description": "Description",
+    "noDescription": "No description provided.",
+    "unavailable": "The original item is no longer available.",
+    "close": "Close",
+    "edit": "Edit",
+    "openOrigin": "Go to origin",
+    "news": "News",
+    "newsHint": "Your recent notifications. Click an item to see its details.",
+    "date": "When",
+    "actor": "From"
   }
 }

@@ -1,3 +1,4 @@
+import { UserIdentity } from "@/components/user-identity";
 import { getFormatter, getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -49,7 +50,7 @@ export default async function UsersSettingsPage() {
             <article key={user.id} className="rounded-xl border bg-background p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h2 className="truncate font-semibold">{user.name}</h2>
+                  <h2 className="truncate font-semibold"><UserIdentity userId={user.id} name={user.name} /></h2>
                   <p className="mt-1 truncate text-sm text-muted-foreground">{user.displayUsername ?? user.username}</p>
                 </div>
                 <div className="flex shrink-0 flex-wrap justify-end gap-1.5">
@@ -81,7 +82,7 @@ export default async function UsersSettingsPage() {
           <TableBody>
             {users.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="font-medium"><UserIdentity userId={user.id} name={user.name} /></TableCell>
                 <TableCell>{user.displayUsername ?? user.username}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>

@@ -152,6 +152,7 @@ export function getPdfReaderData(sourceId: string, documentId: string) {
 
 export function listEvidenceForTarget(targetType: EvidenceTargetType, targetId: string) {
   return db.select({
+    createdBy: wikiPdfAnnotations.createdBy,
     linkId: evidenceLinks.id,
     annotationId: wikiPdfAnnotations.id,
     sourceId: wikiPdfAnnotations.sourceId,

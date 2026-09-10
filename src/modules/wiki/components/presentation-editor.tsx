@@ -1,4 +1,5 @@
 "use client";
+import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { PresentationRichText } from "./presentation-rich-text";
 
@@ -629,7 +630,7 @@ function Editor({
   const nodes = useMemo(
     () => elementsToNodes(elements, { editable: !disabled, selectedIds: selectedSet, onTextChange, onGestureStart: startGesture, onGestureEnd: endGesture }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
-      return collaborators.length ? { ...node, style: { ...node.style, outline: "2px solid #6366f1", outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
+      return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
     [elements, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence],
   );

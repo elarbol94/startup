@@ -3651,16 +3651,16 @@
       "locations": "Betriebsstätten"
     },
     "profile": {
-      "title": "Persönliche Markierungsfarbe",
-      "description": "Diese Farbe kennzeichnet deine Markierungen, Kommentare und Nachweise im gesamten Arbeitsbereich. Eine Änderung färbt auch bestehende Markierungen neu.",
-      "previewLabel": "Vorschau deiner Kennzeichnung",
+      "title": "Deine Identität",
+      "description": "Wähle die Farbe, an der dich alle auf der Plattform erkennen: bei deinem Avatar, Zuweisungen, im Kalender, bei Kommentaren, Markierungen und der gemeinsamen Bearbeitung. Ein Farbwechsel aktualisiert auch deine bisherigen Beiträge.",
+      "previewLabel": "Deine Identität auf der gesamten Plattform",
       "sampleText": "Markierter Text",
       "chooseColor": "Farbe auswählen",
       "availabilityHint": "Farben anderer Nutzer bleiben sichtbar, damit jede Person eindeutig erkennbar ist.",
       "unavailable": "Bereits einem anderen Nutzer zugewiesen",
       "unavailableColor": "{color} ist bereits einem anderen Nutzer zugewiesen",
       "conflict": "Diese Farbe wurde gerade von einem anderen Nutzer gewählt. Die Verfügbarkeit wurde aktualisiert.",
-      "saved": "Deine Markierungsfarbe wurde aktualisiert",
+      "saved": "Deine Identitätsfarbe wurde aktualisiert",
       "colors": {
         "amber": "Bernstein",
         "orange": "Orange",
@@ -4022,5 +4022,19 @@
     "error": "Änderungen konnten nicht gespeichert werden. Diese Seite geöffnet lassen.",
     "selected": "{count} ausgewählt",
     "recoveryUnavailable": "Lokale Wiederherstellung nicht verfügbar. Bis zum Speichern diese Seite geöffnet lassen."
+  },
+  "overviewDetails": {
+    "hint": "Alle Details auf einen Blick. Über den Button gelangen Sie zum Ursprung.",
+    "origin": "Erstellt in",
+    "description": "Beschreibung",
+    "noDescription": "Keine Beschreibung hinterlegt.",
+    "unavailable": "Der ursprüngliche Eintrag ist nicht mehr verfügbar.",
+    "close": "Schließen",
+    "edit": "Bearbeiten",
+    "openOrigin": "Zum Ursprung",
+    "news": "Neuigkeiten",
+    "newsHint": "Ihre aktuellen Benachrichtigungen. Ein Klick zeigt die Details.",
+    "date": "Zeitpunkt",
+    "actor": "Von"
   }
 }

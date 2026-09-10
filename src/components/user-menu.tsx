@@ -7,7 +7,7 @@ import { Check, Globe, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { setLocale } from "@/i18n/actions";
 import { locales, type Locale } from "@/i18n/config";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { UserIdentity } from "@/components/user-identity";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,13 +29,6 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
   const [loggingOut, setLoggingOut] = useState(false);
   const [, startTransition] = useTransition();
 
-  const initials = name
-    .split(" ")
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   async function handleLogout() {
     if (loggingOut) return;
     setLoggingOut(true);
@@ -55,9 +48,7 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
         aria-label={compact ? `${name} (${email})` : undefined}
         className={`flex items-center rounded-md text-left hover:bg-accent/50 ${compact ? "size-10 justify-center p-1" : "w-full gap-3 px-2 py-1.5"}`}
       >
-        <Avatar className="size-8">
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-        </Avatar>
+        <UserIdentity name={name} avatarOnly className="[&>span:first-child]:size-8" />
         <div className={compact ? "hidden" : "min-w-0 flex-1"}>
           <p className="truncate text-sm font-medium">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{email}</p>

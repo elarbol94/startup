@@ -1,5 +1,7 @@
 "use client";
 
+import { UserIdentity } from "@/components/user-identity";
+
 import {
   createContext,
   useCallback,
@@ -327,7 +329,7 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
                   <SelectContent>
                     <SelectItem value={NONE}>{t("unassigned")}</SelectItem>
                     {options?.members.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                      <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

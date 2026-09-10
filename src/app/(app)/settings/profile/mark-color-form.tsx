@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { IDENTITY_CHANGED, useIdentityColor } from "@/components/user-identity";
+import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Check, LockKeyhole } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -23,10 +24,12 @@ type Availability = {
 };
 
 export function MarkColorForm({
+  userId,
   name,
   currentColor,
   availability,
 }: {
+  userId: string;
   name: string;
   currentColor: string;
   availability: Availability[];
@@ -34,7 +37,7 @@ export function MarkColorForm({
   const t = useTranslations("settings.profile");
   const router = useRouter();
   const common = useTranslations("common");
-  const [selected, setSelected] = useState<UserMarkColor>(getUserMarkColor(currentColor).key);
+  const selected = getUserMarkColor(useIdentityColor(userId, currentColor)).key;
   const [pending, startTransition] = useTransition();
   const availabilityByKey = new Map(availability.map((item) => [item.key, item]));
 
@@ -49,7 +52,7 @@ export function MarkColorForm({
           router.refresh();
           return;
         }
-        setSelected(color);
+        window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED, { detail: { id: userId, markColor: color } }));
         toast.success(t("saved"));
         router.refresh();
       } catch {
@@ -67,7 +70,7 @@ export function MarkColorForm({
       <div className="flex items-center gap-3">
         <span
           className="grid size-11 shrink-0 place-items-center rounded-full border-2 bg-background text-sm font-semibold"
-          style={{ ...userMarkColorStyle(selected), borderColor: "var(--user-mark-solid)", color: "var(--user-mark-solid)" }}
+          style={{ ...userMarkColorStyle(selected), borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-solid)", color: "white" }}
         >
           {initialsForName(name)}
         </span>

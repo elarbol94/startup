@@ -3,6 +3,7 @@ import {
   canonicalEntityHref,
   canonicalTaskHref,
   withTaskFocus,
+  withWorkItemFocus,
 } from "./routes";
 
 describe("context routes", () => {
@@ -37,5 +38,22 @@ describe("context routes", () => {
     expect(withTaskFocus("/wiki/source/read/pdf?page=6", "task one")).toBe(
       "/wiki/source/read/pdf?page=6&task=task%20one",
     );
+  });
+});
+
+describe("overview origin navigation", () => {
+  it("keeps PDF pages and fragment anchors before adding focus", () => {
+    expect(withWorkItemFocus("/wiki/sources/source/read/pdf?page=6#selection", "deadline one", "deadline"))
+      .toBe("/wiki/sources/source/read/pdf?page=6&deadline=deadline%20one#selection");
+  });
+  it("replaces stale task and deadline focus without losing section filters", () => {
+    expect(withWorkItemFocus("/calendar?view=week&task=old&deadline=older#day", "new", "task"))
+      .toBe("/calendar?view=week&task=new#day");
+  });
+  it("keeps fragment-only origins usable", () => {
+    expect(withTaskFocus("/wiki/pages/brief#notes", "one")).toBe("/wiki/pages/brief?task=one#notes");
+  });
+  it.each(["https://example.com", "//example.com", "/\\\\example.com"])("keeps invalid origin %s within the app", (route) => {
+    expect(withWorkItemFocus(route, "one", "task")).toBe("/?task=one");
   });
 });

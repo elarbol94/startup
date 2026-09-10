@@ -1,3 +1,6 @@
+import { getTranslations } from "next-intl/server";
+import { listNotifications } from "@/modules/wiki/research-queries";
+import { NotificationList } from "@/modules/wiki/components/notification-list";
 import { requireUser } from "@/lib/auth";
 import {
   getPersonalWorkSummary,
@@ -26,6 +29,8 @@ export default async function DashboardPage({
     requireUser(),
     searchParams,
   ]);
+  const t = await getTranslations("overviewDetails");
+  const notifications = listNotifications(user.id);
   const assignee = query.assignee || user.id;
   const priority = ["low", "medium", "high"].includes(query.priority || "") ? query.priority! : "all";
   const status = ["open", "done", "all"].includes(query.status || "") ? query.status! : "open";
@@ -67,6 +72,10 @@ export default async function DashboardPage({
           filters={{ assignee: deadlineAssignee, from: deadlineFrom, to: deadlineTo, status: deadlineStatus }}
         />
       </div>
+      <section className="overflow-hidden rounded-2xl border bg-card">
+        <header className="border-b px-5 py-4"><h2 className="font-semibold">{t("news")}</h2><p className="mt-1 text-xs text-muted-foreground">{t("newsHint")}</p></header>
+        <NotificationList items={notifications} />
+      </section>
     </div>
   );
 }

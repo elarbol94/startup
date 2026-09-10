@@ -573,18 +573,23 @@ export function listNotifications(userId: string) {
       threadId: wikiNotifications.threadId,
       taskId: wikiNotifications.taskId,
       actorName: user.name,
+      actorId: wikiNotifications.actorId,
       actorMarkColor: userProfilePreferences.markColor,
       pageTitle: wikiPages.title,
       pageSlug: wikiPages.slug,
       taskTitle: tasks.title,
+      taskDescription: tasks.description,
+      anchorQuote: wikiCommentThreads.anchorQuote,
       taskKind: tasks.kind,
       taskProjectId: tasks.projectId,
       taskRoute: taskContexts.route,
+      taskOrigin: taskContexts.label,
     })
     .from(wikiNotifications)
     .innerJoin(user, eq(wikiNotifications.actorId, user.id))
     .leftJoin(userProfilePreferences, eq(wikiNotifications.actorId, userProfilePreferences.userId))
     .leftJoin(wikiPages, eq(wikiNotifications.pageId, wikiPages.id))
+    .leftJoin(wikiCommentThreads, eq(wikiNotifications.threadId, wikiCommentThreads.id))
     .leftJoin(tasks, eq(wikiNotifications.taskId, tasks.id))
     .leftJoin(taskContexts, eq(wikiNotifications.taskId, taskContexts.taskId))
     .where(eq(wikiNotifications.userId, userId))
