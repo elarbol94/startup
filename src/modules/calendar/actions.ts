@@ -340,6 +340,11 @@ export async function moveCalendarEvent(input: {
     .map((row) => row.userId);
   const startAt = data.startAt ? new Date(data.startAt) : null;
   const endAt = data.endAt ? new Date(data.endAt) : null;
+  if (event.allDay) {
+    if (!data.startDate || !data.endDate || data.endDate <= data.startDate) throw new Error("Invalid all-day range");
+  } else if (!startAt || !endAt || endAt <= startAt) {
+    throw new Error("Invalid event time range");
+  }
   const conflicts =
     !event.allDay && startAt && endAt
       ? timedConflicts({
