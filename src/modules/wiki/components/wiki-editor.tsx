@@ -1297,15 +1297,19 @@ function CollaborativeWikiEditor({
       return;
     }
 
+    let disposed = false;
     let frame = 0;
     let typingTimer: ReturnType<typeof setTimeout> | null = null;
     const paginate = () => {
+      frame = 0;
+      if (disposed || editor.isDestroyed) return;
       const canvas = editorRootRef.current?.querySelector<HTMLElement>(".wiki-document-canvas");
       const proseMirror = editor.view.dom;
-      if (!canvas || !proseMirror.isConnected) return;
+      if (!canvas || !proseMirror.isConnected || canvas.offsetWidth <= 0 || proseMirror.getBoundingClientRect().width <= 0) return;
       // Dispatching into a running composition drops dead keys and IME candidates.
       // The update that ends the composition schedules the next run.
       if (editor.view.composing) return;
+      observeLayout();
 
       // The spacers are removed, measured against and restored within this single
       // frame, so no paint ever shows the collapsed page stack.
@@ -1395,7 +1399,9 @@ function CollaborativeWikiEditor({
     };
 
     const schedule = (delay = 0) => {
+      if (disposed || editor.isDestroyed) return;
       if (typingTimer) clearTimeout(typingTimer);
+      typingTimer = null;
       cancelAnimationFrame(frame);
       if (!delay) {
         frame = requestAnimationFrame(paginate);
@@ -1409,38 +1415,67 @@ function CollaborativeWikiEditor({
     // Re-measuring every block on each keystroke forces a full reflow and makes
     // typing lag; the mapped spacers stay put until the burst settles.
     const scheduleAfterTyping = () => schedule(PAGINATION_TYPING_DELAY);
-    const scheduleAfterReveal = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => { if (headingVisibilityChanged(transaction)) schedule(); };
-    const mediaResizeObserver = new ResizeObserver(() => schedule());
-    for (const element of editor.view.dom.querySelectorAll("img, figure, table")) {
-      mediaResizeObserver.observe(element);
-    }
+    const scheduleAfterReveal = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
+      if (headingVisibilityChanged(transaction)) schedule();
+      else if (transaction.docChanged) scheduleAfterTyping();
+    };
+    // Observe the actual mounted layout, including late React node views. Root
+    // height catches first-open reflow; child sizes also catch changes within the
+    // paper's minimum height. ResizeObserver compares final sizes, so removing
+    // and restoring identical spacers in one frame does not create a loop.
+    const observed = new Set<Element>();
+    const mediaResizeObserver = new ResizeObserver(() => {
+      if (!typingTimer) schedule();
+    });
+    const observeLayout = () => {
+      const canvas = editorRootRef.current?.querySelector<HTMLElement>(".wiki-document-canvas");
+      const targets = new Set<Element>([
+        ...(canvas ? [canvas] : []),
+        editor.view.dom,
+        ...Array.from(editor.view.dom.children).filter(element => !element.classList.contains("wiki-document-auto-page-break")),
+        ...editor.view.dom.querySelectorAll("img, figure, table"),
+      ]);
+      for (const element of observed) {
+        if (!targets.has(element)) {
+          mediaResizeObserver.unobserve(element);
+          observed.delete(element);
+        }
+      }
+      for (const element of targets) {
+        if (!observed.has(element)) {
+          observed.add(element);
+          mediaResizeObserver.observe(element);
+        }
+      }
+    };
+    observeLayout();
     const scheduleAfterMediaLoad = (event: Event) => {
       if (event.target instanceof HTMLImageElement) schedule();
     };
     const scheduleFromEvent = () => schedule();
     editor.view.dom.addEventListener("load", scheduleAfterMediaLoad, true);
     editor.view.dom.addEventListener("compositionend", scheduleAfterTyping);
-    let disposed = false;
+    document.fonts?.addEventListener("loadingdone", scheduleFromEvent);
     void document.fonts?.ready.then(() => {
       if (!disposed) schedule();
     });
-    editor.on("update", scheduleAfterTyping);
     editor.on("transaction", scheduleAfterReveal);
     window.addEventListener("resize", scheduleFromEvent);
-    paginate();
+    // EditorContent and React node views must finish mounting before measuring.
+    schedule();
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       if (typingTimer) clearTimeout(typingTimer);
       mediaResizeObserver.disconnect();
+      document.fonts?.removeEventListener("loadingdone", scheduleFromEvent);
       editor.view.dom.removeEventListener("load", scheduleAfterMediaLoad, true);
       editor.view.dom.removeEventListener("compositionend", scheduleAfterTyping);
-      editor.off("update", scheduleAfterTyping);
       editor.off("transaction", scheduleAfterReveal);
       window.removeEventListener("resize", scheduleFromEvent);
       setDocumentPaginationBreaks(editor, []);
     };
-  }, [documentMode, documentSettings.page, documentZoom, editor]);
+  }, [documentMode, documentSettings.page, documentZoom, editor, typography]);
   useEffect(() => { void pageVersion; }, [pageVersion]);
   useEffect(() => { if (commentFocusRequest > 0) commentRailRef.current?.focusGeneralComment(); }, [commentFocusRequest]);
   useEffect(() => {

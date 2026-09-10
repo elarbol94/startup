@@ -222,3 +222,10 @@ The document PDF rendering smoke test is `npx tsx scripts/verify-document-pdf.ts
 - Very large documents and long offline sessions need extended performance and
   endurance testing; the regression suite does not establish an unlimited size
   or uptime guarantee.
+
+## Document pagination
+
+Page breaks are measured after the editor mounts and recalculated when its rendered
+layout changes, including late fonts, images, shared content and typography settings.
+Hidden or zero-width editors wait for measurable layout. Typing is debounced and
+IME composition is allowed to finish before pagination decorations are changed.
