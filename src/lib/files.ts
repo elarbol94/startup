@@ -132,15 +132,48 @@ export function listAttachmentsFor(
     .all();
 }
 
+/** Preserve immutable bytes inside the existing upload store before deletion/overwrite. */
+export function retainAttachmentVersion(row: { storedName: string; sha256: string }) {
+  if (!/^[a-f0-9]{64}$/.test(row.sha256)) throw new UploadError("Invalid attachment digest");
+  const absolute = getAttachmentAbsolutePath(row.storedName);
+  if (!fs.existsSync(absolute)) return;
+  const directory = path.join(UPLOADS_PATH, ".history");
+  fs.mkdirSync(directory, { recursive: true });
+  const destination = path.join(directory, row.sha256);
+  if (!fs.existsSync(destination)) {
+    const bytes = fs.readFileSync(absolute);
+    if (crypto.createHash("sha256").update(bytes).digest("hex") !== row.sha256) throw new UploadError("Attachment content does not match its digest");
+    fs.writeFileSync(destination, bytes, { flag: "wx" });
+  }
+}
+
+/** Return verified historical bytes through the existing attachment path convention. */
+export function recoverAttachmentVersion(storedName: string, sha256: string) {
+  if (!/^[a-f0-9]{64}$/.test(sha256) || path.isAbsolute(storedName) || storedName.split(/[\\/]/).includes("..")) return null;
+  for (const candidate of [getAttachmentAbsolutePath(storedName), path.join(UPLOADS_PATH, ".history", sha256)]) {
+    if (!fs.existsSync(candidate)) continue;
+    const bytes = fs.readFileSync(candidate);
+    if (crypto.createHash("sha256").update(bytes).digest("hex") !== sha256) continue;
+    if (candidate === getAttachmentAbsolutePath(storedName)) return storedName;
+    const recoveredName = `${sha256.slice(0, 2)}/${crypto.randomUUID()}${path.extname(storedName)}`;
+    const destination = getAttachmentAbsolutePath(recoveredName);
+    fs.mkdirSync(path.dirname(destination), { recursive: true });
+    fs.writeFileSync(destination, bytes, { flag: "wx" });
+    return recoveredName;
+  }
+  return null;
+}
+
 export function deleteAttachment(id: string) {
   const row = getAttachment(id);
   if (!row) return;
+  retainAttachmentVersion(row);
   db.delete(attachments).where(eq(attachments.id, id)).run();
   const absolute = getAttachmentAbsolutePath(row.storedName);
   if (fs.existsSync(/* turbopackIgnore: true */ absolute)) fs.unlinkSync(/* turbopackIgnore: true */ absolute);
 }
 
-/** Removes all attachments (rows + files) for an entity, e.g. when it is deleted. */
+/** Removes active rows/files; immutable recovery bytes remain in the upload store. */
 export function deleteAttachmentsFor(
   entityType: AttachmentEntityType,
   entityId: string,
