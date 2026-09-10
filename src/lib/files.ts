@@ -136,29 +136,29 @@ export function listAttachmentsFor(
 export function retainAttachmentVersion(row: { storedName: string; sha256: string }) {
   if (!/^[a-f0-9]{64}$/.test(row.sha256)) throw new UploadError("Invalid attachment digest");
   const absolute = getAttachmentAbsolutePath(row.storedName);
-  if (!fs.existsSync(absolute)) return;
-  const directory = path.join(UPLOADS_PATH, ".history");
-  fs.mkdirSync(directory, { recursive: true });
-  const destination = path.join(directory, row.sha256);
-  if (!fs.existsSync(destination)) {
-    const bytes = fs.readFileSync(absolute);
+  if (!fs.existsSync(/* turbopackIgnore: true */ absolute)) return;
+  const directory = path.join(/* turbopackIgnore: true */ UPLOADS_PATH, ".history");
+  fs.mkdirSync(/* turbopackIgnore: true */ directory, { recursive: true });
+  const destination = path.join(/* turbopackIgnore: true */ directory, row.sha256);
+  if (!fs.existsSync(/* turbopackIgnore: true */ destination)) {
+    const bytes = fs.readFileSync(/* turbopackIgnore: true */ absolute);
     if (crypto.createHash("sha256").update(bytes).digest("hex") !== row.sha256) throw new UploadError("Attachment content does not match its digest");
-    fs.writeFileSync(destination, bytes, { flag: "wx" });
+    fs.writeFileSync(/* turbopackIgnore: true */ destination, bytes, { flag: "wx" });
   }
 }
 
 /** Return verified historical bytes through the existing attachment path convention. */
 export function recoverAttachmentVersion(storedName: string, sha256: string) {
   if (!/^[a-f0-9]{64}$/.test(sha256) || path.isAbsolute(storedName) || storedName.split(/[\\/]/).includes("..")) return null;
-  for (const candidate of [getAttachmentAbsolutePath(storedName), path.join(UPLOADS_PATH, ".history", sha256)]) {
-    if (!fs.existsSync(candidate)) continue;
-    const bytes = fs.readFileSync(candidate);
+  for (const candidate of [getAttachmentAbsolutePath(storedName), path.join(/* turbopackIgnore: true */ UPLOADS_PATH, ".history", sha256)]) {
+    if (!fs.existsSync(/* turbopackIgnore: true */ candidate)) continue;
+    const bytes = fs.readFileSync(/* turbopackIgnore: true */ candidate);
     if (crypto.createHash("sha256").update(bytes).digest("hex") !== sha256) continue;
     if (candidate === getAttachmentAbsolutePath(storedName)) return storedName;
     const recoveredName = `${sha256.slice(0, 2)}/${crypto.randomUUID()}${path.extname(storedName)}`;
     const destination = getAttachmentAbsolutePath(recoveredName);
-    fs.mkdirSync(path.dirname(destination), { recursive: true });
-    fs.writeFileSync(destination, bytes, { flag: "wx" });
+    fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(/* turbopackIgnore: true */ destination), { recursive: true });
+    fs.writeFileSync(/* turbopackIgnore: true */ destination, bytes, { flag: "wx" });
     return recoveredName;
   }
   return null;
