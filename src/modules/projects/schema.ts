@@ -3,6 +3,7 @@ import {
   text,
   integer,
   index,
+  primaryKey,
   type AnySQLiteColumn,
 } from "drizzle-orm/sqlite-core";
 import { createId } from "@paralleldrive/cuid2";
@@ -330,3 +331,12 @@ export const projectScheduleChangeItems = sqliteTable(
     index("project_schedule_change_items_project_idx").on(table.projectId),
   ],
 );
+
+/** Multiple equal assignees for tasks. Deadlines retain tasks.assigneeId. */
+export const taskAssignees = sqliteTable("task_assignees", {
+  taskId: text("task_id").notNull().references(() => tasks.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id),
+}, (table) => [
+  primaryKey({ columns: [table.taskId, table.userId] }),
+  index("task_assignees_user_idx").on(table.userId, table.taskId),
+]);

@@ -990,7 +990,8 @@
     "edit": "Bearbeiten",
     "overdue": "Überfällig",
     "sourceFallback": "Die genaue Markierung wurde nicht gefunden. Die zugehörige Seite wurde geöffnet.",
-    "markerLabel": "Verknüpfte Aufgabe"
+    "markerLabel": "Verknüpfte Aufgabe",
+    "assignees": "Zugewiesene Personen"
   },
   "deadlines": {
     "createDeadline": "Deadline erstellen",

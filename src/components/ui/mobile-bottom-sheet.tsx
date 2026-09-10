@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,15 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
+
+const mobileQuery = "(max-width: 1023px)";
+function subscribeMobile(listener: () => void) {
+  const media = window.matchMedia(mobileQuery);
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
+const getMobileSnapshot = () => window.matchMedia(mobileQuery).matches;
+const getServerSnapshot = () => false;
 
 type MobileBottomSheetProps = {
   open: boolean;
@@ -36,6 +46,8 @@ export function MobileBottomSheet({
   className,
   contentClassName,
 }: MobileBottomSheetProps) {
+  const isMobile = useSyncExternalStore(subscribeMobile, getMobileSnapshot, getServerSnapshot);
+  if (!isMobile) return null;
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent

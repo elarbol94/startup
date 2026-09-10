@@ -641,6 +641,16 @@ export function CalendarClient({
       return true;
     });
   }, [filters, visibleSources, workspace.items]);
+  const filteredUnscheduledTasks = useMemo(() => {
+    const query = filters.query.trim().toLocaleLowerCase();
+    if (!visibleSources.has("task")) return [];
+    return workspace.unscheduledTasks.filter((task) =>
+      (filters.people.length === 0 || filters.people.some((id) => task.assigneeIds.includes(id))) &&
+      (filters.projects.length === 0 || (task.projectId && filters.projects.includes(task.projectId))) &&
+      (!query || task.title.toLocaleLowerCase().includes(query)),
+    );
+  }, [filters, visibleSources, workspace.unscheduledTasks]);
+
 
   const days = useMemo(
     () => dateRange(range.from, range.to),
@@ -1726,7 +1736,7 @@ export function CalendarClient({
             />
           ) : (
             <UnscheduledTray
-              tasks={workspace.unscheduledTasks}
+              tasks={filteredUnscheduledTasks}
               t={t}
               onDragStart={(event, id) => {
                 setDraggingId(`task:${id}`);

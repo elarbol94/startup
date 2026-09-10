@@ -65,6 +65,11 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   await page.getByRole("button", { name: "Termin speichern" }).click();
 
   await expect(page.getByText("Weekly operations")).toBeVisible();
+  await page.getByText("Weekly operations", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Weekly operations" })).toBeVisible();
+  await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
+  await page.getByRole("button", { name: "Schließen", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Weekly operations" })).toHaveCount(0);
 });
 
 test("global new-event shortcut opens and clears the calendar dialog state", async ({
@@ -127,4 +132,12 @@ test("calendar defaults to agenda and exposes filters in bottom sheets on mobile
 
   const detailsSheet = page.getByRole("dialog", { name: "Details" });
   await expect(detailsSheet.getByRole("heading", { name: "Mobile review" })).toBeVisible();
+  await page.setViewportSize({ width: 1024, height: 900 });
+  await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Mobile review" })).toBeVisible();
+  await page.setViewportSize({ width: 1023, height: 900 });
+  await expect(detailsSheet.getByRole("heading", { name: "Mobile review" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(detailsSheet).toHaveCount(0);
+  await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
 });

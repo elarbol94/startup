@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -42,6 +41,7 @@ import {
 } from "@/components/ui/select";
 import {
   deadlineDayState,
+  deadlineEditOptions,
   isDeadlineOverdue,
 } from "../deadline-utils";
 import { useDeadlineCreator } from "./deadline-create-provider";
@@ -133,6 +133,10 @@ export function DeadlineOverview({
       next.delete("deadlineTo");
       next.delete("deadlineStatus");
     });
+  }
+
+  function editDeadline(deadline: OverviewDeadline) {
+    openDeadlineCreator(deadlineEditOptions(deadline, t("origins.app")));
   }
 
   function toggle(deadline: OverviewDeadline) {
@@ -255,35 +259,38 @@ export function DeadlineOverview({
                     ? t("tomorrow")
                     : null;
               return (
-                <article key={deadline.id} className="group grid min-h-24 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
-                  <Link
-                    href={deadline.href}
-                    className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring dark:border-amber-900"
+                <article key={deadline.id} className="group grid min-h-24 grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/30">
+                  <button
+                    type="button"
+                    onClick={() => editDeadline(deadline)}
+                    className="flex min-w-0 items-center gap-3 rounded-md text-left outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring"
                     aria-label={`${deadline.title}, ${format.dateTime(localDate(deadline.deadlineDate), { dateStyle: "medium" })}`}
                   >
-                    <span className={`py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white ${overdue ? "bg-red-600" : deadline.status === "done" ? "bg-emerald-600" : "bg-amber-600"}`}>
-                      {format.dateTime(localDate(deadline.deadlineDate), { month: "short" })}
-                    </span>
-                    <span className="py-1 font-mono text-base font-semibold leading-none">
-                      {Number(deadline.deadlineDate.slice(-2))}
-                    </span>
-                  </Link>
-                  <Link href={deadline.href} className="min-w-0 rounded-md outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-ring">
-                    <p className={`truncate text-sm font-semibold ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</p>
-                    {deadline.description && <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{deadline.description}</p>}
-                    <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                      <span className="flex min-w-0 items-center gap-1">
-                        <OriginIcon className="size-3.5 shrink-0" />
-                        <span className="max-w-40 truncate">{origin}</span>
+                    <span className="grid w-11 shrink-0 overflow-hidden rounded-lg border border-amber-200 bg-background text-center shadow-sm dark:border-amber-900">
+                      <span className={`py-0.5 text-[9px] font-semibold uppercase tracking-wider text-white ${overdue ? "bg-red-600" : deadline.status === "done" ? "bg-emerald-600" : "bg-amber-600"}`}>
+                        {format.dateTime(localDate(deadline.deadlineDate), { month: "short" })}
                       </span>
-                      <span>{deadline.assigneeName || t("unassigned")}</span>
-                      <span className={`font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
-                        {deadline.deadlineAt
-                          ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" })
-                          : t("allDay")}
+                      <span className="py-1 font-mono text-base font-semibold leading-none">
+                        {Number(deadline.deadlineDate.slice(-2))}
                       </span>
-                    </div>
-                  </Link>
+                    </span>
+                    <span className="min-w-0">
+                      <span className={`block truncate text-sm font-semibold ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</span>
+                      {deadline.description && <span className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{deadline.description}</span>}
+                      <span className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        <span className="flex min-w-0 items-center gap-1">
+                          <OriginIcon className="size-3.5 shrink-0" />
+                          <span className="max-w-40 truncate">{origin}</span>
+                        </span>
+                        <span>{deadline.assigneeName || t("unassigned")}</span>
+                        <span className={`font-mono ${overdue ? "font-medium text-destructive" : ""}`}>
+                          {deadline.deadlineAt
+                            ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" })
+                            : t("allDay")}
+                        </span>
+                      </span>
+                    </span>
+                  </button>
                   <div className="flex items-center gap-1">
                     <Badge variant={overdue ? "destructive" : "outline"}>
                       {stateLabel || t(`statuses.${deadline.status}`)}
@@ -291,27 +298,7 @@ export function DeadlineOverview({
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => openDeadlineCreator({
-                          deadline: {
-                            id: deadline.id,
-                            title: deadline.title,
-                            description: deadline.description,
-                            assigneeId: deadline.assigneeId,
-                            deadlineDate: deadline.deadlineDate,
-                            deadlineAt: deadline.deadlineAt,
-                            status: deadline.status,
-                          },
-                          origin: deadline.contextType && deadline.contextRoute ? {
-                            type: deadline.contextType,
-                            entityId: deadline.contextEntityId || "",
-                            route: deadline.contextRoute,
-                            label: origin,
-                            anchor: (() => {
-                              try { return JSON.parse(deadline.contextAnchorJson || "{}") as Record<string, unknown>; }
-                              catch { return {}; }
-                            })(),
-                          } : undefined,
-                        })}><Pencil />{t("edit")}</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => editDeadline(deadline)}><Pencil />{t("edit")}</DropdownMenuItem>
                         <DropdownMenuItem onClick={() => toggle(deadline)}>
                           {deadline.status === "done" ? <RotateCcw /> : <Check />}
                           {deadline.status === "done" ? t("reopen") : t("markDone")}

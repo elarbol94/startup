@@ -1,3 +1,4 @@
+import { assignedTo, unassignedTask, taskAssigneeFields } from "./assignees";
 import { and, asc, desc, eq, gte, isNull, lte, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
@@ -60,8 +61,7 @@ export function getBoard(projectId: string) {
       parentTaskId: tasks.parentTaskId,
       title: tasks.title,
       description: tasks.description,
-      assigneeId: tasks.assigneeId,
-      assigneeName: user.name,
+      ...taskAssigneeFields,
       dueDate: tasks.dueDate,
       startDate: tasks.startDate,
       progress: tasks.progress,
@@ -72,7 +72,6 @@ export function getBoard(projectId: string) {
       sortOrder: tasks.sortOrder,
     })
     .from(tasks)
-    .leftJoin(user, eq(tasks.assigneeId, user.id))
     .where(eq(tasks.projectId, projectId))
     .orderBy(asc(tasks.sortOrder), asc(tasks.createdAt), asc(tasks.id))
     .all();
@@ -112,8 +111,7 @@ export function getPortfolioSchedule() {
       columnIsCompleted: projectColumns.isCompleted,
       title: tasks.title,
       description: tasks.description,
-      assigneeId: tasks.assigneeId,
-      assigneeName: user.name,
+      ...taskAssigneeFields,
       startDate: tasks.startDate,
       dueDate: tasks.dueDate,
       progress: tasks.progress,
@@ -127,7 +125,6 @@ export function getPortfolioSchedule() {
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))
     .innerJoin(projectColumns, eq(tasks.columnId, projectColumns.id))
-    .leftJoin(user, eq(tasks.assigneeId, user.id))
     .where(eq(projects.status, "active"))
     .orderBy(
       asc(tasks.projectId),
@@ -229,8 +226,8 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
   if (filters.assigneeId && filters.assigneeId !== "all") {
     conditions.push(
       filters.assigneeId === "unassigned"
-        ? isNull(tasks.assigneeId)
-        : eq(tasks.assigneeId, filters.assigneeId),
+        ? unassignedTask
+        : assignedTo(filters.assigneeId),
     );
   }
   if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
@@ -242,8 +239,7 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
     .select({
       id: tasks.id,
       title: tasks.title,
-      assigneeId: tasks.assigneeId,
-      assigneeName: user.name,
+      ...taskAssigneeFields,
       priority: tasks.priority,
       status: tasks.status,
       dueDate: tasks.dueDate,
@@ -259,7 +255,6 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
       updatedAt: tasks.updatedAt,
     })
     .from(tasks)
-    .leftJoin(user, eq(tasks.assigneeId, user.id))
     .leftJoin(projects, eq(tasks.projectId, projects.id))
     .leftJoin(projectColumns, eq(tasks.columnId, projectColumns.id))
     .leftJoin(taskContexts, eq(tasks.id, taskContexts.taskId))
@@ -355,8 +350,7 @@ export function listTasksForContext(
       id: tasks.id,
       projectId: tasks.projectId,
       title: tasks.title,
-      assigneeId: tasks.assigneeId,
-      assigneeName: user.name,
+      ...taskAssigneeFields,
       priority: tasks.priority,
       status: tasks.status,
       dueDate: tasks.dueDate,
@@ -366,7 +360,6 @@ export function listTasksForContext(
     })
     .from(taskContexts)
     .innerJoin(tasks, eq(taskContexts.taskId, tasks.id))
-    .leftJoin(user, eq(tasks.assigneeId, user.id))
     .where(and(
       eq(taskContexts.type, type),
       eq(taskContexts.entityId, entityId),
@@ -423,43 +416,11 @@ export function getPersonalWorkSummary(userId: string) {
       eq(tasks.kind, "task"),
       isNull(tasks.projectId),
       eq(tasks.status, "open"),
-      eq(tasks.assigneeId, userId),
+      assignedTo(userId),
     ))
     .all();
 
-  const deadlineRows = db
-    .select({
-      id: tasks.id,
-      title: tasks.title,
-      deadlineDate: tasks.dueDate,
-      deadlineAt: tasks.deadlineAt,
-      contextRoute: taskContexts.route,
-    })
-    .from(tasks)
-    .leftJoin(taskContexts, eq(tasks.id, taskContexts.taskId))
-    .where(and(
-      eq(tasks.kind, "deadline"),
-      eq(tasks.status, "open"),
-      eq(tasks.assigneeId, userId),
-    ))
-    .orderBy(
-      asc(tasks.dueDate),
-      sql`${tasks.deadlineAt} IS NOT NULL`,
-      asc(tasks.deadlineAt),
-    )
-    .all()
-    .map((deadline) => {
-      const separator = deadline.contextRoute?.includes("?") ? "&" : "?";
-      return {
-        id: deadline.id,
-        title: deadline.title,
-        deadlineDate: deadline.deadlineDate ?? "",
-        deadlineAt: deadline.deadlineAt?.toISOString() ?? null,
-        href: deadline.contextRoute
-          ? `${deadline.contextRoute}${separator}deadline=${encodeURIComponent(deadline.id)}`
-          : "/",
-      };
-    });
+  const deadlineRows = listDeadlineOverview({ assigneeId: userId, status: "open" });
 
   return {
     openTaskCount: taskRows.length,
@@ -486,7 +447,7 @@ export function listMyTasks(userId: string) {
     .innerJoin(projectColumns, eq(tasks.columnId, projectColumns.id))
     .where(
       and(
-        eq(tasks.assigneeId, userId),
+        assignedTo(userId),
         eq(projects.status, "active"),
         isNull(tasks.parentTaskId),
       ),

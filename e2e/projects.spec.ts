@@ -58,6 +58,7 @@ test("create, move (via dialog) and complete a task", async ({ page }) => {
   await taskDialog.locator("#task-description").fill("Hero, Features, Kontakt");
   await taskDialog.locator("#task-assignee").click();
   await page.getByRole("option", { name: "E2E Admin" }).click();
+  await page.keyboard.press("Escape");
   await taskDialog.locator("#task-start").fill("2026-07-27");
   await taskDialog.locator("#task-due").fill("2026-07-31");
   await taskDialog.getByRole("button", { name: "Speichern" }).click();

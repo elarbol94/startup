@@ -990,7 +990,8 @@
     "edit": "Edit",
     "overdue": "Overdue",
     "sourceFallback": "The exact marker could not be found. The related page was opened.",
-    "markerLabel": "Linked task"
+    "markerLabel": "Linked task",
+    "assignees": "Assignees"
   },
   "deadlines": {
     "createDeadline": "Create deadline",

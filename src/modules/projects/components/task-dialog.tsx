@@ -1,5 +1,7 @@
 "use client";
 
+import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -40,7 +42,8 @@ export type BoardTaskDto = {
   parentTaskId: string | null;
   title: string;
   description: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  assignees: Array<{ id: string; name: string }>;
   assigneeName: string | null;
   dueDate: string | null;
   startDate: string | null;
@@ -50,7 +53,6 @@ export type BoardTaskDto = {
   sortOrder: number;
 };
 
-const UNASSIGNED = "unassigned";
 
 export function TaskDialog({
   open,
@@ -84,7 +86,7 @@ export function TaskDialog({
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [columnId, setColumnId] = useState("");
-  const [assigneeId, setAssigneeId] = useState<string>(UNASSIGNED);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [dueDate, setDueDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [progress, setProgress] = useState(0);
@@ -107,7 +109,7 @@ export function TaskDialog({
       setTitle(task?.title ?? "");
       setDescription(task?.description ?? "");
       setColumnId(task?.columnId ?? defaultColumnId ?? columns[0]?.id ?? "");
-      setAssigneeId(task?.assigneeId ?? UNASSIGNED);
+      setAssigneeIds(task?.assigneeIds ?? []);
       setDueDate(task?.dueDate ?? "");
       setStartDate(task?.startDate ?? "");
       setProgress(task?.progress ?? 0);
@@ -128,7 +130,7 @@ export function TaskDialog({
         parentTaskId: task?.parentTaskId ?? defaultParentTaskId,
         title,
         description,
-        assigneeId: assigneeId === UNASSIGNED ? null : assigneeId,
+        assigneeIds,
         startDate: startDate || null,
         dueDate: isMilestone ? startDate || null : dueDate || null,
         progress,
@@ -259,26 +261,8 @@ export function TaskDialog({
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="task-assignee">{t("assignee")}</Label>
-              <Select
-                value={assigneeId}
-                onValueChange={(value) => setAssigneeId(value ?? UNASSIGNED)}
-              >
-                <SelectTrigger className="w-full" id="task-assignee">
-                  <SelectValue>
-                    {assigneeId === UNASSIGNED
-                      ? t("unassigned")
-                      : (members.find((m) => m.id === assigneeId)?.name ?? "")}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={UNASSIGNED}>{t("unassigned")}</SelectItem>
-                  {members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <TaskAssigneeSelect id="task-assignee" value={assigneeIds} onChange={setAssigneeIds}
+                  members={members} assignedMembers={task?.assignees} />
             </div>
           </div>
 

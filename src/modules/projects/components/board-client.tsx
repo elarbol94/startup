@@ -266,12 +266,14 @@ function TaskCard({
             })}
           </span>
         )}
-        {task.assigneeName && (
-          <Avatar className="ml-auto size-5" title={task.assigneeName}>
-            <AvatarFallback className="text-[9px]">
-              {initials(task.assigneeName)}
-            </AvatarFallback>
-          </Avatar>
+        {task.assignees.length > 0 && (
+          <div className="ml-auto flex flex-wrap gap-1">
+            {task.assignees.map((person) => (
+              <Avatar key={person.id} className="size-5" title={person.name}>
+                <AvatarFallback className="text-[9px]">{initials(person.name)}</AvatarFallback>
+              </Avatar>
+            ))}
+          </div>
         )}
       </div>
       {subtasks.length > 0 && (

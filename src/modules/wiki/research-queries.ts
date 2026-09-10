@@ -578,6 +578,7 @@ export function listNotifications(userId: string) {
       pageSlug: wikiPages.slug,
       taskTitle: tasks.title,
       taskKind: tasks.kind,
+      taskProjectId: tasks.projectId,
       taskRoute: taskContexts.route,
     })
     .from(wikiNotifications)
@@ -592,6 +593,9 @@ export function listNotifications(userId: string) {
     .all()
     .map((notification) => ({
       ...notification,
+      taskRoute: notification.taskRoute ?? (notification.taskKind === "task"
+        ? notification.taskProjectId ? `/projects/${encodeURIComponent(notification.taskProjectId)}` : "/"
+        : null),
       actorMarkColor: resolveStoredUserMarkColor(notification.actorMarkColor),
     }));
 }

@@ -48,7 +48,8 @@ import type { TaskPriority, TaskStatus } from "../types";
 type OverviewTask = {
   id: string;
   title: string;
-  assigneeId: string | null;
+  assigneeIds: string[];
+  assignees: Array<{ id: string; name: string }>;
   assigneeName: string | null;
   priority: TaskPriority;
   status: TaskStatus;
@@ -277,7 +278,8 @@ export function TaskOverview({
                           task: {
                             id: task.id,
                             title: task.title,
-                            assigneeId: task.assigneeId,
+                            assigneeIds: task.assigneeIds,
+                            assignees: task.assignees,
                             priority: task.priority,
                             dueDate: task.dueDate,
                             status: task.status,
