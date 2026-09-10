@@ -16,7 +16,7 @@ import {
 } from "@/db/schema";
 import { linkSupportingSource, saveSource } from "./research-actions";
 import { graphicsSidecarSchema } from "./lib/source-input";
-import { deleteAttachment, getAttachmentAbsolutePath, saveAttachment } from "@/lib/files";
+import { deleteAttachment, getAttachmentAbsolutePath, retainAttachmentVersion, saveAttachment } from "@/lib/files";
 import { isSafeInlineSvg } from "@/lib/svg-upload";
 import { parseDocumentSettings } from "./lib/document-settings";
 import { applyDocumentTypography, type SvgDocument, type SvgElement } from "./lib/svg-typography";
@@ -324,6 +324,7 @@ export async function syncSvgAssetsFromFolder(input: {
       } else {
         const nextSvg = annotateSvg(decodeSvg(buffer, file.name));
         const attachment = db.select().from(attachments).where(eq(attachments.id, existing.attachmentId)).get();
+        if (attachment) retainAttachmentVersion(attachment);
         db.transaction(() => {
           db.insert(wikiSvgRevisions).values({
             assetId: existing.id,

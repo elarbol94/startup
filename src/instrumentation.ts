@@ -18,7 +18,7 @@ export async function register() {
   if (process.env.NEXT_PHASE === "phase-production-build") return;
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const { runMigrations } = await import("./db/migrate");
-    runMigrations();
+    await runMigrations();
     const { seedDefaults } = await import("./db/seed");
     seedDefaults();
     const { cleanupPerformanceEvents } = await import("./lib/performance");

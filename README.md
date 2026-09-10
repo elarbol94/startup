@@ -134,3 +134,12 @@ Changing a color preserves authorship and recolors existing contributions.
 Open pages refresh the identity palette every 15 seconds while visible and on
 focus, without reloading editors or replacing their unsaved content. The saving
 page updates immediately. Existing unique-color availability rules still apply.
+
+### Version Control
+
+Administrators can inspect saved-record history under **Settings → Version Control**,
+compare/download earlier values, and restore supported records with conflict checks
+and an audit trail. History starts at activation; coordinated financial and other
+protected workflows retain their module-specific correction rules. Include hidden
+`uploads/.history` files in backups. See [docs/version-control.md](docs/version-control.md)
+for coverage, restoration boundaries, retention and focused validation.

@@ -69,3 +69,27 @@ describe("durable collaboration", () => {
     await expect(savePresentation({ id, elements: [], steps: [] })).rejects.toThrow("Reload");
   });
 });
+
+it("restores a platform document version through the live collaboration stream", async () => {
+  const { installVersionJournal } = await import("@/modules/settings/version-control/journal");
+  const { previewRestore, restoreVersion, listVersions } = await import("@/modules/settings/version-control/store");
+  const { restoreHook } = await import("@/modules/settings/version-control/restore-hooks");
+  installVersionJournal(sqlite, ["wiki_pages", "wiki_presentations"]);
+  sqlite.exec("UPDATE user SET role='admin' WHERE id='a'");
+  const id = await page();
+  const room = loadRoom("page", id); const doc = clone(room.state);
+  const paragraph = doc.getXmlFragment("body").get(0) as Y.XmlElement;
+  const text = new Y.XmlText(); paragraph.insert(0, [text]); text.insert(0, "Accidental shared text");
+  applyRoomUpdate("page", id, encode(Y.encodeStateAsUpdate(doc)), viewer);
+  const version = listVersions(sqlite, { table: "wiki_pages" })[0];
+  const preview = previewRestore(sqlite, version.id, "before");
+  const sequence = loadRoom("page", id).sequence;
+  restoreVersion(sqlite, { id: version.id, side: "before", token: preview.token, reason: "Undo accidental text" }, "a", restoreHook);
+  const restored = loadRoom("page", id);
+  expect(restored.sequence).toBeGreaterThan(sequence);
+  expect(JSON.stringify(documentJSON(clone(restored.state)))).not.toContain("Accidental shared text");
+  const row = sqlite.prepare("SELECT content_json FROM wiki_pages WHERE id=?").get(id) as { content_json: string };
+  expect(JSON.parse(row.content_json)).toEqual(documentJSON(clone(restored.state)));
+  expect(sqlite.prepare("SELECT actor_id FROM platform_restores ORDER BY id DESC LIMIT 1").get()).toEqual({ actor_id: "a" });
+  doc.destroy();
+});
