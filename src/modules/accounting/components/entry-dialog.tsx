@@ -706,7 +706,7 @@ export function EntryDialog({
             </div>
           ) : (
             <form onSubmit={(event) => { event.preventDefault(); void save("finalized"); }}>
-              <div className="sticky top-0 z-10 border-b border-[#e0e6e3] dark:border-border bg-white/95 px-5 py-4 backdrop-blur sm:px-7">
+              <div className="sticky top-0 z-10 border-b border-[#e0e6e3] dark:border-border bg-white/95 dark:bg-card/95 px-5 py-4 backdrop-blur sm:px-7">
                 <button type="button" className="mb-2 inline-flex items-center gap-1 text-xs font-medium text-[#59716a] dark:text-muted-foreground hover:text-[#173c32] dark:hover:text-foreground" onClick={() => setStep("category")}><ArrowLeft className="size-3.5" />{tf("changeCategory")}</button>
                 <DialogHeader><p className="text-xs font-semibold tracking-[0.12em] text-[#71807a] dark:text-muted-foreground uppercase">{category?.name}</p><DialogTitle className="text-xl tracking-[-0.025em] text-[#173c32] dark:text-foreground">{entry && !isDuplicate ? t("editEntry") : t("newEntry")}</DialogTitle></DialogHeader>
               </div>
@@ -756,7 +756,7 @@ export function EntryDialog({
 
                 {warnings.length > 0 && <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-amber-950"><h3 className="font-medium">{tf("warnings.title")}</h3><ul className="mt-2 list-disc space-y-1 pl-5 text-sm">{warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul><div className="mt-3"><FieldLabel htmlFor="warning-reason">{tf("warnings.overrideReason")}</FieldLabel><Textarea id="warning-reason" rows={2} value={warningOverrideReason} onChange={(e) => setWarningOverrideReason(e.target.value)} placeholder={tf("warnings.overridePlaceholder")} /></div></section>}
               </div>
-              <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-[#dfe5e1] dark:border-border bg-white/95 px-5 py-4 backdrop-blur sm:px-7">
+              <div className="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-[#dfe5e1] dark:border-border bg-white/95 dark:bg-card/95 px-5 py-4 backdrop-blur sm:px-7">
                 {entry && !isDuplicate && <Button type="button" variant="destructive" size="sm" disabled={pending} onClick={() => void removeEntry()}><Trash2 className="size-4" />{entry.status === "draft" ? tf("deleteDraft") : tf("voidEntry")}</Button>}
                 {entry && template === "personnel" && !isDuplicate && <Button type="button" variant="outline" size="sm" disabled={pending} onClick={duplicatePersonnelMonth}>{tf("duplicatePersonnelMonth")}</Button>}
                 <div className="ml-auto flex gap-2"><Button type="button" variant="outline" disabled={pending || payrollSubmissionBlocked} onClick={() => void save("draft")}>{tf("saveDraft")}</Button><Button type="submit" disabled={pending || payrollSubmissionBlocked || !description.trim() || totals.gross <= 0 || (warnings.length > 0 && !warningOverrideReason.trim())}>{pending && <Loader2 className="size-4 animate-spin" />}{tf("finalize")}</Button></div>

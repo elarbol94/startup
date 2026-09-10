@@ -1180,14 +1180,28 @@
   max-width: 100%;
 }
 
-/* Authored ink colors need a light writing surface in either interface theme. */
-.dark .wiki-calm-document .wiki-note-workspace {
-  background: #f8fafc;
-  --background: #fff;
-  --foreground: #172033;
-  --muted-foreground: #64748b;
-  --border: #e2e8f0;
-  --accent: #eef2ff;
+/* Screen-only palette: stored document colors still drive printing and exports.
+   These variables are also supplied inline by the typography settings. */
+@media screen {
+  .dark :is(.wiki-editor-surface, .wiki-typography-preview) {
+    --wiki-text-color: var(--foreground) !important;
+    --wiki-muted-color: var(--muted-foreground) !important;
+    --wiki-accent-color: #a5b4fc !important;
+    --document-accent: #a5b4fc !important;
+  }
+
+  .dark :is(.wiki-document-page-sheet, .wiki-typography-preview, .wiki-document-page-break span) {
+    background-color: var(--card);
+  }
+
+  .dark .wiki-proposal-callout-warning { background: #d977061f; }
+  .dark .wiki-proposal-callout-decision { background: #0596691f; }
+  .dark .wiki-proposal-callout-assumption { background: #7c3aed1f; }
+  .dark .wiki-proposal-suggestion-delete { color: #fca5a5; }
+  .dark .wiki-document-variable {
+    color: var(--wiki-accent-color);
+    background: color-mix(in srgb, var(--wiki-accent-color) 15%, transparent);
+  }
 }
 
 [data-presentation-workspace] {
