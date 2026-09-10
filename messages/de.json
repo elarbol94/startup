@@ -177,7 +177,13 @@
     "importLimit": "Die Datei überschreitet die Importgrenzen.",
     "saveDraft": "Entwurf speichern",
     "cancel": "Abbrechen",
-    "coeditingAutomatic": "Gemeinsames Bearbeiten startet automatisch für alle mit Bearbeitungszugriff."
+    "coeditingAutomatic": "Gemeinsames Bearbeiten startet automatisch für alle mit Bearbeitungszugriff.",
+    "editComment": "Kommentar bearbeiten",
+    "deleteComment": "Kommentar löschen",
+    "deleteCommentConfirm": "Diesen Kommentar endgültig löschen?",
+    "saveComment": "Speichern",
+    "cancelComment": "Abbrechen",
+    "selectionOnly": "Nur Kommentare zur Auswahl"
   },
   "common": {
     "appName": "management-platform",
@@ -2645,7 +2651,8 @@
       "hideResolved": "Nur offene",
       "noOpenComments": "Keine offenen Kommentare.",
       "mobileTitle": "Kommentare",
-      "mobileDescription": "Kommentare zur Seite sowie zu markiertem Text und Bildern"
+      "mobileDescription": "Kommentare zur Seite sowie zu markiertem Text und Bildern",
+      "operationFailed": "Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen."
     },
     "restore": "Wiederherstellen",
     "restoreRevisionConfirm": "Diese Version wiederherstellen? Die aktuelle Seite bleibt im Verlauf.",
@@ -3621,7 +3628,10 @@
           "Ränder"
         ]
       }
-    }
+    },
+    "deleteReply": "Antwort löschen",
+    "deleteReplyConfirm": "Diese Antwort endgültig löschen?",
+    "commentFailed": "Änderung fehlgeschlagen. Bitte erneut versuchen."
   },
   "settings": {
     "appearance": {

@@ -140,6 +140,18 @@ export async function updatePdfAnnotationComment(input: { id: string; body: stri
   return { id: comment.id, body: data.body };
 }
 
+export async function deletePdfAnnotationComment(commentId: string) {
+  const currentUser = await requireUserOrThrow();
+  const id = z.string().min(1).parse(commentId);
+  const comment = db.select({ createdBy: wikiPdfAnnotationComments.createdBy, sourceId: wikiPdfAnnotations.sourceId })
+    .from(wikiPdfAnnotationComments).innerJoin(wikiPdfAnnotations, eq(wikiPdfAnnotationComments.annotationId, wikiPdfAnnotations.id))
+    .where(and(eq(wikiPdfAnnotationComments.id, id), isNull(wikiPdfAnnotations.deletedAt))).get();
+  if (!comment) throw new Error("Comment not found");
+  if (comment.createdBy !== currentUser.id && currentUser.role !== "admin") throw new Error("Forbidden");
+  db.delete(wikiPdfAnnotationComments).where(eq(wikiPdfAnnotationComments.id, id)).run();
+  revalidatePath(`/wiki/sources/${comment.sourceId}`, "page");
+}
+
 export async function linkPdfEvidence(input: { annotationId: string; targetType: (typeof evidenceTargetTypes)[number]; targetId: string }) {
   const currentUser = await requireUserOrThrow();
   const data = z.object({ annotationId: z.string().min(1), targetType: z.enum(evidenceTargetTypes), targetId: z.string().min(1) }).parse(input);

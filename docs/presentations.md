@@ -10,6 +10,17 @@ uploaded video and audio. The editor, player, previews and PDF export share the
 stored content model. Internal editing and live following require sign-in;
 owners can explicitly publish a separate read-only link or website embed.
 
+## Comments
+
+**Tools → Comments** lists canvas and object feedback together. Select **Only
+comments on selection** to narrow the list explicitly. Authors with commenting
+access can edit or permanently delete their own feedback; deletion asks for
+confirmation. Resolve/reopen remains available to commenters and editors.
+Failed edits retain their draft, and sending disables the composer until completion.
+
+Focused coverage: the comment-management cases in `presentation-actions.test.ts`
+and the inspector comment case in `e2e/presentation-studio.spec.ts`.
+
 ## Built-in templates
 
 **New → Blank or template** opens a gallery of fourteen complete designs for pitches,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -27,12 +27,18 @@ export function PresentationLibraryPanel({ section, id, selectedId, canEdit, flu
   const [search, setSearch] = useState("");
   const [name, setName] = useState("");
   const [comment, setComment] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editBody, setEditBody] = useState("");
+  const [selectionOnly, setSelectionOnly] = useState(false);
+  const requestVersion = useRef(0);
   const [shareUrl, setShareUrl] = useState("");
   const [theme, setTheme] = useState<Theme>({ background: "#ffffff", foreground: "#172033", accent: "#6366f1", font: "sans" });
   const refresh = useCallback(async () => {
+    const version = ++requestVersion.current;
     const response = await fetch(`/api/wiki/presentations/${id}/studio`, { cache: "no-store" });
     if (!response.ok) throw new Error("Unavailable");
-    setStudio(await response.json()); setError(false);
+    const result = await response.json();
+    if (version === requestVersion.current) { setStudio(result); setError(false); }
   }, [id]);
   useEffect(() => {
     let disposed = false;
@@ -41,7 +47,7 @@ export function PresentationLibraryPanel({ section, id, selectedId, canEdit, flu
     return () => { disposed = true; clearInterval(timer); };
   }, [refresh]);
   const act = async (data: Record<string, unknown>, apply?: (result: { token?: string | null; snapshot?: PresentationSnapshot; attachmentId?: string }) => void) => {
-    if (busy) return; setBusy(true);
+    if (busy) return; setBusy(true); requestVersion.current += 1;
     try {
       if (canEdit && !await flush()) return;
       const response = await fetch(`/api/wiki/presentations/${id}/studio`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
@@ -96,9 +102,10 @@ export function PresentationLibraryPanel({ section, id, selectedId, canEdit, flu
       <p className="text-xs text-muted-foreground">{t("offlineHint")}</p>
     </section>
     <section hidden={section !== "comments"} className="space-y-4" aria-label={t("comments")}>
-      {studio && studio.role !== "view" && <><p className="text-xs text-muted-foreground">{selectedId ? t("commentOnSelection") : t("commentOnCanvas")}</p><textarea data-workspace-autofocus className="w-full rounded-md border p-2 text-sm" aria-label={t("newComment")} rows={3} maxLength={3000} value={comment} onChange={(event) => setComment(event.target.value)} /><Button type="button" size="sm" disabled={busy || !comment.trim()} onClick={() => void act({ action: "comment", elementId: selectedId, body: comment }, () => setComment(""))}>{t("postComment")}</Button></>}
-      {!studio?.comments.length && <p className="text-xs text-muted-foreground">{t("noComments")}</p>}
-      {studio?.comments.filter((entry) => !selectedId || entry.elementId === selectedId).map((entry) => <article key={entry.id} className={`border-t pt-2 text-xs ${entry.resolved ? "opacity-60" : ""}`}><p className="font-medium">{entry.author} {entry.resolved && `(${t("resolved")})`}</p><p className="my-1 whitespace-pre-wrap break-words">{entry.body}</p><div className="flex gap-2">{entry.elementId && <button className="underline" type="button" onClick={() => onSelect(entry.elementId!)}>{t("showObject")}</button>}{studio.role !== "view" && <button className="underline" type="button" disabled={busy} onClick={() => void act({ action: "resolve", commentId: entry.id, resolved: !entry.resolved })}>{entry.resolved ? t("reopen") : t("resolve")}</button>}</div></article>)}
+      {studio && studio.role !== "view" && <><p className="text-xs text-muted-foreground">{selectedId ? t("commentOnSelection") : t("commentOnCanvas")}</p><textarea data-workspace-autofocus className="w-full rounded-md border p-2 text-sm" aria-label={t("newComment")} rows={3} disabled={busy} maxLength={3000} value={comment} onChange={(event) => setComment(event.target.value)} /><Button type="button" size="sm" disabled={busy || !comment.trim()} onClick={() => void act({ action: "comment", elementId: selectedId, body: comment }, () => setComment(""))}>{t("postComment")}</Button></>}
+      {selectedId && <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectionOnly} onChange={(event) => setSelectionOnly(event.target.checked)} />{t("selectionOnly")}</label>}
+      {!studio?.comments.filter((entry) => !selectionOnly || !selectedId || entry.elementId === selectedId).length && <p className="text-xs text-muted-foreground">{t("noComments")}</p>}
+      {studio?.comments.filter((entry) => !selectionOnly || !selectedId || entry.elementId === selectedId).map((entry) => <article key={entry.id} className={`border-t pt-2 text-xs ${entry.resolved ? "opacity-60" : ""}`}><p className="font-medium">{entry.author} {entry.resolved && `(${t("resolved")})`}</p>{editingId === entry.id ? <div className="my-2 space-y-2"><textarea aria-label={t("editComment")} className="w-full rounded-md border p-2 text-sm" rows={3} maxLength={3000} disabled={busy} value={editBody} onChange={(event) => setEditBody(event.target.value)} /><div className="flex gap-2"><Button type="button" size="xs" disabled={busy || !editBody.trim()} onClick={() => void act({ action: "editComment", commentId: entry.id, body: editBody }, () => setEditingId(null))}>{t("saveComment")}</Button><Button type="button" size="xs" variant="ghost" disabled={busy} onClick={() => setEditingId(null)}>{t("cancelComment")}</Button></div></div> : <p className="my-1 whitespace-pre-wrap break-words">{entry.body}</p>}<div className="flex flex-wrap gap-2">{entry.canManage && editingId !== entry.id && <><button className="underline" type="button" disabled={busy} onClick={() => { setEditingId(entry.id); setEditBody(entry.body); }}>{t("editComment")}</button><button className="text-destructive underline" type="button" disabled={busy} onClick={() => { if (window.confirm(t("deleteCommentConfirm"))) void act({ action: "deleteComment", commentId: entry.id }); }}>{t("deleteComment")}</button></>}{entry.elementId && <button className="underline" type="button" onClick={() => onSelect(entry.elementId!)}>{t("showObject")}</button>}{studio.role !== "view" && <button className="underline" type="button" disabled={busy} onClick={() => void act({ action: "resolve", commentId: entry.id, resolved: !entry.resolved })}>{entry.resolved ? t("reopen") : t("resolve")}</button>}</div></article>)}
     </section>
   </div>;
 }

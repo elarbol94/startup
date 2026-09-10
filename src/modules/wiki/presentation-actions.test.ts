@@ -236,3 +236,35 @@ describe("template palette creation", () => {
     expect(sqlite.prepare("SELECT count(*) AS count FROM wiki_presentations").get()).toEqual({ count: 0 });
   });
 });
+
+describe("presentation comment management", () => {
+  it("edits and deletes own comments, rejects empty bodies and comments from another presentation", async () => {
+    const { id } = await createPresentation({ title: "Comments" });
+    const other = await createPresentation({ title: "Other" });
+    await changePresentationStudio(id, { action: "comment", body: "Original" });
+    const comment = sqlite.prepare("SELECT id FROM wiki_presentation_comments WHERE presentation_id = ?").get(id) as { id: string };
+    await expect(changePresentationStudio(id, { action: "editComment", commentId: comment.id, body: " " })).rejects.toThrow();
+    await expect(changePresentationStudio(other.id, { action: "deleteComment", commentId: comment.id })).rejects.toThrow();
+    await changePresentationStudio(id, { action: "editComment", commentId: comment.id, body: " Updated " });
+    expect(sqlite.prepare("SELECT body FROM wiki_presentation_comments WHERE id = ?").get(comment.id)).toEqual({ body: "Updated" });
+    await changePresentationStudio(id, { action: "deleteComment", commentId: comment.id });
+    expect(sqlite.prepare("SELECT id FROM wiki_presentation_comments WHERE id = ?").get(comment.id)).toBeUndefined();
+  });
+
+  it("allows commenters to manage their own feedback, protects other authors and rechecks downgraded access", async () => {
+    const { id } = await createPresentation({ title: "Comments" });
+    await changePresentationStudio(id, { action: "comment", body: "Author feedback" });
+    const authorComment = sqlite.prepare("SELECT id FROM wiki_presentation_comments WHERE presentation_id = ?").get(id) as { id: string };
+    await changePresentationStudio(id, { action: "member", userId: "other", role: "comment" });
+    vi.mocked(requireUserOrThrow).mockResolvedValue({ id: "other", name: "Other" } as Awaited<ReturnType<typeof requireUserOrThrow>>);
+    for (const action of ["editComment", "deleteComment"]) {
+      await expect(changePresentationStudio(id, { action, commentId: authorComment.id, body: "Overwrite" })).rejects.toThrow();
+    }
+    await changePresentationStudio(id, { action: "comment", body: "Own feedback" });
+    const own = sqlite.prepare("SELECT id FROM wiki_presentation_comments WHERE author_id = 'other'").get() as { id: string };
+    await changePresentationStudio(id, { action: "editComment", commentId: own.id, body: "Own edit" });
+    sqlite.prepare("UPDATE wiki_presentation_members SET role = 'view' WHERE presentation_id = ? AND user_id = 'other'").run(id);
+    await expect(changePresentationStudio(id, { action: "deleteComment", commentId: own.id })).rejects.toThrow();
+    expect(sqlite.prepare("SELECT body FROM wiki_presentation_comments WHERE id = ?").get(own.id)).toEqual({ body: "Own edit" });
+  });
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useMemo, useReducer, useRef, useState, type ReactNode, type SetStateAction, type CSSProperties, type RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef, useState, type ReactNode, type SetStateAction, type CSSProperties, type RefObject } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -753,7 +753,7 @@ function CollaborativeWikiEditor({
     parseDocumentSettings(initialDocumentSettings),
     citationLocale,
   );
-  const [conflictRevision] = useState<string | null>(null); const [activeThreadId, setActiveThreadId] = useState<string | null>(null); const [optimisticCommentThreads, setOptimisticCommentThreads] = useState<CommentThread[]>([]); const [commentFocusRequest, setCommentFocusRequest] = useState(0); const [inlineImagePickerOpen, setInlineImagePickerOpen] = useState(false); const [commentOpen, setCommentOpen] = useState(false); const [commentBody, setCommentBody] = useState(""); const [pendingAnchor, setPendingAnchor] = useState<CommentAnchor | null>(null); const [regionTarget, setRegionTarget] = useState<{ nodeId: string; label: string } | null>(null); const [imageError, setImageError] = useState(""); const [imageUploading, setImageUploading] = useState(false); const [assigneeId, setAssigneeId] = useState("none");
+  const [conflictRevision] = useState<string | null>(null); const [activeThreadId, setActiveThreadId] = useState<string | null>(null); const [commentFocusRequest, setCommentFocusRequest] = useState(0); const [inlineImagePickerOpen, setInlineImagePickerOpen] = useState(false); const [commentOpen, setCommentOpen] = useState(false); const [commentBody, setCommentBody] = useState(""); const [pendingAnchor, setPendingAnchor] = useState<CommentAnchor | null>(null); const [regionTarget, setRegionTarget] = useState<{ nodeId: string; label: string } | null>(null); const [imageError, setImageError] = useState(""); const [imageUploading, setImageUploading] = useState(false); const [assigneeId, setAssigneeId] = useState("none");
   const figureLibrary = useFigureLibrary(pageId, t("figures.staleExport"));
   const [figureReferenceOpen, setFigureReferenceOpen] = useState(false);
   const [figureTargetId, setFigureTargetId] = useState("");
@@ -761,10 +761,9 @@ function CollaborativeWikiEditor({
   const [preferredSvgId, setPreferredSvgId] = useState("");
   const uploadControllers = useRef(new Set<AbortController>());
   useEffect(() => () => { uploadControllers.current.forEach((controller) => controller.abort()); }, []);
-  const commentThreads = useMemo(
-    () => [...optimisticCommentThreads.filter((thread) => !comments.some((item) => item.id === thread.id)), ...comments],
-    [comments, optimisticCommentThreads],
-  );
+  const commentThreads = comments;
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const commentSubmittingRef = useRef(false);
   const [typographyFocus, setTypographyFocus] = useState<"bodySizePt" | "lineHeight" | undefined>();
   const [marginFocusRequest, setMarginFocusRequest] = useState(0);
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
@@ -2042,19 +2041,22 @@ function CollaborativeWikiEditor({
     } else insertImageWithCaption(attachment);
   }
   async function submitComment() {
-    if (!pendingAnchor || !commentBody.trim()) return;
-    const result = await addComment({ pageId, body: commentBody, anchor: pendingAnchor, assigneeId: assigneeId === "none" ? null : assigneeId });
-    if (pendingAnchor.type === "text" && selection.current) addThreadMark(activeEditor, selection.current, result.threadId);
-    setOptimisticCommentThreads((current) => [result.thread, ...current.filter((thread) => thread.id !== result.threadId)]);
-    setActiveThreadId(result.threadId);
-    setCommentsVisible(true);
-    commentRailRef.current?.openMobile();
-    setCommentOpen(false);
-    setCommentBody("");
-    setPendingAnchor(null);
-    setAssigneeId("none");
-    selection.current = null;
-    router.refresh();
+    if (!pendingAnchor || !commentBody.trim() || commentSubmittingRef.current) return;
+    commentSubmittingRef.current = true; setCommentSubmitting(true);
+    try {
+      const result = await addComment({ pageId, body: commentBody, anchor: pendingAnchor, assigneeId: assigneeId === "none" ? null : assigneeId });
+      if (pendingAnchor.type === "text" && selection.current) addThreadMark(activeEditor, selection.current, result.threadId);
+      setActiveThreadId(result.threadId);
+      setCommentsVisible(true);
+      commentRailRef.current?.openMobile();
+      setCommentOpen(false);
+      setCommentBody("");
+      setPendingAnchor(null);
+      setAssigneeId("none");
+      selection.current = null;
+      router.refresh();
+    } catch { toast.error(t("commentRail.operationFailed")); }
+    finally { commentSubmittingRef.current = false; setCommentSubmitting(false); }
   }
   function discardDraftAndReload() {
     discardingDraft.current = true;
@@ -2438,7 +2440,7 @@ function CollaborativeWikiEditor({
         onReplace={replaceCurrentProofingIssue} onReplaceAll={replaceAllCurrentProofingIssue} onIgnore={ignoreCurrentProofingIssue}
         onDictionary={() => void addCurrentWordToDictionary()} onDisableRule={disableCurrentProofingRule}
         editable={activeEditor.isEditable} busy={proofingDictionarySaving} />}
-      <CommentAnchorOverlay comments={commentThreads} editor={editor} rootRef={editorRootRef} activeThreadId={activeThreadId} onActiveThreadChange={(id) => { setActiveThreadId(id); setPanel("comments"); }} />
+      <CommentAnchorOverlay comments={commentThreads} editor={editor} rootRef={editorRootRef} activeThreadId={activeThreadId} onActiveThreadChange={(id) => { commentRailRef.current?.activateThread(id); setPanel("comments"); }} />
     </div>
     <WorkspacePanel title={panel === "outline" ? t("editor.outline.title") : panel === "comments" ? t("comments") : panel === "layout" ? t("document.panelTitle") : panel === "image" ? t("figures.panelTitle") : t("documentDetails")} open={panel !== null} onClose={() => setPanel(null)} className="sticky top-16 max-h-[calc(100dvh-5rem)] overflow-y-auto">
     <div hidden={panel !== "details"}>{details}</div>
@@ -2481,7 +2483,7 @@ function CollaborativeWikiEditor({
   </footer>}
   {regionTarget && <ImageRegionSelector rootRef={editorRootRef} {...regionTarget} onCancel={() => setRegionTarget(null)} onSelect={(anchor) => { setRegionTarget(null); openCommentComposer(anchor); }} />}
   <SvgGraphicsPanel preferredId={preferredSvgId} pageId={pageId} open={graphicsOpen} onOpenChange={setGraphicsOpen} variables={{ title: pageTitle, author: documentSettings.metadata.author, ...documentSettings.variables }} documentSettings={documentSettings} typography={typography} onDocumentSettingsChange={changeDocumentSettings} onAssetReady={handleSvgAssetReady} />
-  <Dialog open={commentOpen} onOpenChange={(open) => { setCommentOpen(open); if (!open) setPendingAnchor(null); }}><DialogContent className="w-[min(26rem,calc(100vw-2rem))]"><DialogHeader><DialogTitle>{pendingAnchor?.type === "image" ? t("imageComment") : t("inlineComment")}</DialogTitle></DialogHeader>{pendingAnchor?.type !== "page" && pendingAnchor && <blockquote className="border-l-2 border-amber-400 pl-3 text-sm italic text-muted-foreground">{pendingAnchor.type === "text" ? pendingAnchor.quote : pendingAnchor.label}</blockquote>}<Textarea autoFocus value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t("commentPlaceholder")} /><Select value={assigneeId} onValueChange={(value) => setAssigneeId(value ?? "none")}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{users.map((person) => <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>)}</SelectContent></Select><Button onClick={submitComment} disabled={!commentBody.trim()}>{t("addComment")}</Button></DialogContent></Dialog>
+  <Dialog open={commentOpen} onOpenChange={(open) => { if (commentSubmitting) return; setCommentOpen(open); if (!open) setPendingAnchor(null); }}><DialogContent className="w-[min(26rem,calc(100vw-2rem))]"><DialogHeader><DialogTitle>{pendingAnchor?.type === "image" ? t("imageComment") : t("inlineComment")}</DialogTitle></DialogHeader>{pendingAnchor?.type !== "page" && pendingAnchor && <blockquote className="border-l-2 border-amber-400 pl-3 text-sm italic text-muted-foreground">{pendingAnchor.type === "text" ? pendingAnchor.quote : pendingAnchor.label}</blockquote>}<Textarea disabled={commentSubmitting} maxLength={10000} aria-label={t("commentPlaceholder")} autoFocus value={commentBody} onChange={(event) => setCommentBody(event.target.value)} placeholder={t("commentPlaceholder")} /><Select disabled={commentSubmitting} value={assigneeId} onValueChange={(value) => setAssigneeId(value ?? "none")}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{users.map((person) => <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>)}</SelectContent></Select><Button onClick={submitComment} disabled={commentSubmitting || !commentBody.trim()}>{t("addComment")}</Button></DialogContent></Dialog>
   {commandSearchOpen && <EditorCommandSearch commands={commandSearchCommands} onClose={closeCommandSearch} onExecute={(command) => {
     const current = buildEditorCommands().find((candidate) => candidate.id === command.id);
     if (!current || current.disabledReason) return;

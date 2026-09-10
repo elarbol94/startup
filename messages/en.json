@@ -177,7 +177,13 @@
     "importLimit": "The file exceeds the import limits.",
     "saveDraft": "Save draft",
     "cancel": "Cancel",
-    "coeditingAutomatic": "Live editing starts automatically for everyone with edit permission."
+    "coeditingAutomatic": "Live editing starts automatically for everyone with edit permission.",
+    "editComment": "Edit comment",
+    "deleteComment": "Delete comment",
+    "deleteCommentConfirm": "Permanently delete this comment?",
+    "saveComment": "Save",
+    "cancelComment": "Cancel",
+    "selectionOnly": "Only comments on selection"
   },
   "common": {
     "appName": "management-platform",
@@ -2645,7 +2651,8 @@
       "hideResolved": "Open only",
       "noOpenComments": "No open comments.",
       "mobileTitle": "Comments",
-      "mobileDescription": "Page comments and comments on selected text and images"
+      "mobileDescription": "Page comments and comments on selected text and images",
+      "operationFailed": "Could not save the comment change. Please try again."
     },
     "restore": "Restore",
     "restoreRevisionConfirm": "Restore this version? The current page remains in history.",
@@ -3619,7 +3626,10 @@
           "Ränder"
         ]
       }
-    }
+    },
+    "deleteReply": "Delete reply",
+    "deleteReplyConfirm": "Permanently delete this reply?",
+    "commentFailed": "Change failed. Please try again."
   },
   "settings": {
     "appearance": {

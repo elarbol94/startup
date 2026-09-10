@@ -1,10 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-test.describe.configure({ mode: "serial" });
 test.use({ viewport: { width: 1440, height: 1000 } });
 async function tool(page: Page, name: string) {
   await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await page.getByRole("menuitem", { name: name === "Kommentare" ? /^Kommentare(?: \(\d+\))?$/ : name, exact: true }).click();
 }
 
 async function login(page: Page) {
@@ -44,7 +43,7 @@ test("inline images accept whole-image comments and keep their anchor after relo
 
   await expect(page.getByTestId("comment-anchor-overlay").getByRole("button", { name: "Kommentar öffnen" })).toBeVisible();
   await expect(page.getByTestId("comment-rail")).toContainText("Diagramm prüfen");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 25_000 });
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 25_000 });
   await page.reload();
   await expect(page.locator("figure[data-commentable-image]")).toBeVisible();
   await expect(page.getByTestId("comment-anchor-overlay").getByRole("button", { name: "Kommentar öffnen" })).toBeVisible();
@@ -54,13 +53,15 @@ async function quickNote(page: Page, title: string, body: string) {
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
   const editor = page.locator(".ProseMirror");
-  await editor.click();
-  await page.keyboard.type(title);
+  await expect(editor).toHaveAttribute("contenteditable", "true");
+  await editor.focus();
+  await page.keyboard.insertText(title);
   await page.keyboard.press("Enter");
-  await page.keyboard.type(body);
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 25_000 });
+  await page.keyboard.insertText(body);
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 25_000 });
   await page.reload();
   await expect(editor).toHaveAttribute("contenteditable", "true");
+  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
 }
 
 test("selection comments stay beside their anchors and support replies and resolution", async ({ page }) => {
@@ -70,7 +71,7 @@ test("selection comments stay beside their anchors and support replies and resol
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("ControlOrMeta+Shift+ArrowLeft");
-  await page.getByRole("button", { name: "Auswahl kommentieren" }).click();
+  await page.getByRole("button", { name: "Kommentieren", exact: true }).click();
   const commentDialog = page.getByRole("dialog", { name: "Auswahl kommentieren" });
   await commentDialog.getByPlaceholder("Kommentar oder @Name-Erwähnung schreiben…").fill("Bitte genauer erklären");
   await commentDialog.getByRole("button", { name: "Kommentieren", exact: true }).click();
@@ -91,7 +92,7 @@ test("selection comments stay beside their anchors and support replies and resol
 
   await card.getByRole("button", { name: "Erledigen" }).click();
   await expect(card).toHaveCount(0);
-  await page.getByTestId("comment-filter-resolved").click();
+  await anchor.click();
   const resolvedCard = page.getByTestId(`comment-card-${threadId}`);
   await expect(resolvedCard).toContainText("Erledigt");
   await resolvedCard.click();
@@ -99,7 +100,7 @@ test("selection comments stay beside their anchors and support replies and resol
   await expect(page.getByTestId(`comment-card-${threadId}`)).toContainText("Offen");
 });
 
-test("general comments lead the rail and mobile slash comments open the sheet", async ({ page }) => {
+test("general comments lead the rail and mobile tools open the sheet", async ({ page }) => {
   await login(page);
   await quickNote(page, "General Comments", "Page-level context");
   await tool(page, "Kommentare");
@@ -116,8 +117,7 @@ test("general comments lead the rail and mobile slash comments open the sheet", 
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.press("Enter");
-  await page.keyboard.type("/kommentar");
-  await page.keyboard.press("Enter");
+  await tool(page, "Kommentare");
   const sheet = page.getByRole("dialog");
   await expect(sheet.getByRole("heading", { name: "Kommentare", exact: true })).toBeVisible();
   await expect(sheet.getByTestId("page-comment-input")).toBeFocused();
@@ -151,4 +151,41 @@ test("metadata version changes do not cause repeated conflicts and older revisio
   await expect(page.locator(".ProseMirror")).toContainText("Original version");
   await expect(page.locator(".ProseMirror")).not.toContainText("Newer version");
   await expect(page.getByText("Bearbeitungskonflikt", { exact: true })).toHaveCount(0);
+});
+
+test("new selection comments can be edited, deleted and restored without reappearing", async ({ page }) => {
+  await login(page);
+  await quickNote(page, "Delete regression", "An anchored comment");
+  await page.locator(".ProseMirror").click();
+  await page.keyboard.press("ControlOrMeta+End");
+  await page.keyboard.press("ControlOrMeta+Shift+ArrowLeft");
+  await page.getByRole("button", { name: "Kommentieren", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Auswahl kommentieren" });
+  await dialog.getByPlaceholder("Kommentar oder @Name-Erwähnung schreiben…").fill("Remove this comment");
+  await dialog.getByRole("button", { name: "Kommentieren", exact: true }).click();
+  const rail = page.getByTestId("comment-rail");
+  await expect(rail.getByText("Remove this comment", { exact: true })).toBeVisible();
+  await rail.getByRole("button", { name: "Kommentar bearbeiten" }).click();
+  await rail.getByRole("textbox", { name: "Kommentar bearbeiten" }).fill("Edited comment");
+  await page.route(page.url(), async (route) => {
+    if (route.request().method() === "POST") await route.abort("failed");
+    else await route.continue();
+  });
+  await rail.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByText("Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen.", { exact: true })).toBeVisible();
+  await expect(rail.getByRole("textbox", { name: "Kommentar bearbeiten" })).toHaveValue("Edited comment");
+  await page.unroute(page.url());
+
+  await rail.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(rail.getByText("Edited comment", { exact: true })).toBeVisible();
+  await rail.getByRole("button", { name: "Kommentar löschen" }).click();
+  await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
+  await expect(page.locator(".ProseMirror mark[data-comment-thread]")).toHaveClass(/is-empty/);
+  await rail.getByRole("button", { name: "Rückgängig", exact: true }).click();
+  await expect(rail.getByText("Edited comment", { exact: true })).toBeVisible();
+  await rail.getByRole("button", { name: "Kommentar löschen" }).click();
+  await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
+  await page.reload();
+  await tool(page, "Kommentare");
+  await expect(rail.locator('[data-testid^="comment-card-"]')).toHaveCount(0);
 });

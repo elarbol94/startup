@@ -10,7 +10,7 @@ import { attachments, user, wikiPresentationAccess, wikiPresentationComments, wi
 import { requireUserOrThrow } from "@/lib/auth";
 import { getAttachment, getAttachmentAbsolutePath, saveAttachment, deleteAttachmentsFor } from "@/lib/files";
 import { getPresentation } from "./presentation-queries";
-import { presentationRole, presentationAccessSettings, presentationTokenHash, requirePresentationAccess } from "./presentation-access";
+import { PresentationAccessError, presentationRole, presentationAccessSettings, presentationTokenHash, requirePresentationAccess } from "./presentation-access";
 import { presentationFonts, presentationSnapshotSchema, type PresentationSnapshot } from "./lib/presentation";
 import { createId } from "@paralleldrive/cuid2";
 
@@ -21,6 +21,8 @@ export const presentationStudioActionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("public"), enabled: z.boolean() }),
   z.object({ action: z.literal("member"), userId: idSchema, role: z.enum(["view", "comment", "edit", "remove"]) }),
   z.object({ action: z.literal("comment"), elementId: idSchema.optional(), body: z.string().trim().min(1).max(3000) }),
+  z.object({ action: z.literal("editComment"), commentId: idSchema, body: z.string().trim().min(1).max(3000) }),
+  z.object({ action: z.literal("deleteComment"), commentId: idSchema }),
   z.object({ action: z.literal("resolve"), commentId: idSchema, resolved: z.boolean() }),
   z.object({ action: z.literal("theme"), name: z.string().trim().min(1).max(100), theme: presentationThemeSchema }),
   z.object({ action: z.literal("template"), name: z.string().trim().min(1).max(100) }),
@@ -52,16 +54,16 @@ export async function getPresentationStudio(id: string) {
   const access = presentationAccessSettings(id);
   const members = role === "owner" ? db.select({ userId: wikiPresentationMembers.userId, role: wikiPresentationMembers.role }).from(wikiPresentationMembers).where(eq(wikiPresentationMembers.presentationId, id)).all() : [];
   const users = role === "owner" ? db.select({ id: user.id, name: user.name }).from(user).where(isNull(user.removedAt)).all() : [];
-  const comments = db.select({ id: wikiPresentationComments.id, elementId: wikiPresentationComments.elementId, body: wikiPresentationComments.body, resolved: wikiPresentationComments.resolved, author: user.name }).from(wikiPresentationComments).innerJoin(user, eq(user.id, wikiPresentationComments.authorId)).where(eq(wikiPresentationComments.presentationId, id)).orderBy(desc(wikiPresentationComments.createdAt)).limit(200).all();
+  const comments = db.select({ id: wikiPresentationComments.id, elementId: wikiPresentationComments.elementId, body: wikiPresentationComments.body, resolved: wikiPresentationComments.resolved, author: user.name, authorId: wikiPresentationComments.authorId }).from(wikiPresentationComments).innerJoin(user, eq(user.id, wikiPresentationComments.authorId)).where(eq(wikiPresentationComments.presentationId, id)).orderBy(desc(wikiPresentationComments.createdAt)).limit(200).all();
   const library = db.select().from(wikiPresentationLibrary).orderBy(desc(wikiPresentationLibrary.createdAt)).limit(100).all().map((entry) => ({ id: entry.id, name: entry.name, kind: entry.kind, removable: entry.createdBy === viewer.id || viewer.role === "admin", theme: entry.kind === "theme" ? presentationThemeSchema.parse(JSON.parse(entry.documentJson)) : undefined }));
   const assets = db.select().from(attachments).orderBy(desc(attachments.createdAt)).all().filter((entry) => entry.mimeType.startsWith("image/") && canUseAttachment(entry, viewer)).slice(0, 200).map((entry) => ({ id: entry.id, name: entry.fileName }));
-  return { role, access: { restricted: access?.restricted ?? false, coediting: access?.coediting ?? false, publicEnabled: Boolean(access?.publicTokenHash) }, members, users, comments, library, assets };
+  return { role, access: { restricted: access?.restricted ?? false, coediting: access?.coediting ?? false, publicEnabled: Boolean(access?.publicTokenHash) }, members, users, comments: comments.map(({ authorId, ...comment }) => ({ ...comment, canManage: role !== "view" && authorId === viewer.id })), library, assets };
 }
 
 export async function changePresentationStudio(id: string, input: unknown) {
   const viewer = await requireUserOrThrow();
   const data = presentationStudioActionSchema.parse(input);
-  const minimum = ["access", "public", "member"].includes(data.action) ? "owner" : ["comment", "resolve"].includes(data.action) ? "comment" : "edit";
+  const minimum = ["access", "public", "member"].includes(data.action) ? "owner" : ["comment", "resolve", "editComment", "deleteComment"].includes(data.action) ? "comment" : "edit";
   requirePresentationAccess(id, viewer, minimum);
   if (data.action === "access") {
     db.insert(wikiPresentationAccess).values({ presentationId: id, restricted: data.restricted, coediting: data.coediting }).onConflictDoUpdate({ target: wikiPresentationAccess.presentationId, set: { restricted: data.restricted, coediting: data.coediting } }).run();
@@ -78,6 +80,11 @@ export async function changePresentationStudio(id: string, input: unknown) {
     const presentation = getPresentation(id, viewer)!;
     if (data.elementId && !presentation.elements.some((element) => element.id === data.elementId)) throw new Error("Object no longer exists");
     db.insert(wikiPresentationComments).values({ presentationId: id, elementId: data.elementId, body: data.body, authorId: viewer.id }).run();
+  } else if (data.action === "editComment" || data.action === "deleteComment") {
+    const where = and(eq(wikiPresentationComments.id, data.commentId), eq(wikiPresentationComments.presentationId, id), eq(wikiPresentationComments.authorId, viewer.id));
+    if (!db.select({ id: wikiPresentationComments.id }).from(wikiPresentationComments).where(where).get()) throw new PresentationAccessError();
+    if (data.action === "editComment") db.update(wikiPresentationComments).set({ body: data.body }).where(where).run();
+    else db.delete(wikiPresentationComments).where(where).run();
   } else if (data.action === "resolve") {
     db.update(wikiPresentationComments).set({ resolved: data.resolved }).where(and(eq(wikiPresentationComments.id, data.commentId), eq(wikiPresentationComments.presentationId, id))).run();
   } else if (data.action === "theme") {

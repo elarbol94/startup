@@ -27,23 +27,27 @@ async function nativeTextPdf(text: string): Promise<Buffer> {
 }
 
 test("upload, read, search, annotate, reload, and insert traceable PDF evidence", async ({ page }) => {
+  test.slow(); // Includes PDF processing and comment persistence across several reloads.
+  const runId = Date.now();
+  const fileName = `local-evidence-${runId}.pdf`;
   await login(page);
   await page.goto("/wiki/sources");
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "PDFs auswählen" }).click();
   await (await chooser).setFiles({
-      name: "local-evidence.pdf",
+      name: fileName,
       mimeType: "application/pdf",
       buffer: await nativeTextPdf("Local PDF evidence supports traceable research"),
     });
 
-  await expect(page).toHaveURL(/\/wiki\/sources\//, { timeout: 15_000 });
+  await expect(page).toHaveURL(/\/wiki\/sources\//);
   await expect(
-    page.getByRole("article").getByText("local-evidence.pdf"),
+    page.getByRole("article").getByText(fileName),
   ).toBeVisible();
   const read = page.getByRole("link", { name: "PDF lesen" });
-  await expect(read).toBeVisible({ timeout: 30_000 });
+  await expect(read).toBeVisible();
   await read.click();
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("wiki:pdf-reader-preferences:v3"))).not.toBeNull();
 
   await page.getByRole("tab", { name: "Suchen" }).click();
   const pdfSearch = page.getByPlaceholder("In der PDF suchen…");
@@ -139,6 +143,16 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await editedReply.fill("Edited after zoom");
   await editedReply.press("Control+Enter");
   await expect(card.getByText("Edited after zoom")).toBeVisible();
+  await reply.fill("Disposable reply");
+  await reply.press("Control+Enter");
+  await expect(card.getByText("Disposable reply", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await card.getByText("Disposable reply", { exact: true }).locator("..").getByRole("button", { name: "Antwort löschen", exact: true }).click();
+  await expect(card.getByText("Disposable reply", { exact: true })).toHaveCount(0);
+  await page.reload();
+  await expect(card.getByText("Disposable reply", { exact: true })).toHaveCount(0);
+  await expect(card.getByText("Edited after zoom", { exact: true })).toBeVisible();
+
 
   await page.setViewportSize({ width: 997, height: 514 });
   await expect(card).toBeVisible();
@@ -173,14 +187,17 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
   const editor = page.locator(".ProseMirror");
-  await editor.click();
-  await page.keyboard.type("PDF Evidence Review");
+  await expect(editor).toHaveAttribute("contenteditable", "true");
+  await editor.focus();
+  await page.keyboard.insertText("PDF Evidence Review");
   await page.getByRole("button", { name: "PDF-Nachweis einfügen" }).click();
-  await page.getByRole("button", { name: /Local PDF evidence supports traceable research/ }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: new RegExp(`local evidence ${runId}.*Local PDF evidence supports traceable research`, "i") }).click();
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert");
   await page.reload();
   await expect(page.getByText("Local PDF evidence supports traceable research").first()).toBeVisible();
-  await expect(page.getByText(/local evidence.*S\. 1/i)).toBeVisible();
+  await expect(editor.locator("[data-pdf-evidence]")).toHaveAttribute("sourcetitle", `local evidence ${runId}`);
+  await expect(editor.locator("[data-pdf-evidence]")).toHaveAttribute("pagenumber", "1");
+  await expect(editor.locator("[data-citation]")).toContainText(/(?:S\.|p\.) 1/);
 });
 
 test("PDF and note focus modes expand their workspaces and persist independently", async ({ page }) => {

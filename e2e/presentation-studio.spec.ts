@@ -208,6 +208,25 @@ test("company themes, templates and object comments are usable from the inspecto
   await expect(page.getByText("Clarify this idea", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Erledigen", exact: true }).click();
   await expect(page.getByRole("button", { name: "Wieder öffnen", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Kommentar bearbeiten", exact: true }).click();
+  await page.getByRole("textbox", { name: "Kommentar bearbeiten" }).fill("Updated feedback");
+  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await expect(page.getByText("Updated feedback", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.dismiss());
+  await page.getByRole("button", { name: "Kommentar löschen", exact: true }).click();
+  await expect(page.getByText("Updated feedback", { exact: true })).toBeVisible();
+  page.once("dialog", (dialog) => void dialog.accept());
+  await page.getByRole("button", { name: "Kommentar löschen", exact: true }).click();
+  await expect(page.getByText("Updated feedback", { exact: true })).toHaveCount(0);
+  expect((await (await page.request.get(`/api/wiki/presentations/${id}/studio`)).json()).comments).toHaveLength(0);
+  await page.request.post(`/api/wiki/presentations/${id}/studio`, { data: { action: "comment", body: "Canvas feedback" } });
+  await expect(page.getByText("Canvas feedback", { exact: true })).toBeVisible();
+  await page.getByRole("checkbox", { name: "Nur Kommentare zur Auswahl" }).check();
+  await expect(page.getByText("Canvas feedback", { exact: true })).toHaveCount(0);
+  await page.getByRole("checkbox", { name: "Nur Kommentare zur Auswahl" }).uncheck();
+  await expect(page.getByText("Canvas feedback", { exact: true })).toBeVisible();
+
+
 });
 
 test("presenter previews, editable notes and pause/reset timer", async ({ page }, info) => {
