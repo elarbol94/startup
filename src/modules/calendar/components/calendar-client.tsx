@@ -1,5 +1,7 @@
 "use client";
 
+import { layoutEventColumns } from "../event-layout";
+
 import { userIdentityColor } from "@/lib/user-mark-colors";
 import { UserIdentity, UserIdentities } from "@/components/user-identity";
 
@@ -1430,16 +1432,12 @@ export function CalendarClient({
     <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-4">
       <header className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
         <div>
-          <p className="hidden text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground sm:block">
-            {t("eyebrow")}
-          </p>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
             <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-            <span className="font-mono text-sm text-muted-foreground">
+            <span className="text-sm text-muted-foreground">
               {periodLabel}
             </span>
           </div>
-          <p className="mt-1 hidden text-sm text-muted-foreground sm:block">{t("description")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex min-h-11 items-center rounded-lg border bg-background p-0.5">
@@ -1499,7 +1497,7 @@ export function CalendarClient({
           </select>
           <Button
             variant="outline"
-            className="h-11 px-3 lg:hidden"
+            className="h-11 px-3 2xl:hidden"
             aria-label={t("filters")}
             onClick={() => setFiltersOpen(true)}
           >
@@ -1514,8 +1512,8 @@ export function CalendarClient({
         </div>
       </header>
 
-      <div className="grid min-h-[44rem] gap-4 lg:grid-cols-[15rem_minmax(0,1fr)] 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]">
-        <aside className="hidden rounded-2xl border bg-card p-4 lg:flex lg:flex-col lg:gap-5">
+      <div className="grid min-h-[44rem] gap-4 2xl:grid-cols-[15rem_minmax(0,1fr)_18rem]">
+        <aside className="hidden rounded-2xl border bg-card p-4 2xl:flex 2xl:flex-col 2xl:gap-5">
           <MiniMonth
             date={date}
             today={clientToday}
@@ -1753,13 +1751,12 @@ export function CalendarClient({
         </aside>
       </div>
 
-      <MobileBottomSheet
-        open={filtersOpen}
-        onOpenChange={setFiltersOpen}
-        title={t("filters")}
-        description={t("filterDescription")}
-        closeLabel={t("close")}
-      >
+      <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("filters")}</DialogTitle>
+            <DialogDescription>{t("filterDescription")}</DialogDescription>
+          </DialogHeader>
         <div className="space-y-5 [&_label]:min-h-11" data-testid="calendar-mobile-filters">
           <MiniMonth
             date={date}
@@ -1851,7 +1848,8 @@ export function CalendarClient({
             {t("saveView")}
           </Button>
         </div>
-      </MobileBottomSheet>
+        </DialogContent>
+      </Dialog>
 
       <MobileBottomSheet
         open={Boolean(selected)}
@@ -2555,61 +2553,29 @@ function FlowWeek({
       ),
     ]),
   );
-  const workMinutes =
-    (Number(preferences.workingDayEnd.slice(0, 2)) * 60 +
-      Number(preferences.workingDayEnd.slice(3)) -
-      (Number(preferences.workingDayStart.slice(0, 2)) * 60 +
-        Number(preferences.workingDayStart.slice(3)))) ||
-    540;
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const weekKey = days[0];
+  useEffect(() => {
+    if (scrollRef.current) {
+      const [hour, minute] = preferences.workingDayStart.split(":").map(Number);
+      scrollRef.current.scrollTop = Math.max(0, hour * 60 + minute - 30);
+    }
+  }, [weekKey, preferences.workingDayStart]);
+  const columnsByDate = new Map(days.map((day) => [day, layoutEventColumns(
+    (timedByDate.get(day) ?? []).map((item) => ({
+      id: item.id,
+      start: startMinutes(item, preferences.timezone),
+      end: Math.max(endMinutes(item, preferences.timezone), startMinutes(item, preferences.timezone) + 24),
+    })),
+  )]));
 
   return (
-    <div className="overflow-x-auto">
-      <div className="min-w-[52rem]">
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))] border-b">
-        <div className="flex items-center justify-center border-r p-1">
-          <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground [writing-mode:vertical-rl]">
-            {t("load")}
-          </span>
-        </div>
+    <div ref={scrollRef} data-testid="calendar-week-scroll" className="relative max-h-[calc(100dvh-12rem)] min-h-80 overflow-auto rounded-2xl">
+      <div className="min-w-[40rem]">
+      <div className="sticky top-0 z-30 bg-card">
+      <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b">
+        <div className="border-r" />
         {days.map((day) => {
-          const dayItems = timedByDate.get(day) ?? [];
-          const busyMinutes = dayItems
-            .filter((item) => item.availability === "busy")
-            .reduce(
-              (sum, item) =>
-                sum +
-                Math.max(
-                  0,
-                  endMinutes(item, preferences.timezone) -
-                    startMinutes(item, preferences.timezone),
-                ),
-              0,
-            );
-          const focusMinutes = dayItems
-            .filter((item) => item.kind === "focus")
-            .reduce(
-              (sum, item) =>
-                sum +
-                Math.max(
-                  0,
-                  endMinutes(item, preferences.timezone) -
-                    startMinutes(item, preferences.timezone),
-                ),
-              0,
-            );
-          const conflicts = dayItems.reduce((count, item, index) => {
-            const overlaps = dayItems
-              .slice(index + 1)
-              .some(
-                (other) =>
-                  startMinutes(item, preferences.timezone) <
-                    endMinutes(other, preferences.timezone) &&
-                  endMinutes(item, preferences.timezone) >
-                    startMinutes(other, preferences.timezone),
-              );
-            return count + (overlaps ? 1 : 0);
-          }, 0);
-          const percent = Math.min(100, Math.round((busyMinutes / workMinutes) * 100));
           return (
             <div
               key={day}
@@ -2635,54 +2601,27 @@ function FlowWeek({
                     {parseDate(day).getUTCDate()}
                   </p>
                 </div>
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  {percent}%
-                </span>
-              </div>
-              <div
-                className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted"
-                title={t("dayLoad", { percent })}
-              >
-                <div
-                  className={cn(
-                    "h-full rounded-full transition-[width] motion-reduce:transition-none",
-                    conflicts > 0
-                      ? "bg-[#E11D48]"
-                      : percent > 85
-                        ? "bg-[#D97706]"
-                        : "bg-[#059669]",
-                  )}
-                  style={{ width: `${percent}%` }}
-                />
-              </div>
-              <div className="mt-1 flex items-center justify-between font-mono text-[9px] text-muted-foreground">
-                <span>{t("focusMinutes", { minutes: focusMinutes })}</span>
-                {conflicts > 0 && (
-                  <span className="text-[#E11D48]">
-                    {t("conflicts", { count: conflicts })}
-                  </span>
-                )}
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))] border-b bg-muted/[0.18]">
-        <div className="border-r px-2 py-3 text-[9px] font-semibold uppercase tracking-[0.12em] text-muted-foreground [writing-mode:vertical-rl]">
-          {t("allDayLane")}
+      <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b bg-muted/[0.18]">
+        <div className="border-r px-0.5 py-2 text-[8px] text-muted-foreground">
+          {t("allDay")}
         </div>
         {days.map((day) => (
           <div
             key={day}
-            className="min-h-24 border-r p-1.5 last:border-r-0"
+            className="min-h-9 border-r p-1 last:border-r-0"
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDropDay(event, day)}
             onDoubleClick={() => onNew(day)}
             aria-label={t("dragMove", { date: day })}
           >
-            <div className="space-y-1">
-              {(allDayByDate.get(day) ?? []).slice(0, 4).map((item) => (
+            <div className="max-h-16 space-y-1 overflow-y-auto">
+              {(allDayByDate.get(day) ?? []).map((item) => (
                 <button
                   type="button"
                   draggable={item.editable}
@@ -2701,19 +2640,13 @@ function FlowWeek({
                   <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span><CalendarItemPeople item={item} compact />
                 </button>
               ))}
-              {(allDayByDate.get(day)?.length ?? 0) > 4 && (
-                <p className="px-1 text-[10px] text-muted-foreground">
-                  {t("more", {
-                    count: (allDayByDate.get(day)?.length ?? 0) - 4,
-                  })}
-                </p>
-              )}
             </div>
           </div>
         ))}
       </div>
 
-      <div className="relative grid grid-cols-[3.5rem_repeat(7,minmax(7rem,1fr))]">
+      </div>
+      <div className="relative grid grid-cols-[3rem_repeat(7,minmax(0,1fr))]">
         <div className="border-r">
           {HOURS.map((hour) => (
             <div key={hour} className="h-[60px] border-b pr-2 text-right">
@@ -2754,6 +2687,7 @@ function FlowWeek({
                   startMinutes(item, preferences.timezone)) *
                   PX_PER_MINUTE,
               );
+              const placement = columnsByDate.get(day)!.get(item.id)!;
               if (top > HOURS.length * 60) return null;
               return (
                 <button
@@ -2764,8 +2698,10 @@ function FlowWeek({
                   onDragEnd={onDragEnd}
                   onClick={() => onSelect(item)}
                   onDoubleClick={() => onEdit(item)}
+                  title={`${item.title} · ${formatMinutes(startMinutes(item, preferences.timezone))}–${formatMinutes(endMinutes(item, preferences.timezone))}`}
+                  aria-label={`${item.title} · ${formatMinutes(startMinutes(item, preferences.timezone))}–${formatMinutes(endMinutes(item, preferences.timezone))}`}
                   className={cn(
-                    "absolute inset-x-1 z-10 overflow-hidden rounded-md border-l-[3px] px-2 py-1 text-left text-[10px] shadow-sm outline-none transition-[opacity,box-shadow] hover:z-20 hover:shadow-md focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
+                    "absolute z-10 overflow-hidden rounded-md border-l-[3px] px-1 py-1 text-left text-[10px] shadow-sm outline-none transition-[opacity,box-shadow] hover:z-20 hover:shadow-md focus-visible:z-20 focus-visible:ring-2 focus-visible:ring-ring motion-reduce:transition-none",
                     item.kind === "focus"
                       ? "bg-[#6D5EF7]/12"
                       : item.kind === "deadline"
@@ -2777,10 +2713,12 @@ function FlowWeek({
                     top,
                     height,
                     borderLeftColor: item.color,
+                    left: `calc(${placement.column * 100 / placement.columns}% + 2px)`,
+                    width: `calc(${100 / placement.columns}% - 4px)`,
                   }}
                 >
-                  <span className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span><CalendarItemPeople item={item} compact /></span>
-                  <span className="mt-0.5 block font-mono text-[9px] text-muted-foreground">
+                  <span className="flex items-center gap-1"><span className="min-w-0 flex-1 truncate font-semibold">{item.title}</span>{placement.columns === 1 && <CalendarItemPeople item={item} compact />}</span>
+                  <span className="mt-0.5 block truncate text-[9px] tabular-nums text-muted-foreground">
                     {formatMinutes(startMinutes(item, preferences.timezone))}–
                     {formatMinutes(endMinutes(item, preferences.timezone))}
                   </span>

@@ -822,7 +822,7 @@
   },
   "calendar": {
     "eyebrow": "Zeit & Kapazität",
-    "title": "Flow-Kalender",
+    "title": "Kalender",
     "description": "Besprechungen, Fokuszeit, Deadlines und Projektarbeit in einer Arbeitsansicht.",
     "today": "Heute",
     "calendarWeek": "KW {week}",
@@ -873,7 +873,7 @@
     "conflictTitle": "Diese Zeit überschneidet sich mit einem anderen Termin",
     "conflictDescription": "Trotzdem speichern oder eine andere Zeit wählen.",
     "saveAnyway": "Trotzdem speichern",
-    "week": "Flow-Woche",
+    "week": "Woche",
     "month": "Monat",
     "agenda": "Agenda",
     "team": "Team",

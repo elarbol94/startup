@@ -822,7 +822,7 @@
   },
   "calendar": {
     "eyebrow": "Time & capacity",
-    "title": "Flow calendar",
+    "title": "Calendar",
     "description": "Meetings, focus time, deadlines and project work in one operating view.",
     "today": "Today",
     "calendarWeek": "Week {week}",
@@ -873,7 +873,7 @@
     "conflictTitle": "This time overlaps another commitment",
     "conflictDescription": "Save anyway or choose another time.",
     "saveAnyway": "Save anyway",
-    "week": "Flow week",
+    "week": "Week",
     "month": "Month",
     "agenda": "Agenda",
     "team": "Team",
