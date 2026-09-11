@@ -218,7 +218,7 @@ type StoredReparentViewState = {
   inspectorOpen: boolean;
 };
 
-const LEFT_WIDTH = 352;
+const LEFT_WIDTH = 440;
 const ROW_HEIGHT = 44;
 const HEADER_HEIGHT = 54;
 const DEADLINE_LANE_HEIGHT = 36;
@@ -1514,7 +1514,7 @@ export function PortfolioClient({
   const [owner, setOwner] = useState("all");
   const [health, setHealth] = useState<"all" | "risk" | "track">("all");
   const [criticalVisible, setCriticalVisible] = useState(false);
-  const [expandedProjects, setExpandedProjects] = useState(() => new Set(schedule.projects.map((project) => project.id)));
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(embedded ? [embedded.projectId] : []));
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(initialFocusedTaskId));
@@ -2193,39 +2193,27 @@ export function PortfolioClient({
   const totalHeight = HEADER_HEIGHT + deadlineLaneHeight + rows.length * ROW_HEIGHT;
 
   useEffect(() => {
-    if (focusedTaskId) {
-      if (fittedFocusRef.current === focusedTaskId) return;
-      fittedFocusRef.current = focusedTaskId;
-    } else {
-      if (fittedPortfolioRef.current) return;
-      fittedPortfolioRef.current = true;
-    }
+    if (view !== "timeline" || ganttViewportWidth <= 0) return;
+    if (focusedTaskId ? fittedFocusRef.current === focusedTaskId : fittedPortfolioRef.current) return;
     const frame = requestAnimationFrame(() => {
-      const scrollContainer = scrollRef.current;
-      if (!scrollContainer) return;
-      const availableTimelineWidth = Math.max(
-        240,
-        scrollContainer.clientWidth - treeWidth - 12,
-      );
-      const fittedDayWidth = Math.min(
-        MAX_DAY_WIDTH,
-        Math.max(
-          MIN_DAY_WIDTH,
-          availableTimelineWidth / Math.max(1, baseDayCount),
-        ),
-      );
-      dayWidthRef.current = fittedDayWidth;
-      setDayWidth(fittedDayWidth);
-      setZoom(zoomModeForDayWidth(fittedDayWidth));
-      requestAnimationFrame(() => {
-        scrollContainer.scrollTo({
-          left: 0,
-          behavior: reducedMotion ? "auto" : "smooth",
-        });
+      const container = scrollRef.current;
+      if (!container) return;
+      if (focusedTaskId) fittedFocusRef.current = focusedTaskId;
+      else fittedPortfolioRef.current = true;
+      const availableWidth = Math.max(120, container.clientWidth - treeWidth - 12);
+      const nextWidth = focusedTaskId
+        ? Math.min(MAX_DAY_WIDTH, Math.max(MIN_DAY_WIDTH, availableWidth / Math.max(1, baseDayCount)))
+        : ZOOM_WIDTH.month;
+      dayWidthRef.current = nextWidth;
+      setDayWidth(nextWidth);
+      setZoom(zoomModeForDayWidth(nextWidth));
+      container.scrollTo({
+        left: focusedTaskId ? 0 : Math.max(0, calendarDistance(range.start, today) * nextWidth - availableWidth / 2),
+        behavior: "auto",
       });
     });
     return () => cancelAnimationFrame(frame);
-  }, [focusedTaskId, baseDayCount, treeWidth, reducedMotion]);
+  }, [view, ganttViewportWidth, focusedTaskId, baseDayCount, treeWidth, range.start, today]);
 
   useEffect(() => {
     if (!revealTaskId) return;
@@ -3895,7 +3883,7 @@ export function PortfolioClient({
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
     const todayOffset = calendarDistance(range.start, today) * dayWidth;
-    const left = todayOffset - dayWidth * 7;
+    const left = todayOffset - Math.max(120, scrollContainer.clientWidth - treeWidth) / 2;
     scrollContainer.scrollTo({
       left: Math.max(0, left),
       behavior: reducedMotion ? "auto" : "smooth",
@@ -4238,7 +4226,7 @@ export function PortfolioClient({
       )}
 
       {!focusedTask && <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-        {!embedded && <div className="flex rounded-md bg-muted p-1">
+        {!embedded && <div className="flex w-full gap-1 border-b pb-3">
           <Button size="sm" variant={view === "timeline" ? "secondary" : "ghost"} onClick={() => setView("timeline")}><CalendarClock className="size-4" />{t("timeline")}</Button>
           <Button size="sm" variant={view === "projects" ? "secondary" : "ghost"} onClick={() => setView("projects")}><FolderKanban className="size-4" />{t("projectOverview")}</Button>
         </div>}
@@ -4318,12 +4306,13 @@ export function PortfolioClient({
             </div>
             <Select value={owner} onValueChange={(value) => setOwner(value ?? "all")}><SelectTrigger className="w-36" aria-label={t("allOwners")}><SelectValue>{owner === "all" ? t("allOwners") : <UserIdentity userId={owner} />}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allOwners")}</SelectItem>{schedule.members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select>
             <Select value={health} onValueChange={(value) => setHealth((value ?? "all") as typeof health)}><SelectTrigger className="w-32" aria-label={t("allHealth")}><SelectValue>{health === "risk" ? t("atRisk") : health === "track" ? t("onTrack") : t("allHealth")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allHealth")}</SelectItem><SelectItem value="track">{t("onTrack")}</SelectItem><SelectItem value="risk">{t("atRisk")}</SelectItem></SelectContent></Select>
-            <div className="ml-auto hidden rounded-md border p-0.5 md:flex">
+            <div className="flex w-full flex-wrap items-center gap-2 border-t pt-3" role="group" aria-label={t("timelineControls")}><div className="flex rounded-md border p-0.5">
               {(["week", "month", "quarter"] as const).map((option) => <Button key={option} size="xs" variant={zoom === option ? "secondary" : "ghost"} onClick={() => setTimelineZoom(option)}>{t(option)}</Button>)}
             </div>
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</Button>
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
-            <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button>
+            <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button></div>
+            <p className="w-full text-xs text-muted-foreground">{t("scheduleWarningsHelp")}</p>
           </>
         )}
       </div>}
@@ -4561,7 +4550,7 @@ export function PortfolioClient({
                   if (!geometry) return null;
                   const selected = dependencyDraft?.id === dependency.id;
                   const hovered = hoveredDependencyId === dependency.id;
-                  const conflict = conflicts.has(dependency.successorTaskId);
+                  const conflict = conflicts.has(dependency.successorTaskId) && effectiveSchedule.tasks.some((task) => task.id === dependency.successorTaskId && task.progress < 100);
                   const predecessorTitle =
                     effectiveSchedule.tasks.find(
                       (task) => task.id === dependency.predecessorTaskId,
@@ -5047,7 +5036,7 @@ export function PortfolioClient({
                     }
                     aria-selected={selectedTaskId === row.task?.id}
                     className={cn(
-                      "group/row relative z-[2] flex border-b last:border-b-0",
+                      "group/row relative flex border-b last:border-b-0",
                       row.kind === "project" && "bg-muted/20",
                       row.task && isDraftTask(row.task.id) && "bg-indigo-50/60 dark:bg-indigo-950/30",
                     )}
@@ -5056,11 +5045,11 @@ export function PortfolioClient({
                     <div
                       className={cn(
                         "sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r bg-card px-2.5",
-                        row.kind === "project" && "bg-muted/55 font-semibold",
+                        row.kind === "project" && "bg-muted font-semibold",
                         row.isSummary && row.kind !== "project" && "font-medium",
-                        row.kind === "subtask" && "bg-muted/10",
+                        row.kind === "subtask" && "bg-card",
                         selectedTaskId === row.task?.id &&
-                          "bg-indigo-50/90 dark:bg-indigo-950/30",
+                          "bg-indigo-50 dark:bg-indigo-950",
                       )}
                       style={{
                         width: treeWidth,
@@ -5083,20 +5072,20 @@ export function PortfolioClient({
                       {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 fill-indigo-500 text-indigo-600" /> : <CircleDot className="size-3.5 text-muted-foreground" />)}
                       <button
                         type="button"
-                        onClick={() => row.task ? openTask(row.task) : undefined}
+                        onClick={() => row.task ? openTask(row.task) : toggle(setExpandedProjects, row.projectId)}
                         onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
                         onKeyDown={(event) => row.task && handleTaskScheduleKey(event, row)}
                         className={cn(
-                          "min-w-0 flex-1 truncate rounded-sm text-left text-sm focus-visible:outline-2 focus-visible:outline-ring",
+                          "min-w-0 flex-1 line-clamp-2 rounded-sm text-left text-sm leading-tight focus-visible:outline-2 focus-visible:outline-ring",
                           row.task && "hover:underline",
                         )}
                         title={row.task?.assigneeName ? `${row.label} · ${row.task.assigneeName}` : row.label}
                       >
                         {row.label}
                       </button>
-                      {row.task?.assignees.length ? <span className="flex min-w-0 flex-wrap gap-1 text-[10px]">{row.task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact />)}</span> : null}
-                      {isRisk && <AlertTriangle className="size-3.5 text-amber-600" aria-label={t("atRisk")} />}
-                      {isConflict && <GitBranch className="size-3.5 text-red-600" aria-label={t("dependencyConflict")} />}
+                      {row.task?.assignees.length ? <span className="flex w-12 shrink-0 items-center -space-x-1">{row.task.assignees.slice(0, 2).map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}{row.task.assignees.length > 2 && <span className="bg-card text-[10px]">+{row.task.assignees.length - 2}</span>}</span> : null}
+                      {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600" aria-label={t("projectRiskExplanation")} /></span>}
+                      {isConflict && <span tabIndex={0} title={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.progress >= 100 ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")} /></span>}
                       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
                       {!embedded && row.kind === "project" && (
                         <DropdownMenu>
@@ -5208,7 +5197,7 @@ export function PortfolioClient({
                     </div>
                     <div
                       data-timeline-row
-                      className="relative h-full"
+                      className="relative z-[2] h-full"
                       onClick={(event) => {
                         if (
                           dependencySourceId &&
