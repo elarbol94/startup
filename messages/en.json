@@ -4271,6 +4271,13 @@
     "actor": "From"
   },
   "overviewLayout": {
+    "recentlyOpened": "Recently opened",
+    "recentHint": "Your history in this browser, newest first.",
+    "recentLoading": "Loading recent items…",
+    "recentFailed": "Recent items could not be loaded.",
+    "recentRetry": "Try again",
+    "recentEmpty": "Open a PDF, document or presentation to find it here.",
+    "recentKinds": {"document": "Document", "pdf": "PDF", "presentation": "Presentation"},
     "loadingWorkspace": "Loading your workspace…",
     "dragInstructions": "Press Space to pick up a section, arrow keys to move it, Space to drop, or Escape to cancel.",
     "dragStart": "Moving {section}.",

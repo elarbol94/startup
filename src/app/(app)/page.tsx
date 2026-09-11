@@ -1,3 +1,4 @@
+import { OverviewRecentlyOpened } from "@/modules/tasks/components/overview-recently-opened";
 import { getOverviewMetricRecords } from "@/modules/tasks/overview-metric-records";
 import { getUnreadNotificationCount, listNotifications } from "@/modules/wiki/research-queries";
 import { OverviewNews } from "@/modules/tasks/components/overview-news";
@@ -85,6 +86,7 @@ export default async function DashboardPage({
         calendar: <OverviewCollection kind="calendar" rows={collections.calendar} timezone={collections.timezone} />,
         documents: <OverviewCollection kind="documents" rows={collections.documents} timezone={collections.timezone} />,
         presentations: <OverviewCollection kind="presentations" rows={collections.presentations} timezone={collections.timezone} />,
+        recentlyOpened: <OverviewRecentlyOpened userId={user.id} />,
         projects: <OverviewCollection kind="projects" rows={collections.projects} timezone={collections.timezone} />,
       }} />
     </div>

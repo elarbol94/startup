@@ -241,3 +241,10 @@ open dialogs, menus and shortcut recording are excluded. Chords, long holds, foc
 changes, pointer clicks and composition cancel an incomplete double tap. Arrow keys select a result, Enter opens it and Escape closes the panel.
 Search includes titles, document content and indexed PDF text; presentations are
 matched by title and filtered through the existing presentation access rules.
+
+The dashboard customization menu also offers **Recently opened**. It uses the same
+per-user browser history, orders documents, presentations and PDF readers by last
+visit, and resolves their current titles and access on the server. PDF entries link
+directly to the original reader. Deleted sources/documents and inaccessible
+presentations are omitted. Existing dashboard layouts retain their arrangement;
+the new section is optional and initially hidden.

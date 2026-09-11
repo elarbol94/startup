@@ -30,3 +30,23 @@ export function getWikiNavigationItems(viewer: { id: string; role?: string | nul
     ...presentations.filter((item) => presentationRole(item.id, viewer)).slice(0, 60).map((item): WikiNavigationItem => ({ ...item, kind: "presentation", href: `/wiki/presentations/${item.id}` })),
   ].sort((a, b) => b.updatedAt - a.updatedAt || a.id.localeCompare(b.id));
 }
+
+export type RecentlyOpenedItem = Omit<WikiNavigationItem, "kind"> & { kind: "document" | "pdf" | "presentation" };
+
+export function resolveRecentlyOpenedPaths(viewer: { id: string; role?: string | null }, paths: string[]): RecentlyOpenedItem[] {
+  const items: RecentlyOpenedItem[] = [];
+  for (const path of [...new Set(paths)].slice(0, 30)) {
+    const pdf = /^\/wiki\/sources\/([^/?#]+)\/read\/([^/?#]+)$/.exec(path);
+    if (pdf) {
+      const row = sqlite.prepare(`SELECT d.id, a.file_name AS title, d.updated_at AS updatedAt
+        FROM wiki_pdf_documents d JOIN wiki_sources s ON s.id = d.source_id
+        JOIN attachments a ON a.id = d.attachment_id
+        WHERE d.id = ? AND d.source_id = ? AND s.deleted_at IS NULL`).get(pdf[2], pdf[1]) as { id: string; title: string; updatedAt: number } | undefined;
+      if (row) items.push({ ...row, href: path, kind: "pdf" });
+    } else if (/^\/wiki\/(pages|presentations)\/[^/?#]+(?:\/present)?$/.test(path)) {
+      const item = resolveWikiNavigationPaths(viewer, [path])[0];
+      if (item && item.kind !== "source") items.push({ ...item, kind: item.kind });
+    }
+  }
+  return items.filter((item, index) => items.findIndex(other => other.href === item.href) === index);
+}

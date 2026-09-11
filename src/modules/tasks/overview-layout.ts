@@ -1,4 +1,4 @@
-export const sectionIds = ["tasks", "deadlines", "news", "calendar", "documents", "presentations", "projects"] as const;
+export const sectionIds = ["tasks", "deadlines", "news", "calendar", "documents", "presentations", "projects", "recentlyOpened"] as const;
 export const cardIds = ["openTasks", "upcomingDeadlines", "overdue", "nextDeadline", "eventsToday", "documentsCount", "presentationsCount", "projectsCount", "unreadNews"] as const;
 export type SectionId = typeof sectionIds[number];
 export type CardId = typeof cardIds[number];

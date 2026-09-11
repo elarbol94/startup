@@ -4273,6 +4273,13 @@
     "actor": "Von"
   },
   "overviewLayout": {
+    "recentlyOpened": "Zuletzt geöffnet",
+    "recentHint": "Dein Verlauf in diesem Browser, zuletzt geöffnet zuerst.",
+    "recentLoading": "Zuletzt geöffnete Inhalte werden geladen…",
+    "recentFailed": "Der Verlauf konnte nicht geladen werden.",
+    "recentRetry": "Erneut versuchen",
+    "recentEmpty": "Öffne ein PDF, Dokument oder eine Präsentation, um es hier wiederzufinden.",
+    "recentKinds": {"document": "Dokument", "pdf": "PDF", "presentation": "Präsentation"},
     "loadingWorkspace": "Dein Arbeitsbereich wird geladen …",
     "dragInstructions": "Leertaste zum Aufnehmen, Pfeiltasten zum Verschieben, Leertaste zum Ablegen oder Escape zum Abbrechen.",
     "dragStart": "{section} wird verschoben.",
