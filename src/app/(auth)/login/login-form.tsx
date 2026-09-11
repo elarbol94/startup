@@ -73,7 +73,6 @@ export function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={8}
                 autoComplete="current-password"
               />
             </div>

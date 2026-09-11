@@ -68,6 +68,31 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   await expect(page.locator('[data-slot="sheet-overlay"]')).toHaveCount(0);
   await page.getByRole("button", { name: "Schließen", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Weekly operations" })).toHaveCount(0);
+
+  // Inspect each live preview before releasing the pointer, then verify persistence.
+  for (const gesture of [
+    { handle: "Beginn von Weekly operations ändern", edge: "top", time: "10:15", range: "10:15–11:00" },
+    { handle: "Ende von Weekly operations ändern", edge: "bottom", time: "11:15", range: "10:15–11:15" },
+    { handle: "Weekly operations · 10:15–11:15", edge: "top", time: "10:30", range: "10:30–11:30" },
+  ]) {
+    const handle = page.getByRole("button", { name: gesture.handle, exact: true });
+    await handle.scrollIntoViewIfNeeded();
+    const bounds = (await handle.boundingBox())!;
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2 + 15, { steps: 3 });
+    const time = page.getByTestId("calendar-drag-time");
+    await expect(time).toHaveText(gesture.time);
+    await expect(time).toHaveAttribute("data-edge", gesture.edge);
+    const badge = (await time.boundingBox())!;
+    const card = (await time.locator("..").boundingBox())!;
+    expect(Math.abs(badge.x + badge.width / 2 - card.x - card.width / 2)).toBeLessThan(3);
+    if (gesture.edge === "top") expect(badge.y + badge.height).toBeLessThanOrEqual(card.y);
+    else expect(badge.y).toBeGreaterThanOrEqual(card.y + card.height);
+    await page.mouse.up();
+    await expect(time).toHaveCount(0);
+    await expect(page.getByRole("button", { name: `Weekly operations · ${gesture.range}`, exact: true })).toBeEnabled();
+  }
 });
 
 test("global new-event shortcut opens and clears the calendar dialog state", async ({
@@ -118,6 +143,9 @@ test("calendar defaults to agenda and exposes filters and event details on mobil
   const filtersSheet = page.getByRole("dialog", { name: "Filter" });
   await expect(filtersSheet).toBeVisible();
   await expect(filtersSheet.getByPlaceholder("Kalender durchsuchen…")).toBeVisible();
+  await expect(filtersSheet.locator("[data-user-id]").first()).toBeVisible();
+  await expect(filtersSheet.getByRole("button", { name: "Fertig", exact: true })).toBeVisible();
+  await expect.poll(() => filtersSheet.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
   await filtersSheet.getByText("Personen & Terminarten", { exact: true }).click();
   await expect(filtersSheet.getByText("Arbeitsquellen")).toBeVisible();
   await filtersSheet.getByRole("button", { name: "Schließen" }).click();

@@ -27,8 +27,8 @@ Focused browser coverage: `e2e/wiki-comments.spec.ts` (comment cases).
 
 ## Command search
 
-Tap Shift twice while the editor has focus, or use the search button in the
-toolbar, to find editor commands. Type a name or keyword to narrow the list;
+Double Shift while focused inside the document editor opens editor commands.
+The toolbar search button opens the same command search. Type a name or keyword to narrow the list;
 Arrow Up/Down selects, Tab completes the name, Enter runs, and Escape closes.
 The document selection is retained. Search tolerates small typos when there are
 no exact matches and accepts German/English synonyms. Available commands for the
@@ -44,7 +44,7 @@ paragraphs have no writing/command placeholder.
 Focused checks: `npx vitest run src/modules/wiki/lib/command-search.test.ts
 src/modules/wiki/lib/wiki-shortcuts.test.ts src/modules/wiki/lib/slash-commands.test.ts`.
 Browser coverage: `npm run e2e -- e2e/reliable-wiki-editor.spec.ts --grep
-"double Shift command search"`.
+"toolbar command search"`.
 
 ## Text formatting
 
@@ -229,3 +229,15 @@ Page breaks are measured after the editor mounts and recalculated when its rende
 layout changes, including late fonts, images, shared content and typography settings.
 Hidden or zero-width editors wait for measurable layout. Typing is debounced and
 IME composition is allowed to finish before pagination decorations are changed.
+
+## Wiki home and navigation
+
+The wiki home links directly to documents, sources and presentations. Users can
+pin items, reorder or hide sections and choose compact lists. Layout and pins are
+saved per user in this browser. Recently opened items are tracked locally as paths.
+Outside the document editor, double Shift opens the navigation switcher throughout
+the authenticated app. It includes app sections and wiki content. Ordinary form fields,
+open dialogs, menus and shortcut recording are excluded. Chords, long holds, focus
+changes, pointer clicks and composition cancel an incomplete double tap. Arrow keys select a result, Enter opens it and Escape closes the panel.
+Search includes titles, document content and indexed PDF text; presentations are
+matched by title and filtered through the existing presentation access rules.

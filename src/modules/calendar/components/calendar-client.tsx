@@ -46,6 +46,7 @@ import {
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import {
   Dialog,
@@ -1610,24 +1611,35 @@ export function CalendarClient({
       </div>
 
       <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
-        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[85dvh] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+          <DialogHeader className="shrink-0 px-5 pt-5 pb-4 sm:px-6">
             <DialogTitle>{t("filters")}</DialogTitle>
             <DialogDescription>{t("compactFilterHint")}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4" data-testid="calendar-mobile-filters">
+          <div className="min-h-0 space-y-5 overflow-y-auto px-5 pb-5 sm:px-6" data-testid="calendar-mobile-filters">
             <div className="flex flex-wrap gap-2">
               <Button size="sm" variant="secondary" onClick={() => selectCalendars([])}>{t("allCalendars")}</Button>
               <Button size="sm" variant="outline" disabled={!ownCalendarIds.length} onClick={() => selectCalendars(ownCalendarIds)}>{t("myCalendars")}</Button>
             </div>
             <Input aria-label={t("searchPlaceholder")} value={filters.query} onChange={(event) => updateFilters({ ...filters, query: event.target.value })} placeholder={t("searchPlaceholder")} />
             <FilterGroup title={t("calendars")}>
-              <div className="max-h-52 overflow-y-auto">
+              <div className="space-y-2">
                 {workspace.calendars.map((calendar) => (
-                  <div key={calendar.id} className="flex items-center gap-1">
-                    <div className="min-w-0 flex-1"><FilterToggle checked={!filters.calendars.length || filters.calendars.includes(calendar.id)} label={calendar.name} color="var(--muted-foreground)" onChange={() => toggleFilter("calendars", calendar.id)} /></div>
-                    <Button size="sm" variant="ghost" aria-label={t("onlyCalendar", { name: calendar.name })} onClick={() => selectCalendars([calendar.id])}>{t("only")}</Button>
-                    {calendar.role === "owner" && <Button size="icon-sm" variant="ghost" aria-label={t("editCalendar")} onClick={() => openEditCalendar(calendar)}><MoreHorizontal /></Button>}
+                  <div key={calendar.id} className="flex items-center gap-2 rounded-lg border pr-2 transition-colors hover:bg-muted/40">
+                    <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-lg px-3 py-3 focus-within:ring-2 focus-within:ring-ring">
+                      <input type="checkbox" className="size-4 shrink-0 accent-foreground" aria-label={calendar.name} checked={!filters.calendars.length || filters.calendars.includes(calendar.id)} onChange={() => toggleFilter("calendars", calendar.id)} />
+                      <span className="min-w-0 space-y-1">
+                        <span className="block text-sm font-medium leading-snug">{calendar.name}</span>
+                        <UserIdentity userId={calendar.ownerId} compact className="text-xs text-muted-foreground" />
+                      </span>
+                    </label>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("calendarActions", { name: calendar.name })} />}><MoreHorizontal /></DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="min-w-48">
+                        <DropdownMenuItem onClick={() => selectCalendars([calendar.id])}>{t("onlyCalendar", { name: calendar.name })}</DropdownMenuItem>
+                        {calendar.role === "owner" && <DropdownMenuItem onClick={() => openEditCalendar(calendar)}>{t("editCalendar")}</DropdownMenuItem>}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 ))}
               </div>
@@ -1637,7 +1649,7 @@ export function CalendarClient({
             <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">{t("moreFilters")}</summary>
               <div className="mt-3 grid gap-4 sm:grid-cols-2">
                 <FilterGroup title={t("workSources")}>{SOURCE_TYPES.map((source) => <FilterToggle key={source} checked={visibleSources.has(source)} label={source === "event" ? t("events") : source === "focus" ? t("focus") : source === "deadline" ? t("deadlines") : source === "task" ? t("tasks") : t("projects")} color="var(--muted-foreground)" onChange={() => toggleFilter("sources", source)} />)}</FilterGroup>
-                <FilterGroup title={t("people")}>{workspace.members.map((member) => <FilterToggle key={member.id} checked={filters.people.includes(member.id)} label={member.name} color="var(--muted-foreground)" onChange={() => toggleFilter("people", member.id)} />)}</FilterGroup>
+                <FilterGroup title={t("people")}>{workspace.members.map((member) => <FilterToggle key={member.id} checked={filters.people.includes(member.id)} label={member.name} userId={member.id} color={userIdentityColor(member.id)} onChange={() => toggleFilter("people", member.id)} />)}</FilterGroup>
               </div>
             </details>
             <details className="border-t pt-3"><summary className="cursor-pointer text-sm font-medium">{t("jumpToDate")}</summary>
@@ -1648,8 +1660,8 @@ export function CalendarClient({
                 <Button size="sm" variant="outline" onClick={() => void saveView()}>{t("saveView")}</Button>
               </div>
             </details>
-            <div className="flex justify-between border-t pt-3"><Button size="sm" variant="ghost" onClick={openNewCalendar}><Plus />{t("addCalendar")}</Button><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
           </div>
+          <div className="flex shrink-0 justify-between border-t px-5 py-4 sm:px-6"><Button size="sm" variant="ghost" onClick={openNewCalendar}><Plus />{t("addCalendar")}</Button><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
         </DialogContent>
       </Dialog>
 
@@ -2268,17 +2280,20 @@ function FilterToggle({
   color,
   onChange,
   detail,
+  userId,
 }: {
   checked: boolean;
   label: string;
   color: string;
   onChange: () => void;
   detail?: string;
+  userId?: string;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted">
+    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-muted focus-within:ring-2 focus-within:ring-ring">
       <input
         type="checkbox"
+        aria-label={label}
         checked={checked}
         onChange={onChange}
         className="sr-only"
@@ -2296,7 +2311,7 @@ function FilterToggle({
         {checked && <Check className="size-2.5" />}
       </span>
       <span className="min-w-0 truncate">
-        <span className="block truncate">{label}</span>
+        {userId ? <UserIdentity userId={userId} name={label} compact /> : <span className="block truncate">{label}</span>}
         {detail && (
           <span className="block truncate text-[10px] text-muted-foreground">
             {detail}

@@ -15,7 +15,9 @@ export type EditorSearchCommand = SearchableEditorCommand & {
   execute: () => void;
 };
 
-export function EditorCommandSearch({ commands, onClose, onExecute }: {
+export function EditorCommandSearch({ commands, onClose, onExecute, title, description }: {
+  title?: string;
+  description?: string;
   commands: EditorSearchCommand[];
   onClose: () => void;
   onExecute: (command: EditorSearchCommand) => void;
@@ -31,14 +33,14 @@ export function EditorCommandSearch({ commands, onClose, onExecute }: {
   useEffect(() => { document.getElementById(`${listId}-${index}`)?.scrollIntoView({ block: "nearest" }); }, [index, listId, query]);
   const execute = (command: EditorSearchCommand) => { if (!command.disabledReason) onExecute(command); };
   return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-    <DialogContent initialFocus={input} finalFocus={false} className="gap-3 p-0 sm:max-w-xl" showCloseButton={false}>
+    <DialogContent data-editor-command-search initialFocus={input} finalFocus={false} className="gap-3 p-0 sm:max-w-xl" showCloseButton={false}>
       <DialogHeader className="px-5 pt-5">
-        <DialogTitle>{t("title")}</DialogTitle>
-        <DialogDescription>{t("description")}</DialogDescription>
+        <DialogTitle>{title ?? t("title")}</DialogTitle>
+        <DialogDescription>{description ?? t("description")}</DialogDescription>
       </DialogHeader>
       <div className="relative mx-4">
         <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
-        <Input ref={input} role="combobox" aria-label={t("title")} aria-autocomplete="list" aria-expanded="true" aria-controls={listId} aria-activedescendant={active ? `${listId}-${index}` : undefined}
+        <Input ref={input} role="combobox" aria-label={title ?? t("title")} aria-autocomplete="list" aria-expanded="true" aria-controls={listId} aria-activedescendant={active ? `${listId}-${index}` : undefined}
           placeholder={t("placeholder")} className="h-10 pl-9" value={query}
           onChange={(event) => { setQuery(event.target.value); setSelected(0); }}
           onKeyDown={(event) => {
@@ -50,7 +52,7 @@ export function EditorCommandSearch({ commands, onClose, onExecute }: {
             else if (event.key === "Tab" && !event.shiftKey && active && query !== active.label) { event.preventDefault(); setQuery(active.label); setSelected(0); }
           }} />
       </div>
-      <div id={listId} role="listbox" aria-label={t("title")} className="max-h-[min(55vh,24rem)] overflow-y-auto px-2 pb-2">
+      <div id={listId} role="listbox" aria-label={title ?? t("title")} className="max-h-[min(55vh,24rem)] overflow-y-auto px-2 pb-2">
         {results.length === 0 && <p role="status" className="px-3 py-8 text-center text-sm text-muted-foreground">{t("empty")}</p>}
         {results.map((command, row) => <div key={command.id} id={`${listId}-${row}`} role="option" aria-selected={row === index} aria-disabled={Boolean(command.disabledReason)}
           onMouseMove={() => setSelected(row)} onMouseDown={(event) => event.preventDefault()} onClick={() => execute(command)}

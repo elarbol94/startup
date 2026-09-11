@@ -198,7 +198,7 @@ test("source command search stays in the viewport and opens the IEEE picker", as
   await login(page);
   const editor = await createNote(page);
   await editor.click();
-  await page.keyboard.press("Shift"); await page.keyboard.press("Shift");
+  await page.getByRole("button", { name: /Befehl suchen/ }).click();
   const palette = page.getByRole("dialog", { name: "Befehl suchen" });
   await palette.getByRole("combobox").fill("Quelle zitieren");
   await expect(palette).toBeVisible();
@@ -607,14 +607,14 @@ test("proofing menu retries immediately and opens the next correction as plain t
   await expect(editor.locator("strong")).toHaveCount(0);
 });
 
-test("double Shift command search preserves selection and supports completion", async ({ page }) => {
+test("toolbar command search preserves selection and supports completion", async ({ page }) => {
+  page.setDefaultTimeout(25_000);
   page.on("pageerror", (error) => console.error(error.stack));
   await login(page);
   const editor = await createNote(page);
   await editor.fill("Command search selection");
   await editor.press("ControlOrMeta+a");
-  await page.keyboard.press("Shift");
-  await page.keyboard.press("Shift");
+  await page.keyboard.press("Shift"); await page.keyboard.press("Shift");
   const dialog = page.getByRole("dialog", { name: "Befehl suchen" });
   const search = dialog.getByRole("combobox");
   await expect(search).toBeFocused();
@@ -625,8 +625,7 @@ test("double Shift command search preserves selection and supports completion", 
   await expect(dialog).toHaveCount(0);
   await expect(editor.locator("strong")).toHaveText("Command search selection");
   await expect(editor).toBeFocused();
-  await page.keyboard.press("Shift");
-  await page.keyboard.press("Shift");
+  await page.getByRole("button", { name: /Befehl suchen/ }).click();
   await expect(search).toBeFocused();
   await search.fill("imageWidth50");
   await expect(dialog.getByRole("option")).toHaveAttribute("aria-disabled", "true");

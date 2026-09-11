@@ -50,6 +50,7 @@ export type CalendarItem = {
 
 export type CalendarSource = {
   id: string;
+  ownerId: string;
   name: string;
   color: string;
   role: CalendarRole;

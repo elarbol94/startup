@@ -1,3 +1,4 @@
+import { WikiNavigation } from "@/modules/wiki/components/wiki-navigation";
 import { UserIdentityProvider } from "@/components/user-identity";
 import { listUserIdentities } from "@/modules/settings/queries";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
@@ -48,6 +49,7 @@ export default async function AppLayout({
   ensureUserMarkColor(currentUser.id);
   return (
     <UserIdentityProvider currentUserId={currentUser.id} identities={listUserIdentities()}>
+    <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>
       <DeadlineCreateProvider>
       <style>{`
@@ -77,6 +79,7 @@ export default async function AppLayout({
       </div>
       </DeadlineCreateProvider>
     </TaskCreateProvider>
+    </WikiNavigation>
     </UserIdentityProvider>
   );
 }

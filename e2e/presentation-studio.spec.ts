@@ -419,3 +419,43 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(32);
 });
+
+
+test("presentation double Shift commands preserve selection and respect typing", async ({ page }) => {
+  await login(page); const id = await seed(page); await open(page, id);
+  const editor = page.getByTestId("presentation-editor");
+  const node = page.locator('[data-testid="rf__node-a"]');
+  await node.click({ position: { x: 5, y: 5 } });
+  const taps = async () => { await page.keyboard.press("Shift"); await page.keyboard.press("Shift"); };
+  await taps();
+  const palette = page.getByRole("dialog");
+  await expect(palette.getByRole("heading", { name: "Präsentationsbefehle" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(palette).toBeHidden();
+  await expect(node).toHaveClass(/selected/);
+  await taps();
+  const search = palette.getByRole("combobox");
+  await search.fill("duplicateSelection");
+  await search.press("Enter");
+  await expect(editor.locator(".react-flow__node")).toHaveCount(4);
+  await taps();
+  await search.fill("undo");
+  await search.press("Enter");
+  await expect(editor.locator(".react-flow__node")).toHaveCount(3);
+  await node.getByText("First idea", { exact: true }).dblclick();
+  const richText = node.getByRole("textbox", { name: "Formatierter Text" });
+  await expect(richText).toBeFocused();
+  await page.keyboard.press("End");
+  await taps();
+  await expect(search).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(richText).toBeFocused();
+  await page.keyboard.type(" preserved");
+  await expect(richText).toContainText("First idea preserved");
+  const title = page.getByRole("textbox", { name: "Titel der Präsentation", exact: true });
+  await title.focus(); await taps();
+  await expect(palette).toBeHidden();
+  await page.getByRole("button", { name: "Präsentationsbefehle", exact: true }).click();
+  await expect(search).toBeFocused();
+  await page.keyboard.press("Escape");
+});

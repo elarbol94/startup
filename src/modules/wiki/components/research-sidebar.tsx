@@ -26,6 +26,7 @@ import { useFocusMode } from "@/components/focus-mode";
 import { cn } from "@/lib/utils";
 import { createQuickNote, searchResearch } from "../research-actions";
 import { SearchSnippet } from "./search-snippet";
+import { useWikiNavigation } from "./wiki-navigation";
 
 type SearchResults = Awaited<ReturnType<typeof searchResearch>>;
 
@@ -94,6 +95,7 @@ export function ResearchSidebar({
   counts: { inbox: number; sources: number; unread: number; trash: number };
 }) {
   const t = useTranslations("wiki");
+  const { openSearch } = useWikiNavigation();
   const locale = useLocale();
   const router = useRouter();
   const { isFocused } = useFocusMode();
@@ -294,9 +296,9 @@ export function ResearchSidebar({
       <TooltipProvider>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className={cn("flex h-14 shrink-0 items-center border-b", compact ? "flex-col gap-2 px-2 py-3" : "gap-2 p-3")}>
-            <div className="grid size-8 shrink-0 place-items-center rounded-md bg-indigo-600 text-white">
+            <button type="button" onClick={() => { onNavigate?.(); openSearch(); }} aria-label={t("workspace.switcher")} title={`${t("workspace.switcher")} · ⇧ ⇧`} className="grid size-8 shrink-0 place-items-center rounded-md bg-indigo-600 text-white focus-visible:ring-2 focus-visible:ring-ring">
               <BookOpen className="size-4" />
-            </div>
+            </button>
             <div
               aria-hidden={compact}
               className={cn(

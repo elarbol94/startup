@@ -1807,18 +1807,17 @@ function CollaborativeWikiEditor({
     const detector = createDoubleShiftDetector();
     const handle = (event: KeyboardEvent) => {
       const target = event.target;
-      if (!(target instanceof HTMLElement) || !editorRootRef.current?.contains(target) || target.closest("input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]")) { detector.reset(); return; }
+      if (event.defaultPrevented || !(target instanceof HTMLElement) || !editorRootRef.current?.contains(target) || target.closest("input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]") || document.querySelector('[aria-modal="true"]')) { detector.reset(); return; }
       if (detector.handle(event, performance.now())) { event.preventDefault(); openCommandSearch(); }
     };
     window.addEventListener("keydown", handle, true);
     window.addEventListener("keyup", handle, true);
-    window.addEventListener("blur", detector.reset);
-    window.addEventListener("pointerdown", detector.reset, true);
+    const interruptions = ["blur", "pointerdown", "focusin", "compositionstart", "visibilitychange"] as const;
+    for (const type of interruptions) window.addEventListener(type, detector.reset, true);
     return () => {
       window.removeEventListener("keydown", handle, true);
       window.removeEventListener("keyup", handle, true);
-      window.removeEventListener("blur", detector.reset);
-      window.removeEventListener("pointerdown", detector.reset, true);
+      for (const type of interruptions) window.removeEventListener(type, detector.reset, true);
     };
   }, [editor]);
   const handleSvgAssetReady = useCallback((attachmentId: string, contentUrl: string) => {
@@ -2418,6 +2417,7 @@ function CollaborativeWikiEditor({
   {saveState === "conflict" && conflictRevision && <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"><RotateCcw className="size-4" /><span className="flex-1">{t("editConflictDescription")}</span><Button size="sm" variant="outline" onClick={discardDraftAndReload}>{t("loadCurrent")}</Button><Button size="sm" onClick={() => void restoreConflictDraft()}>{t("restoreMine")}</Button></div>}
   <div className="flex min-w-0 items-start gap-0">
     <div
+      data-wiki-command-scope
       ref={editorRootRef}
       className={documentMode ? "wiki-document-workspace relative min-w-0 flex-1" : "wiki-note-workspace relative min-w-0 flex-1 overflow-x-auto px-4 py-8 md:px-10"}
       onKeyDownCapture={(event) => {

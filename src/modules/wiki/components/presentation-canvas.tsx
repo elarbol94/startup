@@ -64,7 +64,7 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
     >
       <Resizer selected={Boolean(selected)} data={data} />
       {editing && data.editable && collaboration ? (
-        <div className="nodrag nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") setEditing(false); }}>
+        <div className="nodrag nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!(event.relatedTarget as HTMLElement | null)?.closest?.("[data-editor-command-search]") && !event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") setEditing(false); }}>
           <PresentationRichText inline elementId={element.id} content={element.content} onChange={() => {}} />
         </div>
       ) : editing && data.editable ? (

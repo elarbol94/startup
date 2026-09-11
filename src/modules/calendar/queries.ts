@@ -473,6 +473,7 @@ export function listCalendarWorkspace(input: {
     ),
     calendars: accessible.map((calendar) => ({
       id: calendar.id,
+      ownerId: calendar.ownerId,
       name: calendar.name,
       color: calendar.color,
       role: calendar.role,

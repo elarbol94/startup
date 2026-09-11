@@ -3,12 +3,14 @@ import { UserIdentity } from "@/components/user-identity";
 import { clientUUID } from "@/lib/client-uuid";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 
+import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
+import { createDoubleShiftDetector } from "../lib/command-search";
 import { PresentationRichText } from "./presentation-rich-text";
 
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,7 +34,7 @@ import { Background, Controls, MiniMap, ReactFlow, ReactFlowProvider, ViewportPo
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDownToLine, ArrowUpToLine, Check, Copy, FileDown, GripVertical, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Plus, Redo2, RotateCw, Save, Settings, Shapes, Square, Target, Trash2, TriangleAlert, Type, Undo2, X } from "lucide-react";
+import { ArrowDownToLine, ArrowUpToLine, Check, Copy, FileDown, GripVertical, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Plus, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Target, Trash2, TriangleAlert, Type, Undo2, X } from "lucide-react";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
@@ -385,6 +387,41 @@ function Editor({
   const reactFlow = useReactFlow<PresentationNode>();
   const { resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLDivElement>(null);
+  const commandRoot = useRef<HTMLDivElement>(null);
+  const commandFocus = useRef<HTMLElement | null>(null);
+  const commandRange = useRef<Range | null>(null);
+  const [commandsOpen, setCommandsOpen] = useState(false);
+  const openCommands = () => {
+    commandFocus.current = document.activeElement as HTMLElement | null;
+    const selection = window.getSelection();
+    commandRange.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    setCommandsOpen(true);
+  };
+  const openCommandsFromKeyboard = useEffectEvent(openCommands);
+  const restoreCommandFocus = () => {
+    const target = commandFocus.current;
+    (target?.isConnected ? target : commandRoot.current)?.focus({ preventScroll: true });
+    const range = commandRange.current;
+    if (range?.startContainer.isConnected && commandRoot.current?.contains(range.startContainer)) {
+      const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
+    }
+  };
+  useEffect(() => {
+    const detector = createDoubleShiftDetector();
+    const handle = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement;
+      if (event.defaultPrevented || !commandRoot.current?.contains(target) || target.closest?.('input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]') || document.querySelector('[aria-modal="true"]')) { detector.reset(); return; }
+      if (detector.handle(event, performance.now())) { event.preventDefault(); openCommandsFromKeyboard(); }
+    };
+    window.addEventListener("keydown", handle, true); window.addEventListener("keyup", handle, true);
+    const interruptions = ["blur", "pointerdown", "focusin", "compositionstart", "visibilitychange"] as const;
+    for (const type of interruptions) window.addEventListener(type, detector.reset, true);
+    return () => {
+      window.removeEventListener("keydown", handle, true); window.removeEventListener("keyup", handle, true);
+      for (const type of interruptions) window.removeEventListener(type, detector.reset, true);
+    };
+  }, []);
+
   const formatClipboard = useRef<PresentationFormat | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [sessionId] = useState(() => clientUUID());
@@ -1230,8 +1267,34 @@ function Editor({
           )}
 
 </>);
+  const commandText = t("presentations.commands.title");
+  const unavailable = t("presentations.commands.unavailable");
+  const insertReason = disabled ? unavailable : elements.length >= 500 ? t("presentations.elementLimit") : undefined;
+  const commands: EditorSearchCommand[] = [
+    { id: "addText", label: t("presentations.addText"), execute: addText, disabledReason: insertReason, group: commandText },
+    { id: "addFrame", label: t("presentations.addFrame"), execute: addFrame, disabledReason: insertReason, group: commandText },
+    { id: "addShape", label: t("presentations.addShape"), execute: addShape, disabledReason: insertReason, group: commandText },
+    { id: "addChart", label: studio("addChart"), execute: () => addStudioElement("chart"), disabledReason: insertReason, group: commandText },
+    { id: "addIcon", label: studio("addIcon"), execute: () => addStudioElement("icon"), disabledReason: insertReason, group: commandText },
+    { id: "addImage", label: t("presentations.addImage"), execute: () => imageInputRef.current?.click(), disabledReason: insertReason || (uploading ? unavailable : undefined), group: commandText },
+    { id: "uploadMedia", label: studio("uploadMedia"), execute: () => mediaInputRef.current?.click(), disabledReason: insertReason || (uploading ? unavailable : undefined), group: commandText },
+    { id: "duplicateSelection", label: t("presentations.duplicateElement"), execute: () => duplicateSelection(selectedIds), disabledReason: disabled ? unavailable : !selection.length ? t("presentations.commands.selectFirst") : elements.length + presentationDescendants(elements, new Set(selectedIds)).size > 500 ? t("presentations.elementLimit") : undefined, contextPriority: selection.length ? 1 : 0, group: commandText },
+    { id: "deleteSelection", label: t("presentations.deleteElement"), execute: () => deleteSelection(selectedIds), disabledReason: disabled ? unavailable : !selection.length ? t("presentations.commands.selectFirst") : selection.every(element => isPresentationElementLocked(elements, element.id)) ? unavailable : undefined, group: commandText },
+    { id: "undo", label: t("editor.toolbar.undo"), execute: () => dispatch({ type: "undo" }), disabledReason: disabled || !(undo ? undo.canUndo() : canvas.past.length) ? unavailable : undefined, group: commandText },
+    { id: "redo", label: t("editor.toolbar.redo"), execute: () => dispatch({ type: "redo" }), disabledReason: disabled || !(undo ? undo.canRedo() : canvas.future.length) ? unavailable : undefined, group: commandText },
+    { id: "overview", label: t("presentations.overview"), execute: () => { void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION }); }, group: commandText },
+    { id: "path", label: t("presentations.path"), execute: () => { setPathOpen(value => !value); if (!window.matchMedia("(min-width: 1280px)").matches) setActivePanel(null); }, group: commandText },
+    ...(["properties", "sources", "design", "assets", "comments"] as const).map(panel => ({ id: panel, label: t(`workspace.${panel}`), execute: () => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }, group: commandText })),
+    { id: "save", label: t("presentations.save"), execute: () => { void flush(); }, disabledReason: disabled ? unavailable : undefined, group: commandText },
+    { id: "history", label: t("presentations.history"), execute: () => setWorkspaceDialog("history"), group: commandText },
+    { id: "playback", label: t("presentations.playbackSettings"), execute: () => setWorkspaceDialog("playback"), group: commandText },
+  ];
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-0 min-w-0 flex-col md:h-dvh" data-testid="presentation-editor" data-presentation-workspace>
+    <div className="flex h-[calc(100dvh-7rem)] min-h-0 min-w-0 flex-col md:h-dvh" data-testid="presentation-editor" data-presentation-workspace data-wiki-command-scope ref={commandRoot} tabIndex={-1}
+      onPointerDownCapture={event => { if (commandRoot.current?.contains(event.target as Node) && !(event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable=true]')) commandRoot.current?.focus({ preventScroll: true }); }}>
+      {commandsOpen && <EditorCommandSearch title={commandText} description={t("presentations.commands.description")} commands={commands}
+        onClose={() => { flushSync(() => setCommandsOpen(false)); restoreCommandFocus(); }}
+        onExecute={item => { if (item.disabledReason) return; flushSync(() => setCommandsOpen(false)); restoreCommandFocus(); item.execute(); }} />}
       {collaboration && <CollaborationStatus provider={collaboration} />}
       <header className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background px-4 py-3">
         {documentResumeToken && <Button size="sm" variant="outline" onClick={() => void returnToDocument()}>{linkText("backDocument")}</Button>}
@@ -1288,6 +1351,7 @@ function Editor({
         </div>
       </header>
       <div data-testid="presentation-toolbar" className="flex flex-wrap items-center gap-1 border-b border-border/60 bg-background px-3 py-2">
+        <Button size="sm" variant="ghost" aria-label={commandText} onClick={openCommands}><Search className="size-4" /><span>{commandText}</span><kbd className="text-xs text-muted-foreground">&#8679; &#8679;</kbd></Button>
         <Button size="sm" variant={pathOpen ? "secondary" : "ghost"} aria-expanded={pathOpen} onClick={() => { setPathOpen((value) => !value); if (!window.matchMedia("(min-width: 1280px)").matches) setActivePanel(null); }}><PanelLeft className="size-4" />{t("presentations.path")}</Button>
         <span className="mx-1 h-5 w-px bg-border/60" />
         <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} onClick={addText}><Type className="size-3.5" />{t("presentations.addText")}</Button>

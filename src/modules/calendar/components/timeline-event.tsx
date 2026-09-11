@@ -18,7 +18,7 @@ export function TimelineEvent({ item, day, timezone, column, columns, onSelect, 
   onCommit: (item: CalendarItem, startAt: string, endAt: string) => Promise<boolean>;
 }) {
   const t = useTranslations("calendar");
-  const [preview, setPreview] = useState<{ startAt: string; endAt: string; dayOffset: number } | null>(null);
+  const [preview, setPreview] = useState<{ startAt: string; endAt: string; dayOffset: number; mode: TimeDragMode } | null>(null);
   const [saving, setSaving] = useState(false);
   const drag = useRef<{ mode: TimeDragMode; x: number; y: number; scroll: number; width: number; viewport: HTMLElement; moved: boolean } | null>(null);
   const suppressClick = useRef(false);
@@ -51,7 +51,7 @@ export function TimelineEvent({ item, day, timezone, column, columns, onSelect, 
     const bounds = state.viewport.getBoundingClientRect();
     if (event.clientY > bounds.bottom - 24) state.viewport.scrollTop += 12;
     if (event.clientY < bounds.top + 100) state.viewport.scrollTop -= 12;
-    setPreview(rangeAt(event));
+    setPreview({ ...rangeAt(event), mode: state.mode });
   }
   async function commit(range: { startAt: string; endAt: string }) {
     setSaving(true);
@@ -81,6 +81,12 @@ export function TimelineEvent({ item, day, timezone, column, columns, onSelect, 
   return (
     <div data-calendar-event={item.sourceId} className={cn("group absolute z-10 rounded border border-l-[3px] bg-background shadow-sm focus-within:z-20 hover:z-20", saving && "opacity-60", preview && "z-40 ring-2 ring-ring")}
       style={{ top: display.start, height: Math.max(24, display.end - display.start), left: `calc(${column * 100 / columns + (preview?.dayOffset ?? 0) * 100}% + 2px)`, width: `calc(${100 / columns}% - 4px)`, borderLeftColor: item.calendarId ? item.color : "var(--muted-foreground)" }}>
+      {preview && !saving && <output
+        data-testid="calendar-drag-time"
+        data-edge={preview.mode === "end" ? "bottom" : "top"}
+        aria-label={t(preview.mode === "end" ? "dragEndTime" : "dragStartTime", { time: clock(preview.mode === "end" ? display.end : display.start) })}
+        className={cn("pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-semibold tabular-nums text-background shadow-md", preview.mode === "end" ? "top-full mt-1" : "bottom-full mb-1")}
+      >{clock(preview.mode === "end" ? display.end : display.start)}</output>}
       <button type="button" className={cn("flex h-full w-full flex-col items-start justify-start overflow-clip px-1 py-1 text-left text-[10px] outline-none focus-visible:ring-2 focus-visible:ring-ring", editable && "touch-none cursor-grab active:cursor-grabbing")}
         aria-label={label} title={`${label}${item.assigneeName ? ` · ${item.assigneeName}` : ""}`} disabled={saving}
         onPointerDown={(event) => begin(event, "move")} {...handlers} onKeyDown={(event) => key(event, "move")}

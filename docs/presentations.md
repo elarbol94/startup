@@ -381,3 +381,7 @@ the laptop automatically.
 The Properties inspector uses exclusive collapsible sections: opening Appearance, Content & media, Structure, or Animation closes the others. Connectors and multi-object arrangement are collapsed groups; a compact selector switches workspace panels.
 
 Inspector tools follow the selection: Content is shown only for text, images, charts, icons and media; grouping and alignment require multiple objects; connected arrows expose line styling and detaching. Animation step settings only refer to the selected object. Canvas settings appear with no selection.
+
+### Editor command search
+
+Two short Shift taps on the presentation canvas or rich text open presentation commands. The toolbar offers the same searchable menu, with arrow-key navigation, Enter to run and Escape to return to the previous focus and selection. Insert, duplicate/delete, undo/redo, overview, panels, save and history use the existing editor actions and permission guards. Ordinary form fields and open dialogs do not trigger the shortcut; outside editor scopes double Shift retains app navigation.
