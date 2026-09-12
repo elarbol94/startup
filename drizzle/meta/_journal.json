@@ -435,6 +435,13 @@
       "when": 1789035642380,
       "tag": "0061_platform_version_control",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "6",
+      "when": 1789201838638,
+      "tag": "0062_powerful_nitro",
+      "breakpoints": true
     }
   ]
 }

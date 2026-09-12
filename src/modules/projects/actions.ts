@@ -1247,7 +1247,7 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
   if (!task) throw new Error("Task not found");
   if (!task.projectId) throw new Error("Only project tasks can be nested");
   const projectId = task.projectId;
-  if (data.parentTaskId === task.parentTaskId) return;
+
 
   const projectTasks = projectHierarchyRows(projectId);
   assertTaskHierarchy(
@@ -1285,14 +1285,21 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
   const anchor = data.beforeTaskId
     ? siblings.findIndex((sibling) => sibling.id === data.beforeTaskId)
     : -1;
-  const sortOrder =
-    anchor === 0
-      ? siblings[0].sortOrder - SORT_GAP
-      : anchor > 0
-        ? Math.round((siblings[anchor - 1].sortOrder + siblings[anchor].sortOrder) / 2)
-        : (siblings.at(-1)?.sortOrder ?? 0) + SORT_GAP;
+  if (data.beforeTaskId && anchor < 0) throw new Error("The destination moved; refresh and try again");
+  const orderedIds = siblings.map((sibling) => sibling.id);
+  orderedIds.splice(anchor < 0 ? orderedIds.length : anchor, 0, task.id);
+  const sortOrder = (orderedIds.indexOf(task.id) + 1) * SORT_GAP;
+  const nextHierarchy = projectTasks.map((row) => row.id === task.id ? { ...row, parentTaskId: data.parentTaskId } : row);
+  for (const dependency of db.select().from(taskDependencies).all()) {
+    try { assertDependencyEndpoints(projectTasks, dependency); } catch { continue; }
+    assertDependencyEndpoints(nextHierarchy, dependency);
+  }
 
   db.transaction(() => {
+    // Renumber destination siblings to prevent collisions after repeated insertions.
+    orderedIds.forEach((id, index) => {
+      db.update(tasks).set({ sortOrder: (index + 1) * SORT_GAP }).where(eq(tasks.id, id)).run();
+    });
     db.update(tasks)
       .set({
         parentTaskId: data.parentTaskId,
@@ -1301,16 +1308,18 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
       })
       .where(eq(tasks.id, task.id))
       .run();
-    if (data.parentTaskId) {
+    if (data.parentTaskId && data.parentTaskId !== task.parentTaskId) {
       db.update(tasks)
         .set({ constraintType: "asap", constraintDate: null, updatedAt: new Date() })
         .where(eq(tasks.id, data.parentTaskId))
         .run();
       syncTaskAncestors(data.parentTaskId);
     }
-    if (task.parentTaskId) syncTaskAncestors(task.parentTaskId);
-    syncTaskAncestors(task.id);
-    syncProjectBounds(projectId);
+    if (task.parentTaskId !== data.parentTaskId) {
+      if (task.parentTaskId) syncTaskAncestors(task.parentTaskId);
+      syncTaskAncestors(task.id);
+      syncProjectBounds(projectId);
+    }
   });
 
   revalidatePath(`/projects/${projectId}`);
@@ -2186,6 +2195,33 @@ export async function reapplyPortfolioScheduleChange(changeSetId: string) {
       .set({ status: "applied", revertedAt: null })
       .where(eq(scheduleChangeSets.id, changeSetId))
       .run();
+  });
+  revalidatePath("/projects");
+}
+
+const projectOrderSchema = z.object({ projectId: z.string().min(1), beforeProjectId: z.string().min(1).nullable() });
+export async function reorderProject(input: z.input<typeof projectOrderSchema>) {
+  await requireUserOrThrow();
+  const data = projectOrderSchema.parse(input);
+  db.transaction(() => {
+    const ordered = db.select().from(projects).orderBy(asc(projects.sortOrder), asc(projects.createdAt), asc(projects.id)).all();
+    if (!ordered.some((p) => p.id === data.projectId)) throw new Error("Project not found");
+    if (data.beforeProjectId === data.projectId) return;
+    const ids = ordered.filter((p) => p.id !== data.projectId).map((p) => p.id);
+    const index = data.beforeProjectId ? ids.indexOf(data.beforeProjectId) : ids.length;
+    if (index < 0) throw new Error("Destination project not found");
+    ids.splice(index, 0, data.projectId);
+    ids.forEach((id, i) => db.update(projects).set({ sortOrder: (i + 1) * SORT_GAP }).where(eq(projects.id, id)).run());
+  });
+  revalidatePath("/projects");
+}
+
+export async function resetDependencyRoutes(input: { ids: string[] }) {
+  await requireUserOrThrow();
+  const { ids } = z.object({ ids: z.array(z.string().min(1)).max(2000) }).parse(input);
+  if (!ids.length) return;
+  db.transaction(() => {
+    db.update(taskDependencies).set({ routeOffsetDays: null, routeOffsetRows: null }).where(inArray(taskDependencies.id, ids)).run();
   });
   revalidatePath("/projects");
 }

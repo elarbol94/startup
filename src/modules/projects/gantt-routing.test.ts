@@ -85,3 +85,13 @@ describe("Gantt dependency routing", () => {
     ).toBe(true);
   });
 });
+
+
+it("keeps a backwards dependency outside both endpoint bars", () => {
+  const route = routeGanttDependency({ source: { x: 300, y: 22 }, target: { x: 180, y: 66 }, sourceDirection: 1, targetDirection: -1, stub: 16,
+    obstacles: [{ id: "a", left: 194, right: 306, top: 8, bottom: 36 }, { id: "b", left: 174, right: 286, top: 52, bottom: 80 }], excludedObstacleIds: new Set(["a", "b"]) });
+  // No horizontal return segment may cross either bar's centre line.
+  const segments = route.points.slice(1).map((p, i) => [route.points[i], p]);
+  expect(segments.filter(([a,b]) => a.y === b.y && a.y === 22).every(([a,b]) => Math.min(a.x,b.x) >= 300)).toBe(true);
+  expect(segments.filter(([a,b]) => a.y === b.y && a.y === 66).every(([a,b]) => Math.max(a.x,b.x) <= 180)).toBe(true);
+});

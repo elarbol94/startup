@@ -31,6 +31,8 @@ import {
   FolderKanban,
   Focus,
   GitBranch,
+  GripVertical,
+  WandSparkles,
   IndentDecrease,
   IndentIncrease,
   LocateFixed,
@@ -49,6 +51,8 @@ import {
   fitTaskToChildren,
   moveContextualDeadline,
   reparentTask,
+  reorderProject,
+  resetDependencyRoutes,
   reapplyPortfolioScheduleChange,
   revertPortfolioScheduleChange,
   upsertProject,
@@ -92,6 +96,7 @@ import {
   type GanttRouteObstacle,
   type GanttRoutePoint,
 } from "@/modules/projects/gantt-routing";
+import { planStructureMove, type DropPlacement } from "../structure";
 import { ProjectsClient } from "./projects-client";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
@@ -1514,6 +1519,12 @@ export function PortfolioClient({
   const [owner, setOwner] = useState("all");
   const [health, setHealth] = useState<"all" | "risk" | "track">("all");
   const [criticalVisible, setCriticalVisible] = useState(false);
+  const [structureDrag, setStructureDrag] = useState<Row | null>(null);
+  const [structureDrop, setStructureDrop] = useState<{ row: Row; placement: DropPlacement; valid: boolean } | null>(null);
+  const [structurePending, setStructurePending] = useState(false);
+  const [linesVisible, setLinesVisible] = useState(true);
+  const structureGesture = useRef<{ source: Row; x: number; y: number; active: boolean; target: { row: Row; placement: DropPlacement; valid: boolean } | null } | null>(null);
+
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(embedded ? [embedded.projectId] : []));
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
@@ -3879,6 +3890,87 @@ export function PortfolioClient({
     );
   }
 
+  async function moveStructure(source: Row, target: Row, placement: DropPlacement) {
+    if (structurePending) return;
+    try {
+      const move = planStructureMove(source, target, placement, effectiveSchedule.tasks, effectiveSchedule.projects.map(p => p.id), effectiveSchedule.dependencies);
+      setStructurePending(true);
+      if (move.kind === "project") await reorderProject(move);
+      else {
+        await reparentTask(move);
+        setExpandedProjects(current => new Set([...current, source.projectId]));
+        if (move.parentTaskId) setExpandedTasks(current => new Set([...current, move.parentTaskId!]));
+      }
+      await refreshSchedule();
+      toast.success(t("structureMoved"));
+    } catch {
+      toast.error(t("structureInvalid"));
+    } finally { setStructurePending(false); }
+  }
+
+  function beginStructureDrag(event: ReactPointerEvent<HTMLButtonElement>, row: Row) {
+    if (event.button !== 0 || structurePending) return;
+    event.preventDefault(); event.stopPropagation();
+    event.currentTarget.focus();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    structureGesture.current = { source: row, x: event.clientX, y: event.clientY, active: false, target: null };
+  }
+  function updateStructureDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const gesture = structureGesture.current;
+    if (!gesture) return;
+    if (!gesture.active && Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 5) return;
+    gesture.active = true;
+    setStructureDrag(gesture.source);
+    const container = scrollRef.current;
+    if (container) {
+      const bounds = container.getBoundingClientRect();
+      if (event.clientY > bounds.bottom - 40) container.scrollTop += 16;
+      if (event.clientY < bounds.top + HEADER_HEIGHT + 32) container.scrollTop -= 16;
+    }
+    const element = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>("[data-structure-row]");
+    const target = rows.find(row => row.id === element?.dataset.structureRow);
+    if (!element || !target) { gesture.target = null; setStructureDrop(null); return; }
+    const bounds = element.getBoundingClientRect();
+    const fraction = (event.clientY - bounds.top) / bounds.height;
+    const placement: DropPlacement = gesture.source.kind === "project" ? (fraction < 0.5 ? "before" : "after") : target.kind === "project" ? "inside" : fraction < 0.25 ? "before" : fraction > 0.75 ? "after" : "inside";
+    let valid = true;
+    try { planStructureMove(gesture.source, target, placement, effectiveSchedule.tasks, effectiveSchedule.projects.map(p => p.id), effectiveSchedule.dependencies); } catch { valid = false; }
+    gesture.target = { row: target, placement, valid };
+    setStructureDrop(gesture.target);
+  }
+  function endStructureDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    const gesture = structureGesture.current;
+    structureGesture.current = null;
+    setStructureDrag(null); setStructureDrop(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    if (gesture?.active && gesture.target?.valid) void moveStructure(gesture.source, gesture.target.row, gesture.target.placement);
+  }
+  function cancelStructureDrag() { structureGesture.current = null; setStructureDrag(null); setStructureDrop(null); }
+  function structureKey(event: ReactKeyboardEvent<HTMLButtonElement>, row: Row) {
+    if (event.key === "Escape") { cancelStructureDrag(); return; }
+    if (!event.altKey || !["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const siblings = rows.filter(r => row.kind === "project" ? r.kind === "project" : r.task && r.projectId === row.projectId && r.task.parentTaskId === row.task?.parentTaskId);
+    const index = siblings.findIndex(r => r.id === row.id);
+    if (event.key === "ArrowUp" && index > 0) void moveStructure(row, siblings[index - 1], "before");
+    if (event.key === "ArrowDown" && siblings[index + 1]) void moveStructure(row, siblings[index + 1], "after");
+    if (event.key === "ArrowRight" && row.task && index > 0) void moveStructure(row, siblings[index - 1], "inside");
+    if (event.key === "ArrowLeft" && row.task?.parentTaskId) {
+      const parent = rows.find(r => r.id === row.task!.parentTaskId);
+      if (parent) void moveStructure(row, parent, "after");
+    }
+  }
+  async function tidyDependencyLines() {
+    try {
+      setStructurePending(true);
+      await resetDependencyRoutes({ ids: [...dependencyGeometries.keys()] });
+      setDependencyDraft(null);
+      await refreshSchedule();
+      toast.success(t("routesTidied"));
+    } catch { toast.error(tCommon("error")); }
+    finally { setStructurePending(false); }
+  }
+
   function scrollToToday() {
     const scrollContainer = scrollRef.current;
     if (!scrollContainer) return;
@@ -3983,7 +4075,7 @@ export function PortfolioClient({
       const laneStep =
         index === 0
           ? 0
-          : Math.ceil(index / 2) * 10 * (index % 2 === 1 ? 1 : -1);
+          : (index % 5) * 4 * (index % 2 === 1 ? 1 : -1);
       return [
         dependency.id,
         {
@@ -4311,8 +4403,8 @@ export function PortfolioClient({
             </div>
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</Button>
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
-            <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button></div>
-            <p className="w-full text-xs text-muted-foreground">{t("scheduleWarningsHelp")}</p>
+            <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button><Button size="sm" variant="outline" disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</Button><Button size="sm" variant={linesVisible ? "secondary" : "outline"} aria-pressed={linesVisible} onClick={() => setLinesVisible(value => !value)}>{t("dependencyLines")}</Button></div>
+            <p className="w-full text-xs text-muted-foreground">{t("structureHelp")}</p><p className="w-full text-xs text-muted-foreground" role="status">{structureDrag ? structureDrop?.valid ? t("drop" + (structureDrop.placement === "inside" ? "Inside" : structureDrop.placement === "before" ? "Before" : "After"), { name: structureDrop.row.label }) : t("structureInvalid") : t("lineHelp")}</p>
           </>
         )}
       </div>}
@@ -4540,7 +4632,7 @@ export function PortfolioClient({
                     </marker>
                   ))}
                 </defs>
-                {renderedDependencies.map((dependency) => {
+                {(linesVisible ? renderedDependencies : []).map((dependency) => {
                   const fromIndex = rowIndex.get(dependency.predecessorTaskId);
                   const toIndex = rowIndex.get(dependency.successorTaskId);
                   const from = taskRows.get(dependency.predecessorTaskId);
@@ -4576,9 +4668,10 @@ export function PortfolioClient({
                         stroke="currentColor"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={selected || hovered ? 2.25 : 1.4}
+                        strokeWidth={selected || hovered ? 2 : 1.15}
+                        opacity={selected || hovered ? 1 : selectedTaskId ? (dependency.predecessorTaskId === selectedTaskId || dependency.successorTaskId === selectedTaskId ? 0.85 : 0.12) : 0.5}
                         markerEnd={
-                          conflict
+                          conflict && (selected || hovered)
                             ? "url(#gantt-dependency-arrow-conflict)"
                             : selected || hovered
                               ? "url(#gantt-dependency-arrow-active)"
@@ -4586,7 +4679,7 @@ export function PortfolioClient({
                         }
                         className={cn(
                           "transition-[stroke-width,color,opacity] duration-150 motion-reduce:transition-none",
-                          conflict
+                          conflict && (selected || hovered)
                             ? "text-red-500"
                             : selected || hovered
                               ? "text-indigo-600 dark:text-indigo-400"
@@ -4707,7 +4800,7 @@ export function PortfolioClient({
                 })()}
               </svg>
 
-                {renderedDependencies.map((dependency) => {
+                {(linesVisible ? renderedDependencies : []).map((dependency) => {
                   const fromIndex = rowIndex.get(dependency.predecessorTaskId);
                   const toIndex = rowIndex.get(dependency.successorTaskId);
                   const from = taskRows.get(dependency.predecessorTaskId);
@@ -5043,8 +5136,11 @@ export function PortfolioClient({
                     style={{ width: totalWidth, height: ROW_HEIGHT }}
                   >
                     <div
+                      data-structure-row={row.id}
                       className={cn(
                         "sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r bg-card px-2.5",
+                        structureDrag?.id === row.id && "opacity-50",
+                        structureDrop?.row.id === row.id && (structureDrop.valid ? "ring-2 ring-inset ring-sky-500" : "ring-2 ring-inset ring-red-500"),
                         row.kind === "project" && "bg-muted font-semibold",
                         row.isSummary && row.kind !== "project" && "font-medium",
                         row.kind === "subtask" && "bg-card",
@@ -5067,6 +5163,9 @@ export function PortfolioClient({
                             : undefined,
                       }}
                     >
+                      {!embedded && <button type="button" className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 active:cursor-grabbing" aria-label={t("moveRow", { name: row.label })} title={t("moveRowHelp")} disabled={structurePending}
+                        onPointerDown={event => beginStructureDrag(event, row)} onPointerMove={updateStructureDrag} onPointerUp={endStructureDrag} onPointerCancel={cancelStructureDrag} onLostPointerCapture={cancelStructureDrag} onKeyDown={event => structureKey(event, row)} onClick={event => event.stopPropagation()}><GripVertical className="size-3.5" /></button>}
+                      {structureDrop?.row.id === row.id && structureDrop.valid && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-0.5 bg-sky-500", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
                       {row.kind === "project" && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedProjects, row.projectId)} aria-label={t("toggleProject")}>{expandedProjects.has(row.projectId) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
                       {row.task && row.isSummary && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedTasks, row.id)} aria-label={t("toggleSubtasks")}>{expandedTasks.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
                       {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 fill-indigo-500 text-indigo-600" /> : <CircleDot className="size-3.5 text-muted-foreground" />)}

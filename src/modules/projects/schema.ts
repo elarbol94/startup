@@ -31,6 +31,7 @@ export const projects = sqliteTable("projects", {
   id: text("id")
     .primaryKey()
     .$defaultFn(() => createId()),
+  sortOrder: integer("sort_order").notNull().default(0),
   name: text("name").notNull(),
   description: text("description").notNull().default(""),
   color: text("color").notNull().default("#2563eb"),

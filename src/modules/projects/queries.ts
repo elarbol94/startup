@@ -20,7 +20,7 @@ export function listProjects(options?: { includeArchived?: boolean }) {
     .select()
     .from(projects)
     .where(where)
-    .orderBy(asc(projects.createdAt))
+    .orderBy(asc(projects.sortOrder), asc(projects.createdAt), asc(projects.id))
     .all();
 
   if (rows.length === 0) return rows.map((row) => ({ ...row, openTasks: 0 }));
@@ -99,7 +99,7 @@ export function getPortfolioSchedule() {
     .select()
     .from(projects)
     .where(eq(projects.status, "active"))
-    .orderBy(asc(projects.createdAt))
+    .orderBy(asc(projects.sortOrder), asc(projects.createdAt), asc(projects.id))
     .all();
 
   const taskRows = db
@@ -129,7 +129,6 @@ export function getPortfolioSchedule() {
     .where(eq(projects.status, "active"))
     .orderBy(
       asc(tasks.projectId),
-      asc(projectColumns.sortOrder),
       asc(tasks.sortOrder),
       asc(tasks.createdAt),
       asc(tasks.id),

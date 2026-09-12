@@ -37,7 +37,7 @@ type RouteInput = {
 
 const OBSTACLE_PENALTY = 100_000;
 const CROSSING_PENALTY = 1_200;
-const OVERLAP_PENALTY = 400;
+const OVERLAP_PENALTY = 4_000;
 const BEND_PENALTY = 18;
 
 function samePoint(a: GanttRoutePoint, b: GanttRoutePoint) {
@@ -61,7 +61,11 @@ export function compactOrthogonalPoints(points: GanttRoutePoint[]) {
     changed = false;
     const next = compact.filter((point, index) => {
       if (index === 0 || index === compact.length - 1) return true;
-      const remove = collinear(compact[index - 1], point, compact[index + 1]);
+      const before = compact[index - 1];
+      const after = compact[index + 1];
+      const remove = collinear(before, point, after) &&
+        point.x >= Math.min(before.x, after.x) && point.x <= Math.max(before.x, after.x) &&
+        point.y >= Math.min(before.y, after.y) && point.y <= Math.max(before.y, after.y);
       if (remove) changed = true;
       return !remove;
     });
@@ -236,7 +240,9 @@ function routeScore(
     score += segmentLength(start, end);
     for (const obstacle of obstacles) {
       if (
-        !excludedObstacleIds.has(obstacle.id) &&
+        !(excludedObstacleIds.has(obstacle.id) &&
+          ((index === 1 && points[0].x >= obstacle.left && points[0].x <= obstacle.right && points[0].y >= obstacle.top && points[0].y <= obstacle.bottom) ||
+           (index === points.length - 1 && points.at(-1)!.x >= obstacle.left && points.at(-1)!.x <= obstacle.right && points.at(-1)!.y >= obstacle.top && points.at(-1)!.y <= obstacle.bottom))) &&
         segmentIntersectsObstacle(start, end, obstacle)
       ) {
         score += OBSTACLE_PENALTY;
@@ -312,10 +318,13 @@ export function routeGanttDependency(input: RouteInput): GanttDependencyRoute {
     minX - stub - Math.abs(laneBias),
     maxX + stub + Math.abs(laneBias),
   ];
+  const nearbyObstacles = (input.obstacles ?? []).filter((o) => o.bottom >= minY - 44 && o.top <= maxY + 44);
+  channelXs.push(...nearbyObstacles.flatMap((o) => [o.left - 8, o.right + 8]));
   const bridgeYs = [
     (source.y + target.y) / 2 + laneBias / 2,
     minY - stub - Math.abs(laneBias),
     maxY + stub + Math.abs(laneBias),
+    ...nearbyObstacles.flatMap((o) => [o.top - 6, o.bottom + 6]),
   ];
   const candidates: GanttDependencyRoute[] = [];
 
@@ -345,9 +354,9 @@ export function routeGanttDependency(input: RouteInput): GanttDependencyRoute {
   }
   for (const bridgeY of bridgeYs) {
     const sourceChannelX =
-      sourceExit.x + sourceDirection * (stub + Math.abs(laneBias));
+      sourceExit.x;
     const targetChannelX =
-      targetExit.x + targetDirection * (stub + Math.abs(laneBias));
+      targetExit.x;
     candidates.push(
       candidateRoute(
         [
@@ -365,6 +374,12 @@ export function routeGanttDependency(input: RouteInput): GanttDependencyRoute {
     );
   }
 
+  for (const candidate of candidates) {
+    const points = candidate.points;
+    for (let i = 1; i < points.length - 1; i++) {
+      if (collinear(points[i - 1], points[i], points[i + 1])) candidate.score += OBSTACLE_PENALTY;
+    }
+  }
   const automatic = candidates.sort(
     (a, b) => a.score - b.score || a.path.localeCompare(b.path),
   )[0];
@@ -380,5 +395,21 @@ export function routeGanttDependency(input: RouteInput): GanttDependencyRoute {
     manualPoints[segments.y.index].y += input.manualOffset.y;
     manualPoints[segments.y.index + 1].y += input.manualOffset.y;
   }
-  return candidateRoute(manualPoints, input);
+  const manual = candidateRoute(manualPoints, input);
+  if (manual.score < OBSTACLE_PENALTY) return manual;
+  // A manual handle must not send a line through a bar. Snap to the nearest
+  // clear lane, preserving the endpoint anchors and orthogonal segments.
+  const alternatives: GanttDependencyRoute[] = [];
+  for (const offset of [-24, -16, -8, 8, 16, 24]) {
+    for (const axis of ["x", "y"] as const) {
+      const segment = segments[axis];
+      if (!segment) continue;
+      const points = manualPoints.map(point => ({ ...point }));
+      points[segment.index][axis] += offset;
+      points[segment.index + 1][axis] += offset;
+      const route = candidateRoute(points, input);
+      if (route.score < OBSTACLE_PENALTY) alternatives.push({ ...route, score: route.score + Math.abs(offset) });
+    }
+  }
+  return alternatives.sort((a, b) => a.score - b.score)[0] ?? automatic;
 }
