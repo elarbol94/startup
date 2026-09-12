@@ -1,4 +1,25 @@
 {
+  "appWorkspace": {
+    "tabs": "Open tabs",
+    "current": "Current page",
+    "newTab": "New tab",
+    "closeTab": "Close {title}",
+    "split": "Show side by side",
+    "single": "Show one pane",
+    "narrow": "More width is needed for two panes. Your tabs stay open.",
+    "openBeside": "Open beside this page",
+    "pickerHint": "Choose a page or search for a source, document, presentation or project.",
+    "search": "Search pages…",
+    "loading": "Loading…",
+    "failed": "Search could not be loaded. Change the search to try again.",
+    "empty": "No matching pages.",
+    "resize": "Resize panes",
+    "limit": "You can keep up to {count} additional tabs open. Close a tab to open another.",
+    "unsavedTitle": "Close with unsaved changes?",
+    "unsavedBody": "This page has unfinished changes. Keep it open to finish saving, or discard them and close.",
+    "keep": "Keep open",
+    "discard": "Discard and close"
+},
   "userIdentity": {
     "organizer": "Organizer",
     "participants": "Participants",

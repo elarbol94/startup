@@ -1,5 +1,7 @@
 "use server";
 
+import { getWikiNavigationItems } from "@/modules/wiki/navigation-queries";
+
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -179,4 +181,12 @@ export async function restoreContextLink(
 export async function searchWorkspace(query: string) {
   await requireUserOrThrow();
   return searchWorkspaceRows(z.string().max(200).parse(query));
+}
+
+/** Fast page picker: metadata only, without semantic search or document loading. */
+export async function searchWorkspacePages(query: string) {
+  const viewer = await requireUserOrThrow();
+  const clean = z.string().trim().max(200).parse(query);
+  return [...getWikiNavigationItems(viewer, clean), ...(clean.length >= 2 ? searchWorkspaceRows(clean) : [])]
+    .map(item => ({ href: item.href, title: item.title }));
 }

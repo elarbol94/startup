@@ -1,4 +1,25 @@
 {
+  "appWorkspace": {
+    "tabs": "Geöffnete Tabs",
+    "current": "Aktuelle Seite",
+    "newTab": "Neuer Tab",
+    "closeTab": "{title} schließen",
+    "split": "Nebeneinander anzeigen",
+    "single": "Eine Ansicht anzeigen",
+    "narrow": "Für zwei Ansichten ist mehr Breite nötig. Deine Tabs bleiben geöffnet.",
+    "openBeside": "Neben dieser Seite öffnen",
+    "pickerHint": "Seite auswählen oder nach Quelle, Dokument, Präsentation oder Projekt suchen.",
+    "search": "Seiten durchsuchen…",
+    "loading": "Wird geladen…",
+    "failed": "Suche konnte nicht geladen werden. Ändere die Suche, um es erneut zu versuchen.",
+    "empty": "Keine passenden Seiten.",
+    "resize": "Ansichten aufteilen",
+    "limit": "Du kannst bis zu {count} zusätzliche Tabs offen halten. Schließe einen Tab, um einen weiteren zu öffnen.",
+    "unsavedTitle": "Mit ungespeicherten Änderungen schließen?",
+    "unsavedBody": "Diese Seite hat noch nicht gespeicherte Änderungen. Lass sie zum Speichern geöffnet oder verwirf die Änderungen und schließe sie.",
+    "keep": "Geöffnet lassen",
+    "discard": "Verwerfen und schließen"
+},
   "userIdentity": {
     "organizer": "Organisiert von",
     "participants": "Teilnehmende",

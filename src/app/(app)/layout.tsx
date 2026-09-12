@@ -1,3 +1,4 @@
+import { AppWorkspace } from "@/components/workspace/app-workspace";
 import { WikiNavigation } from "@/modules/wiki/components/wiki-navigation";
 import { UserIdentityProvider } from "@/components/user-identity";
 import { listUserIdentities } from "@/modules/settings/queries";
@@ -60,23 +61,15 @@ export default async function AppLayout({
           overflow: hidden;
           padding: 0;
         }
+        [data-app-shell]:has([data-project-focus-root="true"]) [data-workspace-toolbar] { display: none; }
+        [data-app-shell]:has([data-project-focus-root="true"]) [data-workspace-content] { height: 100dvh; }
+        #workspace-panel-primary:has([data-project-focus-root="true"]) { padding: 0; }
       `}</style>
-      <div
-        className="flex min-h-screen flex-1 flex-col md:flex-row"
-        data-app-shell
-      >
-        <div className="contents" data-app-chrome>
-          <Suspense fallback={<SidebarFallback />}>
-            <AuthenticatedSidebar />
-          </Suspense>
-        </div>
-        <main
-          className="rail-content-transition min-w-0 flex-1 overflow-x-clip p-4 duration-[220ms] ease-out motion-reduce:transition-none sm:p-6 md:pl-[calc(1.5rem+var(--app-rail-width,3.5rem))]"
-          data-app-main
-        >
-          {children}
-        </main>
-      </div>
+      <AppWorkspace userId={currentUser.id} navigation={
+        <Suspense fallback={<SidebarFallback />}>
+          <AuthenticatedSidebar />
+        </Suspense>
+      }>{children}</AppWorkspace>
       </DeadlineCreateProvider>
     </TaskCreateProvider>
     </WikiNavigation>
