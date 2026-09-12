@@ -1672,6 +1672,7 @@
     "toggleProject": "Expand or collapse project",
     "togglePhase": "Expand or collapse phase",
     "toggleTask": "Expand or collapse task",
+    "openProjectPage": "Open project “{name}”",
     "openBoard": "Open Kanban board",
     "noScheduleResults": "No projects or tasks match these filters.",
     "scheduleSaved": "Schedule updated",

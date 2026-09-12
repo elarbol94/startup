@@ -1672,6 +1672,7 @@
     "toggleProject": "Projekt ein- oder ausklappen",
     "togglePhase": "Phase ein- oder ausklappen",
     "toggleTask": "Aufgabe ein- oder ausklappen",
+    "openProjectPage": "Projekt „{name}“ öffnen",
     "openBoard": "Kanban-Board öffnen",
     "noScheduleResults": "Keine Projekte oder Aufgaben entsprechen den Filtern.",
     "indentTask": "Einrücken",

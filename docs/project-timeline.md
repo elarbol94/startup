@@ -41,3 +41,6 @@ Reduced-motion preferences disable interpolation.
 Left-drag empty chart space to pan horizontally and vertically. Bars, links,
 handles and structure rows retain their own interactions. Clicking empty space
 or pressing Escape deselects a dependency; panning never changes schedule data.
+
+The arrow beside each project name opens its project page, including the Tasks
+and Knowledge tabs. The name and chevron still expand/collapse its timeline rows.

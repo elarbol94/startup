@@ -15,11 +15,13 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
+  ArrowUpRight,
   CalendarClock,
   ChevronDown,
   ChevronLeft,
@@ -5298,6 +5300,17 @@ export function PortfolioClient({
                       >
                         {row.label}
                       </button>
+                      {row.kind === "project" && (
+                        <Link
+                          href={`/projects/${row.projectId}`}
+                          aria-label={t("openProjectPage", { name: row.label })}
+                          title={t("openProjectPage", { name: row.label })}
+                          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+                          onClick={(event) => event.stopPropagation()}
+                        >
+                          <ArrowUpRight className="size-4" aria-hidden="true" />
+                        </Link>
+                      )}
                       {row.task?.assignees.length ? <span className="flex w-12 shrink-0 items-center -space-x-1">{row.task.assignees.slice(0, 2).map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}{row.task.assignees.length > 2 && <span className="bg-card text-[10px]">+{row.task.assignees.length - 2}</span>}</span> : null}
                       {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600" aria-label={t("projectRiskExplanation")} /></span>}
                       {isConflict && <span tabIndex={0} title={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.progress >= 100 ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")} /></span>}
