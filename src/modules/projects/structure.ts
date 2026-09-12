@@ -35,3 +35,10 @@ export function planStructureMove(source: StructureRow, target: StructureRow, pl
   }
   return { kind: "task", taskId: task.id, parentTaskId, beforeTaskId };
 }
+
+/** Equal, predictable zones: the middle third nests, outer thirds reorder. */
+export function structureDropPlacement(source: StructureRow["kind"], target: StructureRow["kind"], fraction: number): DropPlacement {
+  if (source === "project") return fraction < 0.5 ? "before" : "after";
+  if (target === "project") return "inside";
+  return fraction < 1 / 3 ? "before" : fraction > 2 / 3 ? "after" : "inside";
+}

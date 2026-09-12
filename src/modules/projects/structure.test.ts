@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { planStructureMove, type StructureRow } from "./structure";
+import { planStructureMove, structureDropPlacement, type StructureRow } from "./structure";
 const tasks = [
   { id: "a", projectId: "p", parentTaskId: null, isMilestone: false },
   { id: "b", projectId: "p", parentTaskId: null, isMilestone: false },
@@ -27,4 +27,13 @@ describe("structure drop planning", () => {
 
 it("allows reordering when a legacy hierarchy conflict already exists elsewhere", () => {
   expect(planStructureMove(row("c"), row("b"), "before", tasks, ["p"], [{ predecessorTaskId: "a", successorTaskId: "child" }])).toMatchObject({ beforeTaskId: "b" });
+});
+
+it("distinguishes insertion boundaries from nesting targets", () => {
+  expect(structureDropPlacement("task", "task", 0.1)).toBe("before");
+  expect(structureDropPlacement("subtask", "task", 0.5)).toBe("inside");
+  expect(structureDropPlacement("task", "subtask", 0.9)).toBe("after");
+  expect(structureDropPlacement("task", "project", 0.1)).toBe("inside");
+  expect(structureDropPlacement("project", "project", 0.4)).toBe("before");
+  expect(structureDropPlacement("project", "project", 0.6)).toBe("after");
 });

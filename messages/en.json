@@ -1561,6 +1561,8 @@
     "routesTidied": "Dependency lines arranged automatically",
     "tidyLines": "Untangle lines",
     "dependencyLines": "Show lines",
+    "timelineHelp": "Help",
+    "zoomHelp": "Ctrl + scroll zooms smoothly around the pointer.",
     "structureHelp": "Drag the grip: drop above/below to reorder, in the row centre to nest. Alt + arrow keys on the grip: move or change level.",
     "lineHelp": "Select a line and drag its handles to adjust its route. Untangle lines resets manual routes for visible connections.",
     "dropInside": "Nest under “{name}”",

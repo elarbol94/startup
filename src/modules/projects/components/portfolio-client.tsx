@@ -7,12 +7,12 @@ import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-sel
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type WheelEvent as ReactWheelEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -32,6 +32,7 @@ import {
   Focus,
   GitBranch,
   GripVertical,
+  CircleHelp,
   WandSparkles,
   IndentDecrease,
   IndentIncrease,
@@ -96,7 +97,7 @@ import {
   type GanttRouteObstacle,
   type GanttRoutePoint,
 } from "@/modules/projects/gantt-routing";
-import { planStructureMove, type DropPlacement } from "../structure";
+import { planStructureMove, structureDropPlacement, type DropPlacement } from "../structure";
 import { ProjectsClient } from "./projects-client";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
@@ -236,7 +237,7 @@ const ZOOM_WIDTH: Record<Zoom, number> = {
 };
 const MIN_DAY_WIDTH = 6;
 const MAX_DAY_WIDTH = 44;
-const ZOOM_WHEEL_SENSITIVITY = 0.003;
+const ZOOM_WHEEL_SENSITIVITY = 0.0015;
 const FOCUS_VIEW_STORAGE_KEY = "projects.focusPortfolioView";
 const REPARENT_VIEW_STORAGE_KEY = "projects.reparentPortfolioView";
 const DEPENDENCY_TYPE_OPTIONS: DependencyType[] = [
@@ -1570,6 +1571,61 @@ export function PortfolioClient({
   const [revealTaskId, setRevealTaskId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const dayWidthRef = useRef(ZOOM_WIDTH.month);
+  const zoomAnimation = useRef<{ frame: number; target: number; anchorDay: number; pointerX: number; lastTime: number } | null>(null);
+  const zoomScrollLeft = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (zoomScrollLeft.current !== null && scrollRef.current) {
+      scrollRef.current.scrollLeft = Math.max(0, zoomScrollLeft.current);
+      zoomScrollLeft.current = null;
+    }
+  }, [dayWidth]);
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const cancel = () => {
+      if (zoomAnimation.current) cancelAnimationFrame(zoomAnimation.current.frame);
+      zoomAnimation.current = null;
+    };
+    const tick = (time: number) => {
+      const animation = zoomAnimation.current;
+      if (!animation) return;
+      const elapsed = Math.min(64, time - animation.lastTime);
+      animation.lastTime = time;
+      const current = dayWidthRef.current;
+      const next = Math.abs(animation.target - current) < 0.005
+        ? animation.target : current + (animation.target - current) * (1 - Math.exp(-elapsed / 65));
+      dayWidthRef.current = next;
+      zoomScrollLeft.current = treeWidth + animation.anchorDay * next - animation.pointerX;
+      setDayWidth(next);
+      setZoom(zoomModeForDayWidth(next));
+      if (next === animation.target) zoomAnimation.current = null;
+      else animation.frame = requestAnimationFrame(tick);
+    };
+    const wheel = (event: WheelEvent) => {
+      if (!event.ctrlKey && !event.metaKey) return;
+      event.preventDefault();
+      const pointerX = Math.max(treeWidth, event.clientX - container.getBoundingClientRect().left);
+      const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? container.clientHeight : 1);
+      const previous = zoomAnimation.current;
+      const target = Math.min(MAX_DAY_WIDTH, Math.max(MIN_DAY_WIDTH,
+        (previous?.target ?? dayWidthRef.current) * Math.exp(-delta * ZOOM_WHEEL_SENSITIVITY)));
+      const anchorDay = (container.scrollLeft + pointerX - treeWidth) / dayWidthRef.current;
+      if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        cancel();
+        dayWidthRef.current = target;
+        zoomScrollLeft.current = treeWidth + anchorDay * target - pointerX;
+        setDayWidth(target);
+        setZoom(zoomModeForDayWidth(target));
+        return;
+      }
+      if (previous) Object.assign(previous, { target, anchorDay, pointerX });
+      else zoomAnimation.current = { target, anchorDay, pointerX, lastTime: performance.now(), frame: requestAnimationFrame(tick) };
+    };
+    container.addEventListener("wheel", wheel, { passive: false });
+    return () => { container.removeEventListener("wheel", wheel); cancel(); };
+  }, [view, focusedTaskId, treeWidth]);
   const dragRef = useRef<{
     pointerId: number;
     mode: "move" | "start" | "end" | "place";
@@ -2122,6 +2178,19 @@ export function PortfolioClient({
         depth: focusedSubtree.depthByTaskId[row.task!.id] ?? 0,
       }));
   }, [portfolioRows, focusedSubtree, focusedTaskIds]);
+
+  // An insertion after an expanded summary belongs below its entire subtree.
+  const insertionIndicatorId = (() => {
+    if (!structureDrop || structureDrop.placement !== "after") return structureDrop?.row.id;
+    const target = structureDrop.row;
+    let lastId = target.id;
+    for (const candidate of rows.slice(rows.findIndex(row => row.id === target.id) + 1)) {
+      if (candidate.kind === "project" || candidate.projectId !== target.projectId) break;
+      if (target.kind !== "project" && (candidate.depth ?? 0) <= (target.depth ?? 0)) break;
+      lastId = candidate.id;
+    }
+    return lastId;
+  })();
 
   useEffect(() => {
     if (!focusedSubtree) return;
@@ -3932,13 +4001,14 @@ export function PortfolioClient({
     if (!element || !target) { gesture.target = null; setStructureDrop(null); return; }
     const bounds = element.getBoundingClientRect();
     const fraction = (event.clientY - bounds.top) / bounds.height;
-    const placement: DropPlacement = gesture.source.kind === "project" ? (fraction < 0.5 ? "before" : "after") : target.kind === "project" ? "inside" : fraction < 0.25 ? "before" : fraction > 0.75 ? "after" : "inside";
+    const placement = structureDropPlacement(gesture.source.kind, target.kind, fraction);
     let valid = true;
     try { planStructureMove(gesture.source, target, placement, effectiveSchedule.tasks, effectiveSchedule.projects.map(p => p.id), effectiveSchedule.dependencies); } catch { valid = false; }
     gesture.target = { row: target, placement, valid };
     setStructureDrop(gesture.target);
   }
   function endStructureDrag(event: ReactPointerEvent<HTMLButtonElement>) {
+    if (structureGesture.current?.active) updateStructureDrag(event);
     const gesture = structureGesture.current;
     structureGesture.current = null;
     setStructureDrag(null); setStructureDrop(null);
@@ -3999,6 +4069,9 @@ export function PortfolioClient({
   }
 
   function setTimelineDayWidth(nextDayWidth: number) {
+    if (zoomAnimation.current) cancelAnimationFrame(zoomAnimation.current.frame);
+    zoomAnimation.current = null;
+    zoomScrollLeft.current = null;
     const clamped = Math.min(MAX_DAY_WIDTH, Math.max(MIN_DAY_WIDTH, nextDayWidth));
     dayWidthRef.current = clamped;
     setDayWidth(clamped);
@@ -4007,26 +4080,6 @@ export function PortfolioClient({
 
   function setTimelineZoom(nextZoom: Zoom) {
     setTimelineDayWidth(ZOOM_WIDTH[nextZoom]);
-  }
-
-  function handleTimelineWheel(event: ReactWheelEvent<HTMLDivElement>) {
-    if (!event.ctrlKey && !event.metaKey) return;
-    event.preventDefault();
-    const scrollContainer = event.currentTarget;
-    const bounds = scrollContainer.getBoundingClientRect();
-    const pointerX = event.clientX - bounds.left;
-    const currentDayWidth = dayWidthRef.current;
-    const nextDayWidth = Math.min(
-      MAX_DAY_WIDTH,
-      Math.max(MIN_DAY_WIDTH, currentDayWidth * Math.exp(-event.deltaY * ZOOM_WHEEL_SENSITIVITY)),
-    );
-    if (Math.abs(nextDayWidth - currentDayWidth) < 0.01) return;
-    const anchorDay = (scrollContainer.scrollLeft + pointerX - treeWidth) / currentDayWidth;
-    setTimelineDayWidth(nextDayWidth);
-    requestAnimationFrame(() => {
-      const nextScrollLeft = treeWidth + anchorDay * nextDayWidth - pointerX;
-      scrollContainer.scrollTo({ left: Math.max(0, nextScrollLeft), behavior: "auto" });
-    });
   }
 
   // Summaries can sit at either end of a dependency (R6), so they need to be
@@ -4404,7 +4457,14 @@ export function PortfolioClient({
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</Button>
             <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
             <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button><Button size="sm" variant="outline" disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</Button><Button size="sm" variant={linesVisible ? "secondary" : "outline"} aria-pressed={linesVisible} onClick={() => setLinesVisible(value => !value)}>{t("dependencyLines")}</Button></div>
-            <p className="w-full text-xs text-muted-foreground">{t("structureHelp")}</p><p className="w-full text-xs text-muted-foreground" role="status">{structureDrag ? structureDrop?.valid ? t("drop" + (structureDrop.placement === "inside" ? "Inside" : structureDrop.placement === "before" ? "Before" : "After"), { name: structureDrop.row.label }) : t("structureInvalid") : t("lineHelp")}</p>
+            <div className="flex h-7 w-full min-w-0 items-center gap-2">
+              <Popover><PopoverTrigger render={<Button size="xs" variant="ghost"><CircleHelp className="size-3.5" />{t("timelineHelp")}</Button>} />
+                <PopoverContent className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p></PopoverContent>
+              </Popover>
+              <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" role="status" aria-live="polite">
+                {structureDrag ? structureDrop?.valid ? t("drop" + (structureDrop.placement === "inside" ? "Inside" : structureDrop.placement === "before" ? "Before" : "After"), { name: structureDrop.row.label }) : t("structureInvalid") : ""}
+              </p>
+            </div>
           </>
         )}
       </div>}
@@ -4502,7 +4562,6 @@ export function PortfolioClient({
 
           <div
             ref={scrollRef}
-            onWheel={handleTimelineWheel}
             className={cn(
               "gantt-scrollbar overflow-auto bg-card",
               !embedded && "hidden md:block",
@@ -4668,8 +4727,8 @@ export function PortfolioClient({
                         stroke="currentColor"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        strokeWidth={selected || hovered ? 2 : 1.15}
-                        opacity={selected || hovered ? 1 : selectedTaskId ? (dependency.predecessorTaskId === selectedTaskId || dependency.successorTaskId === selectedTaskId ? 0.85 : 0.12) : 0.5}
+                        strokeWidth={selected || hovered ? 2 : 1.4}
+                        opacity={selected || hovered ? 1 : selectedTaskId ? (dependency.predecessorTaskId === selectedTaskId || dependency.successorTaskId === selectedTaskId ? 0.95 : 0.25) : 0.75}
                         markerEnd={
                           conflict && (selected || hovered)
                             ? "url(#gantt-dependency-arrow-conflict)"
@@ -4683,7 +4742,7 @@ export function PortfolioClient({
                             ? "text-red-500"
                             : selected || hovered
                               ? "text-indigo-600 dark:text-indigo-400"
-                              : "text-slate-400 dark:text-slate-600",
+                              : "text-slate-500 dark:text-slate-400",
                         )}
                       />
                       <path
@@ -5140,7 +5199,7 @@ export function PortfolioClient({
                       className={cn(
                         "sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r bg-card px-2.5",
                         structureDrag?.id === row.id && "opacity-50",
-                        structureDrop?.row.id === row.id && (structureDrop.valid ? "ring-2 ring-inset ring-sky-500" : "ring-2 ring-inset ring-red-500"),
+                        structureDrop?.row.id === row.id && structureDrop.placement === "inside" && (structureDrop.valid ? "ring-2 ring-inset ring-sky-500 bg-sky-500/10" : "ring-2 ring-inset ring-red-500"),
                         row.kind === "project" && "bg-muted font-semibold",
                         row.isSummary && row.kind !== "project" && "font-medium",
                         row.kind === "subtask" && "bg-card",
@@ -5165,7 +5224,7 @@ export function PortfolioClient({
                     >
                       {!embedded && <button type="button" className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 active:cursor-grabbing" aria-label={t("moveRow", { name: row.label })} title={t("moveRowHelp")} disabled={structurePending}
                         onPointerDown={event => beginStructureDrag(event, row)} onPointerMove={updateStructureDrag} onPointerUp={endStructureDrag} onPointerCancel={cancelStructureDrag} onLostPointerCapture={cancelStructureDrag} onKeyDown={event => structureKey(event, row)} onClick={event => event.stopPropagation()}><GripVertical className="size-3.5" /></button>}
-                      {structureDrop?.row.id === row.id && structureDrop.valid && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-0.5 bg-sky-500", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
+                      {structureDrop && insertionIndicatorId === row.id && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-[3px]", structureDrop.valid ? "bg-sky-500" : "bg-red-500", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
                       {row.kind === "project" && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedProjects, row.projectId)} aria-label={t("toggleProject")}>{expandedProjects.has(row.projectId) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
                       {row.task && row.isSummary && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedTasks, row.id)} aria-label={t("toggleSubtasks")}>{expandedTasks.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
                       {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 fill-indigo-500 text-indigo-600" /> : <CircleDot className="size-3.5 text-muted-foreground" />)}

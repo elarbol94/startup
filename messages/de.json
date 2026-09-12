@@ -1561,6 +1561,8 @@
     "routesTidied": "Linien automatisch neu angeordnet",
     "tidyLines": "Linien entflechten",
     "dependencyLines": "Linien anzeigen",
+    "timelineHelp": "Bedienung",
+    "zoomHelp": "Strg + Scrollen zoomt stufenlos um die Mausposition.",
     "structureHelp": "Am Griff ziehen: oberhalb/unterhalb einsortieren, in der Zeilenmitte unterordnen. Alt + Pfeiltasten am Griff: verschieben oder Ebene ändern.",
     "lineHelp": "Linie anklicken und die Griffe ziehen, um ihren Verlauf anzupassen. Linien entflechten setzt manuelle Verläufe der sichtbaren Verbindungen zurück.",
     "dropInside": "Unter „{name}“ einordnen",

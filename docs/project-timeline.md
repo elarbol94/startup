@@ -29,3 +29,11 @@ existing creation order until a project is moved.
 
 Validation: project structure planner/action and routing unit tests; browser
 checks cover dragging, keyboard nesting/outdenting, and line controls.
+
+The middle third of a task row previews nesting with a rectangle. The outer
+thirds preview insertion with a line; insertion after an expanded summary is
+shown below its descendants. Release resolves the current pointer position.
+Help lives in a popover, and drag feedback occupies a fixed single-line slot so
+long titles never move the timeline. Ctrl/Command + wheel zoom interpolates over
+animation frames, normalizes wheel units, and anchors the date under the pointer.
+Reduced-motion preferences disable interpolation.
