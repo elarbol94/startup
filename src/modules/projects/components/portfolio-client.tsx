@@ -1570,6 +1570,9 @@ export function PortfolioClient({
   } | null>(null);
   const [revealTaskId, setRevealTaskId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [viewPanning, setViewPanning] = useState(false);
+  const viewPan = useRef<{ pointerId: number; x: number; y: number; left: number; top: number } | null>(null);
+  const suppressPanClick = useRef(false);
   const dayWidthRef = useRef(ZOOM_WIDTH.month);
   const zoomAnimation = useRef<{ frame: number; target: number; anchorDay: number; pointerX: number; lastTime: number } | null>(null);
   const zoomScrollLeft = useRef<number | null>(null);
@@ -2618,6 +2621,7 @@ export function PortfolioClient({
     if (dependencyCommitPending || dependencyRouteDragging) return;
     setDependencyDraft(null);
     setDependencyEditorOpen(false);
+    setHoveredDependencyId(null);
   }
 
   async function persistDependencyRoute(
@@ -3977,6 +3981,45 @@ export function PortfolioClient({
     } finally { setStructurePending(false); }
   }
 
+  function beginViewPan(event: ReactPointerEvent<HTMLDivElement>) {
+    suppressPanClick.current = false;
+    if (event.button !== 0 || event.pointerType === "touch") return;
+    const container = event.currentTarget;
+    const bounds = container.getBoundingClientRect();
+    const x = event.clientX - bounds.left;
+    const y = event.clientY - bounds.top;
+    if (x < treeWidth || y < HEADER_HEIGHT || x >= container.clientWidth || y >= container.clientHeight) return;
+    if ((event.target as Element).closest('button, a, input, select, textarea, [role="button"], [role="slider"], [role="separator"], [data-task-bar], [data-structure-row]')) return;
+    event.preventDefault();
+    container.focus({ preventScroll: true });
+    cancelDependencyEditor();
+    setDependencySourceId(null);
+    setDependencyHoverId(null);
+    if (zoomAnimation.current) cancelAnimationFrame(zoomAnimation.current.frame);
+    zoomAnimation.current = null;
+    viewPan.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, left: container.scrollLeft, top: container.scrollTop };
+    container.setPointerCapture(event.pointerId);
+  }
+
+  function moveViewPan(event: ReactPointerEvent<HTMLDivElement>) {
+    const pan = viewPan.current;
+    if (!pan || event.pointerId !== pan.pointerId) return;
+    const dx = event.clientX - pan.x;
+    const dy = event.clientY - pan.y;
+    if (!suppressPanClick.current && Math.hypot(dx, dy) < 4) return;
+    suppressPanClick.current = true;
+    setViewPanning(true);
+    event.currentTarget.scrollLeft = pan.left - dx;
+    event.currentTarget.scrollTop = pan.top - dy;
+  }
+
+  function endViewPan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!viewPan.current || event.pointerId !== viewPan.current.pointerId) return;
+    viewPan.current = null;
+    setViewPanning(false);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  }
+
   function beginStructureDrag(event: ReactPointerEvent<HTMLButtonElement>, row: Row) {
     if (event.button !== 0 || structurePending) return;
     event.preventDefault(); event.stopPropagation();
@@ -4459,7 +4502,7 @@ export function PortfolioClient({
             <Button size="sm" variant={criticalVisible ? "secondary" : "outline"} className="hidden md:inline-flex" onClick={() => setCriticalVisible((value) => !value)}><GitBranch className="size-4" />{t("criticalPath")}</Button><Button size="sm" variant="outline" disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</Button><Button size="sm" variant={linesVisible ? "secondary" : "outline"} aria-pressed={linesVisible} onClick={() => setLinesVisible(value => !value)}>{t("dependencyLines")}</Button></div>
             <div className="flex h-7 w-full min-w-0 items-center gap-2">
               <Popover><PopoverTrigger render={<Button size="xs" variant="ghost"><CircleHelp className="size-3.5" />{t("timelineHelp")}</Button>} />
-                <PopoverContent className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p></PopoverContent>
+                <PopoverContent className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p></PopoverContent>
               </Popover>
               <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" role="status" aria-live="polite">
                 {structureDrag ? structureDrop?.valid ? t("drop" + (structureDrop.placement === "inside" ? "Inside" : structureDrop.placement === "before" ? "Before" : "After"), { name: structureDrop.row.label }) : t("structureInvalid") : ""}
@@ -4564,11 +4607,24 @@ export function PortfolioClient({
             ref={scrollRef}
             className={cn(
               "gantt-scrollbar overflow-auto bg-card",
+              viewPanning && "select-none cursor-grabbing [&_*]:cursor-grabbing",
               !embedded && "hidden md:block",
               embedded ? "max-h-[55dvh]" : focusedTask
                 ? "max-h-[calc(100dvh-7.5rem)]"
                 : "max-h-[calc(100dvh-15rem)]",
             )}
+            tabIndex={0}
+            onPointerDown={beginViewPan}
+            onPointerMove={moveViewPan}
+            onPointerUp={endViewPan}
+            onPointerCancel={endViewPan}
+            onLostPointerCapture={endViewPan}
+            onClickCapture={(event) => {
+              if (!suppressPanClick.current) return;
+              suppressPanClick.current = false;
+              event.preventDefault();
+              event.stopPropagation();
+            }}
             data-testid="portfolio-gantt"
             role="tree"
             aria-label={t("workBreakdown")}
@@ -4770,6 +4826,7 @@ export function PortfolioClient({
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
+                          scrollRef.current?.focus({ preventScroll: true });
                           selectDependency(dependency);
                         }}
                         onKeyDown={(event) => {

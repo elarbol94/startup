@@ -37,3 +37,7 @@ Help lives in a popover, and drag feedback occupies a fixed single-line slot so
 long titles never move the timeline. Ctrl/Command + wheel zoom interpolates over
 animation frames, normalizes wheel units, and anchors the date under the pointer.
 Reduced-motion preferences disable interpolation.
+
+Left-drag empty chart space to pan horizontally and vertically. Bars, links,
+handles and structure rows retain their own interactions. Clicking empty space
+or pressing Escape deselects a dependency; panning never changes schedule data.

@@ -1562,6 +1562,7 @@
     "tidyLines": "Untangle lines",
     "dependencyLines": "Show lines",
     "timelineHelp": "Help",
+    "panHelp": "Drag empty space with the left mouse button to pan. Click empty space or press Escape to deselect a line.",
     "zoomHelp": "Ctrl + scroll zooms smoothly around the pointer.",
     "structureHelp": "Drag the grip: drop above/below to reorder, in the row centre to nest. Alt + arrow keys on the grip: move or change level.",
     "lineHelp": "Select a line and drag its handles to adjust its route. Untangle lines resets manual routes for visible connections.",
