@@ -67,6 +67,11 @@ COPY --from=build --chown=app:app /app/dist-scripts ./dist-scripts
 COPY --from=deps --chown=app:app /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime.so.1 ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
 COPY --from=deps --chown=app:app /app/node_modules/onnxruntime-node/bin/napi-v6/linux/x64/libonnxruntime_providers_shared.so ./node_modules/onnxruntime-node/bin/napi-v6/linux/x64/
 COPY --from=deps --chown=app:app /app/node_modules/sqlite-vec-linux-x64 ./node_modules/sqlite-vec-linux-x64
+# PDF.js loads canvas dynamically, so standalone tracing misses its native runtime.
+COPY --from=deps --chown=app:app /app/node_modules/@napi-rs/canvas ./node_modules/@napi-rs/canvas
+COPY --from=deps --chown=app:app /app/node_modules/@napi-rs/canvas-linux-x64-gnu ./node_modules/@napi-rs/canvas-linux-x64-gnu
+# Fail the image build if the PDF runtime's native dependency cannot initialize.
+RUN node -e "const { DOMMatrix, Path2D } = require('@napi-rs/canvas'); new DOMMatrix(); new Path2D();"
 USER app
 EXPOSE 3000
 VOLUME /data

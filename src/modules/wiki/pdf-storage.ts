@@ -9,7 +9,8 @@ import { attachments, wikiPdfDocuments, wikiSources } from "@/db/schema";
 import { UPLOADS_PATH } from "@/lib/files";
 import { sourceTitleFromFileName } from "./lib/pdf-evidence";
 import { openPdfDocument } from "./lib/pdf-node";
-import { PdfUploadStreamError, writePdfUploadToFile } from "./lib/pdf-upload-stream";
+import { writePdfUploadToFile } from "./lib/pdf-upload-stream";
+import { classifyPdfOpenError } from "./lib/pdf-open-error";
 
 const DEFAULT_MAX_PDF_BYTES = 100 * 1024 * 1024;
 
@@ -51,14 +52,14 @@ export async function ingestPdfStream(input: {
     const pdf = await openPdfDocument(temporaryPath);
     try {
       if (!Number.isInteger(pdf.document.numPages) || pdf.document.numPages < 1) {
-        throw new Error("No readable pages");
+        throw Object.assign(new Error("No readable pages"), { name: "InvalidPDFException" });
       }
     } finally {
       await pdf.close();
     }
-  } catch {
+  } catch (error) {
     await fs.unlink(temporaryPath).catch(() => undefined);
-    throw new PdfUploadStreamError("The PDF is password-protected or structurally invalid");
+    throw classifyPdfOpenError(error);
   }
 
   const duplicate = findExistingPdf(upload.sha256);

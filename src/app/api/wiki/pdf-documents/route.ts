@@ -1,5 +1,7 @@
 import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
+import { getTranslations } from "next-intl/server";
+import { PdfProcessingUnavailableError } from "@/modules/wiki/lib/pdf-open-error";
 import { getSession } from "@/lib/auth";
 import { PdfUploadStreamError } from "@/modules/wiki/lib/pdf-upload-stream";
 import { ingestPdfStream } from "@/modules/wiki/pdf-storage";
@@ -25,6 +27,11 @@ export async function POST(request: Request) {
     revalidatePath(`/wiki/sources/${result.sourceId}`);
     return NextResponse.json(result, { status: result.duplicate ? 200 : 201 });
   } catch (error) {
+    if (error instanceof PdfProcessingUnavailableError) {
+      console.error("PDF upload processing failed", error.cause);
+      const t = await getTranslations("wiki");
+      return NextResponse.json({ error: t("pdfProcessingUnavailable") }, { status: 503 });
+    }
     if (error instanceof PdfUploadStreamError) {
       const status = error.message.includes("limit") ? 413 : 400;
       return NextResponse.json({ error: error.message }, { status });

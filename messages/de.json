@@ -3045,6 +3045,7 @@
     "pdfDropDescription": "Eine oder mehrere vollständige PDFs hochladen. Quellen und durchsuchbarer Text werden automatisch angelegt.",
     "choosePdfs": "PDFs auswählen",
     "pdfUploadFailed": "Die PDF konnte nicht hochgeladen werden.",
+    "pdfProcessingUnavailable": "Der Server konnte die PDF nicht verarbeiten. Bitte später erneut versuchen oder die Administration kontaktieren.",
     "pdfDocuments": "PDF-Dokumente",
     "pdfPages": "PDF-Seiten",
     "metadataSuggestions": "Erkannte Metadaten prüfen",

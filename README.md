@@ -32,6 +32,11 @@ with your preferred package manager and restart the dev server afterwards. If
 Tesseract is not on `PATH`, set `TESSERACT_PATH` in `.env.local` to its
 executable (for example `C:\\Program Files\\Tesseract-OCR\\tesseract.exe`). The
 Docker image already includes both tools and the German/English OCR packs.
+The image also explicitly includes PDF.js' dynamically loaded `@napi-rs/canvas`
+package and Linux native binding, which Next.js standalone tracing can miss.
+An image-build smoke check verifies that its `DOMMatrix` and `Path2D` initialize.
+PDF parser infrastructure failures return a localized server error and log the
+underlying cause; only password/invalid-document errors blame the uploaded file.
 
 - The sign-in page accepts only a username and password. The first account
   created through the guarded `/api/auth/sign-up/email` bootstrap endpoint

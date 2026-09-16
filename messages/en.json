@@ -3043,6 +3043,7 @@
     "pdfDropDescription": "Upload one or more complete PDFs. Sources and searchable text are created automatically.",
     "choosePdfs": "Choose PDFs",
     "pdfUploadFailed": "The PDF could not be uploaded.",
+    "pdfProcessingUnavailable": "The server could not process the PDF. Please try again later or contact an administrator.",
     "pdfDocuments": "PDF documents",
     "pdfPages": "PDF pages",
     "metadataSuggestions": "Review detected metadata",
