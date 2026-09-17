@@ -123,12 +123,7 @@ function NavLink({
     </Link>
   );
 
-  return (
-    <Tooltip>
-      <TooltipTrigger render={link} />
-      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
-    </Tooltip>
-  );
+  return link;
 }
 
 function SortableNavLink({
@@ -212,12 +207,7 @@ function SortableNavLink({
     </button>
   );
 
-  return (
-    <Tooltip>
-      <TooltipTrigger render={button} />
-      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
-    </Tooltip>
-  );
+  return button;
 }
 
 function AppNavigation({

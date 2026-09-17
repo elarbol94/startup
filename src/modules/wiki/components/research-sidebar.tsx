@@ -81,12 +81,7 @@ function NavItem({
     </Link>
   );
 
-  return (
-    <Tooltip>
-      <TooltipTrigger render={link} />
-      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
-    </Tooltip>
-  );
+  return link;
 }
 
 export function ResearchSidebar({
