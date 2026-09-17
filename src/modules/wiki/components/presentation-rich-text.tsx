@@ -1,4 +1,5 @@
 "use client";
+import { SourcePassageButton } from "./source-passage-button";
 import { ySyncPluginKey } from "@tiptap/y-tiptap";
 
 import { handleEditorLinkClick } from "../lib/editor-links";
@@ -53,6 +54,7 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
         if (!href) editor?.chain().focus().unsetLink().run(); else editor?.chain().focus().setLink({ href }).run();
       }}>{t("link")}</Button>
     </div>}
+    <div className={inline ? "absolute -top-10 left-0 z-50 rounded bg-background shadow" : ""} onPointerDown={(event) => event.stopPropagation()}><SourcePassageButton editor={editor} /></div>
     <EditorContent editor={editor} />
   </div>;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { SourcePassageButton } from "./source-passage-button";
 
 import { handleEditorLinkClick } from "../lib/editor-links";
 import { clientUUID } from "@/lib/client-uuid";
@@ -2370,6 +2371,7 @@ function CollaborativeWikiEditor({
       </ToolbarMenu>
     </ToolbarGroup>
     <ToolbarGroup label={t("editor.toolbar.groups.insert")}>
+      <SourcePassageButton editor={activeEditor} />
       <EditorLinkPopover editor={activeEditor} pages={allPages} request={linkEditorRequest} />
       <PageLinkPicker editor={editor} pages={allPages} open={pageLinkOpen} onOpenChange={setPageLinkOpen} /><CitationPicker editor={editor} sources={sources} locale={citationLocale} pageSlug={pageSlug} open={citationOpen} onOpenChange={setCitationOpen} /><EvidencePicker editor={editor} pageId={pageId} locale={citationLocale} open={evidenceOpen} onOpenChange={setEvidenceOpen} />
       <ToolbarMenu label={t("editor.toolbar.insert")} icon={<ImagePlus className="size-4" />} onPointerDown={rememberToolbarSelection}>

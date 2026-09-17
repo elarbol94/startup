@@ -468,3 +468,12 @@ or reducing font size. Short text can widen up to a natural line width; longer s
 and grow vertically. Explicit line breaks, rich formatting, and rotated top-left anchors are
 preserved. Existing automatic font fitting remains an alternative and suppresses box growth.
 Changes use the existing shared geometry, saving, undo, and export paths.
+
+## Links to PDF source passages
+
+Prepare a passage with **Link source passage** in the PDF reader. While editing
+text on the canvas or in Properties, select the target words and use the
+source-passage link icon. This applies a normal rich-text link without replacing
+the words. It participates in collaborative editing, saving and undo.
+Ctrl/Cmd+click in the editor returns to the source passage; source viewing requires
+sign-in. See [wiki-documents.md](wiki-documents.md#linking-selected-text-to-a-source-passage).

@@ -251,3 +251,26 @@ visit, and resolves their current titles and access on the server. PDF entries l
 directly to the original reader. Deleted sources/documents and inaccessible
 presentations are omitted. Existing dashboard layouts retain their arrangement;
 the new section is optional and initially hidden.
+
+## Linking selected text to a source passage
+
+In the PDF source reader, select a passage and choose the link icon
+(**Quelltextstelle verknüpfen / Link source passage**). This saves a precise source
+annotation and prepares its reference in this browser. Then select existing text
+in a document or presentation and use **Link selected text to source passage**
+(the source-passage link icon). The selected wording stays unchanged; the link
+uses the normal editor save and undo behavior. Ctrl/Cmd+click follows it back to
+the selected passage. A prepared reference is also available in other tabs on the
+same application origin. The most recently prepared passage replaces the previous
+one. Source access still requires sign-in.
+
+The PDF selection toolbar has icon-only highlight and note actions. Select your
+highlighted text again to remove its highlight; annotations with notes or replies
+remain managed through the comments panel. Escape or the close icon clears the
+current text selection. Highlighting can span pages; notes and source links use a
+passage on one page. Selection tracks partial text spans, touch/keyboard changes,
+zoom, rotation, and OCR text in all reading modes.
+
+The outline bolds the current section as you scroll, including sections sharing a
+page. Arrows collapse nested sections; the panel's close control hides the whole
+navigator, which can be reopened from **More → Outline**.

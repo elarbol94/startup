@@ -7,11 +7,11 @@ import { useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useR
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import type { PDFDocumentProxy } from "pdfjs-dist";
+import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import {
   ArrowLeft, ArrowUp, Bookmark, CalendarClock, CaseSensitive, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy,
   ClipboardPlus, Download, ExternalLink, FileSearch, FileText, Highlighter, Keyboard, ListTree, Loader2, Menu, MessageCircle,
-  Minus, MoreHorizontal, Pencil, Plus, Printer, RotateCw, Search, Trash2, X,
+  Minus, MoreHorizontal, Pencil, Plus, Printer, RotateCw, Search, Trash2, X, Link2, Eraser, PanelLeftClose,
   SquareDashedMousePointer, WholeWord,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -28,9 +28,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FocusModeToggle, useFocusMode } from "@/components/focus-mode";
 import {
-  createPdfAnnotation, createPdfAnnotationComment, deletePdfAnnotation, extendPdfAnnotation,
+  createPdfAnnotation, createPdfAnnotationComment, deletePdfAnnotation,
   restorePdfAnnotation, updatePdfAnnotation, updatePdfAnnotationComment, deletePdfAnnotationComment,
 } from "../pdf-actions";
+import { readPdfSelection, rotatePdfRect, activePdfOutlineIndex, visiblePdfOutlineIndices, type PdfOutlineItem, type PdfTextSelection } from "../lib/pdf-selection";
+import { rememberSourcePassage } from "../lib/source-passage";
 import type { PdfRect } from "../lib/pdf-evidence";
 import { canonicalTaskHref } from "@/modules/context/routes";
 import {
@@ -154,6 +156,34 @@ function searchRangeInTextLayer(
   return range;
 }
 
+async function renderReaderTextLayer(pdfPage: PDFPageProxy, metadata: ReaderPage | undefined, layer: HTMLDivElement, viewport: ReturnType<PDFPageProxy["getViewport"]>, pdfjs: typeof import("pdfjs-dist")) {
+  const textContent = await pdfPage.getTextContent();
+  layer.replaceChildren();
+  if (textContent.items.some((item) => "str" in item && item.str.trim())) {
+    await new pdfjs.TextLayer({ textContentSource: textContent, container: layer, viewport }).render();
+    return;
+  }
+  if (metadata?.extractionMethod !== "ocr") return;
+  let words: Array<{ text: string; x: number; y: number; width: number; height: number }> = [];
+  try { words = JSON.parse(metadata.textLayerJson) as typeof words; } catch { return; }
+  const measurement = document.createElement("canvas").getContext("2d");
+  const quarterTurn = viewport.rotation % 180 !== 0;
+  const pageWidth = quarterTurn ? viewport.height : viewport.width;
+  const pageHeight = quarterTurn ? viewport.width : viewport.height;
+  for (const word of words) {
+    if (!word.text || word.width <= 0 || word.height <= 0) continue;
+    const span = document.createElement("span"); span.textContent = `${word.text} `;
+    const rect = rotatePdfRect(word, viewport.rotation);
+    const fontSize = word.height * pageHeight;
+    if (measurement) measurement.font = `${fontSize}px sans-serif`;
+    const textWidth = measurement?.measureText(word.text).width || word.width * pageWidth;
+    const x = rect.x + ([90, 180].includes(viewport.rotation) ? rect.width : 0);
+    const y = rect.y + ([180, 270].includes(viewport.rotation) ? rect.height : 0);
+    Object.assign(span.style, { left: `${x * 100}%`, top: `${y * 100}%`, fontFamily: "sans-serif", fontSize: `${fontSize}px`, transform: `rotate(${viewport.rotation}deg) scaleX(${word.width * pageWidth / textWidth})` });
+    layer.appendChild(span);
+  }
+}
+
 export function PdfReader({
   sourceId, sourceTitle, attachmentId, documentId, fileName, pages, initialAnnotations,
   initialPage, initialAnnotationId, initialTaskId, contextTasks, initialDeadlineId, contextDeadlines, user,
@@ -201,7 +231,9 @@ export function PdfReader({
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [recordingShortcut, setRecordingShortcut] = useState<PdfShortcutAction | null>(null);
   const [shortcutError, setShortcutError] = useState("");
-  const [outline, setOutline] = useState<Array<{ title: string; pageNumber?: number; depth: number }>>([]);
+  const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
+  const [outlinePosition, setOutlinePosition] = useState({ page: initialPage, y: 0 });
+  const [collapsedOutline, setCollapsedOutline] = useState<Set<number>>(() => new Set());
   const [outlineLoaded, setOutlineLoaded] = useState(false);
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
   const [caseSensitiveSearch, setCaseSensitiveSearch] = useState(false);
@@ -244,7 +276,10 @@ export function PdfReader({
   const [commentPending, setCommentPending] = useState(false);
   const commentBusy = useRef(false);
   const [commentDraftById, setCommentDraftById] = useState<Record<string, string>>({});
-  const [selection, setSelection] = useState<{ text: string; rects: PdfRect[]; pageNumber: number } | null>(null);
+  const [selection, setSelection] = useState<(PdfTextSelection & { parts: PdfTextSelection[] }) | null>(null);
+  const selectionBusy = useRef(false);
+  const [selectionSaving, setSelectionSaving] = useState(false);
+  const selectionDragging = useRef(false);
   const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
   const [hoveredDeadlineId, setHoveredDeadlineId] = useState<string | null>(null);
   const [selectionAnchor, setSelectionAnchor] = useState<SelectionAnchor | null>(null);
@@ -443,7 +478,7 @@ export function PdfReader({
       frame = 0;
       const shell = viewMode === "continuous"
         ? continuousPageRefs.current.get(selectionAnchor.pageNumber)
-        : pageShellRef.current;
+        : selectionAnchor.pageNumber === pageNumber + 1 && viewMode === "double" ? secondaryPageShellRef.current : pageShellRef.current;
       if (!shell) return;
       const bounds = shell.getBoundingClientRect();
       setSelectionAnchorPosition({
@@ -464,7 +499,7 @@ export function PdfReader({
       viewport?.removeEventListener("scroll", scheduleUpdate);
       window.removeEventListener("resize", scheduleUpdate);
     };
-  }, [selectionAnchor, viewMode, scale, rotation]);
+  }, [selectionAnchor, viewMode, scale, rotation, pageNumber]);
 
   useEffect(() => {
     let cancelled = false; let task: ReturnType<typeof import("pdfjs-dist")["getDocument"]> | undefined;
@@ -496,24 +531,12 @@ export function PdfReader({
       renderTask = pdfPage.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
       await renderTask.promise;
       if (cancelled) return;
-      const layer = textLayerRef.current!; layer.replaceChildren();
-      const textContent = await pdfPage.getTextContent();
-      if (textContent.items.length) {
-        await new pdfjsRef.current!.TextLayer({ textContentSource: textContent, container: layer, viewport }).render();
-      } else if (currentPage?.extractionMethod === "ocr") {
-        let words: Array<{ text: string; x: number; y: number; width: number; height: number }> = [];
-        try { words = JSON.parse(currentPage.textLayerJson) as typeof words; } catch { /* ignore */ }
-        for (const word of words) {
-          const span = document.createElement("span"); span.textContent = `${word.text} `;
-          Object.assign(span.style, { left: `${word.x * 100}%`, top: `${word.y * 100}%`, width: `${word.width * 100}%`, height: `${word.height * 100}%`, fontSize: `${Math.max(8, word.height * viewport.height)}px` });
-          layer.appendChild(span);
-        }
-      }
+      await renderReaderTextLayer(pdfPage, currentPage, textLayerRef.current!, viewport, pdfjsRef.current!);
       setTextLayerVersion((value) => value + 1);
       setRendering(false);
       }).catch((reason) => { if (!cancelled && !isPdfRenderCancellation(reason)) { setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); setRendering(false); } });
     return () => { cancelled = true; renderTask?.cancel(); };
-  }, [currentPage?.extractionMethod, currentPage?.textLayerJson, pageNumber, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
+  }, [currentPage, pageNumber, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
 
 
   useEffect(() => {
@@ -528,17 +551,16 @@ export function PdfReader({
       canvas.width = Math.floor(viewport.width * outputScale); canvas.height = Math.floor(viewport.height * outputScale);
       canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
       secondaryPageShellRef.current.style.width = viewport.width + "px"; secondaryPageShellRef.current.style.height = viewport.height + "px";
+      secondaryPageShellRef.current.style.setProperty("--total-scale-factor", String(viewport.scale));
       renderTask = pdfPage.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
       void renderTask.promise.then(async () => {
         if (cancelled || !secondaryTextLayerRef.current || !pdfjsRef.current) return;
-        const textContent = await pdfPage.getTextContent();
-        secondaryTextLayerRef.current.replaceChildren();
-        await new pdfjsRef.current.TextLayer({ textContentSource: textContent, container: secondaryTextLayerRef.current, viewport }).render();
+        await renderReaderTextLayer(pdfPage, pages.find((item) => item.pageNumber === pageNumber + 1), secondaryTextLayerRef.current, viewport, pdfjsRef.current);
         setTextLayerVersion((value) => value + 1);
       }).catch((reason) => { if (!cancelled && !isPdfRenderCancellation(reason)) setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); });
     });
     return () => { cancelled = true; renderTask?.cancel(); };
-  }, [pageNumber, pages.length, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
+  }, [pageNumber, pages, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
 
   useEffect(() => {
     const generation = ++continuousRenderGenerationRef.current;
@@ -577,6 +599,8 @@ export function PdfReader({
         shell.style.setProperty("--total-scale-factor", String(scale));
       }
     }
+    for (const part of selection?.parts ?? []) desiredPages.add(part.pageNumber);
+    if (selectionDragging.current) for (const retained of continuousRenderedPagesRef.current) desiredPages.add(retained);
     for (const [renderedPage, task] of continuousRenderTasksRef.current) {
       if (!desiredPages.has(renderedPage)) {
         task.cancel();
@@ -610,11 +634,7 @@ export function PdfReader({
         return renderTask.promise.then(async () => {
           const layer = continuousTextLayerRefs.current.get(page.pageNumber);
           if (continuousRenderGenerationRef.current !== generation || !layer || !pdfjsRef.current) return;
-          layer.replaceChildren();
-          const textContent = await pdfPage.getTextContent();
-          if (textContent.items.length) {
-            await new pdfjsRef.current.TextLayer({ textContentSource: textContent, container: layer, viewport }).render();
-          }
+          await renderReaderTextLayer(pdfPage, page, layer, viewport, pdfjsRef.current);
           if (continuousRenderGenerationRef.current === generation) {
             continuousRenderedPagesRef.current.add(page.pageNumber);
             setTextLayerVersion((value) => value + 1);
@@ -622,22 +642,29 @@ export function PdfReader({
         }).finally(() => { if (continuousRenderTasksRef.current.get(page.pageNumber) === renderTask) continuousRenderTasksRef.current.delete(page.pageNumber); });
       }).catch((reason) => { if (continuousRenderGenerationRef.current === generation && !isPdfRenderCancellation(reason)) setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); }).finally(() => { continuousLoadingPagesRef.current.delete(page.pageNumber); });
     }
-  }, [activeSearchIndex, continuousRenderPages, pageNumber, pages, pdf, pdfLoadFailedMessage, rotation, scale, searchOccurrences, viewMode]);
+  }, [activeSearchIndex, continuousRenderPages, pageNumber, pages, pdf, pdfLoadFailedMessage, rotation, scale, searchOccurrences, viewMode, selection]);
 
   useEffect(() => {
     if (!pdf || outlineLoaded) return;
     const activePdf = pdf;
     let cancelled = false;
     void activePdf.getOutline().then(async (items) => {
-      const flattened: Array<{ title: string; pageNumber?: number; depth: number }> = [];
+      const flattened: PdfOutlineItem[] = [];
       async function visit(entries: Awaited<ReturnType<PDFDocumentProxy["getOutline"]>>, depth: number) {
         for (const item of entries ?? []) {
           let page: number | undefined;
+          let y = 0;
           try {
             const destination = typeof item.dest === "string" ? await activePdf.getDestination(item.dest) : item.dest;
-            if (destination?.[0]) page = await activePdf.getPageIndex(destination[0]) + 1;
+            if (destination?.[0] !== undefined) {
+              page = typeof destination[0] === "number" ? destination[0] + 1 : await activePdf.getPageIndex(destination[0]) + 1;
+              const target = await activePdf.getPage(page);
+              const view = target.getViewport({ scale: 1 });
+              const top = destination[1]?.name === "XYZ" ? destination[3] : ["FitH", "FitBH"].includes(destination[1]?.name) ? destination[2] : null;
+              if (typeof top === "number") y = Math.max(0, Math.min(1, view.convertToViewportPoint(0, top)[1] / view.height));
+            }
           } catch { /* malformed outline destinations stay visible without a page */ }
-          flattened.push({ title: item.title || t("untitled"), pageNumber: page, depth });
+          flattened.push({ title: item.title || t("untitled"), pageNumber: page, depth, y });
           await visit(item.items, depth + 1);
         }
       }
@@ -712,6 +739,28 @@ export function PdfReader({
       if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
     };
   }, [navigatorTab, showThumbnails]);
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const bounds = viewport.getBoundingClientRect();
+      const readingLine = bounds.top + Math.min(120, bounds.height * 0.25);
+      const shells = Array.from(viewport.querySelectorAll<HTMLElement>("[data-page-number]"));
+      const shell = shells.find((item) => item.getBoundingClientRect().bottom > readingLine) ?? shells.at(-1);
+      if (!shell) return;
+      const pageBounds = shell.getBoundingClientRect();
+      const next = { page: Number(shell.dataset.pageNumber), y: Math.max(0, Math.min(1, (readingLine - pageBounds.top) / pageBounds.height)) };
+      setOutlinePosition((previous) => previous.page === next.page && Math.abs(previous.y - next.y) < 0.002 ? previous : next);
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
+    viewport.addEventListener("scroll", schedule, { passive: true });
+    const observer = new ResizeObserver(schedule); observer.observe(viewport);
+    schedule();
+    return () => { viewport.removeEventListener("scroll", schedule); observer.disconnect(); cancelAnimationFrame(frame); };
+  }, [viewMode, pageNumber, scale, rotation, textLayerVersion]);
+
   useEffect(() => {
     if (viewMode !== "continuous" || !viewportRef.current) return;
     const viewport = viewportRef.current;
@@ -937,8 +986,9 @@ export function PdfReader({
         return;
       }
       if (event.key === "Escape") {
-        setRegionMode(false); setRegion(null); setSelection(null); setSelectionAnchor(null);
+        setRegionMode(false); setRegion(null); clearSelection();
       }
+      if (event.shiftKey && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"].includes(event.key)) return;
       const goToPage = (nextPage: number) => {
         setPageNumber(nextPage);
         setCommentPanel((panel) => panel.mode === "thread" ? { mode: "list" } : panel);
@@ -958,34 +1008,82 @@ export function PdfReader({
     return () => window.removeEventListener("keydown", keyboard, true);
   }, []);
 
+  const scrolledAnnotation = useRef("");
+  useEffect(() => {
+    if (!initialAnnotationId || scrolledAnnotation.current === initialAnnotationId) return;
+    const rect = viewportRef.current?.querySelector<HTMLElement>(`[data-annotation-rect="${CSS.escape(initialAnnotationId)}"]`);
+    if (!rect || !rect.getBoundingClientRect().height) return;
+    const frame = requestAnimationFrame(() => { scrolledAnnotation.current = initialAnnotationId; rect.scrollIntoView({ block: "center", behavior: "auto" }); });
+    return () => cancelAnimationFrame(frame);
+  }, [initialAnnotationId, textLayerVersion]);
+
+  function clearSelection() {
+    window.getSelection()?.removeAllRanges();
+    setSelection(null); setSelectionAnchor(null); setSelectionAnchorPosition(null);
+  }
+
   function captureSelection() {
+    if (selectionBusy.current || pendingAnnotation || regionMode) return;
     const browserSelection = window.getSelection();
-    if (!browserSelection || browserSelection.isCollapsed || browserSelection.rangeCount === 0) { setSelection(null); setSelectionAnchor(null); return; }
-    const selectedElement = browserSelection.getRangeAt(0).commonAncestorContainer.parentElement?.closest("[data-page-number]") as HTMLDivElement | null;
-    const shell = selectedElement ?? pageShellRef.current;
-    const selectedPageNumber = Number(selectedElement?.dataset.pageNumber) || pageNumber;
-    if (selectedElement) setPageNumber(selectedPageNumber);
-    if (!shell) { setSelection(null); setSelectionAnchor(null); return; }
-    const text = browserSelection.toString().trim(); if (!text) { setSelection(null); setSelectionAnchor(null); return; }
-    const bounds = shell.getBoundingClientRect();
-    const clientRects = Array.from(browserSelection.getRangeAt(0).getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0 && rect.bottom >= bounds.top && rect.top <= bounds.bottom);
+    const viewport = viewportRef.current;
+    if (!browserSelection || !viewport) return;
+    const parts = readPdfSelection(browserSelection, viewport);
+    if (!parts.length) { setSelection(null); setSelectionAnchor(null); return; }
+    if (parts.some((part) => part.text.length > 20_000 || part.rects.length > 200)) {
+      setSelection(null); setSelectionAnchor(null); toast.error(t("selectionTooLong")); return;
+    }
     const range = browserSelection.getRangeAt(0);
-    const selectedBackwards = browserSelection.anchorNode === range.endContainer && browserSelection.anchorOffset === range.endOffset;
-    const endpointRect = selectedBackwards ? clientRects[0] : clientRects.at(-1);
-    const endpointSide = selectedBackwards ? "left" : "right";
-    const rects = clientRects.map((rect) => ({
-      x: Math.max(0, rect.left - bounds.left) / bounds.width,
-      y: Math.max(0, rect.top - bounds.top) / bounds.height,
-      width: Math.min(rect.width, bounds.right - Math.max(rect.left, bounds.left)) / bounds.width,
-      height: Math.min(rect.height, bounds.bottom - Math.max(rect.top, bounds.top)) / bounds.height,
-    })).filter((rect) => rect.width > 0 && rect.height > 0);
-    setSelection(rects.length ? { text, rects, pageNumber: selectedPageNumber } : null);
-    setSelectionAnchor(endpointRect ? {
-      pageNumber: selectedPageNumber,
-      x: ((endpointSide === "left" ? endpointRect.left : endpointRect.right) - bounds.left) / bounds.width,
-      y: (endpointRect.bottom - bounds.top) / bounds.height,
-      side: endpointSide,
-    } : null);
+    const backwards = browserSelection.anchorNode === range.endContainer && browserSelection.anchorOffset === range.endOffset;
+    const endpoint = backwards ? parts[0] : parts.at(-1)!;
+    const rect = backwards ? endpoint.rects[0] : endpoint.rects.at(-1)!;
+    setSelection({ ...parts[0], parts });
+    setSelectionAnchor({ pageNumber: endpoint.pageNumber, x: backwards ? rect.x : rect.x + rect.width, y: rect.y + rect.height, side: backwards ? "left" : "right" });
+  }
+
+  const captureLatestSelection = useEffectEvent(captureSelection);
+  useEffect(() => {
+    let timer = 0;
+    const schedule = () => {
+      clearTimeout(timer);
+      timer = window.setTimeout(() => { if (!selectionDragging.current) captureLatestSelection(); }, 60);
+    };
+    const release = () => { selectionDragging.current = false; schedule(); };
+    document.addEventListener("selectionchange", schedule);
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
+    return () => { clearTimeout(timer); document.removeEventListener("selectionchange", schedule); document.removeEventListener("pointerup", release); document.removeEventListener("pointercancel", release); };
+  }, []);
+
+  async function preparePassage(selected: PdfTextSelection) {
+    if (selectionBusy.current) return;
+    selectionBusy.current = true; setSelectionSaving(true);
+    try {
+      const existing = annotations.find((item) => item.kind === "text" && item.pageNumber === selected.pageNumber && item.selectedText === selected.text && JSON.stringify(annotationRects(item)) === JSON.stringify(selected.rects.map((rect) => rotatePdfRect(rect, -rotation))));
+      const id = existing?.id ?? await saveAnnotation("text", selected.rects, selected.text, undefined, selected.pageNumber);
+      rememberSourcePassage({ href: readerUrl(selected.pageNumber, id), title: sourceTitle, quote: selected.text });
+      clearSelection();
+      toast.success(t("sourcePassageReady"), { duration: 10000 });
+    } catch { toast.error(t("sourcePassageFailed")); }
+    finally { selectionBusy.current = false; setSelectionSaving(false); }
+  }
+
+  const removableHighlights = selection?.parts.flatMap((part) => findOverlappingHighlights(part.pageNumber, part.rects)) ?? [];
+
+  async function changeSelectionHighlight(remove = false) {
+    if (!selection || selectionBusy.current) return;
+    selectionBusy.current = true; setSelectionSaving(true);
+    try {
+      if (remove) {
+        for (const item of removableHighlights) {
+          await deletePdfAnnotation(item.id);
+          setAnnotations((items) => items.filter((candidate) => candidate.id !== item.id));
+        }
+      } else {
+        for (const part of selection.parts) await saveAnnotation("text", part.rects, part.text, undefined, part.pageNumber);
+      }
+      clearSelection();
+    } catch { toast.error(t("highlightFailed")); }
+    finally { selectionBusy.current = false; setSelectionSaving(false); }
   }
 
   function requestAnnotation(annotation: PendingAnnotation) {
@@ -999,15 +1097,8 @@ export function PdfReader({
     setPendingAnnotation(annotation);
   }
 
-  async function saveAnnotation(kind: "text" | "region" | "bookmark", geometry: PdfRect[], selectedText = "", previewDataUrl?: string, annotationPageNumber = pageNumber, note = "", extendExisting = false) {
-    const overlappingHighlights = extendExisting ? findOverlappingHighlights(annotationPageNumber, geometry) : [];
-    const existingHighlight = overlappingHighlights[0];
-    if (existingHighlight) {
-      await extendPdfAnnotation({ id: existingHighlight.id, geometry, selectedText });
-      setAnnotations((items) => items.map((item) => item.id === existingHighlight.id ? { ...item, geometryJson: JSON.stringify(geometry), selectedText, updatedAt: new Date().toISOString() } : item));
-      window.getSelection()?.removeAllRanges(); setSelection(null); setSelectionAnchor(null); setAnnotationAnchor(null); setRegion(null); setRegionMode(false);
-      return;
-    }
+  async function saveAnnotation(kind: "text" | "region" | "bookmark", geometry: PdfRect[], selectedText = "", previewDataUrl?: string, annotationPageNumber = pageNumber, note = "") {
+    geometry = geometry.map((rect) => rotatePdfRect(rect, -rotation));
     const result = await createPdfAnnotation({ documentId, pageNumber: annotationPageNumber, kind, geometry, selectedText, note, previewDataUrl });
     const created: ReaderAnnotation = { id: result.id, pageNumber: annotationPageNumber, kind, selectedText, note, label: "", geometryJson: JSON.stringify(geometry), hasPreview: Boolean(previewDataUrl), createdBy: user.id, createdByName: user.name, createdByMarkColor: user.markColor, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), comments: [] };
     setAnnotations((items) => [...items, created]);
@@ -1018,6 +1109,7 @@ export function PdfReader({
       },
     });
     window.getSelection()?.removeAllRanges(); setSelection(null); setSelectionAnchor(null); setAnnotationAnchor(null); setRegion(null); setRegionMode(false);
+    return result.id;
   }
 
   function previewForRegion(rect: PdfRect) {
@@ -1100,7 +1192,7 @@ export function PdfReader({
   }
 
   function displayAnnotationRects(annotation: ReaderAnnotation) {
-    const rects = annotationRects(annotation).slice().sort((left, right) => left.y - right.y || left.x - right.x);
+    const rects = annotationRects(annotation).map((rect) => rotatePdfRect(rect, rotation)).sort((left, right) => left.y - right.y || left.x - right.x);
     return rects.map((rect, index) => {
       let top = rect.y;
       let bottom = rect.y + rect.height;
@@ -1121,7 +1213,7 @@ export function PdfReader({
   }
 
   function findOverlappingHighlights(targetPageNumber: number, geometry: PdfRect[]) {
-    return annotations.filter((annotation) => annotation.pageNumber === targetPageNumber && (annotation.kind === "text" || annotation.kind === "region") && annotationRects(annotation).some((existingRect) => geometry.some((rect) =>
+    return annotations.filter((annotation) => annotation.createdBy === user.id && !annotation.note && annotation.comments.length === 0 && annotation.pageNumber === targetPageNumber && annotation.kind === "text" && displayAnnotationRects(annotation).some((existingRect) => geometry.some((rect) =>
       Math.min(existingRect.x + existingRect.width, rect.x + rect.width) > Math.max(existingRect.x, rect.x) &&
       Math.min(existingRect.y + existingRect.height, rect.y + rect.height) > Math.max(existingRect.y, rect.y),
     )));
@@ -1277,9 +1369,12 @@ export function PdfReader({
   }, [fitMode, fitPadding, pageNumber, pdf, rotation]);
 
   function selectionActionsStyle(anchor: { left: number; top: number; side: "left" | "right" }) {
-    const width = 480; const height = 42; const gap = 8;
+    const width = 152; const height = 42; const gap = 8;
     const preferredLeft = anchor.side === "right" ? anchor.left + gap : anchor.left - width - gap;
-    const left = Math.min(window.innerWidth - Math.min(width, window.innerWidth - 32) - 16, Math.max(16, preferredLeft));
+    const viewport = viewportRef.current?.getBoundingClientRect();
+    const minimumLeft = Math.max(16, viewport?.left ?? 16);
+    const maximumRight = Math.min(window.innerWidth - 16, viewport?.right ?? window.innerWidth - 16);
+    const left = Math.max(minimumLeft, Math.min(maximumRight - width, preferredLeft));
     const placeAbove = anchor.top - gap - height >= 16;
     const top = placeAbove ? anchor.top - gap : anchor.top + gap;
     return { left, top, transform: placeAbove ? "translateY(-100%)" : "translateY(0)" };
@@ -1473,7 +1568,12 @@ export function PdfReader({
     ];
   }
 
+  const activeOutlineIndex = activePdfOutlineIndex(outline, outlinePosition.page, outlinePosition.y);
+  const visibleOutline = visiblePdfOutlineIndices(outline, collapsedOutline);
+  const visibleActiveOutline = visibleOutline.includes(activeOutlineIndex) ? activeOutlineIndex : visibleOutline.filter((index) => index < activeOutlineIndex && outline[index].depth < outline[activeOutlineIndex]?.depth).at(-1);
+
   const thumbnailTools = <div className="flex h-full min-h-0 flex-col">
+    <Button type="button" variant="ghost" size="icon-sm" className="self-end" aria-label={t("hideNavigator")} title={t("hideNavigator")} onClick={() => setShowThumbnails(false)}><PanelLeftClose className="size-4" /></Button>
     <div className="grid grid-cols-3 gap-1 border-b p-2" role="tablist" aria-label={t("documentNavigator")}>
       {([
         ["pages", Menu, t("pages"), "navigatorPages"],
@@ -1498,7 +1598,14 @@ export function PdfReader({
         {hasSearchableText && query && !searchPending && !searchOccurrences.length && <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{t("noPdfSearchResults")}</p>}
         <div className="space-y-1">{visibleSearchOccurrences.map(({ occurrence, originalIndex }) => <button ref={(element) => { if (element) searchResultRefs.current.set(originalIndex, element); else searchResultRefs.current.delete(originalIndex); }} key={occurrence.id} type="button" className={`block w-full rounded border p-2 text-left text-xs ${originalIndex === activeSearchIndex ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" : "hover:bg-accent"}`} onClick={() => selectSearchOccurrence(originalIndex)}><strong>{t("pageNumber", { page: occurrence.pageNumber })}</strong><span className="mt-1 line-clamp-3 block break-words text-muted-foreground">{occurrence.contextBefore}<mark className="rounded-sm bg-yellow-200 px-0.5 text-foreground dark:bg-yellow-700/60">{occurrence.matchedText}</mark>{occurrence.contextAfter}</span></button>)}</div>
       </div>}
-      {navigatorTab === "outline" && <div className="space-y-0.5">{!outlineLoaded && <p className="p-3 text-xs text-muted-foreground">{t("loading")}</p>}{outlineLoaded && !outline.length && <p className="p-3 text-xs text-muted-foreground">{t("noOutline")}</p>}{outline.map((item, index) => <button type="button" key={`${item.title}-${index}`} disabled={!item.pageNumber} className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent disabled:cursor-default disabled:opacity-60" style={{ paddingLeft: `${8 + Math.min(item.depth, 5) * 12}px` }} onClick={() => item.pageNumber && updateUrl(item.pageNumber)}><span className="line-clamp-2 block break-words">{item.title}</span>{item.pageNumber && <span className="text-[10px] text-muted-foreground">{t("pageNumber", { page: item.pageNumber })}</span>}</button>)}</div>}
+      {navigatorTab === "outline" && <div className="space-y-0.5">{!outlineLoaded && <p className="p-3 text-xs text-muted-foreground">{t("loading")}</p>}{outlineLoaded && !outline.length && <p className="p-3 text-xs text-muted-foreground">{t("noOutline")}</p>}{visibleOutline.map((index) => {
+        const item = outline[index];
+        const children = outline[index + 1]?.depth > item.depth;
+        return <div key={index} className="flex items-start" style={{ paddingLeft: `${Math.min(item.depth, 5) * 12}px` }}>
+          {children ? <button type="button" className="mt-1 grid size-6 shrink-0 place-items-center rounded hover:bg-accent" aria-expanded={!collapsedOutline.has(index)} aria-label={t(collapsedOutline.has(index) ? "expandOutlineSection" : "collapseOutlineSection", { title: item.title })} onClick={() => setCollapsedOutline((previous) => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; })}>{collapsedOutline.has(index) ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}</button> : <span className="w-6 shrink-0" />}
+          <button type="button" data-testid="pdf-outline-item" disabled={!item.pageNumber} aria-current={visibleActiveOutline === index ? "location" : undefined} className={`min-w-0 flex-1 rounded px-1 py-1.5 text-left text-xs hover:bg-accent disabled:opacity-60 ${visibleActiveOutline === index ? "bg-accent font-bold" : "font-normal"}`} onClick={() => item.pageNumber && updateUrl(item.pageNumber)}><span className="line-clamp-2 block break-words">{item.title}</span>{item.pageNumber && <span className="text-[10px] text-muted-foreground">{t("pageNumber", { page: item.pageNumber })}</span>}</button>
+        </div>;
+      })}</div>}
     </div>
   </div>;
 
@@ -1572,7 +1679,7 @@ export function PdfReader({
           return <div key={comment.id} className="group rounded-lg border p-2.5" style={{ ...userMarkColorStyle(comment.createdByMarkColor, comment.createdBy), borderLeftColor: "var(--user-mark-solid)", borderLeftWidth: 2 }}><NoteMeta userId={comment.createdBy} name={comment.createdByName} markColor={comment.createdByMarkColor} timestamp={format.dateTime(new Date(comment.createdAt), { dateStyle: "medium", timeStyle: "short" })} />{editing ? <div className="relative mt-1"><Textarea disabled={commentPending} maxLength={10000} aria-label={t("editReply")} autoFocus rows={1} className="max-h-28 min-h-9 resize-none rounded-lg border-border/70 bg-transparent py-1.5 pr-8 text-[13px] shadow-none focus-visible:ring-1" value={commentDraftById[comment.id] ?? ""} onChange={(event) => setCommentDraftById((items) => ({ ...items, [comment.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void saveEditedReply(selectedAnnotation.id, comment.id); } if (event.key === "Escape") { event.preventDefault(); setEditingCommentId(null); } }} /><Button type="button" variant="ghost" size="icon-xs" aria-label={t("sendReply")} className="absolute bottom-1 right-1 rounded-full" disabled={commentPending || !commentDraftById[comment.id]?.trim()} onClick={() => void saveEditedReply(selectedAnnotation.id, comment.id)}><ArrowUp className="size-3.5" /></Button></div> : <div className="mt-1 flex items-end gap-1.5"><p className="min-w-0 flex-1 whitespace-pre-wrap text-[13px] leading-5 text-foreground/85">{comment.body}</p>{canEdit && <><Button disabled={commentPending} type="button" variant="ghost" size="icon-xs" aria-label={t("editReply")} className="shrink-0 rounded-full text-muted-foreground " onClick={() => beginEditingReply(comment)}><Pencil className="size-3" /></Button><Button type="button" variant="ghost" size="icon-xs" disabled={commentPending} aria-label={t("deleteReply")} onClick={() => void removeReply(selectedAnnotation.id, comment.id)}><Trash2 className="size-3 text-destructive" /></Button></>}</div>}</div>;
         })}</div>}
       </div>
-      <div className="shrink-0 border-t p-2.5"><div className="relative"><Textarea disabled={commentPending} maxLength={10000} aria-label={t("replyToAnnotation")} data-testid="pdf-annotation-reply" rows={1} className="max-h-28 min-h-10 w-full resize-none rounded-xl border-border/70 bg-muted/20 px-3 py-2 pr-10 text-sm shadow-none transition-[background-color,border-color] focus-visible:bg-background focus-visible:ring-1" value={replyByAnnotation[selectedAnnotation.id] ?? ""} onChange={(event) => setReplyByAnnotation((items) => ({ ...items, [selectedAnnotation.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void submitReply(selectedAnnotation.id); } }} placeholder={t("replyToAnnotation")} /><Button type="button" variant="ghost" size="icon-sm" aria-label={t("sendReply")} className="absolute bottom-1 right-1 rounded-full text-muted-foreground enabled:text-foreground enabled:hover:bg-foreground/5" disabled={commentPending || !replyByAnnotation[selectedAnnotation.id]?.trim()} onClick={() => void submitReply(selectedAnnotation.id)}><ArrowUp className="size-4" /></Button></div><div className="mt-1 flex flex-wrap gap-1"><Button type="button" size="xs" variant="ghost" onClick={() => void copyAnnotationCitation(selectedAnnotation)}><Copy />{t("copyCitation")}</Button>{wikiPages.length > 0 && <Popover open={sendToPageFor === selectedAnnotation.id} onOpenChange={(value) => { setSendToPageFor(value ? selectedAnnotation.id : null); setPageFilter(""); }}><PopoverTrigger render={<Button type="button" size="xs" variant="ghost" />}><FileText />{t("sendToPage")}</PopoverTrigger><PopoverContent className="w-72 p-2"><Input autoFocus value={pageFilter} onChange={(event) => setPageFilter(event.target.value)} placeholder={t("findPage")} className="h-8" /><div className="mt-2 max-h-64 overflow-y-auto">{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).slice(0, 50).map((item) => (<button key={item.id} type="button" className="block w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => sendAnnotationToPage(selectedAnnotation, item.slug)}>{item.title}</button>))}{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).length === 0 && <p className="p-2 text-sm text-muted-foreground">{t("noSearchResults")}</p>}</div></PopoverContent></Popover>}{(selectedAnnotation.createdBy === user.id || user.role === "admin") && <><Button type="button" size="xs" variant="ghost" onClick={() => beginEditingAnnotation(selectedAnnotation)}><Pencil />{t("edit")}</Button><Button type="button" size="xs" variant="ghost" onClick={() => void removeAnnotation(selectedAnnotation)}><Trash2 />{t("delete")}</Button></>}</div></div>
+      <div className="shrink-0 border-t p-2.5"><div className="relative"><Textarea disabled={commentPending} maxLength={10000} aria-label={t("replyToAnnotation")} data-testid="pdf-annotation-reply" rows={1} className="max-h-28 min-h-10 w-full resize-none rounded-xl border-border/70 bg-muted/20 px-3 py-2 pr-10 text-sm shadow-none transition-[background-color,border-color] focus-visible:bg-background focus-visible:ring-1" value={replyByAnnotation[selectedAnnotation.id] ?? ""} onChange={(event) => setReplyByAnnotation((items) => ({ ...items, [selectedAnnotation.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void submitReply(selectedAnnotation.id); } }} placeholder={t("replyToAnnotation")} /><Button type="button" variant="ghost" size="icon-sm" aria-label={t("sendReply")} className="absolute bottom-1 right-1 rounded-full text-muted-foreground enabled:text-foreground enabled:hover:bg-foreground/5" disabled={commentPending || !replyByAnnotation[selectedAnnotation.id]?.trim()} onClick={() => void submitReply(selectedAnnotation.id)}><ArrowUp className="size-4" /></Button></div><div className="mt-1 flex flex-wrap gap-1"><Button type="button" size="xs" variant="ghost" onClick={() => void copyAnnotationCitation(selectedAnnotation)}><Copy />{t("copyCitation")}</Button>{selectedAnnotation.kind === "text" && <Button type="button" size="xs" variant="ghost" onClick={() => { try { rememberSourcePassage({ href: readerUrl(selectedAnnotation.pageNumber, selectedAnnotation.id), title: sourceTitle, quote: selectedAnnotation.selectedText }); toast.success(t("sourcePassageReady"), { duration: 10000 }); } catch { toast.error(t("sourcePassageFailed")); } }}><Link2 />{t("prepareSourcePassage")}</Button>}{wikiPages.length > 0 && <Popover open={sendToPageFor === selectedAnnotation.id} onOpenChange={(value) => { setSendToPageFor(value ? selectedAnnotation.id : null); setPageFilter(""); }}><PopoverTrigger render={<Button type="button" size="xs" variant="ghost" />}><FileText />{t("sendToPage")}</PopoverTrigger><PopoverContent className="w-72 p-2"><Input autoFocus value={pageFilter} onChange={(event) => setPageFilter(event.target.value)} placeholder={t("findPage")} className="h-8" /><div className="mt-2 max-h-64 overflow-y-auto">{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).slice(0, 50).map((item) => (<button key={item.id} type="button" className="block w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => sendAnnotationToPage(selectedAnnotation, item.slug)}>{item.title}</button>))}{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).length === 0 && <p className="p-2 text-sm text-muted-foreground">{t("noSearchResults")}</p>}</div></PopoverContent></Popover>}{(selectedAnnotation.createdBy === user.id || user.role === "admin") && <><Button type="button" size="xs" variant="ghost" onClick={() => beginEditingAnnotation(selectedAnnotation)}><Pencil />{t("edit")}</Button><Button type="button" size="xs" variant="ghost" onClick={() => void removeAnnotation(selectedAnnotation)}><Trash2 />{t("delete")}</Button></>}</div></div>
     </div>;
 
     return <div data-testid="pdf-comment-list" className="flex h-full min-h-0 flex-col"><header className="flex items-center gap-2 border-b p-3"><MessageCircle className="size-4 text-indigo-600" /><h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{t("comments")}</h2><span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{commentThreads.length}</span><Button type="button" variant="ghost" size="icon-sm" aria-label={t("cancel")} onClick={closeCommentPanel}><X className="size-4" /></Button></header><div className="space-y-2 border-b p-2"><div className="relative"><Search className="absolute left-2 top-2.5 size-3.5 text-muted-foreground" /><Input value={commentSearch} onChange={(event) => setCommentSearch(event.target.value)} className="h-8 pl-7 text-xs" placeholder={t("searchComments")} /></div><div className="grid grid-cols-3 gap-1"><select aria-label={t("filterKind")} value={annotationKindFilter} onChange={(event) => setAnnotationKindFilter(event.target.value)} className="h-7 min-w-0 rounded border bg-background px-1 text-[10px]"><option value="all">{t("allKinds")}</option>{(["text", "region", "bookmark"] as const).map((kind) => <option key={kind} value={kind}>{t(`annotationKinds.${kind}`)}</option>)}</select><select aria-label={t("filterColor")} value={annotationColorFilter} onChange={(event) => setAnnotationColorFilter(event.target.value)} className="h-7 min-w-0 rounded border bg-background px-1 text-[10px]"><option value="all">{t("allColors")}</option>{USER_MARK_COLORS.map((item) => <option key={item.key} value={item.key}>{tMarkColor(item.key)}</option>)}</select><PersonSelect label={t("filterAuthor")} value={annotationAuthorFilter === "all" ? "" : annotationAuthorFilter} onValueChange={value => setAnnotationAuthorFilter(value || "all")} emptyLabel={t("allAuthors")} options={annotationAuthors.map(([id, name]) => ({ value: id, userId: id, name }))} /></div><Button type="button" size="xs" variant={currentPageCommentsOnly ? "secondary" : "ghost"} onClick={() => setCurrentPageCommentsOnly((value) => !value)}>{currentPageCommentsOnly ? t("currentPageComments") : t("allComments")}</Button></div><div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">{filteredCommentThreads.map((annotation) => <button type="button" key={annotation.id} className="w-full rounded-lg border p-2.5 text-left text-xs transition-colors hover:bg-accent" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), borderColor: activeAnnotationId === annotation.id ? "var(--user-mark-solid)" : undefined, backgroundColor: activeAnnotationId === annotation.id ? "var(--user-mark-highlight)" : undefined }} onClick={() => openAnnotation(annotation, true)}><span className="flex items-center justify-between gap-2 font-medium"><span className="truncate">{annotation.label || t(`annotationKinds.${annotation.kind}`)}</span><span className="shrink-0 text-[10px] text-muted-foreground">{t("pageNumber", { page: annotation.pageNumber })}</span></span><span className="mt-1 line-clamp-2 block text-muted-foreground">{annotation.note || annotation.selectedText || t(`annotationKinds.${annotation.kind}`)}</span><span className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground"><span className="truncate" style={{ color: "var(--user-mark-solid)" }}>{annotation.createdByName}</span><span className="shrink-0">{annotation.comments.length} · <MessageCircle className="inline size-3" /></span></span></button>)}{filteredCommentThreads.length === 0 && <p className="p-4 text-center text-xs text-muted-foreground">{t("noMatchingComments")}</p>}</div></div>;
@@ -1610,10 +1717,15 @@ export function PdfReader({
     </header>
     <div className={`relative grid min-h-0 flex-1 ${styles.readerGrid} ${gridColumns}`} style={{ "--pdf-thumbnail-width": `${navigatorWidth}px`, "--pdf-comment-width": `${commentPanelWidth}px` } as React.CSSProperties}>
       {thumbnailsVisible && <><aside data-testid="pdf-thumbnails-panel" className="hidden min-h-0 overflow-hidden border-r bg-background md:block">{thumbnailTools}</aside><button type="button" aria-label={t("resizeThumbnails")} title={t("resizeThumbnails")} className="absolute inset-y-0 z-30 hidden w-3 -translate-x-1/2 cursor-col-resize touch-none border-x border-transparent bg-background/50 transition-colors hover:border-indigo-300 hover:bg-indigo-500/15 focus-visible:border-indigo-500 focus-visible:bg-indigo-500/15 md:block" style={{ left: `${navigatorWidth}px` }} onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); beginThumbnailResize(event); }} /></>}
-      <section ref={viewportRef} data-testid="pdf-reader-viewport" className="relative overflow-auto [overflow-anchor:none] p-4" onMouseUp={captureSelection}>{!pdf || (rendering && viewMode !== "continuous") ? <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center"><Loader2 className="size-7 animate-spin text-indigo-500" /></div> : null}{viewMode === "continuous" ? <div ref={zoomContentRef} className="space-y-4">{pages.map((page) => <div key={page.pageNumber} data-page-number={page.pageNumber} ref={(element) => { if (element) continuousPageRefs.current.set(page.pageNumber, element); else continuousPageRefs.current.delete(page.pageNumber); }} className={styles.pageShell}><canvas ref={(element) => { if (element) continuousCanvasRefs.current.set(page.pageNumber, element); else continuousCanvasRefs.current.delete(page.pageNumber); }} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={(element) => { if (element) continuousTextLayerRefs.current.set(page.pageNumber, element); else continuousTextLayerRefs.current.delete(page.pageNumber); }} className={styles.textLayer} /><div className="pointer-events-none absolute inset-0 z-[3]">{annotations.filter((annotation) => annotation.pageNumber === page.pageNumber).flatMap((annotation) => displayAnnotationRects(annotation).map((rect, index) => <div data-annotation-rect={annotation.id} key={annotation.id + "-" + index} className="absolute" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`, backgroundColor: "var(--user-mark-highlight)", borderBottom: annotation.kind === "region" ? "2px solid var(--user-mark-solid)" : undefined }} />))}{annotations.filter((annotation) => annotation.pageNumber === page.pageNumber).map(annotationMarker)}{taskMarkersForPage(page.pageNumber)}</div></div>)}</div> : <div ref={zoomContentRef} className="flex items-start justify-center gap-4"><div ref={pageShellRef} data-page-number={pageNumber} className={styles.pageShell}><canvas ref={canvasRef} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={textLayerRef} className={styles.textLayer} />
+      <section ref={viewportRef} data-testid="pdf-reader-viewport" className="relative overflow-auto [overflow-anchor:none] p-4" onPointerDown={(event) => { if (!(event.target as Element).closest("[data-testid=pdf-selection-actions]")) selectionDragging.current = true; }} onMouseUp={(event) => { if (!(event.target as Element).closest("[data-testid=pdf-selection-actions]")) captureSelection(); }}>{!pdf || (rendering && viewMode !== "continuous") ? <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center"><Loader2 className="size-7 animate-spin text-indigo-500" /></div> : null}{viewMode === "continuous" ? <div ref={zoomContentRef} className="space-y-4">{pages.map((page) => <div key={page.pageNumber} data-page-number={page.pageNumber} ref={(element) => { if (element) continuousPageRefs.current.set(page.pageNumber, element); else continuousPageRefs.current.delete(page.pageNumber); }} className={styles.pageShell}><canvas ref={(element) => { if (element) continuousCanvasRefs.current.set(page.pageNumber, element); else continuousCanvasRefs.current.delete(page.pageNumber); }} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={(element) => { if (element) continuousTextLayerRefs.current.set(page.pageNumber, element); else continuousTextLayerRefs.current.delete(page.pageNumber); }} data-pdf-text-layer className={styles.textLayer} /><div className="pointer-events-none absolute inset-0 z-[3]">{annotations.filter((annotation) => annotation.pageNumber === page.pageNumber).flatMap((annotation) => displayAnnotationRects(annotation).map((rect, index) => <div data-annotation-rect={annotation.id} key={annotation.id + "-" + index} className="absolute" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`, backgroundColor: "var(--user-mark-highlight)", borderBottom: annotation.kind === "region" ? "2px solid var(--user-mark-solid)" : undefined }} />))}{annotations.filter((annotation) => annotation.pageNumber === page.pageNumber).map(annotationMarker)}{taskMarkersForPage(page.pageNumber)}</div></div>)}</div> : <div ref={zoomContentRef} className="flex items-start justify-center gap-4"><div ref={pageShellRef} data-page-number={pageNumber} className={styles.pageShell}><canvas ref={canvasRef} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={textLayerRef} data-pdf-text-layer className={styles.textLayer} />
         <div className="pointer-events-none absolute inset-0 z-[3]">{pageAnnotations.flatMap((annotation) => displayAnnotationRects(annotation).map((rect, index) => <div data-annotation-rect={annotation.id} key={annotation.id + "-" + index} className="absolute" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`, backgroundColor: "var(--user-mark-highlight)", borderBottom: annotation.kind === "region" ? "2px solid var(--user-mark-solid)" : undefined }} />))}{pageAnnotations.map(annotationMarker)}{taskMarkersForPage(pageNumber)}{region && <div className="absolute border-2 bg-transparent" style={{ ...userMarkColorStyle(user.markColor, user.id), left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%`, borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)" }} />}</div>
         {regionMode && <div data-testid="pdf-region-selector" className="absolute inset-0 z-[5] cursor-crosshair" onPointerDown={(event) => { regionStart.current = regionPoint(event); event.currentTarget.setPointerCapture(event.pointerId); }} onPointerMove={(event) => { if (!regionStart.current) return; const end = regionPoint(event); setRegion({ x: Math.min(regionStart.current.x, end.x), y: Math.min(regionStart.current.y, end.y), width: Math.abs(end.x - regionStart.current.x), height: Math.abs(end.y - regionStart.current.y) }); }} onPointerUp={(event) => { const start = regionStart.current; if (start) { const end = regionPoint(event); setRegion({ x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) }); const bounds = event.currentTarget.getBoundingClientRect(); setSelectionAnchor({ pageNumber, x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height, side: "right" }); } if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); regionStart.current = null; }} />}
-      </div>{viewMode === "double" && pageNumber < pages.length && <div ref={secondaryPageShellRef} data-page-number={pageNumber + 1} className={styles.pageShell}><canvas ref={secondaryCanvasRef} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={secondaryTextLayerRef} className={styles.textLayer} /><div className="pointer-events-none absolute inset-0 z-[3]">{annotations.filter((annotation) => annotation.pageNumber === pageNumber + 1).flatMap((annotation) => displayAnnotationRects(annotation).map((rect, index) => <div data-annotation-rect={annotation.id} key={annotation.id + "-secondary-" + index} className="absolute" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`, backgroundColor: "var(--user-mark-highlight)", borderBottom: annotation.kind === "region" ? "2px solid var(--user-mark-solid)" : undefined }} />))}{annotations.filter((annotation) => annotation.pageNumber === pageNumber + 1).map(annotationMarker)}{taskMarkersForPage(pageNumber + 1)}</div></div>}</div>}{selection && selectionAnchorPosition && <div data-testid="pdf-selection-actions" className="fixed z-40 flex gap-1 rounded-lg border bg-background p-1 shadow-xl" style={selectionActionsStyle(selectionAnchorPosition)}><Button size="sm" onClick={() => void saveAnnotation("text", selection.rects, selection.text, undefined, selection.pageNumber, "", true)}><Highlighter className="size-4" />{t("highlight")}</Button><Button size="sm" variant="outline" onClick={() => requestAnnotation({ kind: "text", geometry: selection.rects, selectedText: selection.text, pageNumber: selection.pageNumber })}><MessageCircle className="size-4" />{t("note")}</Button><Button size="sm" variant="outline" onClick={requestPdfTask}><ClipboardPlus className="size-4" />{tTasks("createTask")}</Button><Button size="sm" variant="outline" onClick={requestPdfDeadline}><CalendarClock className="size-4" />{tDeadlines("createDeadline")}</Button></div>}{region && selectionAnchorPosition && <div data-testid="pdf-selection-actions" className="fixed z-40 flex gap-1 rounded-lg border bg-background p-1 shadow-xl" style={selectionActionsStyle(selectionAnchorPosition)}><Button size="sm" onClick={() => void saveAnnotation("region", [region], "", previewForRegion(region), pageNumber, "", true)}><Highlighter className="size-4" />{t("highlight")}</Button><Button size="sm" variant="outline" onClick={() => requestAnnotation({ kind: "region", geometry: [region], selectedText: "", previewDataUrl: previewForRegion(region), pageNumber })}><MessageCircle className="size-4" />{t("note")}</Button><Button size="sm" variant="outline" onClick={requestPdfTask}><ClipboardPlus className="size-4" />{tTasks("createTask")}</Button><Button size="sm" variant="outline" onClick={requestPdfDeadline}><CalendarClock className="size-4" />{tDeadlines("createDeadline")}</Button><Button size="sm" variant="ghost" onClick={() => { setRegion(null); setSelectionAnchor(null); }}>{t("cancel")}</Button></div>}</section>
+      </div>{viewMode === "double" && pageNumber < pages.length && <div ref={secondaryPageShellRef} data-page-number={pageNumber + 1} className={styles.pageShell}><canvas ref={secondaryCanvasRef} className="block" /><div data-pdf-search-overlay className={styles.searchOverlay} /><div ref={secondaryTextLayerRef} data-pdf-text-layer className={styles.textLayer} /><div className="pointer-events-none absolute inset-0 z-[3]">{annotations.filter((annotation) => annotation.pageNumber === pageNumber + 1).flatMap((annotation) => displayAnnotationRects(annotation).map((rect, index) => <div data-annotation-rect={annotation.id} key={annotation.id + "-secondary-" + index} className="absolute" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`, backgroundColor: "var(--user-mark-highlight)", borderBottom: annotation.kind === "region" ? "2px solid var(--user-mark-solid)" : undefined }} />))}{annotations.filter((annotation) => annotation.pageNumber === pageNumber + 1).map(annotationMarker)}{taskMarkersForPage(pageNumber + 1)}</div></div>}</div>}{selection && selectionAnchorPosition && <div data-testid="pdf-selection-actions" role="toolbar" className="fixed z-40 flex gap-1 rounded-lg border bg-background p-1 shadow-xl" style={selectionActionsStyle(selectionAnchorPosition)} onMouseDown={(event) => event.preventDefault()} onMouseUp={(event) => event.stopPropagation()}>
+          <Button size="icon-sm" disabled={selectionSaving} aria-label={t(removableHighlights.length ? "removeHighlight" : "highlight")} title={t(removableHighlights.length ? "removeHighlight" : "highlight")} onClick={() => void changeSelectionHighlight(Boolean(removableHighlights.length))}>{removableHighlights.length ? <Eraser className="size-4" /> : <Highlighter className="size-4" />}</Button>
+          <Button size="icon-sm" variant="outline" disabled={selectionSaving || selection.parts.length > 1} aria-label={t("note")} title={t(selection.parts.length > 1 ? "singlePagePassage" : "note")} onClick={() => requestAnnotation({ kind: "text", geometry: selection.rects, selectedText: selection.text, pageNumber: selection.pageNumber })}><MessageCircle className="size-4" /></Button>
+          <Button size="icon-sm" variant="outline" disabled={selectionSaving || selection.parts.length > 1} aria-label={t("prepareSourcePassage")} title={t(selection.parts.length > 1 ? "singlePagePassage" : "prepareSourcePassage")} onClick={() => void preparePassage(selection)}><Link2 className="size-4" /></Button>
+          <Button size="icon-sm" variant="ghost" aria-label={t("cancel")} title={t("cancel")} onClick={clearSelection}><X className="size-4" /></Button>
+        </div>}{region && selectionAnchorPosition && <div data-testid="pdf-selection-actions" className="fixed z-40 flex gap-1 rounded-lg border bg-background p-1 shadow-xl" style={selectionActionsStyle(selectionAnchorPosition)} onMouseDown={(event) => event.preventDefault()} onMouseUp={(event) => event.stopPropagation()}><Button size="icon-sm" aria-label={t("highlight")} title={t("highlight")} onClick={() => void saveAnnotation("region", [region], "", previewForRegion(region), pageNumber, "")}><Highlighter className="size-4" /></Button><Button size="icon-sm" variant="outline" aria-label={t("note")} title={t("note")} onClick={() => requestAnnotation({ kind: "region", geometry: [region], selectedText: "", previewDataUrl: previewForRegion(region), pageNumber })}><MessageCircle className="size-4" /></Button><Button size="sm" variant="ghost" onClick={() => { setRegion(null); setSelectionAnchor(null); }}>{t("cancel")}</Button></div>}</section>
       {commentsVisible && <><button type="button" aria-label={t("resizeComments")} title={t("resizeComments")} className="absolute inset-y-0 right-[var(--pdf-comment-width)] z-30 hidden w-3 translate-x-1/2 cursor-col-resize touch-none border-x border-transparent bg-background/50 transition-colors hover:border-indigo-300 hover:bg-indigo-500/15 focus-visible:border-indigo-500 focus-visible:bg-indigo-500/15 md:block" onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); beginCommentPanelResize(event); }} /><aside data-testid="pdf-comments-panel" className="hidden min-h-0 overflow-hidden border-l bg-background md:block">{renderCommentPanel()}</aside></>}
     </div>
     <Sheet open={compactViewport && commentsVisible} onOpenChange={(open) => { if (!open) closeCommentPanel(); }}>

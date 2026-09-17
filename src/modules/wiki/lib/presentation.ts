@@ -1,3 +1,4 @@
+import { isSourcePassageHref } from "./source-passage";
 import { equalSpacing } from "./presentation-smart-guides";
 import { maintainPresentationLayout } from "./presentation-layout";
 import { z } from "zod";
@@ -35,7 +36,7 @@ const geometrySchema = {
 
 export const presentationFonts = ["sans", "serif", "mono", "arial", "georgia"] as const;
 export const presentationFontFamilies = { sans: "system-ui, sans-serif", serif: "Georgia, serif", mono: "ui-monospace, monospace", arial: "Arial, sans-serif", georgia: "Georgia, serif" };
-export const presentationLinkSchema = z.string().max(2000).refine((value) => !value || /^(https?:\/\/|mailto:)/i.test(value), "Use an http, https or mailto link");
+export const presentationLinkSchema = z.string().max(2000).refine((value) => !value || isSourcePassageHref(value) || /^(https?:\/\/|mailto:)/i.test(value), "Use an http, https or mailto link");
 export const presentationTextRunSchema = z.object({
   text: z.string().max(5000), bold: z.boolean().optional(), italic: z.boolean().optional(),
   underline: z.boolean().optional(), color: z.string().max(32).optional(), href: presentationLinkSchema.optional(),
