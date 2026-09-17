@@ -313,15 +313,21 @@ test("create a source, cite it, and render the bibliography", async ({ page }) =
   await page.getByRole("button", { name: "Quelle anlegen" }).click();
   await expect(page).toHaveURL(/\/wiki\/sources\//, { timeout: 30_000 });
   await expect(page.getByRole("heading", { name: sourceTitle })).toBeVisible();
-  await page.goto("/wiki/pages");
-  await page.getByRole("link", { name: "Onboarding" }).first().click();
+  await page.goto("/wiki/inbox");
+  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await expect(page.locator(".ProseMirror")).toHaveAttribute("contenteditable", "true");
+  await page.locator(".ProseMirror").fill("Citation review");
   await page.locator(".ProseMirror").click();
-  await page.getByRole("button", { name: "Zitat einfügen" }).click();
+  await page.getByRole("button", { name: "Quelle zitieren", exact: true }).click();
   await page.getByRole("button", { name: sourceTitle }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByTestId("document-mode-toggle").click();
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 10_000 });
   await page.reload();
   await expect(page.getByRole("heading", { name: "Literaturverzeichnis" })).toBeVisible();
-  await expect(page.getByText(/Smith, J\. \(2026\)/)).toBeVisible();
+  const bibliography = page.locator("ol").filter({ hasText: sourceTitle });
+  await expect(bibliography).toContainText("Smith");
+  await expect(bibliography).toContainText("2026");
   await expect(
     page.locator("ol").getByText(sourceTitle, { exact: false }),
   ).toBeVisible();

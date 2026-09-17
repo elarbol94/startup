@@ -1,4 +1,19 @@
 import { expect, test, type Page } from "@playwright/test";
+import * as Y from "yjs";
+import { decode, documentJSON } from "../src/modules/wiki/collaboration/codec";
+
+function documentSaved(page: Page, text?: string) {
+  return page.waitForResponse(async (response) => {
+    const request = response.request();
+    if (request.method() !== "POST" || !/\/api\/wiki\/collaboration\/page\/[^/]+$/.test(new URL(response.url()).pathname)
+      || !request.postDataJSON()?.update || !response.ok()) return false;
+    const saved = new Y.Doc();
+    try {
+      Y.applyUpdate(saved, decode((await response.json()).update));
+      return text === undefined || JSON.stringify(documentJSON(saved)).includes(text);
+    } finally { saved.destroy(); }
+  });
+}
 test.use({ viewport: { width: 1440, height: 1000 } });
 async function sourcesTool(page: Page) {
   await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
@@ -27,7 +42,7 @@ test("document sections and presentation elements support saved round trips and 
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
   const docTitle = `E2E linked document ${Date.now()}`;
-  const initialSave = page.waitForResponse((response) => response.request().method() === "PATCH" && /\/api\/wiki\/pages\/[^/]+\/content$/.test(new URL(response.url()).pathname) && response.request().postData()?.includes(docTitle) === true);
+  const initialSave = documentSaved(page, docTitle);
   // Seed through the live editor so its normal save/version/recovery state stays
   // authoritative, just as it does for a paste or an imported document.
   await editor.evaluate((node, content) => {
@@ -38,8 +53,8 @@ test("document sections and presentation elements support saved round trips and 
     { type: "heading", attrs: { id: "forecast", level: 2, collapsed: true }, content: [{ type: "text", text: "Forecast" }] },
     { type: "paragraph", content: [{ type: "text", text: "Forecast details" }] },
   ] });
-  expect((await (await initialSave).json()).saved).toBe(true);
-  await expect(page.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
+  await initialSave;
+  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.goto("/wiki/presentations");
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   await page.getByRole("menuitem", { name: "Aus Wiki-Seite", exact: true }).click();
@@ -76,15 +91,15 @@ test("document sections and presentation elements support saved round trips and 
   expect(savedDeck.title).toBe(renamed);
   const token = new URL(page.url()).searchParams.get("resume")!;
   const savedPosition = await page.evaluate((token) => JSON.parse(sessionStorage.getItem(`wiki-linked-navigation:${token}`)!), token);
-  const renameSave = page.waitForResponse((response) => response.request().method() === "PATCH" && /\/api\/wiki\/pages\/[^/]+\/content$/.test(new URL(response.url()).pathname) && response.request().postData()?.includes("Updated forecast") === true);
+  const renameSave = documentSaved(page, "Updated forecast");
   await editor.evaluate((node) => {
     const active = (node as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
     active.state.doc.descendants((heading, position) => {
       if (heading.type.name === "heading" && heading.attrs.id === "forecast") active.view.dispatch(active.state.tr.insertText("Updated forecast", position + 1, position + heading.nodeSize - 1));
     });
   });
-  await expect(page.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
-  expect((await (await renameSave).json()).saved).toBe(true);
+  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
+  await renameSave;
   const player = await page.context().newPage();
   await player.goto(`/wiki/presentations/${presentationId}/present`);
   await expect(player.locator(`.react-flow__node[data-id="${frame.id}"]`)).toContainText("Updated forecast");
@@ -162,15 +177,15 @@ test("document sections and presentation elements support saved round trips and 
   await page.waitForURL(/\/wiki\/presentations\/.*element=/);
   await expect(page.locator(`.react-flow__node[data-id="${frame.id}"]`)).toHaveClass(/selected/);
   // Failed saves block navigation and leave the draft in place.
-  await page.getByRole("textbox", { name: "Titel der Präsentation" }).fill("Unsaved draft");
-  await page.route("**/wiki/presentations/**", async (route) => {
-    if (route.request().method() === "POST" && route.request().headers()["next-action"]) await route.abort("failed");
+  await page.route(`**/api/wiki/collaboration/presentation/${presentationId}`, async (route) => {
+    if (route.request().method() === "POST" && route.request().postDataJSON()?.update) await route.abort("failed");
     else await route.continue();
   });
+  await page.getByRole("textbox", { name: "Titel der Präsentation" }).fill("Unsaved draft");
   await source.getByRole("button", { name: "Dokumentabschnitt öffnen" }).click();
-  await expect(page.getByText("Speichern fehlgeschlagen", { exact: false }).first()).toBeVisible();
+  await expect(page.getByText("Deine Änderungen konnten nicht gespeichert werden. Bitte behebe das Speicherproblem vor dem Verlassen.", { exact: true })).toBeVisible();
   expect(new URL(page.url()).pathname).toBe(`/wiki/presentations/${presentationId}`);
-  await page.unroute("**/wiki/presentations/**");
+  await page.unroute(`**/api/wiki/collaboration/presentation/${presentationId}`);
 });
 
 test("collapsed document sections remove hidden media, nested headings and page-break spacing", async ({ page }) => {
@@ -225,7 +240,7 @@ test("heading structure changes require approval and preserve playback order thr
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
   const title = `E2E structure ${Date.now()}`;
-  const initialSave = page.waitForResponse((response) => response.request().method() === "PATCH" && /\/api\/wiki\/pages\/[^/]+\/content$/.test(new URL(response.url()).pathname) && response.request().postData()?.includes(title) === true);
+  const initialSave = documentSaved(page, title);
   await editor.evaluate((node, title) => {
     const active = (node as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
     active.commands.setContent({ type: "doc", content: [
@@ -236,8 +251,8 @@ test("heading structure changes require approval and preserve playback order thr
       { type: "heading", attrs: { id: "outside", level: 1 }, content: [{ type: "text", text: "Untouched root" }] },
     ] });
   }, title);
-  expect((await (await initialSave).json()).saved).toBe(true);
-  await expect(page.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
+  await initialSave;
+  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.goto("/wiki/presentations");
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   await page.getByRole("menuitem", { name: "Aus Wiki-Seite", exact: true }).click();
@@ -259,15 +274,15 @@ test("heading structure changes require approval and preserve playback order thr
   await page.waitForURL(/\/wiki\/pages\/.*section=promote/);
   async function level(target: Page, value: number) {
     await expect(target.locator(".ProseMirror")).toHaveAttribute("contenteditable", "true");
-    const saved = target.waitForResponse((response) => response.request().method() === "PATCH" && /\/api\/wiki\/pages\/[^/]+\/content$/.test(new URL(response.url()).pathname));
+    const saved = documentSaved(target);
     await target.locator(".ProseMirror").evaluate((node, value) => {
       const active = (node as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;
       active.state.doc.descendants((heading, position) => {
         if (heading.type.name === "heading" && heading.attrs.id === "promote") active.view.dispatch(active.state.tr.setNodeMarkup(position, undefined, { ...heading.attrs, level: value }));
       });
     }, value);
-    expect((await (await saved).json()).saved).toBe(true);
-    await expect(target.getByRole("status").filter({ hasText: "Gespeichert" })).toBeVisible();
+    await saved;
+    await expect(target.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   }
   await level(page, 1);
   await page.getByRole("button", { name: "Zurück zur Präsentation", exact: true }).click();

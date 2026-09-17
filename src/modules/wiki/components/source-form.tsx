@@ -63,7 +63,7 @@ export function SourceForm({ initial: initialSource, documentTypes = [], compact
         tagNames: value("tags").split(",").map((tag) => tag.trim()).filter(Boolean),
       });
       if (!result.ok) { setError(t("duplicateSource", { title: result.duplicate.title })); return; }
-      onSaved?.(); router.push(redirectTo ?? `/wiki/sources/${result.id}`); router.refresh();
+      onSaved?.(); router.push(redirectTo ?? `/wiki/sources/${result.id}`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : t("saveFailed")); }
     finally { setPending(false); }
   }

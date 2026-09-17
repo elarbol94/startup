@@ -1,4 +1,5 @@
 import { taskAssigneeFields } from "@/modules/projects/assignees";
+import { withWorkItemFocus } from "@/modules/context/routes";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/core-schema";
@@ -126,8 +127,7 @@ function taskHref(
 ) {
   if (projectId) return `/projects/${projectId}?task=${id}`;
   if (contextRoute) {
-    const separator = contextRoute.includes("?") ? "&" : "?";
-    return `${contextRoute}${separator}${kind}=${id}`;
+    return withWorkItemFocus(contextRoute, id, kind);
   }
   return "/";
 }

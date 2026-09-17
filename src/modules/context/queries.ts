@@ -61,8 +61,19 @@ export function listEntityContext(
 
   if (subjectType === "project" || subjectType === "task") {
     const outgoing = db
-      .select()
+      .select({
+        link: contextLinks,
+        page: { id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, deletedAt: wikiPages.deletedAt },
+        source: { id: wikiSources.id, title: wikiSources.title, deletedAt: wikiSources.deletedAt },
+        pdf: { id: wikiPdfDocuments.id, sourceId: wikiPdfDocuments.sourceId },
+      })
       .from(contextLinks)
+      .leftJoin(wikiPages, and(eq(contextLinks.targetType, "wikiPage"), eq(contextLinks.targetId, wikiPages.id)))
+      .leftJoin(wikiPdfDocuments, and(eq(contextLinks.targetType, "pdf"), eq(contextLinks.targetId, wikiPdfDocuments.id)))
+      .leftJoin(wikiSources, or(
+        and(eq(contextLinks.targetType, "wikiSource"), eq(contextLinks.targetId, wikiSources.id)),
+        and(eq(contextLinks.targetType, "pdf"), eq(wikiPdfDocuments.sourceId, wikiSources.id)),
+      ))
       .where(
         and(
           eq(contextLinks.ownerType, subjectType),
@@ -72,17 +83,31 @@ export function listEntityContext(
       .orderBy(desc(contextLinks.updatedAt))
       .all();
 
-    for (const link of outgoing) {
+    for (const { link, page, source, pdf } of outgoing) {
+      if (link.targetType === "wikiPage" && (!page || page.deletedAt)) continue;
+      if ((link.targetType === "wikiSource" || link.targetType === "pdf") && (!source || source.deletedAt)) continue;
+      if (link.targetType === "pdf" && !pdf) continue;
+      // Resolve identity at read time: labels/slugs saved with the link can be
+      // stale after a rename. Keep section, selection and PDF-page destinations.
+      const suffix = link.route.match(/[?#].*$/)?.[0] ?? "";
+      const route = link.targetType === "wikiPage" && page
+        ? canonicalEntityHref("wikiPage", page.id, { slug: page.slug }) + suffix
+        : link.targetType === "wikiSource" && source
+          ? canonicalEntityHref("wikiSource", source.id) + suffix
+          : link.targetType === "pdf" && pdf
+            ? canonicalEntityHref("pdf", pdf.id, { sourceId: pdf.sourceId }) + suffix
+            : link.route;
       const item: ContextItemDto = {
         key: link.id,
         type: link.targetType,
-        title: link.label || link.route,
+        title: link.targetType === "wikiPage" && page ? page.title
+          : link.targetType === "wikiSource" && source ? source.title : link.label || route,
         href:
           subjectType === "task" &&
           link.targetType === "pdf" &&
           link.relation === "origin"
-            ? withTaskFocus(link.route, subjectId)
-            : link.route,
+            ? withTaskFocus(route, subjectId)
+            : route,
         subtitle: link.relation === "origin" ? "Ursprung" : "Verknüpft",
         relation: link.relation,
         linkId: link.id,
@@ -275,7 +300,7 @@ export function listEntityContext(
       })
       .from(wikiPageSources)
       .innerJoin(wikiSources, eq(wikiPageSources.sourceId, wikiSources.id))
-      .where(eq(wikiPageSources.pageId, subjectId))
+      .where(and(eq(wikiPageSources.pageId, subjectId), isNull(wikiSources.deletedAt)))
       .orderBy(asc(wikiSources.title))
       .all();
     result.sources.push(
@@ -301,7 +326,7 @@ export function listEntityContext(
       })
       .from(wikiPageSources)
       .innerJoin(wikiPages, eq(wikiPageSources.pageId, wikiPages.id))
-      .where(eq(wikiPageSources.sourceId, subjectId))
+      .where(and(eq(wikiPageSources.sourceId, subjectId), isNull(wikiPages.deletedAt)))
       .orderBy(asc(wikiPages.title))
       .all();
     result.wiki.push(
@@ -342,6 +367,8 @@ export function listEntityContext(
         and(
           eq(evidenceLinks.targetType, subjectType),
           eq(evidenceLinks.targetId, subjectId),
+          isNull(wikiPdfAnnotations.deletedAt),
+          isNull(wikiSources.deletedAt),
         ),
       )
       .orderBy(desc(evidenceLinks.createdAt))

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useFocusMode } from "@/components/focus-mode";
 import { cn } from "@/lib/utils";
+import { requestAppNavigation } from "@/lib/app-navigation";
 import { createQuickNote, searchResearch } from "../research-actions";
 import { SearchSnippet } from "./search-snippet";
 import { useWikiNavigation } from "./wiki-navigation";
@@ -80,11 +81,10 @@ function NavItem({
     </Link>
   );
 
-  if (!compact) return link;
   return (
     <Tooltip>
       <TooltipTrigger render={link} />
-      <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
+      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -116,7 +116,7 @@ export function ResearchSidebar({
   const desktopSearchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
 
-  const createNote = useCallback(async () => {
+  const createNote = useCallback(() => requestAppNavigation("/wiki/pages", async () => {
     if (creating || creatingRef.current) return;
     creatingRef.current = true;
     setCreating(true);
@@ -124,14 +124,13 @@ export function ResearchSidebar({
       const note = await createQuickNote(locale === "en" ? "en" : "de");
       setMobileOpen(false);
       router.push(`/wiki/pages/${note.slug}`);
-      router.refresh();
     } catch {
       toast.error(t("quickNoteFailed"));
     } finally {
       creatingRef.current = false;
       setCreating(false);
     }
-  }, [creating, locale, router, t]);
+  }), [creating, locale, router, t]);
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {

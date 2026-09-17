@@ -270,7 +270,7 @@ test("language switcher changes the UI to English and back", async ({ page }) =>
   await expect(page.getByText("Welcome, E2E Admin!")).toBeVisible();
 
   // Sidebar is translated too.
-  await expect(page.getByRole("link", { name: "Accounting" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Accounting", exact: true })).toBeVisible();
 
   // And back to German (cookie persists across reloads).
   await userMenu.click();
@@ -282,6 +282,8 @@ test("language switcher changes the UI to English and back", async ({ page }) =>
 });
 
 test("plan personnel costs, preserve a scenario, and create a consolidated draft", async ({ page }) => {
+  const runId = Date.now();
+  const personName = `E2E Planperson ${runId}`;
   // Keep this acceptance path independently runnable as well as compatible
   // with the serial accounting suite, where the account already exists.
   await page.request.post("/api/auth/sign-up/email", {
@@ -311,15 +313,17 @@ test("plan personnel costs, preserve a scenario, and create a consolidated draft
 
   await page.getByRole("button", { name: "Personen" }).click();
   await page.getByRole("button", { name: "Person und Vertragsstand anlegen" }).click();
-  await page.locator('input[name="name"]').fill("E2E Planperson");
-  await page.locator('input[name="personnelNumber"]').fill("E2E-P-001");
+  await page.locator('input[name="name"]').fill(personName);
+  await page.locator('input[name="personnelNumber"]').fill(`E2E-P-${runId}`);
+  await page.locator('input[name="joinedOn"]').fill("2026-07-01");
+  await page.locator('input[name="validFrom"]').fill("2026-07-01");
   await page.locator('input[name="amount"]').fill("4500");
   await page.locator('input[name="weeklyHours"]').fill("40");
   await page.getByRole("button", { name: "Personalplanung speichern" }).click();
   await expect(page.getByText("Personalplanung gespeichert")).toBeVisible();
-  await expect(page.getByText("E2E Planperson")).toBeVisible();
+  await expect(page.getByText(personName, { exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Übersicht" }).click();
+  await page.getByLabel("Personalkosten").getByRole("button", { name: "Übersicht", exact: true }).click();
   await page.locator("#close-month").fill("2026-07");
   await page.getByRole("button", { name: "Monat als Sammelentwurf übergeben" }).click();
   await expect(page.getByText("Sammelentwurf erstellt")).toBeVisible();

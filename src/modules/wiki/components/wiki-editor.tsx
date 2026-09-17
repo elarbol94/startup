@@ -39,6 +39,7 @@ import type { SlashCommandDefinition } from "./slash-command-menu";
 import { CommentRail, type CommentRailHandle, type CommentThread } from "./comment-rail";
 import { CommentAnchorOverlay } from "./comment-anchor-overlay";
 import { DocumentPresentationLinks } from "./document-presentation-links";
+import { useEditorNavigation } from "./use-editor-navigation";
 import { HeadingIdentity } from "./heading-identity";
 
 import { CollapsibleHeading, HeadingListItem, headingVisibilityChanged } from "./collapsible-heading";
@@ -845,6 +846,22 @@ function CollaborativeWikiEditor({
   const [recoveryAvailable, setRecoveryAvailable] = useState(true);
   const discardingDraft = useRef(false);
   const flushSaveRef = useRef<() => Promise<boolean>>(async () => false);
+  const navigating = useRef(false);
+  const navigationText = useTranslations("documentPresentationLinks");
+  const leaveEditor = useCallback((href: string, newTab: boolean, proceed?: () => void) => {
+    if (navigating.current) return;
+    const tab = newTab ? window.open("about:blank", "_blank") : null;
+    if (newTab && !tab) { toast.error(t("presentations.popupBlocked")); return; }
+    navigating.current = true;
+    void flushSaveRef.current().then(saved => {
+      if (!saved) { tab?.close(); toast.error(navigationText("saveFailed")); return; }
+      if (tab) tab.location.href = href;
+      else if (proceed) proceed();
+      else router.push(href);
+    }).catch(() => { tab?.close(); toast.error(navigationText("saveFailed")); })
+      .finally(() => { navigating.current = false; });
+  }, [router, t, navigationText]);
+  useEditorNavigation(leaveEditor, ".ProseMirror");
   const storageKey = `wiki-draft:${currentUserId}:${pageId}`; const preferencesKey = `wiki-editor-preferences`;
 
   function currentSnapshot() {

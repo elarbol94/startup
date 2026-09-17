@@ -18,8 +18,8 @@ export class PresentationBridge {
     const doc = this.provider.doc;
     this.undo = new Y.UndoManager(doc, {
       trackedOrigins: new Set([LOCAL, ySyncPluginKey]),
-      // Mounting a rich-text editor normalizes XML attributes without changing the
-      // presentation. Those transactions must not become user-visible undo steps.
+      // Mounting a rich-text view may normalize its shared representation without
+      // changing the presentation. Those transactions are not author edits.
       captureTransaction: transaction => transaction.origin !== ySyncPluginKey
         || !presentationValuesEqual(this.state.elements, presentationJSON(doc).elements),
     });
