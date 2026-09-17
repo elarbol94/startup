@@ -242,11 +242,11 @@ function SnapGuides({ guides }: { guides: SnapGuide[] }) {
         <div
           key={`${guide.kind ?? "align"}-${guide.axis}-${guide.position}-${guide.start}`}
           data-testid={guide.kind === "distance" ? "presentation-distance-guide" : "presentation-snap-guide"}
-          className="pointer-events-none absolute bg-indigo-500"
+          className="pointer-events-none absolute"
           style={
             guide.axis === "x"
-              ? { left: guide.position, top: guide.start, width: 1 / zoom, height: guide.end - guide.start }
-              : { left: guide.start, top: guide.position, height: 1 / zoom, width: guide.end - guide.start }
+              ? { left: guide.position, top: guide.start, width: 1 / zoom, height: guide.end - guide.start, zIndex: 1900, background: guide.kind === "distance" ? "#6366f1" : `repeating-linear-gradient(to bottom, #f43f5e 0 ${4 / zoom}px, transparent ${4 / zoom}px ${7 / zoom}px)` }
+              : { left: guide.start, top: guide.position, height: 1 / zoom, width: guide.end - guide.start, zIndex: 1900, background: guide.kind === "distance" ? "#6366f1" : `repeating-linear-gradient(to right, #f43f5e 0 ${4 / zoom}px, transparent ${4 / zoom}px ${7 / zoom}px)` }
           }
         >{guide.kind === "distance" && <>
           <span className="absolute bg-indigo-500" style={guide.axis === "y" ? { width: 1 / zoom, height: 8 / zoom, top: -4 / zoom } : { height: 1 / zoom, width: 8 / zoom, left: -4 / zoom }} />
@@ -274,8 +274,8 @@ const HANDLE_SIZE = 12;
 const ROTATE_OFFSET = 28;
 
 /**
- * One overlay serves both jobs React Flow's own `NodeResizer` does not: turning a
- * selection, and scaling several elements as one. It is drawn around the union of the
+ * One overlay handles turning a
+ * selection and scaling several elements as one. It is drawn around the union of the
  * selection, so a single element gets a rotation handle and a group gets both.
  */
 function SelectionOverlay({
@@ -313,6 +313,7 @@ function SelectionOverlay({
     cleanupGesture.current?.();
     onGestureStart();
     const handle = event.currentTarget;
+    handle.closest<HTMLElement>("[data-presentation-canvas]")?.focus();
     handle.setPointerCapture(event.pointerId);
     // The anchor is frozen at gesture start: the union bounds shift as the selection turns,
     // and chasing them mid-drag would make the element run away from the pointer.
@@ -373,7 +374,7 @@ function SelectionOverlay({
     <ViewportPortal>
       <div
         className="pointer-events-none absolute"
-        style={{ left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height }}
+        style={{ left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height, zIndex: 2100 }}
       >
         {scalable && (
           <div
@@ -381,14 +382,17 @@ function SelectionOverlay({
             style={{ borderWidth: screen(1) }}
           />
         )}
+        <div className="absolute bg-indigo-500" style={{ left: bounds.width / 2, top: -screen(ROTATE_OFFSET), width: screen(1), height: screen(ROTATE_OFFSET) }} />
         <button
           type="button"
+          data-testid="presentation-rotate-handle"
+          onClick={event => event.stopPropagation()}
           aria-label={rotateLabel}
           title={rotateLabel}
-          className="nodrag nopan pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-white bg-indigo-500 active:cursor-grabbing"
-          style={{ ...handleStyle, left: bounds.width / 2, top: -screen(ROTATE_OFFSET) }}
-          onPointerDown={(event) => beginGesture(event, "rotate")}
-        />
+          className="nodrag nopan pointer-events-auto touch-none absolute -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-white bg-indigo-500 active:cursor-grabbing"
+          style={{ ...handleStyle, width: screen(20), height: screen(20), left: bounds.width / 2, top: -screen(ROTATE_OFFSET) }}
+          onPointerDown={(event) => { if (event.button === 0) beginGesture(event, "rotate"); }}
+        ><RotateCw className="h-full w-full p-px text-white" /></button>
         {scalable && (
           <button
             type="button"
@@ -574,7 +578,7 @@ function Editor({
   );
   // The property panel edits exactly one element; two or more are handled as a group.
   const selected = selection.length === 1 ? selection[0] : null;
-  const selectionBounds = useMemo(() => unionBounds(selection), [selection]);
+  const selectionBounds = useMemo(() => unionBounds(selection.map(presentationCameraBounds)), [selection]);
   const rotationReferences = useMemo(() => {
     const moving = presentationDescendants(elements, selectedSet);
     return elements.filter(element => !moving.has(element.id)).map(element => element.rotation);
@@ -743,15 +747,18 @@ function Editor({
     dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => e.id === next.id && !isPresentationElementLocked(current, e.id) ? { ...e, x: next.x, y: next.y, width: next.width, rotation: next.rotation } : e) });
   }, [dispatch]);
   const onRichTextChange = useCallback((id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => updateElement(id, element => element.type === "text" ? { ...element, content } : element), [updateElement]);
+  const onResizeChange = useCallback((next: PresentationElement, free: boolean) => {
+    dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true });
+  }, [dispatch, reactFlow]);
   const collaboratorPresence = collaboration?.people;
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
-      onRichTextChange, onEndpointChange,
+      onRichTextChange, onEndpointChange, onResizeChange,
       onGestureStart: startGesture, onGestureEnd: endGesture }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange],
   );
 
   /**
@@ -1718,7 +1725,7 @@ function Editor({
                 bounds={selectionBounds}
                 rotation={selection[0]?.rotation ?? 0}
                 referenceAngles={rotationReferences}
-                // One element resizes with React Flow's own handles; a group needs its own.
+                // Individual objects use local-axis handles; a group scales as a whole.
                 scalable={selection.length > 1}
                 rotateLabel={t("presentations.rotateHandle")}
                 scaleLabel={t("presentations.scaleHandle")}

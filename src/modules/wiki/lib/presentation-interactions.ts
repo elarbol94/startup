@@ -72,3 +72,24 @@ export function reorderSelection(elements: PresentationElement[], ids: Iterable<
   } else for (let i = 1; i < next.length; i++) if (included.has(next[i].id) && !included.has(next[i - 1].id) && (next[i].type === "frame") === (next[i - 1].type === "frame")) [next[i], next[i - 1]] = [next[i - 1], next[i]];
   return next;
 }
+
+/** Resize in the object's local axes, keeping the opposite handle fixed in world space. */
+export function resizePresentationElement(element: PresentationElement, handle: { x: number; y: number }, delta: { x: number; y: number }, proportional = false, centered = false) {
+  const radians = element.rotation * Math.PI / 180, cos = Math.cos(radians), sin = Math.sin(radians);
+  const dx = cos * delta.x + sin * delta.y, dy = -sin * delta.x + cos * delta.y;
+  const factor = centered ? 2 : 1;
+  let width = handle.x ? element.width + dx * handle.x * factor : element.width;
+  let height = handle.y ? element.height + dy * handle.y * factor : element.height;
+  if (proportional && handle.x && handle.y) {
+    const sx = width / element.width, sy = height / element.height;
+    const scale = Math.max(40 / Math.min(element.width, element.height), Math.min(20_000 / Math.max(element.width, element.height), Math.abs(sx - 1) >= Math.abs(sy - 1) ? sx : sy));
+    width = element.width * scale; height = element.height * scale;
+  } else {
+    width = Math.max(40, Math.min(20_000, width)); height = Math.max(40, Math.min(20_000, height));
+  }
+  const cx = centered ? 0 : handle.x * (width - element.width) / 2;
+  const cy = centered ? 0 : handle.y * (height - element.height) / 2;
+  return { ...element, width, height,
+    x: element.x + (element.width - width) / 2 + cos * cx - sin * cy,
+    y: element.y + (element.height - height) / 2 + sin * cx + cos * cy };
+}

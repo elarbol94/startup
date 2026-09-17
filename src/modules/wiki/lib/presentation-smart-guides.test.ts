@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { equalSpacing, snapRotation } from "./presentation-smart-guides";
 import { growPresentationText, presentationTextFits } from "./presentation-layout";
-import type { PresentationTextElement } from "./presentation";
+import { snapBounds, applyGeometryChanges, type PresentationTextElement } from "./presentation";
 const box = (x: number, y = 0) => ({ x, y, width: 100, height: 80 });
 it("matches existing horizontal gaps and renders both measured gaps", () => {
   const result = equalSpacing(box(305), [box(0), box(150)], 8);
@@ -29,9 +29,9 @@ it("snaps rotation to cardinal, parallel, perpendicular and Shift increments", (
   expect(snapRotation(47, [])).toBe(47);
 });
 const text: PresentationTextElement = { id: "t", type: "text", x: 100, y: 100, width: 100, height: 25, rotation: 0, content: { text: "A longer sentence needs room", fontSize: 48, bold: false, color: "", align: "left" } };
-it("grows text without shrinking or reducing font size and wraps long sentences", () => {
+it("grows text vertically at the chosen width without reducing font size", () => {
   const grown = growPresentationText(text);
-  expect(grown.width).toBeGreaterThan(text.width); expect(grown.width).toBeLessThanOrEqual(720);
+  expect(grown.width).toBe(text.width);
   expect(grown.height).toBeGreaterThan(text.height); expect(presentationTextFits(grown)).toBe(true);
   expect(grown.content.fontSize).toBe(48); expect(growPresentationText(grown)).toEqual(grown);
 });
@@ -41,4 +41,28 @@ it("preserves a rotated text box's top-left anchor and existing auto-fit behavio
   anchor(after).forEach((v, i) => expect(v).toBeCloseTo(anchor(before)[i]));
   const auto = { ...text, content: { ...text.content, autoFit: { minFontSize: 12, maxFontSize: 48 } } };
   expect(growPresentationText(auto)).toBe(auto);
+});
+
+it("keeps an exact alignment over a nearby spacing suggestion", () => {
+  const next = box(303);
+  const result = snapBounds(next, next, [box(0), box(150), box(303, 400)], 6, false);
+  expect(result.bounds.x).toBe(303);
+  expect(result.guides.some(g => g.kind === "distance" && g.axis === "y")).toBe(false);
+});
+it("holds an alignment through small pointer jitter, releases outside the wider threshold", () => {
+  const previous = [{ axis: "x" as const, position: 300, start: 0, end: 100 }];
+  expect(snapBounds(box(300), box(307), [box(300), box(308, 300)], 6, false, previous).bounds.x).toBe(300);
+  expect(snapBounds(box(300), box(310), [box(300), box(312, 300)], 6, false, previous).bounds.x).toBe(312);
+  expect(snapBounds(box(300), box(300), [box(300)], 0, false, previous).guides).toEqual([]);
+});
+it("measures the new object's own width for a preceding spacing match", () => {
+  const result = equalSpacing({ ...box(-105), width: 50 }, [box(0), box(150)], 6);
+  expect(result.bounds.x).toBe(-100);
+  expect(result.guides.map(g => g.distance)).toEqual([50, 50]);
+});
+it("snaps rotated objects by their visible edges without changing dimensions", () => {
+  const rotated = { ...text, width: 100, height: 40, rotation: 90 };
+  const peer = { ...text, id: "peer", x: 200, y: 300 };
+  const result = applyGeometryChanges([rotated, peer], [{ id: "t", x: 133, y: 100 }], 6);
+  expect(result.elements[0]).toMatchObject({ x: 130, width: 100, height: 40, rotation: 90 });
 });

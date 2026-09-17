@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { NodeResizer, ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
+import { ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
-import { PRESENTATION_MIN_ELEMENT_SIZE, isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
-import { isLinearShape, lineEndpoints, moveLineEndpoint } from "../lib/presentation-interactions";
+import { isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
+import { resizePresentationElement, isLinearShape, lineEndpoints, moveLineEndpoint } from "../lib/presentation-interactions";
 import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
@@ -24,6 +24,7 @@ export type PresentationNodeData = {
   onGestureEnd?: () => void;
   onTextChange?: (id: string, text: string) => void;
   onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onEndpointChange?: (element: PresentationElement) => void;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
@@ -32,30 +33,53 @@ export type PresentationNodeData = {
 
 export type PresentationNode = Node<PresentationNodeData, PresentationElement["type"]>;
 
+const RESIZE_HANDLES = [-1, 0, 1].flatMap(y => [-1, 0, 1].filter(x => x || y).map(x => ({ x, y })));
+
 function Resizer({ selected, data }: { selected: boolean; data: PresentationNodeData }) {
-  const [proportional, setProportional] = useState(false);
-  useEffect(() => {
-    const key = (event: KeyboardEvent) => setProportional(event.shiftKey);
-    const clear = () => setProportional(false);
-    window.addEventListener("keydown", key); window.addEventListener("keyup", key); window.addEventListener("blur", clear);
-    return () => { window.removeEventListener("keydown", key); window.removeEventListener("keyup", key); window.removeEventListener("blur", clear); };
-  }, []);
-  if (!data.editable || data.resizable === false || isLinearShape(data.element)) return null;
-  return (
-    <NodeResizer
-      isVisible={selected}
-      keepAspectRatio={proportional}
-      minWidth={PRESENTATION_MIN_ELEMENT_SIZE}
-      minHeight={PRESENTATION_MIN_ELEMENT_SIZE}
-      maxWidth={20_000}
-      maxHeight={20_000}
-      color="var(--color-indigo-500)"
-      handleStyle={{ pointerEvents: "auto", zIndex: 2 }}
-      lineStyle={{ pointerEvents: "none" }}
-      onResizeStart={data.onGestureStart}
-      onResizeEnd={data.onGestureEnd}
-    />
-  );
+  const { zoom } = useViewport();
+  const flow = useReactFlow();
+  const t = useTranslations("wiki.presentations");
+  const cleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => cleanup.current?.(), []);
+  if (!selected || !data.editable || data.resizable === false || isLinearShape(data.element)) return null;
+  const element = data.element;
+  const beginResize = (event: React.PointerEvent<HTMLButtonElement>, x: number, y: number) => {
+    if (event.button !== 0) return;
+    event.preventDefault(); event.stopPropagation(); cleanup.current?.();
+    data.onGestureStart?.();
+    const button = event.currentTarget, pointerId = event.pointerId;
+    button.closest<HTMLElement>("[data-presentation-canvas]")?.focus();
+    button.setPointerCapture(pointerId);
+    const start = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const move = (event: PointerEvent) => {
+      if (event.pointerId !== pointerId) return;
+      const point = flow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      const proportional = x !== 0 && y !== 0 && ((element.type === "image" || element.type === "icon") ? !event.shiftKey : event.shiftKey);
+      data.onResizeChange?.(resizePresentationElement(element, { x, y }, { x: point.x - start.x, y: point.y - start.y }, proportional, event.altKey), proportional || event.altKey || Boolean(element.rotation));
+    };
+    const end = () => {
+      window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end); window.removeEventListener("blur", end);
+      window.removeEventListener("presentation-cancel-gesture", end);
+      cleanup.current = null;
+      if (button.hasPointerCapture(pointerId)) button.releasePointerCapture(pointerId);
+      data.onGestureEnd?.();
+    };
+    cleanup.current = end;
+    window.addEventListener("pointermove", move); window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end); window.addEventListener("blur", end);
+    window.addEventListener("presentation-cancel-gesture", end);
+
+  };
+  return <ViewportPortal><div className="pointer-events-none absolute" style={{ left: element.x, top: element.y, width: element.width, height: element.height, transform: `rotate(${element.rotation}deg)`, zIndex: 2000 }}>
+    {RESIZE_HANDLES.map(({ x, y }) => <button
+      key={`${x}-${y}`} type="button" aria-label={t("scaleHandle")}
+      data-resize-handle={`${x},${y}`}
+      className="nodrag nopan pointer-events-auto touch-none absolute -translate-x-1/2 -translate-y-1/2 rounded-xs border border-indigo-500 bg-background"
+      style={{ left: `${(x + 1) * 50}%`, top: `${(y + 1) * 50}%`, width: 10 / zoom, height: 10 / zoom, borderWidth: 1 / zoom, cursor: x === 0 ? "ns-resize" : y === 0 ? "ew-resize" : x === y ? "nwse-resize" : "nesw-resize" }}
+      onClick={event => event.stopPropagation()}
+      onPointerDown={event => beginResize(event, x, y)} />)}
+  </div></ViewportPortal>;
 }
 
 function TextNode({ data, selected }: NodeProps<PresentationNode>) {
@@ -241,6 +265,7 @@ export function elementsToNodes(
     onGestureEnd?: () => void;
     onTextChange?: (id: string, text: string) => void;
   onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onEndpointChange?: (element: PresentationElement) => void;
     /** Ids currently hidden so they can fade in — the player's step-arrival entrance. */
     enteringIds?: Set<string>;
@@ -296,6 +321,7 @@ export function elementsToNodes(
         onTextChange: options.onTextChange,
         onRichTextChange: options.onRichTextChange,
         onEndpointChange: options.onEndpointChange,
+        onResizeChange: options.onResizeChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
       },

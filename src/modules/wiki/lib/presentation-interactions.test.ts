@@ -1,3 +1,4 @@
+import { resizePresentationElement } from "./presentation-interactions";
 import { describe, expect, it } from "vitest";
 import { adaptiveGridGap, isLinearShape, lineEndpoints, moveLineEndpoint, mutableSelection, parsePresentationClipboard, pastePresentationObjects, reorderSelection, selectionRoots, serializeSelection, ungroupSteps } from "./presentation-interactions";
 import { presentationElementsSchema, type PresentationElement } from "./presentation";
@@ -66,4 +67,27 @@ it("accepts legacy shapes and copies new styling without replacing geometry", ()
   const pasted = pastePresentationFormat([shape], new Set([shape.id]), copyPresentationFormat(styled))[0];
   expect(pasted).toMatchObject({ x: 10, width: 100, content: { shape: "arrow", headSize: 24, dash: "dash" } });
   expect(presentationElementsSchema.safeParse([styled]).success).toBe(true);
+});
+
+
+describe("local-axis resizing", () => {
+  const element = { id: "resize", type: "text" as const, x: 100, y: 100, width: 200, height: 100, rotation: 0, content: { text: "Wrap this text", fontSize: 24, bold: false, align: "left" as const, color: "" } };
+  it("moves only the dragged edge and leaves font size intact", () => {
+    const next = resizePresentationElement(element, { x: -1, y: 0 }, { x: 50, y: 0 });
+    expect(next).toMatchObject({ x: 150, y: 100, width: 150, height: 100, content: { fontSize: 24 } });
+  });
+  it("keeps the opposite edge fixed when the text box is rotated", () => {
+    const next = resizePresentationElement({ ...element, rotation: 90 }, { x: 1, y: 0 }, { x: 0, y: 60 });
+    expect(next.x).toBeCloseTo(70); expect(next.y).toBeCloseTo(130);
+    expect(next.width).toBeCloseTo(260); expect(next.height).toBe(100);
+  });
+  it("preserves proportions and resizes about the centre with Alt", () => {
+    const next = resizePresentationElement(element, { x: 1, y: 1 }, { x: 40, y: 10 }, true, true);
+    expect(next.width / next.height).toBe(2);
+    expect(next.x + next.width / 2).toBe(200); expect(next.y + next.height / 2).toBe(150);
+  });
+  it("clamps at minimum size without flipping across the anchor", () => {
+    const next = resizePresentationElement(element, { x: -1, y: -1 }, { x: 1000, y: 1000 });
+    expect(next).toMatchObject({ x: 260, y: 160, width: 40, height: 40 });
+  });
 });

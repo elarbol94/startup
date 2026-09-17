@@ -496,6 +496,7 @@ function snapAxis(
   targets: { start: number; size: number }[],
   threshold: number,
   resizing: boolean,
+  previousLine?: number,
 ): { start: number; size: number; line: number | null } {
   const sources = resizing
     ? [
@@ -504,15 +505,17 @@ function snapAxis(
     ]
     : linesOf(next.start, next.size);
 
-  let best: { delta: number; line: number; source: number } | null = null;
+  let best: { delta: number; line: number; source: number; held: boolean } | null = null;
   for (const source of sources) {
     for (const target of targets) {
       for (const line of linesOf(target.start, target.size)) {
         const delta = line - source;
         const size = source === next.start ? next.size - delta : next.size + delta;
         if (resizing && (size < PRESENTATION_MIN_ELEMENT_SIZE || size > 20_000)) continue;
-        if (Math.abs(delta) <= threshold && (!best || Math.abs(delta) < Math.abs(best.delta))) {
-          best = { delta, line, source };
+        const held = previousLine !== undefined && Math.abs(line - previousLine) < 0.01;
+        if (Math.abs(delta) <= threshold * (held ? 1.5 : 1)
+          && (!best || (held && !best.held) || (held === best.held && (Math.abs(delta) < Math.abs(best.delta) || (Math.abs(delta) === Math.abs(best.delta) && line < best.line))))) {
+          best = { delta, line, source, held };
         }
       }
     }
@@ -539,13 +542,16 @@ export function snapBounds(
   targets: PresentationBounds[],
   threshold: number,
   resizing = Math.abs(next.width - prev.width) > 0.01 || Math.abs(next.height - prev.height) > 0.01,
+  previousGuides: SnapGuide[] = [],
 ): { bounds: PresentationBounds; guides: SnapGuide[] } {
+  if (threshold <= 0) return { bounds: { ...next }, guides: [] };
   const horizontal = snapAxis(
     { start: prev.x, size: prev.width },
     { start: next.x, size: next.width },
     targets.map((target) => ({ start: target.x, size: target.width })),
     threshold,
     resizing,
+    previousGuides.find(g => !g.kind && g.axis === "x")?.position,
   );
   const vertical = snapAxis(
     { start: prev.y, size: prev.height },
@@ -553,6 +559,7 @@ export function snapBounds(
     targets.map((target) => ({ start: target.y, size: target.height })),
     threshold,
     resizing,
+    previousGuides.find(g => !g.kind && g.axis === "y")?.position,
   );
   const bounds = { x: horizontal.start, y: vertical.start, width: horizontal.size, height: vertical.size };
 
@@ -578,12 +585,18 @@ export function snapBounds(
   if (!resizing) {
     const spacing = equalSpacing(next, targets, threshold);
     for (const axis of ["x", "y"] as const) {
-      if (spacing.guides.some(g => g.axis === (axis === "x" ? "y" : "x"))) {
+      const distanceGuides = spacing.guides.filter(g => g.axis === (axis === "x" ? "y" : "x"));
+      const aligned = guides.find(g => !g.kind && g.axis === axis);
+      const held = aligned && previousGuides.some(g => !g.kind && g.axis === axis && g.position === aligned.position);
+      // Do not let a farther spacing suggestion override an exact edge/centre alignment.
+      if (distanceGuides.length && (!aligned || (!held && Math.abs(spacing.bounds[axis] - next[axis]) < Math.abs(bounds[axis] - next[axis])))) {
         bounds[axis] = spacing.bounds[axis];
-        for (let i = guides.length - 1; i >= 0; i--) if (guides[i].axis === axis) guides.splice(i, 1);
+        for (let i = guides.length - 1; i >= 0; i--) if (!guides[i].kind && guides[i].axis === axis) guides.splice(i, 1);
+        guides.push(...distanceGuides);
+      } else if (distanceGuides.length && Math.abs(spacing.bounds[axis] - bounds[axis]) < 0.01) {
+        guides.push(...distanceGuides);
       }
     }
-    guides.push(...spacing.guides);
   }
   return { bounds, guides };
 }
@@ -611,6 +624,7 @@ export function applyGeometryChanges(
   elements: PresentationElement[],
   changes: PresentationGeometryChange[],
   tolerance: number,
+  previousGuides: SnapGuide[] = [],
 ): { elements: PresentationElement[]; guides: SnapGuide[] } {
   const requested = new Set(changes.map((change) => change.id));
   const byId = new Map(changes.filter((change) => !isPresentationElementLocked(elements, change.id)
@@ -632,14 +646,16 @@ export function applyGeometryChanges(
 
   const affected = presentationDescendants(elements, new Set(moving.keys()));
   const targets = elements.filter((element) => !affected.has(element.id)
-    && !(element.type === "shape" && element.content.connection)).map(elementBounds);
+    && !(element.type === "shape" && element.content.connection)).map(presentationCameraBounds);
   const resizing = moving.size === 1 && ([...byId.values()].some((change) => change.resizing)
     || Math.abs(after.width - before.width) > 0.01 || Math.abs(after.height - before.height) > 0.01);
-  const snapped = snapBounds(before, after, targets, tolerance, resizing);
+  const visibleBefore = resizing ? before : unionBounds(elements.filter(e => moving.has(e.id)).map(presentationCameraBounds))!;
+  const visibleAfter = resizing ? after : unionBounds(elements.filter(e => moving.has(e.id)).map(e => presentationCameraBounds({ ...e, ...moving.get(e.id)! })))!;
+  const snapped = snapBounds(visibleBefore, visibleAfter, targets, tolerance, resizing, previousGuides);
   // Only a resize changes the box's size, and a canvas resizes one element at a time, so
   // the snapped union *is* that element's box. A move shifts every mover by the same amount.
-  const dx = snapped.bounds.x - after.x;
-  const dy = snapped.bounds.y - after.y;
+  const dx = snapped.bounds.x - visibleAfter.x;
+  const dy = snapped.bounds.y - visibleAfter.y;
 
   let touched = false;
   const next = elements.map((element) => {
@@ -833,7 +849,7 @@ export function presentationCanvasReducer(
       return { ...state, elements, past: state.past.map(update), future: state.future.map(update), dirty: true };
     }
     case "geometry": {
-      const result = applyGeometryChanges(state.elements, action.changes, action.tolerance);
+      const result = applyGeometryChanges(state.elements, action.changes, action.tolerance, state.guides);
       const next = commitCanvas(state, result.elements, state.steps, action.at);
       // The canvas library can deliver late drag updates after cancellation.
       const guides = action.gesture && state.gestureActive ? result.guides : [];

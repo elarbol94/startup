@@ -111,12 +111,7 @@ export function maintainPresentationLayout(elements: PresentationElement[]): Pre
 /** Grow on content/format edits, retaining manual sizes and the rotated top-left anchor. */
 export function growPresentationText(element: PresentationTextElement): PresentationTextElement {
   if (element.content.autoFit) return element;
-  const c = element.content, size = c.fontSize, padding = c.padding ?? 0;
-  const text = c.runs?.map(run => run.text).join("") ?? c.text;
-  const weight = c.bold || c.runs?.some(run => run.bold) ? 1.08 : 1;
-  const measure = (value: string) => [...value].reduce((sum, char) => sum + (/\s/u.test(char) ? 0.35 : /[MWmw@#%]/u.test(char) ? 1 : /[ilI.,'!:;]/u.test(char) ? 0.35 : char.codePointAt(0)! > 255 ? 1 : 0.66), 0) * size * weight;
-  const ideal = Math.max(...text.split("\n").map(measure)) + padding * 2 + 8 + (c.list && c.list !== "none" ? size * 2 : 0);
-  const width = Math.min(20_000, Math.max(element.width, Math.min(ideal, Math.max(element.width, 720))));
+  const width = element.width;
   let low = Math.ceil(element.height), high = 20_000;
   while (low < high) {
     const height = Math.floor((low + high) / 2);

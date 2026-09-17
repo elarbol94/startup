@@ -463,9 +463,9 @@ Shift rotates in 15-degree increments; Alt allows free rotation.
 The minimap draws enclosing frames as outlines so nested content remains visible in light
 and dark themes. Click a minimap location to center that world position without changing zoom.
 
-Editing text or increasing its font grows its box without shrinking manually allocated space
-or reducing font size. Short text can widen up to a natural line width; longer sentences wrap
-and grow vertically. Explicit line breaks, rich formatting, and rotated top-left anchors are
+Editing text or increasing its font keeps the chosen box width and grows vertically when
+needed, without shrinking manually allocated space or reducing font size. Sentences wrap
+within that width. Explicit line breaks, rich formatting, and rotated top-left anchors are
 preserved. Existing automatic font fitting remains an alternative and suppresses box growth.
 Changes use the existing shared geometry, saving, undo, and export paths.
 
@@ -477,3 +477,18 @@ source-passage link icon. This applies a normal rich-text link without replacing
 the words. It participates in collaborative editing, saving and undo.
 Ctrl/Cmd+click in the editor returns to the source passage; source viewing requires
 sign-in. See [wiki-documents.md](wiki-documents.md#linking-selected-text-to-a-source-passage).
+
+## Object controls and smart guides
+
+Rotation controls stay above overlapping content and above the visible selection bounds,
+including rotated symbols. Eight resize handles follow each object's rotation; dragging
+an edge keeps the opposite edge fixed. Text reflows at the new width without changing its
+font size. Image and symbol corners preserve proportions by default (Shift releases them);
+Shift constrains text/shape corners. Alt resizes around the centre. Escape cancels a gesture,
+and undo treats each completed gesture as one edit.
+
+Dashed alignment guides use visible rotated bounds, retain a matched line through small
+pointer movements, and release when dragged away. A closer edge or centre alignment wins
+over a competing equal-spacing suggestion. Guides and handles retain their screen sizes
+at different zoom levels. Rotated, proportional and centred resizing bypasses edge snapping
+to preserve the fixed anchor and proportions.
