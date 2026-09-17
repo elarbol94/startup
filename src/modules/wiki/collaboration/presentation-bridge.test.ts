@@ -78,3 +78,38 @@ it("cancels a gesture without undoing remote work or an earlier local edit", () 
   expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ y: 0, width: 300 });
   stop();
 });
+
+
+it("keeps local snap guides when projecting a collaborative geometry update", () => {
+  const provider = new CollaborationProvider("presentation", "guides-test");
+  const empty = { title: "Guides", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, empty, { ...empty, elements: [0, 150, 500].map((x, i) => ({ id: String(i), type: "text" as const, x, y: 0, width: 100, height: 80, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" as const } })) });
+  const source = presentationJSON(provider.doc), render = vi.fn();
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, source.title), render);
+  const stop = bridge.connect(); render.mockClear();
+  bridge.dispatch({ type: "gesture-start" });
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 8, gesture: true, changes: [{ id: "2", x: 305 }] });
+  expect(presentationJSON(provider.doc).elements[2].x).toBe(300);
+  expect(render.mock.calls.at(-1)?.[0].guides.filter((guide: { kind?: string }) => guide.kind === "distance")).toHaveLength(2);
+  stop();
+});
+
+
+it("does not add undo entries for rich-text initialization that leaves content unchanged", () => {
+  const provider = new CollaborationProvider("presentation", "rich-init");
+  const empty = { title: "Init", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, empty, { ...empty, elements: [{ id: "a", type: "text", x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } }] });
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, source.title), () => {});
+  const stop = bridge.connect();
+  const paragraph = provider.doc.getXmlFragment("rich:a").get(0) as Y.XmlElement;
+  provider.doc.transact(() => paragraph.setAttribute("normalization", "default"), ySyncPluginKey);
+  expect(bridge.undo!.canUndo()).toBe(false);
+  const text = paragraph.get(0) as Y.XmlText;
+  provider.doc.transact(() => text.insert(5, " edit"), ySyncPluginKey);
+  expect(bridge.undo!.canUndo()).toBe(true);
+  bridge.dispatch({ type: "undo" });
+  expect(text.toString()).toBe("Hello");
+  expect(bridge.undo!.canUndo()).toBe(false);
+  stop();
+});

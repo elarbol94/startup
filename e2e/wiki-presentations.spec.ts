@@ -1,3 +1,4 @@
+import { placeAtCenter } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
@@ -75,6 +76,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // 2. Add and edit a new element.
   const stepText = "Custom stop added by E2E test";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();
@@ -99,6 +101,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // node's own data-testid rather than hard-coded.
   const freeText = "Free element not on the path";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await properties(page);
   await contentField.fill(freeText);
   await contentField.blur();
@@ -223,6 +226,7 @@ test("mobile editing exposes the path and saves a focused title before presentin
   await login(page);
   await openNewPitchEditor(page, `E2E Mobile ${Date.now()}`);
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await properties(page);
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Mobile stop");
   await page.getByRole("button", { name: "Seitenbereich schließen" }).click();
@@ -416,6 +420,7 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
   await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toHaveText(title);
+  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeDisabled();
 
   await contentField.fill("Changed title");
   await contentField.blur();
@@ -460,6 +465,7 @@ test("presenting flushes the pending autosave instead of losing the last edit", 
   // The point of the test: no wait for "Gespeichert" between the edit and the navigation.
   const lateText = "Late edit that must survive presenting";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();
@@ -500,6 +506,7 @@ test("reloading the editor rejoins collaboration so edits still save", async ({ 
   // The edit has to survive the round trip, not just render: a lease still held by the
   // previous page load blocks the autosave and leaves the save state on "Fehler".
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();

@@ -3581,7 +3581,7 @@
         "detach": "Verbindung lösen",
         "shortcutHelp": "Tastenkürzel",
         "clipboardError": "Zwischenablage nicht verfügbar. Zugriff erlauben und gültige Präsentationsobjekte mit zugänglichen Anhängen kopieren.",
-        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen.",
+        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen. Drehen rastet horizontal, vertikal und parallel zu anderen Objekten ein; Umschalt nutzt 15°-Schritte, Alt dreht frei.",
         "choose": "Element auswählen",
         "bar": "Balkendiagramm",
         "line": "Liniendiagramm",
@@ -3613,7 +3613,9 @@
           "briefcase": "Aktentasche",
           "leaf": "Blatt"
         },
-        "dashPattern": "Strichmuster"
+        "dashPattern": "Strichmuster",
+        "placeHint": "Zum Platzieren klicken · Escape bricht ab · Enter platziert in der Mitte",
+        "minimapLabel": "Canvas-Übersicht"
       }
     },
     "figures": {

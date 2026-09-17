@@ -1,4 +1,5 @@
 "use client";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
 
 import { handleEditorLinkClick } from "../lib/editor-links";
 
@@ -24,10 +25,13 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
     content: collaboration ? undefined : toDoc(content), editable: !disabled,
     editorProps: {
       handleDOMEvents: { click: handleEditorLinkClick }, attributes: { class: inline ? "h-full min-h-12 outline-none" : "min-h-24 rounded-md border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500", role: "textbox", "aria-label": label ?? t("richText"), "aria-multiline": "true" } },
-    onUpdate: ({ editor }) => {
+    onUpdate: ({ editor, transaction }) => {
       const next = fromDoc(editor.getJSON());
       if (next.text.length > 5000 || (next.runs?.length ?? 0) > 200) editor.commands.undo();
-      else if (!collaboration) current.current.onChange({ ...current.current.content, ...next });
+      else if (!transaction.getMeta(ySyncPluginKey)?.isChangeOrigin
+        && JSON.stringify(fromDoc(toDoc(current.current.content))) !== JSON.stringify(next)) {
+        current.current.onChange({ ...current.current.content, ...next });
+      }
     },
   });
   // Access changes are not content edits and must not add autosaves or undo steps.

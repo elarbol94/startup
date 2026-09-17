@@ -1,3 +1,4 @@
+import { equalSpacing } from "./presentation-smart-guides";
 import { maintainPresentationLayout } from "./presentation-layout";
 import { z } from "zod";
 import { retainObservedPresentationSections } from "./presentation-source";
@@ -476,7 +477,7 @@ export const PRESENTATION_MIN_ELEMENT_SIZE = 40;
 export const PRESENTATION_SNAP_TOLERANCE = 6;
 
 /** One alignment line to draw: `position` on `axis`, spanning `start`..`end` across it. */
-export type SnapGuide = { axis: "x" | "y"; position: number; start: number; end: number };
+export type SnapGuide = { kind?: "distance"; distance?: number; axis: "x" | "y"; position: number; start: number; end: number };
 
 /** The three lines an edge can align to on one axis: near edge, centre, far edge. */
 function linesOf(start: number, size: number): [number, number, number] {
@@ -572,6 +573,16 @@ export function snapBounds(
       start: Math.min(bounds.x, ...matched.map((target) => target.x)),
       end: Math.max(bounds.x + bounds.width, ...matched.map((target) => target.x + target.width)),
     });
+  }
+  if (!resizing) {
+    const spacing = equalSpacing(next, targets, threshold);
+    for (const axis of ["x", "y"] as const) {
+      if (spacing.guides.some(g => g.axis === (axis === "x" ? "y" : "x"))) {
+        bounds[axis] = spacing.bounds[axis];
+        for (let i = guides.length - 1; i >= 0; i--) if (guides[i].axis === axis) guides.splice(i, 1);
+      }
+    }
+    guides.push(...spacing.guides);
   }
   return { bounds, guides };
 }
@@ -722,7 +733,7 @@ export type PresentationCanvasAction =
   }
   | { type: "touch"; background?: string; settings?: Partial<PresentationSettings>; title?: string }
   | { type: "reset"; snapshot: PresentationSnapshot }
-  | { type: "shared"; snapshot: PresentationSnapshot }
+  | { type: "shared"; snapshot: PresentationSnapshot; guides?: SnapGuide[] }
   | { type: "remote"; base: PresentationSnapshot; snapshot: PresentationSnapshot }
   | { type: "failed" }
   /** The lock that refused the last write has lifted: the parked edit may go out again. */
@@ -795,7 +806,7 @@ export function presentationCanvasReducer(
       return state.gestureActive ? state : { ...state, gestureActive: true, editedAt: 0, guides: [] };
     case "gesture-end":
       return !state.gestureActive && !state.guides.length ? state : { ...state, gestureActive: false, editedAt: 0, guides: [] };
-    case "shared": return { ...state, ...action.snapshot, dirty: false, failed: false };
+    case "shared": return { ...state, ...action.snapshot, guides: action.guides ?? state.guides, dirty: false, failed: false };
     case "remote": {
       const merged = mergePresentation(action.base, state, action.snapshot);
       if (merged.conflicts.length) return { ...state, failed: true };

@@ -446,3 +446,25 @@ Optional styling fields are stored in the existing canvas JSON. Legacy decks kee
 no database migration is needed. The shared SVG renderer serves editing, playback, previews,
 PDF print, and offline HTML. New focused coverage lives in `e2e/presentation-interactions.spec.ts`
 and the presentation interaction, rendering, and collaboration bridge unit tests.
+
+## Placement, spacing, navigation, and text sizing
+
+Insertion tools prepare a translucent preview under the cursor. Click the canvas to place
+it, press Escape to cancel, or focus the canvas and press Enter to place at its center.
+Uploaded media and library assets follow the same placement flow. Connected lines are
+created directly between their chosen endpoints.
+
+Moving and Ctrl/Cmd-dragging copies share alignment and equal-gap guides. Matching gaps
+show dimension lines with distances in canvas units. Frames are compared as containers,
+so their headings do not generate competing gap measurements. Rotation magnetically snaps
+to horizontal/vertical and parallel/perpendicular object angles within four degrees.
+Shift rotates in 15-degree increments; Alt allows free rotation.
+
+The minimap draws enclosing frames as outlines so nested content remains visible in light
+and dark themes. Click a minimap location to center that world position without changing zoom.
+
+Editing text or increasing its font grows its box without shrinking manually allocated space
+or reducing font size. Short text can widen up to a natural line width; longer sentences wrap
+and grow vertically. Explicit line breaks, rich formatting, and rotated top-left anchors are
+preserved. Existing automatic font fitting remains an alternative and suppresses box growth.
+Changes use the existing shared geometry, saving, undo, and export paths.

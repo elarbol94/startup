@@ -16,7 +16,13 @@ export class PresentationBridge {
   connect = () => {
     if (!this.provider) return () => {};
     const doc = this.provider.doc;
-    this.undo = new Y.UndoManager(doc, { trackedOrigins: new Set([LOCAL, ySyncPluginKey]) });
+    this.undo = new Y.UndoManager(doc, {
+      trackedOrigins: new Set([LOCAL, ySyncPluginKey]),
+      // Mounting a rich-text editor normalizes XML attributes without changing the
+      // presentation. Those transactions must not become user-visible undo steps.
+      captureTransaction: transaction => transaction.origin !== ySyncPluginKey
+        || !presentationValuesEqual(this.state.elements, presentationJSON(doc).elements),
+    });
     doc.on("afterTransaction", this.sync);
     this.sync();
     return () => { doc.off("afterTransaction", this.sync); this.undo?.destroy(); this.undo = null; };
@@ -51,7 +57,7 @@ export class PresentationBridge {
       patchPresentation(this.provider.doc, previous, next);
       const snapshot = presentationJSON(this.provider.doc);
       this.state = { ...next, ...snapshot, dirty: false, failed: false };
-      this.notify({ type: "shared", snapshot });
+      this.notify({ type: "shared", snapshot, guides: next.guides });
       if (action.type === "edit" && action.separate) this.undo?.stopCapturing();
     } else this.notify(action);
   };

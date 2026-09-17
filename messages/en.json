@@ -3579,7 +3579,7 @@
         "detach": "Detach connector",
         "shortcutHelp": "Keyboard shortcuts",
         "clipboardError": "Could not use the clipboard. Allow clipboard access and copy valid presentation objects with accessible attachments.",
-        "gestureHelp": "Drag empty space to select; Shift adds to selection. Space+drag or middle-drag pans. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions.",
+        "gestureHelp": "Drag empty space to select; Shift adds to selection. Space+drag or middle-drag pans. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
         "choose": "Choose an item",
         "bar": "Bar chart",
         "line": "Line chart",
@@ -3611,7 +3611,9 @@
           "briefcase": "Briefcase",
           "leaf": "Leaf"
         },
-        "dashPattern": "Dash pattern"
+        "dashPattern": "Dash pattern",
+        "placeHint": "Click to place · Escape cancels · Enter places in the center",
+        "minimapLabel": "Canvas overview"
       }
     },
     "figures": {

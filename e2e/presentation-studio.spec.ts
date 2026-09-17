@@ -1,3 +1,4 @@
+import { placeAtCenter } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
@@ -96,11 +97,13 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Diagramm hinzufügen" }).hover();
   await page.getByRole("menuitem", { name: "Balkendiagramm", exact: true }).click();
+  await placeAtCenter(page);
   await page.getByRole("textbox", { name: "Diagrammtitel" }).fill("Revenue");
   await page.getByRole("combobox", { name: "Diagrammtyp" }).selectOption("pie");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).hover();
   await page.getByRole("menuitem", { name: "Ziel", exact: true }).click();
+  await placeAtCenter(page);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator("summary").filter({ hasText: /^Animation$/ }).click();
   await page.getByRole("button", { name: "Einblenden", exact: true }).click();
@@ -196,6 +199,7 @@ test("company themes, templates and object comments are usable from the inspecto
   await page.getByRole("button", { name: "Firmenvorlage speichern" }).click();
   await expect(page.getByText(`${name} template`, { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await placeAtCenter(page);
   await save(page);
   expect((await documentOf(page, id)).elements).toHaveLength(4);
   await tool(page, "Design");
@@ -299,6 +303,7 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   wave.write("RIFF"); wave.writeUInt32LE(wave.length - 8, 4); wave.write("WAVEfmt ", 8); wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22); wave.writeUInt32LE(8000, 24); wave.writeUInt32LE(16000, 28); wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34); wave.write("data", 36); wave.writeUInt32LE(1600, 40);
   await tool(page, "Medien");
   await page.getByLabel("Video oder Audio hochladen").setInputFiles({ name: "Voice.wav", mimeType: "audio/wav", buffer: wave });
+  await placeAtCenter(page);
   await properties(page);
   await page.getByRole("button", { name: "Inhalt & Medien", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Medientitel" })).toHaveValue("Voice.wav");
@@ -350,8 +355,8 @@ test("layout tools align objects, fit text and keep connectors attached", async 
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === before.id).width).not.toBe(before.width);
   await a.click();
-  await page.getByRole("textbox", { name: "Text", exact: true }).fill("A longer heading with supporting information and more detail to fit inside the existing text box.");
   await page.getByRole("checkbox", { name: "Text automatisch einpassen" }).check();
+  await page.getByRole("textbox", { name: "Text", exact: true }).fill("A longer heading with supporting information and more detail to fit inside the existing text box.");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "a").content.fontSize).toBeLessThan(32);
   await page.reload();
