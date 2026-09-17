@@ -27,5 +27,5 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "documents", href: "/documents", icon: Files },
   { key: "projects", href: "/projects", icon: KanbanSquare },
   { key: "wiki", href: "/wiki", icon: BookOpen },
-  { key: "municipalities", href: "/municipalities", icon: MapPinned },
+  { key: "municipalities", href: "/municipalities/overview", icon: MapPinned },
 ];

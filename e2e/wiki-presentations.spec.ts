@@ -417,6 +417,7 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toHaveText(title);
 
+  await expect(page.getByRole("button", { name: "Rückgängig" })).toBeDisabled();
   await contentField.fill("Changed title");
   await contentField.blur();
   await expect(titleNode).toContainText("Changed title");

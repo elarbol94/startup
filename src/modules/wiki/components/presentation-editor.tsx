@@ -10,12 +10,14 @@ import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection, seria
 import { PresentationShape } from "./presentation-shape";
 import { groupPresentationElements, ungroupPresentationElements, presentationIconNames, type PresentationShapeKind } from "../lib/presentation";
 import { PresentationRichText } from "./presentation-rich-text";
+import type { Editor as TiptapEditor } from "@tiptap/core";
 
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
 
 import { useCallback, useEffect, useEffectEvent, useSyncExternalStore, useMemo, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { useEditorNavigation } from "./use-editor-navigation";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as Y from "yjs";
@@ -414,16 +416,29 @@ function Editor({
   const commandRoot = useRef<HTMLDivElement>(null);
   const commandFocus = useRef<HTMLElement | null>(null);
   const commandRange = useRef<Range | null>(null);
+  const commandTextSelection = useRef<{ editor: TiptapEditor; from: number; to: number } | null>(null);
   const [commandsOpen, setCommandsOpen] = useState(false);
   const openCommands = () => {
     commandFocus.current = document.activeElement as HTMLElement | null;
     const selection = window.getSelection();
     commandRange.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
+    const richEditor = (commandFocus.current as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor;
+    commandTextSelection.current = richEditor && !richEditor.isDestroyed
+      ? { editor: richEditor, from: richEditor.state.selection.from, to: richEditor.state.selection.to }
+      : null;
     setCommandsOpen(true);
   };
   const openCommandsFromKeyboard = useEffectEvent(openCommands);
   const restoreCommandFocus = () => {
     const target = commandFocus.current;
+    const textSelection = commandTextSelection.current;
+    if (textSelection && !textSelection.editor.isDestroyed && target?.isConnected) {
+      // Restore the editor model as well as browser focus. A DOM Range alone can
+      // be overwritten by ProseMirror's selection on the next keystroke.
+      textSelection.editor.commands.setTextSelection({ from: textSelection.from, to: textSelection.to });
+      textSelection.editor.view.focus();
+      return;
+    }
     (target?.isConnected ? target : commandRoot.current)?.focus({ preventScroll: true });
     const range = commandRange.current;
     if (range?.startContainer.isConnected && commandRoot.current?.contains(range.startContainer)) {
@@ -1049,7 +1064,7 @@ function Editor({
    * inside the click -- opening it after the await is what popup blockers exist for -- and
    * only then pointed at the target. A write that fails leaves the author here with their
    * edit and the toast. */
-  const flushThen = useCallback((href: string, newTab: boolean) => {
+  const flushThen = useCallback((href: string, newTab: boolean, proceed?: () => void) => {
     if (paused.current) return;
     const tab = newTab ? window.open("about:blank", "_blank") : null;
     if (newTab && !tab) {
@@ -1058,17 +1073,17 @@ function Editor({
     }
     paused.current = true;
     void flush().then(async (saved) => {
+      if (!saved) { tab?.close(); toast.error(linkText("saveFailed")); return; }
       if (!newTab) {
-        if (!saved) return;
         // Hand the lease back before navigation so the next editor can claim it at once.
         await requestEditLease(presentation.id, sessionId, "release").catch(() => undefined);
-        router.push(href);
+        if (proceed) proceed(); else router.push(href);
       } else if (tab) {
-        if (saved) tab.location.href = href;
-        else tab.close();
+        tab.location.href = href;
       }
-    }).finally(() => { paused.current = false; });
-  }, [flush, presentation.id, router, sessionId, t]);
+    }).catch(() => { tab?.close(); toast.error(linkText("saveFailed")); })
+      .finally(() => { paused.current = false; });
+  }, [flush, presentation.id, router, sessionId, t, linkText]);
 
   function openDocument(document: PresentationSourceDocument, sectionId: string, restoreDocument = false) {
     const token = rememberLinkedPosition({ kind: "presentation", id: presentation.id, viewport: reactFlow.getViewport(), selectedIds, activeStepId });
@@ -1089,22 +1104,7 @@ function Editor({
     } catch { toast.error(linkText("loadFailed")); }
   }
 
-  // The app and wiki navigation live outside this component. Save before their Link
-  // handlers can unmount the editor, just as for its own breadcrumb and Present action.
-  useEffect(() => {
-    const onNavigation = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0) return;
-      const anchor = (event.target as HTMLElement | null)?.closest<HTMLAnchorElement>("a[href]");
-      if (!anchor || anchor.closest('[data-testid="presentation-editor"]') || anchor.hasAttribute("download")) return;
-      const destination = new URL(anchor.href, window.location.href);
-      if (destination.origin !== window.location.origin || destination.pathname === window.location.pathname) return;
-      event.preventDefault();
-      event.stopPropagation();
-      flushThen(`${destination.pathname}${destination.search}${destination.hash}`, event.ctrlKey || event.metaKey || event.shiftKey || anchor.target === "_blank");
-    };
-    document.addEventListener("click", onNavigation, true);
-    return () => document.removeEventListener("click", onNavigation, true);
-  }, [flushThen]);
+  useEditorNavigation(flushThen, '[data-testid="presentation-editor"]');
   /** Flush even a clean canvas: a focused field may still hold an uncommitted draft.
    * A modifier click keeps this editor open with its lease and opens a saved copy. */
   const leaveVia = (event: React.MouseEvent, href: string) => {

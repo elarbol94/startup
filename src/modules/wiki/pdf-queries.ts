@@ -166,6 +166,7 @@ export function listEvidenceForTarget(targetType: EvidenceTargetType, targetId: 
     label: wikiPdfAnnotations.label,
     createdByMarkColor: userProfilePreferences.markColor,
     deletedAt: wikiPdfAnnotations.deletedAt,
+    sourceDeletedAt: wikiSources.deletedAt,
     sourceTitle: wikiSources.title,
   }).from(evidenceLinks)
     .innerJoin(wikiPdfAnnotations, eq(evidenceLinks.annotationId, wikiPdfAnnotations.id))
@@ -173,8 +174,10 @@ export function listEvidenceForTarget(targetType: EvidenceTargetType, targetId: 
     .leftJoin(userProfilePreferences, eq(wikiPdfAnnotations.createdBy, userProfilePreferences.userId))
     .where(and(eq(evidenceLinks.targetType, targetType), eq(evidenceLinks.targetId, targetId)))
     .orderBy(desc(evidenceLinks.createdAt)).all()
-    .map((item) => ({
+    .map(({ sourceDeletedAt, ...item }) => ({
       ...item,
+      // Keep the evidence relationship recoverable without linking into trash.
+      deletedAt: item.deletedAt ?? sourceDeletedAt,
       createdByMarkColor: resolveStoredUserMarkColor(item.createdByMarkColor),
     }));
 }

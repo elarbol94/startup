@@ -96,6 +96,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(0);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await tool(page, "Eigenschaften");
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Saved when switching tools");
   await tool(page, "Dokumentquellen");
   await expect(page.getByRole("textbox", { name: "Text", exact: true })).not.toBeVisible();
@@ -110,7 +111,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
     await page.setViewportSize({ width, height: 1000 });
     await screenshot(page, `presentation-${width}`);
     await page.getByRole("button", { name: "Weg", exact: true }).click();
-    await expect(page.getByRole("button", { name: "Your Pitch", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Titel", exact: true })).toBeVisible();
     await screenshot(page, `presentation-path-${width}`);
     await closePanel(page);
     await tool(page, "Kommentare");
@@ -124,7 +125,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   await page.waitForURL(/\/wiki\/presentations$/, { timeout: 90_000 });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await expect(page.getByRole("link", { name: title, exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: title, exact: true }).locator("svg")).toBeVisible();
+  await expect(page.getByRole("link", { name: title, exact: true }).locator('svg[role="img"]')).toBeVisible();
   await screenshot(page, "presentation-library");
   await page.getByRole("textbox", { name: "Präsentationen suchen…" }).fill("no-match-for-this-title");
   await screenshot(page, "presentation-no-results");

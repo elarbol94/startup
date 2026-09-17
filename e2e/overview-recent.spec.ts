@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 test("recently opened can be added to the dashboard and reopens visited documents", async ({ page }) => {
-  const credentials = { username: "recent-overview", password: "super-secret-1" };
-  let response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "Recent Overview", email: "recent-overview@example.com" } });
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
+  const credentials = { username: "admin", password: "super-secret-1" };
+  let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
+  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
   expect(response.ok()).toBe(true);
   await page.goto("/wiki");
   await page.getByRole("button", { name: "Dokument schreiben", exact: true }).click();

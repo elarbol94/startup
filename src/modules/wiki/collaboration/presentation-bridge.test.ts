@@ -6,6 +6,28 @@ import { PresentationBridge } from "./presentation-bridge";
 import { defaultPresentationSettings, initialPresentationCanvasState } from "../lib/presentation";
 import { LOCAL, patchPresentation, presentationJSON, REMOTE } from "./codec";
 
+it("ignores rich-text normalization but retains actual text edits in undo history", () => {
+  const provider = new CollaborationProvider("presentation", "normalization-test");
+  const empty = { title: "Text", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  provider.doc.getMap("settings").set("title", empty.title);
+  provider.doc.getMap("settings").set("background", empty.background);
+  provider.doc.getMap("settings").set("settings", empty.settings);
+  patchPresentation(provider.doc, empty, { ...empty, elements: [{ id: "a", type: "text", x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } }] });
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, "Text"), () => {});
+  const stop = bridge.connect();
+  const text = (provider.doc.getXmlFragment("rich:a").get(0) as Y.XmlElement).get(0) as Y.XmlText;
+  provider.doc.transact(() => { text.delete(0, text.length); text.insert(0, "Hello"); }, ySyncPluginKey);
+  expect(bridge.undo!.canUndo()).toBe(false);
+  provider.doc.transact(() => text.insert(5, " edited"), ySyncPluginKey);
+  expect(bridge.undo!.canUndo()).toBe(true);
+  bridge.dispatch({ type: "undo" });
+  expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ content: { text: "Hello" } });
+  expect(bridge.undo!.canUndo()).toBe(false);
+  expect(bridge.undo!.canRedo()).toBe(true);
+  stop();
+});
+
 it("does not feed unchanged React Flow geometry back into the render loop", () => {
   const provider = new CollaborationProvider("presentation", "test");
   const doc = provider.doc;

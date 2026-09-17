@@ -19,7 +19,17 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
   const currentUser = await requireUser(); const [{ slug }, query] = await Promise.all([params, searchParams]);
   const requestedSlug = decodeURIComponent(slug);
   const page = getPageBySlug(requestedSlug);
-  if (!page) { const renamed = getPageByPreviousSlug(requestedSlug); if (renamed) redirect(`/wiki/pages/${encodeURIComponent(renamed.slug)}`); notFound(); }
+  if (!page) {
+    const renamed = getPageByPreviousSlug(requestedSlug);
+    if (renamed) {
+      const destination = new URL(`/wiki/pages/${encodeURIComponent(renamed.slug)}`, "https://workspace.invalid");
+      for (const [key, value] of Object.entries(query)) {
+        for (const item of Array.isArray(value) ? value : value === undefined ? [] : [value]) destination.searchParams.append(key, item);
+      }
+      redirect(`${destination.pathname}${destination.search}`);
+    }
+    notFound();
+  }
   const meta = getPageMeta(page.id);
   // Diagrams live in the graphics panel, which has its own preview, insert and
   // remove actions; repeating them under attachments only doubles the list.

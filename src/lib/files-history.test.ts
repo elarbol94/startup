@@ -3,7 +3,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterAll, expect, it, vi } from "vitest";
-const temp = vi.hoisted(() => { const directory = `/tmp/management-attachment-history-${process.pid}`; process.env.UPLOADS_PATH = directory; return directory; });
+const temp = await vi.hoisted(async () => {
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const directory = mkdtempSync(join(tmpdir(), "management-attachment-history-"));
+  process.env.UPLOADS_PATH = directory;
+  return directory;
+});
 vi.mock("@/db", () => ({ db: {} }));
 import { recoverAttachmentVersion, retainAttachmentVersion } from "./files";
 afterAll(() => { fs.rmSync(temp, { recursive: true, force: true }); delete process.env.UPLOADS_PATH; });

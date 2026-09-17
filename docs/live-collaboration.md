@@ -23,6 +23,9 @@ in-flight request remain pending. Save/export/navigation waits for pending write
 Connection loss keeps edits locally and reconnect retries them idempotently.
 Recovery storage is separated by account, item and browser tab; an acknowledgement
 in one tab cannot delete another tab's offline journal. Storage failure is visible.
+Application-section buttons, the wiki navigation picker and quick-note creation
+wait for the current editor to save. If saving fails, navigation is blocked and
+the draft stays open with an error message; retry after the connection recovers.
 Do not close the editor until it says Saved if local recovery is unavailable.
 Access removal or deletion stops synchronization and further server writes; pending
 local changes are retained. Restoring access requires reopening the editor.

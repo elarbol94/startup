@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { requestAppNavigation } from "@/lib/app-navigation";
 import { createDoubleShiftDetector } from "../lib/command-search";
 import { searchWikiNavigation } from "../navigation-actions";
 import { SearchSnippet } from "./search-snippet";
@@ -93,7 +94,9 @@ export function WikiNavigation({ userId, children }: { userId: string; children:
     return () => { clearTimeout(timer); cancelled = true; };
   }, [open, query, recentRaw]);
   useEffect(() => { document.getElementById(`wiki-jump-${selected}`)?.scrollIntoView({ block: "nearest" }); }, [selected]);
-  function navigate(href: string) { setOpen(false); router.push(href); }
+  function navigate(href: string) {
+    requestAppNavigation(href, () => { setOpen(false); router.push(href); });
+  }
   return <NavigationContext.Provider value={{ openSearch, userId }}>
     {children}
     <Dialog open={open} onOpenChange={setOpen}>

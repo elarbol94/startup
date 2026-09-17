@@ -50,6 +50,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { requestAppNavigation } from "@/lib/app-navigation";
 import { moduleNav, type ModuleNavItem } from "@/modules/registry";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
@@ -122,11 +123,10 @@ function NavLink({
     </Link>
   );
 
-  if (!compact) return link;
   return (
     <Tooltip>
       <TooltipTrigger render={link} />
-      <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
+      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -212,11 +212,10 @@ function SortableNavLink({
     </button>
   );
 
-  if (!compact) return button;
   return (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>
+      {compact && <TooltipContent side="right" sideOffset={8}>{label}</TooltipContent>}
     </Tooltip>
   );
 }
@@ -254,10 +253,16 @@ function AppNavigation({
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+      // Enter activates a section; Space starts keyboard reordering.
+      keyboardCodes: { start: ["Space"], cancel: ["Escape"], end: ["Space", "Enter"] },
+    }),
   );
-  const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+  const isActive = (href: string) => {
+    const section = `/${href.split("/")[1]}`;
+    return href === "/" ? pathname === "/" : pathname === section || pathname.startsWith(`${section}/`);
+  };
 
   function reorderNavigation(activeId: string, overId: string) {
     const oldIndex = navigationOrder.indexOf(activeId);
@@ -339,8 +344,10 @@ function AppNavigation({
                   active={isActive(item.href)}
                   compact={compact}
                   onActivate={() => {
-                    router.push(item.href);
-                    onNavigate?.();
+                    requestAppNavigation(item.href, () => {
+                      router.push(item.href);
+                      onNavigate?.();
+                    });
                   }}
                   suppressNavigationUntilRef={suppressNavigationUntilRef}
                 />

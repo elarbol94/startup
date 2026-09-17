@@ -89,7 +89,7 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await quotationDialog.getByRole("textbox").fill("Key quotation");
   await quotationDialog.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(quotationDialog).toBeHidden();
-  await expect(page.getByText("Key quotation")).toBeVisible();
+  await expect(page.getByText("Key quotation", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
   await page.getByRole("button", { name: "Bereich markieren" }).click();
   const regionSelector = page.getByTestId("pdf-region-selector");
@@ -106,16 +106,16 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await regionDialog.getByRole("textbox").fill("Important figure");
   await regionDialog.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(regionDialog).toBeHidden();
-  await expect(page.getByText("Important figure")).toBeVisible();
+  await expect(page.getByText("Important figure", { exact: true }).filter({ visible: true }).first()).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Key quotation")).toBeVisible();
-  await expect(page.getByText("Important figure")).toBeVisible();
+  await expect(page.getByText("Key quotation", { exact: true }).filter({ visible: true }).first()).toBeVisible();
+  await expect(page.getByText("Important figure", { exact: true }).filter({ visible: true }).first()).toBeVisible();
 
   await page.setViewportSize({ width: 1425, height: 679 });
   const annotationMarker = page.getByTestId("pdf-annotation-marker").first();
   await expect(annotationMarker).toBeVisible();
   await annotationMarker.click();
-  const card = page.getByTestId("pdf-comments-panel");
+  const card = page.getByTestId("pdf-comments-panel").filter({ visible: true });
   await expect(card).toBeVisible();
   await expect(page).toHaveURL(/annotation=/);
 
@@ -168,10 +168,10 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await expect.poll(async () => Number(await page.evaluate(() => localStorage.getItem("wiki:pdf-comment-panel-width")))).toBeGreaterThan(304);
   const resizedWidth = (await card.boundingBox())?.width ?? 0;
   await page.reload();
-  await expect(page.getByTestId("pdf-comments-panel")).toBeVisible();
-  await expect.poll(async () => (await page.getByTestId("pdf-comments-panel").boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(resizedWidth - 2);
-  await page.getByTestId("pdf-comments-panel").getByRole("button", { name: "Zurück zu den Kommentaren" }).click();
-  const commentList = page.getByTestId("pdf-comment-list");
+  await expect(card).toBeVisible();
+  await expect.poll(async () => (await card.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(resizedWidth - 2);
+  await card.getByRole("button", { name: "Zurück zu den Kommentaren" }).click();
+  const commentList = page.getByTestId("pdf-comment-list").filter({ visible: true });
   await expect(commentList).toBeVisible();
   await commentList.getByPlaceholder("Kommentare durchsuchen…").fill("Key quotation");
   await expect(commentList.getByText("Key quotation")).toBeVisible();
@@ -257,7 +257,7 @@ test("PDF and note focus modes expand their workspaces and persist independently
   const editor = page.locator(".ProseMirror");
   await editor.click();
   await page.keyboard.type("Focused writing remains autosaved");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 10_000 });
   await expect(page.getByRole("button", { name: "Fokusmodus", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Fokusmodus", exact: true }).click();
   await expect(appSidebar).toHaveCount(0);
@@ -267,7 +267,8 @@ test("PDF and note focus modes expand their workspaces and persist independently
   await expect(commentRail).toHaveCount(0);
   await expect(editor).toContainText("Focused writing remains autosaved");
 
-  await page.getByRole("button", { name: "Kommentare anzeigen" }).click();
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Kommentare", exact: true }).click();
   await expect(commentRail).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Fokusmodus beenden" })).toBeVisible();

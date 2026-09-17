@@ -30,6 +30,14 @@ async function openProjectBoard(page: Page, projectName: string) {
   await expect(openColumn).toBeVisible();
 }
 
+async function expandProject(page: Page, projectName: string) {
+  const row = page.locator('[data-row-kind="project"]').filter({ hasText: projectName });
+  await expect(row).toBeVisible();
+  if (await row.getAttribute("aria-expanded") !== "true") {
+    await row.getByRole("button", { name: "Projekt ein- oder ausklappen", exact: true }).click();
+  }
+}
+
 test("create a project with default kanban columns", async ({ page }) => {
   await login(page);
 
@@ -141,6 +149,7 @@ test("show scheduled Kanban work in the portfolio Gantt", async ({ page }) => {
   await expect(page.getByTestId("portfolio-gantt")).toBeVisible();
   await expect(page.locator('[data-row-kind="phase"]')).toHaveCount(0);
   await expect(page.getByText("Allgemein", { exact: true })).toHaveCount(0);
+  await expandProject(page, "Website Relaunch");
   const row = page.locator('[data-row-kind="task"]').filter({
     hasText: "Landingpage bauen",
   });
@@ -220,6 +229,7 @@ test("indent a task and expose its parent as a schedule container", async ({ pag
   await page.goto("/projects");
 
   const gantt = page.getByTestId("portfolio-gantt");
+  await expandProject(page, "Website Relaunch");
   const target = gantt.locator(
     `[data-row-kind="task"][data-task-id="${childTaskId}"]`,
   );
@@ -275,6 +285,7 @@ test("indent a task and expose its parent as a schedule container", async ({ pag
   const resizedRange = await bracket.getAttribute("aria-label");
 
   await page.reload();
+  await expandProject(page, "Website Relaunch");
   const persistedBracket = page
     .getByTestId("portfolio-gantt")
     .locator('[data-row-kind="task"]')
@@ -313,9 +324,8 @@ test("create and expand a scheduled subtask in Kanban and Gantt", async ({
   await subtaskDialog.getByRole("button", { name: "Speichern" }).click();
 
   await expect(parentCard).toContainText("0 von 1 erledigt");
-  await parentCard
-    .getByRole("button", { name: "Unteraufgaben ein- oder ausklappen" })
-    .click();
+  const expandSubtasks = parentCard.getByRole("button", { name: "Unteraufgaben ein- oder ausklappen" });
+  if (await expandSubtasks.getAttribute("aria-expanded") !== "true") await expandSubtasks.click();
   await expect(
     parentCard.locator('[data-subtask-title="API integrieren"]'),
   ).toBeVisible();
@@ -341,6 +351,7 @@ test("create and expand a scheduled subtask in Kanban and Gantt", async ({
   const parentRow = page.locator('[data-row-kind="task"]').filter({
     hasText: "Release vorbereiten",
   });
+  await expandProject(page, "Website Relaunch");
   await expect(parentRow).toBeVisible();
   await parentRow
     .getByRole("button", { name: "Unteraufgaben ein- oder ausklappen" })
@@ -362,6 +373,7 @@ test("create and expand a scheduled subtask in Kanban and Gantt", async ({
 test("focus a task subtree and exit through portfolio history", async ({ page }) => {
   await login(page);
   await page.goto("/projects");
+  await expandProject(page, "Website Relaunch");
 
   const taskRow = page.locator('[data-row-kind="task"]').filter({
     hasText: "Release vorbereiten",

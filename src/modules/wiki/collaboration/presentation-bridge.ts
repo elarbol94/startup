@@ -16,7 +16,13 @@ export class PresentationBridge {
   connect = () => {
     if (!this.provider) return () => {};
     const doc = this.provider.doc;
-    this.undo = new Y.UndoManager(doc, { trackedOrigins: new Set([LOCAL, ySyncPluginKey]) });
+    this.undo = new Y.UndoManager(doc, {
+      trackedOrigins: new Set([LOCAL, ySyncPluginKey]),
+      // Mounting a rich-text view may normalize its shared representation without
+      // changing the presentation. Those transactions are not author edits.
+      captureTransaction: transaction => transaction.origin !== ySyncPluginKey
+        || !presentationValuesEqual(snapshotOf(this.state), presentationJSON(doc)),
+    });
     doc.on("afterTransaction", this.sync);
     this.sync();
     return () => { doc.off("afterTransaction", this.sync); this.undo?.destroy(); this.undo = null; };
