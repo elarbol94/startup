@@ -1,3 +1,4 @@
+import { PresentationShape } from "./presentation-shape";
 import type { CSSProperties, SVGProps, ReactElement } from "react";
 import { presentationFontFamilies, presentationIconNames, type PresentationElement } from "../lib/presentation";
 
@@ -98,12 +99,5 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
   if (element.type === "frame") return <div style={{ height: "100%", border: element.content.shape === "none" ? undefined : `2px solid ${element.content.color || "currentColor"}`, borderRadius: element.content.shape === "circle" ? "50%" : 12 }}>
     {element.content.label && <span style={{ position: "absolute", top: -24, fontSize: 14, color: element.content.color || "inherit" }}>{element.content.label}</span>}
   </div>;
-  const { shape, fill, stroke, strokeWidth, opacity } = element.content;
-  const w = element.width, h = element.height, inset = strokeWidth / 2, head = Math.min(Math.max(strokeWidth * 3, 10), w / 2);
-  return <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" style={{ opacity, overflow: "visible" }}>
-    {shape === "rect" && <rect x={inset} y={inset} width={Math.max(0, w - strokeWidth)} height={Math.max(0, h - strokeWidth)} fill={fill || "none"} stroke={stroke || "currentColor"} strokeWidth={strokeWidth} />}
-    {shape === "ellipse" && <ellipse cx={w / 2} cy={h / 2} rx={Math.max(0, w - strokeWidth) / 2} ry={Math.max(0, h - strokeWidth) / 2} fill={fill || "none"} stroke={stroke || "currentColor"} strokeWidth={strokeWidth} />}
-    {(shape === "line" || shape === "arrow") && <line x1="0" y1={h / 2} x2={shape === "arrow" ? w - head : w} y2={h / 2} stroke={stroke || "currentColor"} strokeWidth={strokeWidth} />}
-    {shape === "arrow" && <polygon points={`${w},${h / 2} ${w - head},${h / 2 - head / 2} ${w - head},${h / 2 + head / 2}`} fill={stroke || "currentColor"} />}
-  </svg>;
+  return <PresentationShape element={element} />;
 }

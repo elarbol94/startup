@@ -1,22 +1,23 @@
 "use client";
-
 import { createId } from "@paralleldrive/cuid2";
+
 import { useTranslations } from "next-intl";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { groupPresentationElements, ungroupPresentationElements, presentationDescendants, presentationFonts, presentationIconNames, isPresentationElementLocked, type PresentationElement, type PresentationStep } from "../lib/presentation";
+import { presentationDescendants, presentationFonts, presentationIconNames, isPresentationElementLocked, type PresentationElement, type PresentationStep } from "../lib/presentation";
 import { presentationObjectTools } from "../lib/presentation-tools";
 import { PresentationRichText } from "./presentation-rich-text";
 
 const selectClass = "mt-1 h-9 w-full rounded-md border bg-background px-2 text-sm";
 
-export function PresentationStudioInspector({ elements, selectedIds, activeStep, onElements, onSelect, onUpdate, onSteps, disabled }: {
+export function PresentationStudioInspector({ elements, selectedIds, activeStep, onElements, onUpdate, onSteps, disabled, onGroup, onUngroup, canGroup }: {
   elements: PresentationElement[]; selectedIds: string[]; activeStep: PresentationStep | null;
   onElements: (update: (elements: PresentationElement[]) => PresentationElement[]) => void;
-  onSelect: (ids: string[]) => void; onUpdate: (element: PresentationElement) => void;
+  onUpdate: (element: PresentationElement) => void;
   onSteps: (update: (steps: PresentationStep[]) => PresentationStep[]) => void;
   disabled: boolean;
+  onGroup: () => void; onUngroup: () => void; canGroup: boolean;
 }) {
   const t = useTranslations("presentationStudio");
   const selected = selectedIds.length === 1 ? elements.find((element) => element.id === selectedIds[0]) : undefined;
@@ -29,12 +30,8 @@ export function PresentationStudioInspector({ elements, selectedIds, activeStep,
   return <div className="space-y-3">
     <details id="presentation-tool-structure" name="presentation-inspector" className="scroll-mt-4 space-y-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-semibold">{t("structure")}</summary>
       <div className="flex flex-wrap gap-2">
-        {selectedIds.length > 1 && <Button size="sm" variant="outline" type="button" disabled={disabled || selectedIds.length < 2 || elements.length >= 500} onClick={() => {
-          const id = createId(); onElements((current) => groupPresentationElements(current, new Set(selectedIds), id)); onSelect([id]);
-        }}>{t("group")}</Button>}
-        {selected?.type === "frame" && selected.content.isGroup && <Button size="sm" variant="outline" type="button" disabled={disabled || locked} onClick={() => {
-          onElements((current) => ungroupPresentationElements(current, selected.id)); onSteps((steps) => steps.filter((step) => step.elementId !== selected.id)); onSelect([]);
-        }}>{t("ungroup")}</Button>}
+        {selectedIds.length > 1 && <Button size="sm" variant="outline" type="button" disabled={!canGroup} onClick={onGroup}>{t("group")}</Button>}
+        {selected?.type === "frame" && selected.content.isGroup && <Button size="sm" variant="outline" type="button" disabled={disabled || locked} onClick={onUngroup}>{t("ungroup")}</Button>}
         {selected && <Button type="button" size="sm" variant="outline" disabled={disabled || (!selected.locked && locked)} onClick={() => onElements((current) => current.map((element) => element.id === selected.id ? { ...element, locked: !element.locked } : element))}>{selected.locked ? t("unlock") : t("lock")}</Button>}
       </div>
       {selected && (selected.parentId || elements.some(element => element.type === "frame" && !descendants.has(element.id) && !isPresentationElementLocked(elements, element.id))) && <label className="block text-xs">{t("parentFrame")}

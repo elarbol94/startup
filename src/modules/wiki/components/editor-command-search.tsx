@@ -15,7 +15,8 @@ export type EditorSearchCommand = SearchableEditorCommand & {
   execute: () => void;
 };
 
-export function EditorCommandSearch({ commands, onClose, onExecute, title, description }: {
+export function EditorCommandSearch({ commands, onClose, onExecute, title, description, shortcutLabels }: {
+  shortcutLabels?: Record<string, string>;
   title?: string;
   description?: string;
   commands: EditorSearchCommand[];
@@ -58,7 +59,7 @@ export function EditorCommandSearch({ commands, onClose, onExecute, title, descr
           onMouseMove={() => setSelected(row)} onMouseDown={(event) => event.preventDefault()} onClick={() => execute(command)}
           className={`flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2.5 ${row === index ? "bg-accent text-accent-foreground" : ""} ${command.disabledReason ? "opacity-50" : ""}`}>
           <div className="min-w-0"><div className="flex items-center gap-2 text-sm font-medium">{command.label}{command.active !== undefined && <span className="rounded border px-1.5 text-xs font-normal">{t(command.active ? "on" : "off")}</span>}</div><div className="text-xs text-muted-foreground">{command.disabledReason || (command.contextPriority ? t("context") : command.recentIndex !== undefined ? t("recent") : command.group)}</div></div>
-          {command.shortcut && <kbd className="shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground">{command.shortcut}</kbd>}
+          {(shortcutLabels?.[command.id] ?? command.shortcut) && <kbd className="shrink-0 rounded border px-1.5 py-0.5 text-xs text-muted-foreground">{shortcutLabels?.[command.id] ?? command.shortcut}</kbd>}
         </div>)}
       </div>
       <div className="border-t px-5 py-3 text-xs text-muted-foreground">{t("keys")}</div>

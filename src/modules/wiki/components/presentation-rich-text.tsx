@@ -19,7 +19,7 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
   useEffect(() => { current.current = { content, onChange }; });
   const editor = useEditor({
     immediatelyRender: false,
-    autofocus: autoFocus ? "end" : false,
+    autofocus: autoFocus ? "all" : false,
     extensions: [...richExtensions(), ...(collaboration ? [Collaboration.configure({ document: collaboration.doc, field: `rich:${elementId}` })] : [])],
     content: collaboration ? undefined : toDoc(content), editable: !disabled,
     editorProps: {

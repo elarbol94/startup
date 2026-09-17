@@ -11,6 +11,7 @@ const snapshotOf = (state: PresentationCanvasState) => ({ elements: state.elemen
 export class PresentationBridge {
   private state: PresentationCanvasState;
   undo: Y.UndoManager | null = null;
+  private gestureChanged = false;
   constructor(private provider: CollaborationProvider | null, initial: PresentationCanvasState, private notify: (action: PresentationCanvasAction) => void) { this.state = initial; }
   connect = () => {
     if (!this.provider) return () => {};
@@ -27,12 +28,23 @@ export class PresentationBridge {
     this.state = { ...this.state, ...snapshot, dirty: false, failed: false };
     this.notify({ type: "shared", snapshot });
   };
+  cancelGesture = () => {
+    if (!this.state.gestureActive) return false;
+    if (this.gestureChanged) { this.dispatch({ type: "undo" }); this.undo?.clear(false, true); }
+    this.dispatch({ type: "gesture-end" });
+    return true;
+  };
   dispatch = (action: PresentationCanvasAction) => {
     if (this.provider && action.type === "undo") { this.undo?.undo(); return; }
     if (this.provider && action.type === "redo") { this.undo?.redo(); return; }
+    if (action.type === "reset") { this.undo?.clear(); this.gestureChanged = false; if (this.undo) this.undo.captureTimeout = 500; }
+    if (action.type === "gesture-start") { this.gestureChanged = false; this.undo?.stopCapturing(); if (this.undo) this.undo.captureTimeout = Number.POSITIVE_INFINITY; }
+    if (action.type === "gesture-end") { this.undo?.stopCapturing(); if (this.undo) this.undo.captureTimeout = 500; }
+    if (action.type === "edit" && action.separate) this.undo?.stopCapturing();
     const previous = this.state;
     const next = presentationCanvasReducer(previous, action);
     if (next === previous) return;
+    if (previous.gestureActive && ["edit", "geometry"].includes(action.type) && !presentationValuesEqual(snapshotOf(previous), snapshotOf(next))) this.gestureChanged = true;
     this.state = next;
     if (this.provider && ["edit", "touch", "geometry", "source-headings"].includes(action.type)) {
       if (presentationValuesEqual(snapshotOf(previous), snapshotOf(next))) { this.notify(action); return; }
@@ -40,6 +52,7 @@ export class PresentationBridge {
       const snapshot = presentationJSON(this.provider.doc);
       this.state = { ...next, ...snapshot, dirty: false, failed: false };
       this.notify({ type: "shared", snapshot });
+      if (action.type === "edit" && action.separate) this.undo?.stopCapturing();
     } else this.notify(action);
   };
 }

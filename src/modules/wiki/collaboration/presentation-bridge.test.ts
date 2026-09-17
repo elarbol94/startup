@@ -32,3 +32,49 @@ it("does not feed unchanged React Flow geometry back into the render loop", () =
   expect(presentationJSON(doc).elements[0]).toMatchObject({ x: 200, y: 300 });
   stop();
 });
+
+it("keeps a paused gesture in one undo step and separates the next command", () => {
+  vi.useFakeTimers();
+  const provider = new CollaborationProvider("presentation", "gesture-test");
+  const empty = { title: "Gesture", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, empty, { ...empty, elements: [{ id: "a", type: "text", x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } }] });
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, "Gesture"), () => {});
+  const stop = bridge.connect();
+  bridge.dispatch({ type: "gesture-start" });
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: true, changes: [{ id: "a", x: 50 }] });
+  vi.advanceTimersByTime(2000);
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: true, changes: [{ id: "a", x: 100 }] });
+  bridge.dispatch({ type: "gesture-end" });
+  bridge.dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => ({ ...e, y: 80 })) });
+  bridge.dispatch({ type: "undo" });
+  expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ x: 100, y: 0 });
+  bridge.dispatch({ type: "undo" });
+  expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ x: 0, y: 0 });
+  expect(bridge.undo!.canRedo()).toBe(true);
+  bridge.dispatch({ type: "reset", snapshot: presentationJSON(provider.doc) });
+  expect(bridge.undo!.canUndo()).toBe(false);
+  expect(bridge.undo!.canRedo()).toBe(false);
+  stop(); vi.useRealTimers();
+});
+
+
+it("cancels a gesture without undoing remote work or an earlier local edit", () => {
+  const provider = new CollaborationProvider("presentation", "cancel-test");
+  const empty = { title: "Cancel", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, empty, { ...empty, elements: [{ id: "a", type: "text", x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } }] });
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, "Cancel"), () => {});
+  const stop = bridge.connect();
+  bridge.dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => ({ ...e, y: 20 })) });
+  bridge.dispatch({ type: "gesture-start" });
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: true, changes: [{ id: "a", x: 100 }] });
+  provider.doc.transact(() => provider.doc.getMap<Y.Map<unknown>>("elements").get("a")!.set("width", 300), REMOTE);
+  expect(bridge.cancelGesture()).toBe(true);
+  expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ x: 0, y: 20, width: 300 });
+  expect(bridge.undo!.canRedo()).toBe(false);
+  expect(bridge.cancelGesture()).toBe(false);
+  bridge.dispatch({ type: "undo" });
+  expect(presentationJSON(provider.doc).elements[0]).toMatchObject({ y: 0, width: 300 });
+  stop();
+});

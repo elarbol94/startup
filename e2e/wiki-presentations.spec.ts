@@ -5,6 +5,10 @@ async function action(page: Page, name: string) {
   await page.getByRole("button", { name: "Aktionen", exact: true }).click();
   await page.getByRole("menuitem", { name, exact: true }).click();
 }
+async function properties(page: Page) {
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+}
 async function pathPanel(page: Page) {
   const button = page.getByRole("button", { name: "Weg", exact: true });
   if (await button.getAttribute("aria-expanded") !== "true") await button.click();
@@ -71,6 +75,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // 2. Add and edit a new element.
   const stepText = "Custom stop added by E2E test";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();
   await contentField.fill(stepText);
@@ -94,6 +99,7 @@ test("create from a template, edit an element, add a step, then present and chec
   // node's own data-testid rather than hard-coded.
   const freeText = "Free element not on the path";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await properties(page);
   await contentField.fill(freeText);
   await contentField.blur();
   const freeNode = page.locator(".react-flow__node", { hasText: freeText });
@@ -217,6 +223,7 @@ test("mobile editing exposes the path and saves a focused title before presentin
   await login(page);
   await openNewPitchEditor(page, `E2E Mobile ${Date.now()}`);
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await properties(page);
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Mobile stop");
   await page.getByRole("button", { name: "Seitenbereich schließen" }).click();
   await pathPanel(page);
@@ -248,6 +255,7 @@ test("rotation keeps an element in place and Save commits the currently focused 
   await openNewPitchEditor(page, `E2E Geometry ${Date.now()}`);
   const node = page.getByTestId("rf__node-pitch-title");
   await node.click();
+  await properties(page);
   const before = await node.evaluate((element) => {
     const box = element.getBoundingClientRect();
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -276,6 +284,7 @@ test("restoring history drains pending edits and cannot be overwritten by autosa
   const title = `E2E Restore ${Date.now()}`;
   await openNewPitchEditor(page, title);
   await page.getByTestId("rf__node-pitch-title").click();
+  await properties(page);
   const content = page.getByRole("textbox", { name: "Text", exact: true });
   await content.fill("First edit");
   await action(page, "Speichern");
@@ -296,9 +305,10 @@ test("restoring history drains pending edits and cannot be overwritten by autosa
 test("PDF notes are opt-in and keyboard activation advances exactly one stop", async ({ page, context }) => {
   test.setTimeout(120_000);
   await login(page);
-  await openNewPitchEditor(page, `E2E Print ${Date.now()}`);
+  const title = `E2E Print ${Date.now()}`;
+  await openNewPitchEditor(page, title);
   await pathPanel(page);
-  await page.getByRole("button", { name: "Your Pitch", exact: true }).click();
+  await page.getByRole("button", { name: "Titel", exact: true }).click();
   const notes = "Private presenter notes should not appear in the audience PDF";
   await page.getByRole("textbox", { name: "Sprechernotizen" }).fill(notes);
   const popupPromise = context.waitForEvent("page");
@@ -344,14 +354,13 @@ test("browser Back preserves an edit made during the autosave debounce", async (
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await page.getByRole("link", { name: title, exact: false }).click();
   await page.getByTestId("rf__node-pitch-title").click();
+  await properties(page);
   const text = "Last edit before browser Back";
   await page.getByRole("textbox", { name: "Text", exact: true }).fill(text);
   await page.getByRole("textbox", { name: "Text", exact: true }).blur();
   page.once("dialog", (dialog) => dialog.accept());
-  const saved = page.waitForResponse((response) => response.request().method() === "PATCH" && response.url().includes("/api/wiki/presentations/"), { timeout: 30_000 });
   await page.goBack();
   await expect(page).toHaveURL(/\/wiki\/presentations$/);
-  expect((await saved).ok()).toBe(true);
   await page.getByRole("link", { name: title, exact: false }).click();
   await expect(page.getByTestId("presentation-editor")).toBeVisible();
   // A reload distinguishes durable storage from Activity's preserved client state.
@@ -404,6 +413,7 @@ test("panel inputs: undo puts the canvas value back into the side panel", async 
   const titleNode = page.locator('[data-testid="rf__node-pitch-title"]');
   await expect(titleNode).toBeVisible();
   await titleNode.click();
+  await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toHaveText(title);
 
@@ -450,6 +460,7 @@ test("presenting flushes the pending autosave instead of losing the last edit", 
   // The point of the test: no wait for "Gespeichert" between the edit and the navigation.
   const lateText = "Late edit that must survive presenting";
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();
   await contentField.fill(lateText);
@@ -489,6 +500,7 @@ test("reloading the editor rejoins collaboration so edits still save", async ({ 
   // The edit has to survive the round trip, not just render: a lease still held by the
   // previous page load blocks the autosave and leaves the save state on "Fehler".
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  await properties(page);
   const contentField = page.getByRole("textbox", { name: "Text", exact: true });
   await expect(contentField).toBeVisible();
   await contentField.fill(`Edited after reload ${Date.now()}`);

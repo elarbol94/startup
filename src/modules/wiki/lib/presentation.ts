@@ -15,7 +15,7 @@ export type PresentationFrameShape = (typeof presentationFrameShapes)[number];
 export const presentationElementTypes = ["text", "image", "frame", "shape", "video", "audio", "chart", "icon"] as const;
 export type PresentationElementType = (typeof presentationElementTypes)[number];
 
-export const presentationShapeKinds = ["rect", "ellipse", "arrow", "line"] as const;
+export const presentationShapeKinds = ["rect", "roundedRect", "ellipse", "triangle", "diamond", "arrow", "doubleArrow", "line"] as const;
 export type PresentationShapeKind = (typeof presentationShapeKinds)[number];
 
 const geometrySchema = {
@@ -105,6 +105,11 @@ const shapeElementSchema = z.object({
     stroke: z.string().max(32).default(""),
     strokeWidth: z.number().finite().min(0).max(200).default(2),
     opacity: z.number().finite().min(0).max(1).default(1),
+    cornerRadius: z.number().finite().min(0).max(1000).optional(),
+    dash: z.enum(["solid", "dash", "dot"]).optional(),
+    startHead: z.enum(["none", "triangle", "open"]).optional(),
+    endHead: z.enum(["none", "triangle", "open"]).optional(),
+    headSize: z.number().finite().min(1).max(1000).optional(),
     connection: z.object({ fromId: z.string().min(1).max(64), toId: z.string().min(1).max(64) }).optional(),
   }),
 });

@@ -3,7 +3,7 @@ import { isPresentationElementLocked, type PresentationElement } from "./present
 const formatKeys: Record<PresentationElement["type"], readonly string[]> = {
   text: ["font", "fontSize", "bold", "italic", "underline", "align", "color", "list", "padding", "autoFit"],
   frame: ["shape", "color"],
-  shape: ["fill", "stroke", "strokeWidth", "opacity"],
+  shape: ["fill", "stroke", "strokeWidth", "opacity", "cornerRadius", "dash", "startHead", "endHead", "headSize"],
   image: ["fit", "mask"],
   chart: ["color"], icon: ["color"], audio: [], video: [],
 };

@@ -2,7 +2,7 @@
 
 ## Workspace tools
 
-The editor separates the document header from its creation toolbar. **Path / Weg** opens a collapsible playback-order panel, including timing and speaker notes. Selecting an object opens Properties; **Tools / Werkzeuge** opens Properties, Document sources, Design, Assets or Comments in one right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures and pending source reviews remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates, document conversion and PowerPoint import.
+The editor separates the document header from its creation toolbar. **Path / Weg** opens a collapsible playback-order panel, including timing and speaker notes. Selecting an object keeps the canvas in focus; **Selection actions → Properties** or **Tools / Werkzeuge** opens Properties. Tools also opens Document sources, Design, Assets or Comments in the same right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures and pending source reviews remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates, document conversion and PowerPoint import.
 
 Presentations use an infinite canvas and an ordered path of camera stops and
 object animations. Content includes text, images, frames, shapes, icons, charts,
@@ -217,7 +217,8 @@ On desktop, the path and the active utility panel dock beside the canvas.
   is one undo step, even when paused, and consecutive gestures remain separate.
 - Shift-click objects, then **Group selection** for a persistent group. Clicking
   a member selects the outer group. Use the object selector to edit an individual
-  member's content. Ungroup retains child positions and the surrounding frame.
+  member's content. Ungroup retains child positions and the surrounding frame, selects
+  the released children, and retargets group playback actions to valid children.
 - Locking an object prevents direct editing and manipulation. A locked parent
   locks its descendants; a locked child still travels with its parent. Locks are
   an editing aid, not a substitute for presentation access permissions.
@@ -231,8 +232,8 @@ On desktop, the path and the active utility panel dock beside the canvas.
 - Upload MP4/WebM video or MP3/M4A/OGG/WAV audio, up to 50 MB per file. Playback
   uses native browser controls and supported codecs; media never auto-plays with
   sound. Hidden media is paused. Files use the existing validated attachment store.
-  The plain-text field and canvas double-click are plain-text edits and clear
-  span-level formatting when their text changes.
+  Inline canvas editing uses the same rich-text model as the inspector and retains
+  span-level formatting. Double-click selects all text once; later clicks place the caret.
 
 ## Copying object formatting
 
@@ -385,3 +386,63 @@ Inspector tools follow the selection: Content is shown only for text, images, ch
 ### Editor command search
 
 Two short Shift taps on the presentation canvas or rich text open presentation commands. The toolbar offers the same searchable menu, with arrow-key navigation, Enter to run and Escape to return to the previous focus and selection. Insert, duplicate/delete, undo/redo, overview, panels, save and history use the existing editor actions and permission guards. Ordinary form fields and open dialogs do not trigger the shortcut; outside editor scopes double Shift retains app navigation.
+
+
+## PowerPoint-style object editing
+
+Left-drag on empty canvas or inside an empty frame draws a full-containment selection
+rectangle. Shift adds to selection. Space+drag or the middle mouse button pans. Grid
+dots remain attached to canvas coordinates and use coarser/finer powers-of-two intervals
+as zoom changes, without changing alignment snapping.
+
+Double-click text (or press Enter with a text object selected) to edit and select all its
+text. Escape returns to object selection. Typing and dialog shortcuts remain local to their
+controls; save also commits a focused property field.
+
+Ctrl/Cmd+drag duplicates the selected hierarchy at the drop location. On Mac, Option+drag
+also copies. Originals stay fixed; previews are local until release. Shift constrains drag
+movement to one axis. Escape, pointer cancellation, or loss of window focus discards a copy
+gesture. A completed copy gesture is one undo step. Shift-resize preserves proportions.
+
+**Selection actions**, right-click, and Shift+F10 expose applicable object commands.
+Right-clicking an existing selection retains it; another object becomes selected first.
+The empty-canvas menu offers insertion, paste, select all, overview, and shortcut help.
+Grouping and ungrouping share the same implementation across keyboard, menus and inspector.
+
+Windows/Linux use Ctrl, macOS uses Cmd for these object shortcuts:
+
+| Shortcut | Action |
+| --- | --- |
+| Ctrl+C / X / V | Copy / cut / paste presentation objects |
+| Ctrl+D | Duplicate selected objects |
+| Ctrl+A | Select canvas hierarchy roots |
+| Ctrl+G / Ctrl+Shift+G | Group / ungroup |
+| Arrow / Shift+Arrow | Move by 1 / 10 canvas units |
+| Tab / Shift+Tab | Next / previous object while canvas has focus |
+| Ctrl+] / Ctrl+[ | Forward / backward one layer |
+| Ctrl+Shift+] / Ctrl+Shift+[ | Front / back |
+| Enter / Escape | Edit text / leave editing or cancel a gesture |
+| Delete / Backspace | Delete selected objects |
+| Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | Undo / redo |
+| Ctrl+S | Save |
+| Ctrl+Shift+C / V | Copy / paste object formatting |
+
+Clipboard objects use a bounded, versioned JSON envelope. Pasting validates the complete
+hierarchy and element limit before insertion, preserves rich text, and assigns fresh IDs.
+Internal connectors are remapped; connectors to objects outside the copied selection become
+free lines. Media is fetched through the authenticated file API and copied into the destination
+presentation through the existing validated upload API before objects are inserted. Failed
+pastes insert no objects; browser clipboard permission may be required. External PowerPoint
+clipboard formats are not supported; use PowerPoint import for those files.
+
+**Insert → Shape**, **Chart**, and **Icon** open choices before adding an object. Shapes include
+rectangles, rounded rectangles, ellipses, triangles, diamonds, lines, arrows, and double-headed
+arrows. Lines/arrows use two endpoint handles; Shift constrains endpoints to 45-degree increments.
+Connected endpoints must be explicitly detached before free positioning. Closed shapes have
+resize and rotation controls, with a corner-radius field for rounded rectangles. Line styling
+includes thickness, dash pattern and opacity, plus start/end head styles and head size.
+
+Optional styling fields are stored in the existing canvas JSON. Legacy decks keep their defaults;
+no database migration is needed. The shared SVG renderer serves editing, playback, previews,
+PDF print, and offline HTML. New focused coverage lives in `e2e/presentation-interactions.spec.ts`
+and the presentation interaction, rendering, and collaboration bridge unit tests.

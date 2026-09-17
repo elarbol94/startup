@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { NodeResizer, type Node, type NodeProps } from "@xyflow/react";
+import { NodeResizer, ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { PRESENTATION_MIN_ELEMENT_SIZE, isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
-import { useCollaborationContext } from "../collaboration/ui";
+import { isLinearShape, lineEndpoints, moveLineEndpoint } from "../lib/presentation-interactions";
+import { PresentationShape } from "./presentation-shape";
+import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
 import { PresentationContent } from "./presentation-content";
 
@@ -21,6 +23,8 @@ export type PresentationNodeData = {
   onGestureStart?: () => void;
   onGestureEnd?: () => void;
   onTextChange?: (id: string, text: string) => void;
+  onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onEndpointChange?: (element: PresentationElement) => void;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
   [key: string]: unknown;
@@ -29,10 +33,18 @@ export type PresentationNodeData = {
 export type PresentationNode = Node<PresentationNodeData, PresentationElement["type"]>;
 
 function Resizer({ selected, data }: { selected: boolean; data: PresentationNodeData }) {
-  if (!data.editable || data.resizable === false) return null;
+  const [proportional, setProportional] = useState(false);
+  useEffect(() => {
+    const key = (event: KeyboardEvent) => setProportional(event.shiftKey);
+    const clear = () => setProportional(false);
+    window.addEventListener("keydown", key); window.addEventListener("keyup", key); window.addEventListener("blur", clear);
+    return () => { window.removeEventListener("keydown", key); window.removeEventListener("keyup", key); window.removeEventListener("blur", clear); };
+  }, []);
+  if (!data.editable || data.resizable === false || isLinearShape(data.element)) return null;
   return (
     <NodeResizer
       isVisible={selected}
+      keepAspectRatio={proportional}
       minWidth={PRESENTATION_MIN_ELEMENT_SIZE}
       minHeight={PRESENTATION_MIN_ELEMENT_SIZE}
       maxWidth={20_000}
@@ -47,11 +59,10 @@ function Resizer({ selected, data }: { selected: boolean; data: PresentationNode
 }
 
 function TextNode({ data, selected }: NodeProps<PresentationNode>) {
-  const collaboration = useCollaborationContext();
   const [editing, setEditing] = useState(false);
   const element = data.element;
   if (element.type !== "text") return null;
-  const { text, fontSize, bold, color, align } = element.content;
+  const { fontSize, bold, color, align } = element.content;
 
   return (
     <div
@@ -63,33 +74,16 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
       )}
     >
       <Resizer selected={Boolean(selected)} data={data} />
-      {editing && data.editable && collaboration ? (
-        <div className="nodrag nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!(event.relatedTarget as HTMLElement | null)?.closest?.("[data-editor-command-search]") && !event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") setEditing(false); }}>
-          <PresentationRichText inline elementId={element.id} content={element.content} onChange={() => {}} />
+      {editing && data.editable ? (
+        <div className="nodrag nopan nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!(event.relatedTarget as HTMLElement | null)?.closest?.("[data-editor-command-search]") && !event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
+          <PresentationRichText inline elementId={element.id} content={element.content} onChange={content => data.onRichTextChange?.(element.id, content)} />
         </div>
-      ) : editing && data.editable ? (
-        <textarea
-          autoFocus
-          // nodrag keeps the pointer inside the field instead of panning the canvas.
-          className="nodrag nowheel h-full w-full cursor-text resize-none rounded-sm border border-indigo-400 bg-background/95 p-1 leading-tight outline-none"
-          style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }}
-          defaultValue={text}
-          maxLength={5_000}
-          onBlur={(event) => {
-            // Text left exactly as it was found is not an edit: committing it anyway would
-            // add an undo step and mark the canvas unsaved for nothing.
-            if (event.currentTarget.value !== text) data.onTextChange?.(element.id, event.currentTarget.value);
-            setEditing(false);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") setEditing(false);
-          }}
-        />
       ) : (
         <div
           className={cn("h-full w-full overflow-hidden whitespace-pre-wrap break-words leading-tight", !color && "text-foreground")}
           style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }}
-          onDoubleClick={() => data.editable && setEditing(true)}
+          data-presentation-text={element.id}
+          onDoubleClick={() => { if (data.editable) setEditing(true); }}
         >
           <PresentationContent element={element} interactive={!data.editable} />
         </div>
@@ -167,73 +161,53 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
  * Rotation stays on the node wrapper, so it applies to shapes exactly as to everything else.
  */
 function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
+  const nodeRef = useRef<HTMLDivElement>(null);
   const element = data.element;
   if (element.type !== "shape") return null;
-  const { shape, fill, stroke, strokeWidth, opacity } = element.content;
-  const w = element.width;
-  const h = element.height;
-  const inset = strokeWidth / 2;
-  // The head has to fit inside the box, so a short arrow degrades to a stub rather than
-  // pointing backwards.
-  const head = Math.min(Math.max(strokeWidth * 3, 10), w / 2);
-  const mid = h / 2;
+  return <div ref={nodeRef} inert={data.hidden || undefined} className={cn("h-full w-full text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
+    <Resizer selected={Boolean(selected)} data={data} />
+    <div className="pointer-events-none h-full w-full"><PresentationShape element={element} /></div>
+    {selected && data.editable && data.resizable !== false && isLinearShape(element) && <LineHandles data={data} nodeRef={nodeRef} />}
+  </div>;
+}
 
-  return (
-    <div
-      inert={data.hidden || undefined}
-      className={cn(
-        "h-full w-full text-foreground",
-        data.editable && "cursor-move active:cursor-grabbing",
-        data.editable && selected && "ring-2 ring-indigo-500/60",
-      )}
-    >
-      <Resizer selected={Boolean(selected)} data={data} />
-      <svg
-        width="100%"
-        height="100%"
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="pointer-events-none block h-full w-full overflow-visible"
-        style={{ opacity }}
-        aria-hidden
-      >
-        {shape === "rect" && (
-          <rect
-            x={inset}
-            y={inset}
-            width={Math.max(w - strokeWidth, 0)}
-            height={Math.max(h - strokeWidth, 0)}
-            fill={fill || "none"}
-            stroke={stroke || "currentColor"}
-            strokeWidth={strokeWidth}
-          />
-        )}
-        {shape === "ellipse" && (
-          <ellipse
-            cx={w / 2}
-            cy={h / 2}
-            rx={Math.max(w - strokeWidth, 0) / 2}
-            ry={Math.max(h - strokeWidth, 0) / 2}
-            fill={fill || "none"}
-            stroke={stroke || "currentColor"}
-            strokeWidth={strokeWidth}
-          />
-        )}
-        {shape === "line" && (
-          <line x1={0} y1={mid} x2={w} y2={mid} stroke={stroke || "currentColor"} strokeWidth={strokeWidth} />
-        )}
-        {shape === "arrow" && (
-          <>
-            <line x1={0} y1={mid} x2={w - head} y2={mid} stroke={stroke || "currentColor"} strokeWidth={strokeWidth} />
-            <polygon
-              points={`${w},${mid} ${w - head},${mid - head / 2} ${w - head},${mid + head / 2}`}
-              fill={stroke || "currentColor"}
-            />
-          </>
-        )}
-      </svg>
-    </div>
-  );
+function LineHandles({ data, nodeRef }: { data: PresentationNodeData; nodeRef: React.RefObject<HTMLDivElement | null> }) {
+  const { zoom } = useViewport();
+  const flow = useReactFlow();
+  const [draft, setDraft] = useState<PresentationElement | null>(null);
+  const t = useTranslations("wiki.presentations.interactions");
+  const cleanup = useRef<(() => void) | null>(null);
+  useEffect(() => () => cleanup.current?.(), []);
+  const element = data.element;
+  if (element.type !== "shape") return null;
+  const points = lineEndpoints(draft ?? element);
+  return <ViewportPortal><div className="pointer-events-none absolute inset-0" style={{ zIndex: 2000 }}>{([0, 1] as const).map(endpoint => <button key={endpoint} type="button" aria-label={t(endpoint === 0 ? "startPoint" : "endPoint")} title={element.content.connection ? t("detachFirst") : undefined}
+    disabled={Boolean(element.content.connection)} className="nodrag nopan pointer-events-auto absolute z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-500 disabled:bg-gray-400" style={{ left: points[endpoint].x, top: points[endpoint].y, width: 12 / zoom, height: 12 / zoom }}
+    onClick={event => event.stopPropagation()}
+    onPointerDown={event => {
+      if (event.button !== 0) return;
+      event.preventDefault(); event.stopPropagation();
+      const node = nodeRef.current?.closest<HTMLElement>(".react-flow__node");
+      if (!node) return;
+      const handle = event.currentTarget;
+      handle.setPointerCapture(event.pointerId);
+      const original = node.style.transform;
+      const originalOrigin = node.style.transformOrigin;
+      node.style.transformOrigin = "center center";
+      let next = element;
+      const move = (event: PointerEvent) => {
+        next = moveLineEndpoint(element, endpoint, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }), event.shiftKey) as typeof element;
+        node.style.transform = `translate(${next.x}px, ${next.y}px) rotate(${next.rotation}deg)`;
+        node.style.width = `${next.width}px`;
+        setDraft(next);
+      };
+      const clear = () => { setDraft(null); if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId); node.style.transformOrigin = originalOrigin; node.style.transform = original; node.style.width = `${element.width}px`; window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", finish); window.removeEventListener("pointercancel", cancel); window.removeEventListener("keydown", key); window.removeEventListener("blur", cancel); cleanup.current = null; };
+      const finish = () => { clear(); data.onEndpointChange?.(next); };
+      const cancel = () => clear();
+      const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); } };
+      cleanup.current = clear;
+      window.addEventListener("pointermove", move); window.addEventListener("pointerup", finish); window.addEventListener("pointercancel", cancel); window.addEventListener("keydown", key); window.addEventListener("blur", cancel);
+    }} />)}</div></ViewportPortal>;
 }
 
 function ContentNode({ data, selected }: NodeProps<PresentationNode>) {
@@ -266,6 +240,8 @@ export function elementsToNodes(
     onGestureStart?: () => void;
     onGestureEnd?: () => void;
     onTextChange?: (id: string, text: string) => void;
+  onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onEndpointChange?: (element: PresentationElement) => void;
     /** Ids currently hidden so they can fade in — the player's step-arrival entrance. */
     enteringIds?: Set<string>;
     hiddenIds?: Set<string>;
@@ -318,6 +294,8 @@ export function elementsToNodes(
         onGestureStart: options.onGestureStart,
         onGestureEnd: options.onGestureEnd,
         onTextChange: options.onTextChange,
+        onRichTextChange: options.onRichTextChange,
+        onEndpointChange: options.onEndpointChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
       },

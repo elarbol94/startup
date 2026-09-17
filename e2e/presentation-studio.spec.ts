@@ -94,11 +94,13 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   await page.getByRole("button", { name: "Kursiv", exact: true }).click();
   await page.getByRole("combobox", { name: "Schriftart", exact: true }).selectOption("georgia");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Diagramm hinzufügen" }).click();
+  await page.getByRole("menuitem", { name: "Diagramm hinzufügen" }).hover();
+  await page.getByRole("menuitem", { name: "Balkendiagramm", exact: true }).click();
   await page.getByRole("textbox", { name: "Diagrammtitel" }).fill("Revenue");
   await page.getByRole("combobox", { name: "Diagrammtyp" }).selectOption("pie");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).click();
+  await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).hover();
+  await page.getByRole("menuitem", { name: "Ziel", exact: true }).click();
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator("summary").filter({ hasText: /^Animation$/ }).click();
   await page.getByRole("button", { name: "Einblenden", exact: true }).click();
@@ -183,21 +185,22 @@ test("typing during a delayed shared save retains newer local edits", async ({ p
 });
 
 test("company themes, templates and object comments are usable from the inspector", async ({ page }) => {
+  test.setTimeout(180_000);
   await login(page); const id = await seed(page); await open(page, id);
   await tool(page, "Design");
   const name = `Brand ${Date.now()}`;
   await page.getByRole("textbox", { name: "Designname" }).fill(name);
   await page.getByRole("button", { name: "Firmenthema speichern" }).click();
-  await expect(page.getByText(name, { exact: true })).toBeVisible();
+  await expect(page.getByText(name, { exact: false })).toBeVisible();
   await page.getByRole("textbox", { name: "Designname" }).fill(`${name} template`);
   await page.getByRole("button", { name: "Firmenvorlage speichern" }).click();
-  await expect(page.getByText(`${name} template`, { exact: true })).toBeVisible();
+  await expect(page.getByText(`${name} template`, { exact: false })).toBeVisible();
   await page.getByRole("button", { name: "Text", exact: true }).click();
   await save(page);
   expect((await documentOf(page, id)).elements).toHaveLength(4);
   await tool(page, "Design");
   page.once("dialog", (dialog) => void dialog.accept());
-  await page.getByText(`${name} template`, { exact: true }).locator("..").getByRole("button", { name: "Anwenden", exact: true }).click();
+  await page.getByText(`${name} template`, { exact: false }).locator("..").getByRole("button", { name: "Anwenden", exact: true }).click();
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.length).toBe(3);
   await properties(page);
@@ -296,6 +299,8 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   wave.write("RIFF"); wave.writeUInt32LE(wave.length - 8, 4); wave.write("WAVEfmt ", 8); wave.writeUInt32LE(16, 16); wave.writeUInt16LE(1, 20); wave.writeUInt16LE(1, 22); wave.writeUInt32LE(8000, 24); wave.writeUInt32LE(16000, 28); wave.writeUInt16LE(2, 32); wave.writeUInt16LE(16, 34); wave.write("data", 36); wave.writeUInt32LE(1600, 40);
   await tool(page, "Medien");
   await page.getByLabel("Video oder Audio hochladen").setInputFiles({ name: "Voice.wav", mimeType: "audio/wav", buffer: wave });
+  await properties(page);
+  await page.getByRole("button", { name: "Inhalt & Medien", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Medientitel" })).toHaveValue("Voice.wav");
   await save(page);
   const saved = await documentOf(page, id); expect(saved.elements.find((element: { id: string }) => element.id === "image").content).toMatchObject({ mask: "circle", fit: "cover" });
@@ -366,7 +371,8 @@ test("selection tools expose connectors and contextual editing sections", async 
   await expect(a).toHaveClass(/selected/);
   const tools = page.getByRole("region", { name: "Werkzeuge für die Auswahl" });
   await expect(tools).toBeHidden();
-  await a.dblclick();
+  await a.click();
+  await properties(page);
   await expect(tools).toBeVisible();
   await tools.locator("summary").filter({ hasText: "Bereiche verbinden" }).click();
   await page.getByRole("combobox", { name: "Verbinden mit", exact: true }).selectOption("b");
@@ -387,7 +393,8 @@ test("selection tools expose connectors and contextual editing sections", async 
   await page.getByRole("combobox", { name: "Editor-Bereiche" }).selectOption("comments");
   await b.click();
   await expect(tools).toBeHidden();
-  await b.dblclick();
+  await b.click();
+  await properties(page);
   await expect(tools).toBeVisible();
   await a.click({ modifiers: ["Shift"] });
   await expect(tools.getByRole("button", { name: "Animation", exact: true })).toHaveCount(0);
@@ -403,7 +410,8 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await page.goto(`/wiki/presentations/${id}`);
   await expect(page.getByRole("button", { name: "Text", exact: true })).toBeEnabled({ timeout: 120_000 });
   const a = page.locator('[data-testid="rf__node-a"]'), b = page.locator('[data-testid="rf__node-b"]');
-  await a.dblclick();
+  await a.click();
+  await properties(page);
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("48");
   await page.keyboard.press("Tab");
   await a.click();

@@ -94,7 +94,7 @@ export function maintainPresentationLayout(elements: PresentationElement[]): Pre
     }
     if (e.type !== "shape" || !e.content.connection) return e;
     const from = byId.get(e.content.connection.fromId), to = byId.get(e.content.connection.toId);
-    if (!from || !to || from.id === to.id || from.id === e.id || to.id === e.id || (from.type === "shape" && from.content.connection) || (to.type === "shape" && to.content.connection) || !["line", "arrow"].includes(e.content.shape)) {
+    if (!from || !to || from.id === to.id || from.id === e.id || to.id === e.id || (from.type === "shape" && from.content.connection) || (to.type === "shape" && to.content.connection) || !["line", "arrow", "doubleArrow"].includes(e.content.shape)) {
       changed = true; return { ...e, content: { ...e.content, connection: undefined } };
     }
     const a = endpoint(from, to), b = endpoint(to, from);
