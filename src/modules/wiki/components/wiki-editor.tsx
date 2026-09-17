@@ -1,4 +1,6 @@
 "use client";
+
+import { handleEditorLinkClick } from "../lib/editor-links";
 import { clientUUID } from "@/lib/client-uuid";
 
 import { CommentHighlights } from "./comment-highlight-extension";
@@ -1083,6 +1085,7 @@ function CollaborativeWikiEditor({
       setSpellcheckIssue({ issue, target, source });
     })],
     editorProps: {
+      handleDOMEvents: { click: handleEditorLinkClick },
       attributes: { class: "prose prose-neutral dark:prose-invert max-w-none min-h-[28rem] focus:outline-none", spellcheck: "false" },
       handlePaste(view, event) {
         const files = [...(event.clipboardData?.files ?? [])].filter(isInlineImageFile).map(normalizeInlineImageFile);

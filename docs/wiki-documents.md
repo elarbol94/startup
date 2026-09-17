@@ -80,6 +80,9 @@ recalculates pagination without changing document content.
 
 ## Tasks and links
 
+Ctrl+click (Cmd+click on Mac) opens text links in a new tab in document and
+presentation text editors. Ordinary clicks keep the text available for editing.
+
 Creating a project task from a document selection preserves the document's text,
 formatting and structure. Its context stores the selection and quote; returning
 from the task selects the original text (or a unique relocated quote). Existing
