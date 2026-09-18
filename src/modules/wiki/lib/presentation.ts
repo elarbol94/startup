@@ -601,7 +601,7 @@ export function snapBounds(
   return { bounds, guides };
 }
 
-/** Sub-pixel geometry is measurement noise from the renderer, not an edit. */
+/** Ignore renderer measurement noise; explicit numeric edits override this tolerance. */
 const GEOMETRY_EPSILON = 0.5;
 
 /** One element's new geometry as the canvas reports it; absent fields keep their value. */
@@ -625,6 +625,7 @@ export function applyGeometryChanges(
   changes: PresentationGeometryChange[],
   tolerance: number,
   previousGuides: SnapGuide[] = [],
+  geometryEpsilon = GEOMETRY_EPSILON,
 ): { elements: PresentationElement[]; guides: SnapGuide[] } {
   const requested = new Set(changes.map((change) => change.id));
   const byId = new Map(changes.filter((change) => !isPresentationElementLocked(elements, change.id)
@@ -661,12 +662,13 @@ export function applyGeometryChanges(
   const next = elements.map((element) => {
     const box = moving.get(element.id);
     if (!box) return element;
-    const target = resizing ? snapped.bounds : { ...box, x: box.x + dx, y: box.y + dy };
+    // Explicit coordinates must not acquire cancellation error from union-bound arithmetic.
+    const target = tolerance <= 0 ? box : resizing ? snapped.bounds : { ...box, x: box.x + dx, y: box.y + dy };
     if (
-      Math.abs(target.x - element.x) < GEOMETRY_EPSILON
-      && Math.abs(target.y - element.y) < GEOMETRY_EPSILON
-      && Math.abs(target.width - element.width) < GEOMETRY_EPSILON
-      && Math.abs(target.height - element.height) < GEOMETRY_EPSILON
+      Math.abs(target.x - element.x) < geometryEpsilon
+      && Math.abs(target.y - element.y) < geometryEpsilon
+      && Math.abs(target.width - element.width) < geometryEpsilon
+      && Math.abs(target.height - element.height) < geometryEpsilon
     ) return element;
     touched = true;
     return { ...element, x: target.x, y: target.y, width: target.width, height: target.height };
@@ -889,7 +891,8 @@ export function presentationCanvasReducer(
 
 /** Rotation stays in the schema's [-360, 360] window and reads as the shortest turn. */
 export function normalizeRotation(degrees: number): number {
-  return Math.round((((degrees + 180) % 360) + 360) % 360) - 180;
+  const normalized = ((((degrees + 180) % 360) + 360) % 360) - 180;
+  return Math.round(normalized * 1_000_000) / 1_000_000;
 }
 
 /**

@@ -280,6 +280,38 @@ Arrangement, text fitting and connector updates share the existing autosave,
 undo and redo history. The optional settings live in canvas JSON; no database
 migration is required.
 
+## Precise size, position and frame alignment
+
+Select an object and open **Tools → Properties → Size & position**. Enter absolute
+canvas X/Y coordinates, width, height, or rotation. Decimal values are retained,
+including movements smaller than half a canvas unit and fractional degrees.
+Enter or leaving the field commits one independent undo step; Escape discards the
+draft. Save, export and leaving the editor commit the focused field first.
+Invalid values leave the object unchanged and show an inline error. Sizes must
+remain between 20 and 20,000 canvas units, including all affected group members.
+Angles are normalized to the equivalent value between -180 and 180 degrees.
+
+**Lock aspect ratio** applies to numeric width/height changes for the selected
+object while its controls stay open. Resizing a section changes its border;
+resizing an explicit group also scales its descendants. Moving or rotating either
+carries its descendants. Text resizing preserves the chosen font size unless
+its existing automatic fitting option is enabled. These controls use the existing
+canvas save, collaboration, undo and redo model; no database migration is needed.
+Locked objects and descendants of locked parents cannot be changed. Attached
+connectors keep derived geometry; detach them before entering coordinates.
+
+**Align within parent frame** aligns one or more selected objects to the nearest
+shared containing section. It uses the section's own axes when rotated and the
+objects' visible bounds. Groups move with their children, exactly once even if a
+child is selected too. The containing frame remains unchanged. Existing **Arrange**
+actions continue to align/distribute objects relative to their selection.
+
+Focused validation: `presentation-precision.test.ts` and
+`e2e/presentation-precision.spec.ts`; existing presentation interaction, studio,
+layout and collaboration suites cover the surrounding workflows. Core editing
+continues to use the documented canvas/path model. Locked appearance controls and
+rich-text fields remain read-only, including in a collaborative editing session.
+
 ## Color selection
 
 Color controls share an Office-style palette with ten base-color columns and

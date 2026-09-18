@@ -56,8 +56,10 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { cn } from "@/lib/utils";
 import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
-import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, parseSecondsInput, moveStep, presentationCameraEasings, presentationFrameShapes, presentationShapeKinds, reorderElement, retargetStep, rotateElements, scaleElements, stepLabel, stepTarget, unionBounds, type PresentationBounds, type PresentationCameraEasing, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide, snapBounds } from "../lib/presentation";
+import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, parseSecondsInput, moveStep, presentationCameraEasings, presentationFrameShapes, presentationShapeKinds, reorderElement, retargetStep, rotateElements, scaleElements, stepLabel, stepTarget, unionBounds, type PresentationBounds, type PresentationCameraEasing, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide, snapBounds } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
+import { PresentationPrecisionControls } from "./presentation-precision-controls";
+import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
 import { PresentationSelectionTools } from "./presentation-selection-tools";
 import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
@@ -334,7 +336,7 @@ function SelectionOverlay({
         let delta = (angle - lastAngle) * 180 / Math.PI;
         if (delta > 180) delta -= 360; if (delta < -180) delta += 360;
         rawRotation += delta;
-        // Geometry stores whole degrees; track the applied angle at the same precision.
+        // Pointer rotation uses whole-degree steps; numeric controls retain fractional angles.
         const snapped = Math.round(snapRotation(rawRotation, referenceAngles, moveEvent.shiftKey, moveEvent.altKey));
         onRotate(snapped - appliedRotation, center);
         appliedRotation = snapped;
@@ -578,6 +580,7 @@ function Editor({
   );
   // The property panel edits exactly one element; two or more are handled as a group.
   const selected = selection.length === 1 ? selection[0] : null;
+  const selectedLocked = Boolean(selected && isPresentationElementLocked(elements, selected.id));
   const selectionBounds = useMemo(() => unionBounds(selection.map(presentationCameraBounds)), [selection]);
   const rotationReferences = useMemo(() => {
     const moving = presentationDescendants(elements, selectedSet);
@@ -1758,6 +1761,14 @@ function Editor({
           {selection.length > 0 && <PresentationSelectionTools key={selectionKey} elements={elements} selection={selection}
             disabled={disabled || selection.some(e => isPresentationElementLocked(elements, e.id))} arrangeDisabled={arrangementDisabled} rootCount={arrangementRoots.length}
             onConnect={connectObjects} onArrange={mode => { if (!arrangementDisabled) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => arrangePresentation(current, selectedSet, mode) }); }} onJump={jumpToSelectionTool} />}
+          {selection.length > 0 && <PresentationPrecisionControls key={`precision-${selectionKey}`} elements={elements} selection={selection} disabled={disabled}
+            onGeometry={(id, field, value, proportional) => {
+              const next = setPreciseGeometry(elements, id, field, value, proportional);
+              if (next === elements) return elements.find(e => e.id === id)?.[field] === (field === "rotation" ? normalizeRotation(value) : value);
+              dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => setPreciseGeometry(current, id, field, value, proportional) });
+              return true;
+            }}
+            onAlign={mode => dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => alignPresentationToFrame(current, selectedSet, mode) })} />}
           <fieldset disabled={disabled} className="min-w-0">
           {selection.length > 1 && (
             <section className="mt-5 border-t pt-4">
@@ -1784,6 +1795,7 @@ function Editor({
           {selected && (
             <details id="presentation-tool-appearance" name="presentation-inspector" open className="my-3 scroll-mt-4 rounded-lg border p-3">
               <summary className="mb-3 cursor-pointer text-sm font-semibold">{t("presentations.selectionTools.appearance")}</summary>
+              <fieldset disabled={disabled || selectedLocked} className="min-w-0">
               <div className="flex items-center justify-between gap-1">
                 <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">{t(`presentations.elementTypes.${selected.type}`)}</h2>
                 <div className="flex shrink-0 items-center">
@@ -1803,20 +1815,6 @@ function Editor({
               </div>
 
               <div className="mt-3 space-y-2">
-                {!(selected.type === "shape" && selected.content.connection) && <label className="block text-xs text-muted-foreground">
-                  {t("presentations.rotation")}
-                  <DraftInput
-                    type="number"
-                    min={-360}
-                    max={360}
-                    step={5}
-                    className="mt-1 h-8"
-                    key={`${selected.id}-rotation`}
-                    value={String(selected.rotation)}
-                    normalise={(raw) => String(Math.round(parseNumberInput(raw, -360, 360) ?? selected.rotation))}
-                    onCommit={(next) => updateElement(selected.id, (element) => ({ ...element, rotation: Number(next) }))}
-                  />
-                </label>}
                 {!(selected.type === "shape" && (selected.content.shape === "arrow" || selected.content.shape === "doubleArrow" || selected.content.shape === "line")) && colorField(t("presentations.elementBackground"), selected.background ?? "", (color) =>
                   updateElement(selected.id, (element) => ({ ...element, background: color })),
                 )}
@@ -1825,7 +1823,7 @@ function Editor({
               {selected.type === "text" && (
                 <div className="mt-3 space-y-3">
                   {collaboration ? <PresentationRichText key={selected.id} elementId={selected.id}
-                    content={selected.content} onChange={content => onRichTextChange(selected.id, content)} disabled={disabled}
+                    content={selected.content} onChange={content => onRichTextChange(selected.id, content)} disabled={disabled || selectedLocked}
                     inline autoFocus={false} label={t("presentations.textContent")} /> : (
                   <DraftTextarea
                     key={selected.id}
@@ -2032,6 +2030,7 @@ function Editor({
                   </label>
                 </div>
               )}
+              </fieldset>
             </details>
           )}
 

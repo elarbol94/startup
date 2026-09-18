@@ -3548,6 +3548,18 @@
         "connectedHint": "Diese Verbindung folgt ihren beiden Objekten. Zum freien Positionieren lösen.",
         "detach": "Verbindung lösen"
       },
+      "precision": {
+        "title": "Größe & Position",
+        "x": "X-Position",
+        "y": "Y-Position",
+        "width": "Breite",
+        "height": "Höhe",
+        "rotation": "Drehung (Grad)",
+        "proportional": "Seitenverhältnis sperren",
+        "units": "Absolute Canvas-Einheiten. Größe: 20–20.000. Enter oder Feld verlassen zum Anwenden; Escape verwirft.",
+        "alignFrame": "Im übergeordneten Rahmen ausrichten",
+        "invalid": "Wert kann nicht angewendet werden. Größenlimits und Gruppeninhalt prüfen."
+      },
       "selectionTools": {
         "title": "Werkzeuge für die Auswahl",
         "appearance": "Aussehen",

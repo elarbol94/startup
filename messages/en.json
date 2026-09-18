@@ -3546,6 +3546,18 @@
         "connectedHint": "This connector follows its two objects. Detach it to position it freely.",
         "detach": "Detach connector"
       },
+      "precision": {
+        "title": "Size & position",
+        "x": "X position",
+        "y": "Y position",
+        "width": "Width",
+        "height": "Height",
+        "rotation": "Rotation (degrees)",
+        "proportional": "Lock aspect ratio",
+        "units": "Absolute canvas units. Size: 20–20,000. Enter or leave a field to apply; Escape cancels.",
+        "alignFrame": "Align within parent frame",
+        "invalid": "Value cannot be applied. Check size limits and group contents."
+      },
       "selectionTools": {
         "title": "Selected element tools",
         "appearance": "Appearance",
