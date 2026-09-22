@@ -62,6 +62,7 @@ export const projectColumns = sqliteTable(
       .notNull()
       .references(() => projects.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    workflowStage: text("workflow_stage", { enum: ["todo", "in_progress"] }).notNull().default("todo"),
     sortOrder: integer("sort_order").notNull().default(0),
     isCompleted: integer("is_completed", { mode: "boolean" })
       .notNull()
@@ -139,6 +140,7 @@ export const tasks = sqliteTable(
       .notNull()
       .default("medium"),
     status: text("status", { enum: taskStatuses }).notNull().default("open"),
+    workflowStage: text("workflow_stage", { enum: ["todo", "in_progress"] }).notNull().default("todo"),
     completedAt: integer("completed_at", { mode: "timestamp_ms" }),
     // Gap-based ordering within a column (steps of 1000).
     sortOrder: integer("sort_order").notNull().default(0),

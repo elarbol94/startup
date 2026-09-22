@@ -77,13 +77,12 @@ test("create, move (via dialog) and complete a task", async ({ page }) => {
   const openColumn = page.locator('[data-column-name="Offen"]');
   await expect(openColumn.getByText("Landingpage bauen")).toBeVisible();
 
-  // The dashboard deliberately contains project-independent work only.
-  // Project tasks remain in their Kanban and portfolio views.
+  // Project tasks also appear in the dashboard's all-tasks collection.
   await page.goto("/");
   await expect(
     page.getByRole("heading", { name: "Aufgaben", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Landingpage bauen")).toHaveCount(0);
+  await expect(page.getByText("Landingpage bauen", { exact: true })).toBeVisible();
 
   // Move it to "In Arbeit" via the dialog's column select.
   await page.goto("/projects");

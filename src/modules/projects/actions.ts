@@ -254,6 +254,7 @@ export async function upsertProject(
         name,
         sortOrder: (index + 1) * SORT_GAP,
         isCompleted: index === columnNames.length - 1,
+        workflowStage: index === 0 ? "todo" as const : "in_progress" as const,
       })),
     )
     .run();
@@ -296,6 +297,7 @@ const columnSchema = z.object({
   projectId: z.string().min(1),
   name: z.string().min(1).max(100),
   isCompleted: z.boolean().optional(),
+  workflowStage: z.enum(["todo", "in_progress"]).optional(),
 });
 
 export async function upsertColumn(input: z.infer<typeof columnSchema>) {
@@ -304,10 +306,14 @@ export async function upsertColumn(input: z.infer<typeof columnSchema>) {
 
   if (data.id) {
     const columnId = data.id;
+    if (!db.select({ id: projectColumns.id }).from(projectColumns).where(and(eq(projectColumns.id, columnId), eq(projectColumns.projectId, data.projectId))).get()) {
+      throw new Error("Column not found in project");
+    }
     db.transaction(() => {
       db.update(projectColumns)
         .set({
           name: data.name,
+          ...(data.workflowStage === undefined ? {} : { workflowStage: data.workflowStage }),
           ...(data.isCompleted === undefined
             ? {}
             : { isCompleted: data.isCompleted }),
@@ -334,12 +340,14 @@ export async function upsertColumn(input: z.infer<typeof columnSchema>) {
         projectId: data.projectId,
         name: data.name,
         isCompleted: data.isCompleted ?? false,
+        workflowStage: data.workflowStage ?? "in_progress",
         sortOrder: max + SORT_GAP,
       })
       .run();
   }
   revalidatePath(`/projects/${data.projectId}`);
   revalidatePath("/projects");
+  revalidatePath("/");
 }
 
 /** Deleting a column moves its tasks to the first remaining column. */
@@ -378,6 +386,7 @@ export async function deleteColumn(id: string) {
   });
   revalidatePath(`/projects/${column.projectId}`);
   revalidatePath("/projects");
+  revalidatePath("/");
 }
 
 // --- Tasks ---
@@ -832,6 +841,7 @@ const contextualTaskSchema = z.object({
   deadlineAt: z.string().datetime().nullable().default(null),
   localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().default(null),
   status: z.enum(["open", "done"]).default("open"),
+  workflowStage: z.enum(["todo", "in_progress"]).optional(),
   projectId: z.string().nullable().default(null),
   context: z.object({
     type: z.enum(["wikiPage", "wikiSource", "pdf", "app"]),
@@ -986,6 +996,12 @@ export async function upsertContextualTask(
   if (projectId && !db.select({ id: projects.id }).from(projects).where(eq(projects.id, projectId)).get()) {
     throw new Error("Project not found");
   }
+  if (projectId && existing && data.status === "done") {
+    const descendants = taskDescendants(projectHierarchyRows(projectId), existing.id);
+    if (leafTasks(descendants).some(child => !child.columnIsCompleted)) {
+      throw new Error("Complete all subtasks before completing the parent");
+    }
+  }
   const openColumn = projectId ? firstProjectColumn(projectId, false) : undefined;
   const doneColumn = projectId ? firstProjectColumn(projectId, true) : undefined;
   const existingColumn = existing?.columnId && existing.projectId === projectId
@@ -997,11 +1013,14 @@ export async function upsertContextualTask(
       ? doneColumn ?? openColumn
       : openColumn;
   if (projectId && !desiredColumn) throw new Error("Project has no task column");
-  const columnId = desiredColumn?.id ?? null;
+  let columnId = desiredColumn?.id ?? null;
   const now = new Date();
   let id = data.id;
 
   db.transaction((tx) => {
+    if (projectId && data.workflowStage) {
+      columnId = dashboardColumn(projectId, data.status === "done" ? "done" : data.workflowStage).id;
+    }
     const values = {
       kind: data.kind,
       projectId,
@@ -1022,6 +1041,7 @@ export async function upsertContextualTask(
       isMilestone: data.kind === "deadline" ? true : existing?.isMilestone ?? false,
       priority: data.priority,
       status: data.status,
+      workflowStage: data.workflowStage ?? existing?.workflowStage ?? "todo",
       completedAt: data.status === "done" ? existing?.completedAt ?? now : null,
       progress: data.status === "done" ? 100 : Math.min(existing?.progress ?? 0, 99),
       updatedAt: now,
@@ -1090,6 +1110,7 @@ export async function upsertContextualTask(
     pageId: data.context?.type === "wikiPage" ? data.context.entityId : null,
   });
   if (projectId) {
+    if (existing?.parentTaskId) syncTaskAncestors(id);
     syncProjectBounds(projectId);
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/projects");
@@ -1157,6 +1178,59 @@ export async function moveContextualDeadline(
       updatedAt: now.toISOString(),
     },
   };
+}
+
+/** Resolves a shared workflow stage without renaming any existing project column. */
+function dashboardColumn(projectId: string, stage: "todo" | "in_progress" | "done") {
+  const columns = db.select().from(projectColumns).where(eq(projectColumns.projectId, projectId))
+    .orderBy(asc(projectColumns.sortOrder), asc(projectColumns.id)).all();
+  const existing = columns.find(column => stage === "done" ? column.isCompleted : !column.isCompleted && column.workflowStage === stage);
+  if (existing) return existing;
+  return db.insert(projectColumns).values({
+    projectId,
+    name: stage === "done" ? "Erledigt" : stage === "in_progress" ? "In Arbeit" : "Offen",
+    isCompleted: stage === "done",
+    workflowStage: stage === "in_progress" ? "in_progress" : "todo",
+    sortOrder: (columns.at(-1)?.sortOrder ?? 0) + SORT_GAP,
+  }).returning().get();
+}
+
+export async function moveDashboardTask(input: { taskId: string; stage: "todo" | "in_progress" | "done" }) {
+  await requireUserOrThrow();
+  const data = z.object({ taskId: z.string().min(1), stage: z.enum(["todo", "in_progress", "done"]) }).parse(input);
+  const task = db.select().from(tasks).where(eq(tasks.id, data.taskId)).get();
+  if (!task || task.kind !== "task") throw new Error("Task not found");
+  db.transaction(() => {
+    if (task.projectId && data.stage === "done") {
+      const descendants = taskDescendants(projectHierarchyRows(task.projectId), task.id);
+      if (leafTasks(descendants).some(child => !child.columnIsCompleted)) {
+        throw new Error("Complete all subtasks before completing the parent");
+      }
+    }
+    const currentColumn = task.columnId ? db.select().from(projectColumns).where(eq(projectColumns.id, task.columnId)).get() : undefined;
+    const sameStage = currentColumn && (data.stage === "done" ? currentColumn.isCompleted : !currentColumn.isCompleted && currentColumn.workflowStage === data.stage);
+    const column = task.projectId ? sameStage ? currentColumn : dashboardColumn(task.projectId, data.stage) : undefined;
+    const now = new Date();
+    db.update(tasks).set({
+      columnId: column?.id ?? null,
+      status: data.stage === "done" ? "done" : "open",
+      workflowStage: data.stage === "done" ? task.workflowStage : data.stage,
+      lastOpenColumnId: data.stage === "done" ? task.lastOpenColumnId ?? task.columnId : column?.id ?? null,
+      completedAt: data.stage === "done" ? task.completedAt ?? now : null,
+      progress: data.stage === "done" ? 100 : Math.min(task.progress, 99),
+      sortOrder: column?.id !== task.columnId ? nextContextTaskSortOrder(column?.id ?? null) : task.sortOrder,
+      updatedAt: now,
+    }).where(eq(tasks.id, task.id)).run();
+    if (task.projectId) {
+      if (task.parentTaskId) syncTaskAncestors(task.id);
+      syncProjectBounds(task.projectId);
+    }
+  });
+  if (task.projectId) revalidatePath(`/projects/${task.projectId}`);
+  revalidatePath("/projects");
+  revalidatePath("/");
+  revalidatePath("/wiki", "layout");
+  revalidatePath("/calendar");
 }
 
 export async function setTaskStatus(id: string, status: "open" | "done") {
@@ -1447,6 +1521,7 @@ export async function moveTask(input: z.infer<typeof moveSchema>) {
   if (task.parentTaskId) syncTaskAncestors(task.id);
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/projects");
+  revalidatePath("/");
 }
 
 // --- Task dependencies ---

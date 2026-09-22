@@ -975,6 +975,16 @@
     "dayLoad": "{percent}% occupied"
   },
   "tasks": {
+    "board": {
+      "view": "Task view", "list": "List", "board": "Board",
+      "todo": "To do", "in_progress": "In progress", "done": "Done",
+      "search": "Search tasks", "project": "Project", "allProjects": "All projects", "noProject": "No project", "mine": "Mine",
+      "drag": "Drag {title}", "move": "Move {title} to", "addIn": "Add task in {stage}",
+      "emptyColumn": "No tasks here", "created": "Task created. Active filters still apply.",
+      "moveFailed": "Task could not be moved. Complete any unfinished subtasks first, or try again.",
+      "createFailed": "Task could not be created. Your title has been kept; try again.",
+      "mapTodo": "Dashboard: To do", "mapProgress": "Dashboard: In progress"
+    },
     "planner": {
       "title": "Schedule · {project}",
       "description": "The new task remains a draft until you save the task form. Changes to existing tasks are saved immediately and remain saved even if you cancel.",

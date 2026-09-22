@@ -13,6 +13,7 @@ import {
   listDeadlineOverview,
   listMembers,
   listTaskOverview,
+  listProjects,
 } from "@/modules/projects/queries";
 import { TaskOverview } from "@/modules/tasks/components/task-overview";
 import { DeadlineOverview } from "@/modules/tasks/components/deadline-overview";
@@ -41,9 +42,10 @@ export default async function DashboardPage({
   const priority = ["low", "medium", "high"].includes(query.priority || "") ? query.priority! : "all";
   const status = ["open", "done", "all"].includes(query.status || "") ? query.status! : "open";
   const tasks = listTaskOverview({
+    includeProjects: true,
     assigneeId: assignee,
     priority: priority === "all" ? undefined : priority as "low" | "medium" | "high",
-    status: status as "open" | "done" | "all",
+    status: "all",
   });
   const deadlineAssignee = query.deadlineAssignee || user.id;
   const deadlineStatus = ["open", "done", "all"].includes(query.deadlineStatus || "")
@@ -71,6 +73,7 @@ export default async function DashboardPage({
       <OverviewWorkspace userId={user.id} widgets={{ ...cards, tasks: (
         <TaskOverview
           tasks={tasks}
+          projects={listProjects({ includeArchived: true }).map(project => ({ id: project.id, name: project.name }))}
           members={members}
           defaultAssignee={user.id}
           filters={{ assignee, priority, status }}

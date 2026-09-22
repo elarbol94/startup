@@ -59,6 +59,7 @@ type ColumnDto = {
   name: string;
   sortOrder: number;
   isCompleted: boolean;
+  workflowStage: "todo" | "in_progress";
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
@@ -402,6 +403,7 @@ function BoardColumn({
   onRename,
   onDelete,
   onToggleCompleted,
+  onWorkflowStage,
   canDelete,
 }: {
   column: ColumnDto;
@@ -417,6 +419,7 @@ function BoardColumn({
   onRename: () => void;
   onDelete: () => void;
   onToggleCompleted: () => void;
+  onWorkflowStage: (stage: "todo" | "in_progress") => void;
   canDelete: boolean;
 }) {
   const t = useTranslations("projects");
@@ -425,6 +428,7 @@ function BoardColumn({
     id: column.id,
     data: { type: "column" },
   });
+  const boardT = useTranslations("tasks.board");
 
   return (
     <div
@@ -461,6 +465,10 @@ function BoardColumn({
                   ? t("markColumnIncomplete")
                   : t("markColumnCompleted")}
               </DropdownMenuItem>
+              {!column.isCompleted && <>
+                <DropdownMenuItem disabled={column.workflowStage === "todo"} onClick={() => onWorkflowStage("todo")}>{boardT("mapTodo")}</DropdownMenuItem>
+                <DropdownMenuItem disabled={column.workflowStage === "in_progress"} onClick={() => onWorkflowStage("in_progress")}>{boardT("mapProgress")}</DropdownMenuItem>
+              </>}
               {canDelete && (
                 <DropdownMenuItem variant="destructive" onClick={onDelete}>
                   <Trash2 className="mr-2 size-4" />
@@ -806,6 +814,10 @@ export function BoardClient({
               onRename={() => onRenameColumn(column)}
               onDelete={() => onDeleteColumn(column)}
               onToggleCompleted={() => onToggleCompleted(column)}
+              onWorkflowStage={async workflowStage => {
+                try { await upsertColumn({ id: column.id, projectId: project.id, name: column.name, workflowStage }); router.refresh(); }
+                catch { toast.error(tCommon("error")); }
+              }}
             />
           ))}
           <Button

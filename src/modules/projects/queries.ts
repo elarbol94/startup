@@ -216,13 +216,15 @@ export function getTaskDialogOptions() {
 }
 
 export type TaskOverviewFilters = {
+  includeProjects?: boolean;
   assigneeId?: string;
   priority?: "low" | "medium" | "high";
   status?: "open" | "done" | "all";
 };
 
 export function listTaskOverview(filters: TaskOverviewFilters = {}) {
-  const conditions: SQL[] = [eq(tasks.kind, "task"), isNull(tasks.projectId)];
+  const conditions: SQL[] = [eq(tasks.kind, "task")];
+  if (!filters.includeProjects) conditions.push(isNull(tasks.projectId));
   if (filters.assigneeId && filters.assigneeId !== "all") {
     conditions.push(
       filters.assigneeId === "unassigned"
@@ -232,7 +234,9 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
   }
   if (filters.priority) conditions.push(eq(tasks.priority, filters.priority));
   if (filters.status && filters.status !== "all") {
-    conditions.push(eq(tasks.status, filters.status));
+    conditions.push(filters.includeProjects
+      ? sql`(CASE WHEN ${tasks.projectId} IS NOT NULL AND ${projectColumns.id} IS NOT NULL THEN CASE WHEN ${projectColumns.isCompleted} THEN 'done' ELSE 'open' END ELSE ${tasks.status} END) = ${filters.status}`
+      : eq(tasks.status, filters.status));
   }
 
   const rows = db
@@ -248,6 +252,9 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
       projectName: projects.name,
       projectColor: projects.color,
       columnName: projectColumns.name,
+      workflowStage: tasks.workflowStage,
+      columnWorkflowStage: projectColumns.workflowStage,
+      columnIsCompleted: projectColumns.isCompleted,
       contextType: taskContexts.type,
       contextEntityId: taskContexts.entityId,
       contextRoute: taskContexts.route,
@@ -271,6 +278,10 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
   return rows.map((task) => {
     return {
       ...task,
+      status: task.projectId && task.columnIsCompleted !== null ? task.columnIsCompleted ? "done" as const : "open" as const : task.status,
+      boardStage: task.projectId && task.columnIsCompleted !== null
+        ? task.columnIsCompleted ? "done" as const : task.columnWorkflowStage ?? "todo" as const
+        : task.status === "done" ? "done" as const : task.workflowStage,
       href: task.contextRoute
         ? withWorkItemFocus(task.contextRoute, task.id, "task")
         : task.projectId

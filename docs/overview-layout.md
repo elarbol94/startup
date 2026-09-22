@@ -35,6 +35,33 @@ calendar date across time zones.
 
 ## Columns and sorting
 
+### Task board
+
+Tasks retains its List default; the List/Board switch is remembered per user
+in this browser. Both views include project and standalone tasks. Search and the
+project selector combine with the assignee and priority filters. Mine is the
+initial assignee filter. Personal metric cards retain their existing scope.
+
+The board shows To do, In progress and Done, with Done initially collapsed.
+List-only open/done filtering does not hide board columns. Add a title inside
+a column and press Enter to create; Escape cancels. New cards inherit the
+selected project, assignee and priority (Everyone assigns new cards to yourself).
+Click a title to edit, drag its grip to a column, or use its status selector.
+The board scrolls within its panel on narrow screens; ordinary touch scrolling
+does not drag cards. Failed moves restore the previous state; failed creation
+keeps the entered title.
+
+Project completion columns map to Done. Migration 0063 maps each project's first
+open column to To do and other open columns to In progress; column names and task
+data are preserved. An open column's menu can change its dashboard mapping.
+Moving to a missing stage creates that project's corresponding column. Moving
+within the same stage preserves the existing custom column. Parent completion
+requires all subtasks to be complete, and child moves update parent summaries.
+Standalone tasks store their open workflow stage separately from completion.
+
+Focused validation: `npx vitest run src/modules/projects/dashboard-board.test.ts`
+and `npx playwright test e2e/dashboard-board.spec.ts`.
+
 In **Customize layout**, **Columns** selects visible columns for every table, including News and the new
 sections. At least one column stays visible. Hiding a sorted column removes it
 from sorting, so there are no invisible sort priorities.

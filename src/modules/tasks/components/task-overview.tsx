@@ -1,6 +1,9 @@
 "use client";
 
 import { OverviewTable, OverviewColumnPicker, useOverviewTable } from "./overview-table";
+import { TaskBoard } from "./task-board";
+import { useOverviewPreference } from "./overview-preferences";
+import { Input } from "@/components/ui/input";
 import { UserIdentity } from "@/components/user-identity";
 import { ItemDetails } from "./item-details";
 import { useState, useTransition } from "react";
@@ -9,13 +12,17 @@ import { useFormatter, useTranslations } from "next-intl";
 import {
   Check,
   ListChecks,
+  Columns3,
+  List,
+  Plus,
   MoreHorizontal,
   Pencil,
   RotateCcw,
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { setTaskStatus } from "@/modules/projects/actions";
+import { moveDashboardTask } from "@/modules/projects/actions";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,7 +49,7 @@ import { useTaskCreator } from "./task-create-provider";
 import { todayLocal } from "../deadline-utils";
 import type { TaskPriority, TaskStatus } from "../types";
 
-type OverviewTask = {
+export type OverviewTask = {
   id: string;
   title: string;
   description: string;
@@ -51,6 +58,7 @@ type OverviewTask = {
   assigneeName: string | null;
   priority: TaskPriority;
   status: TaskStatus;
+  boardStage: "todo" | "in_progress" | "done";
   dueDate: string | null;
   projectId: string | null;
   projectName: string | null;
@@ -74,11 +82,13 @@ export function TaskOverview({
   members,
   filters,
   defaultAssignee,
+  projects,
 }: {
   tasks: OverviewTask[];
   members: Array<{ id: string; name: string }>;
   filters: { assignee: string; priority: string; status: string };
   defaultAssignee: string;
+  projects: Array<{ id: string; name: string }>;
 }) {
   const t = useTranslations("tasks");
   const format = useFormatter();
@@ -89,6 +99,14 @@ export function TaskOverview({
   const [pending, startTransition] = useTransition();
   const [now] = useState(() => new Date());
   const today = todayLocal(now);
+  const viewPreference = useOverviewPreference("task-view");
+  const boardView = viewPreference.raw === '"board"';
+  const [search, setSearch] = useState("");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const visibleTasks = tasks.filter(task =>
+    (boardView || filters.status === "all" || (task.boardStage === "done" ? "done" : "open") === filters.status)
+    && (projectFilter === "all" || (projectFilter === "none" ? !task.projectId : task.projectId === projectFilter))
+    && task.title.toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
   const assigneeLabel = filters.assignee === "all"
     ? t("allUsers")
     : filters.assignee === "unassigned"
@@ -100,7 +118,8 @@ export function TaskOverview({
   const statusLabel = t(`statuses.${filters.status as TaskStatus | "all"}`);
   const adjustedFilterCount = Number(filters.assignee !== defaultAssignee)
     + Number(filters.priority !== "all")
-    + Number(filters.status !== "open");
+    + Number(!boardView && filters.status !== "open")
+    + Number(projectFilter !== "all") + Number(Boolean(search.trim()));
 
   function replaceFilters(update: (next: URLSearchParams) => void) {
     const next = new URLSearchParams(searchParams.toString());
@@ -121,6 +140,8 @@ export function TaskOverview({
   }
 
   function resetFilters() {
+    setSearch("");
+    setProjectFilter("all");
     replaceFilters((next) => {
       next.delete("assignee");
       next.delete("priority");
@@ -155,12 +176,14 @@ export function TaskOverview({
 
   function toggle(task: OverviewTask) {
     startTransition(async () => {
-      await setTaskStatus(task.id, task.status === "done" ? "open" : "done");
-      router.refresh();
+      try {
+        await moveDashboardTask({ taskId: task.id, stage: task.boardStage === "done" ? "todo" : "done" });
+        router.refresh();
+      } catch { toast.error(t("board.moveFailed")); }
     });
   }
 
-  const table = useOverviewTable("tasks", tasks, [
+  const table = useOverviewTable("tasks", visibleTasks, [
     { id: "status", label: t("status"), width: 88, value: task => task.status === "done" ? 1 : 0,
       render: task => <button type="button" disabled={pending} onClick={() => toggle(task)} aria-label={task.status === "done" ? t("reopen") : t("markDone")} className={`grid size-6 place-items-center rounded-full border ${task.status === "done" ? "border-emerald-600 bg-emerald-600 text-white" : "hover:border-emerald-500"}`}>{task.status === "done" ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}</button> },
     { id: "title", label: t("title"), width: 220, value: task => task.title, render: task => <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={task.contextLabel || task.projectName || t("origins.app")} href={task.href}
@@ -187,13 +210,28 @@ export function TaskOverview({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-semibold tracking-tight">{t("overview")}</h2>
-                <Badge variant="secondary" className="font-mono tabular-nums">{tasks.length}</Badge>
+                <Badge variant="secondary" className="tabular-nums">{visibleTasks.length}</Badge>
               </div>
 
             </div>
           </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <div className="flex rounded-md bg-muted p-0.5" role="group" aria-label={t("board.view")}>
+              <Button variant={boardView ? "ghost" : "secondary"} size="icon-sm" aria-label={t("board.list")} title={t("board.list")} aria-pressed={!boardView} onClick={() => viewPreference.save("list")}><List /></Button>
+              <Button variant={boardView ? "secondary" : "ghost"} size="icon-sm" aria-label={t("board.board")} title={t("board.board")} aria-pressed={boardView} onClick={() => viewPreference.save("board")}><Columns3 /></Button>
+            </div>
+            <Button variant="ghost" size="icon-sm" aria-label={t("createTask")} onClick={() => openTaskCreator()}><Plus /></Button>
+          </div>
         </div>
+        {viewPreference.failed && <p role="status" className="mt-2 text-xs text-destructive">{layoutT("saveFailed")}</p>}
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
+          <Input className="h-8 min-w-24 flex-1 basis-28" value={search} onChange={event => setSearch(event.target.value)} aria-label={t("board.search")} placeholder={t("board.search")} />
+          <Select value={projectFilter} onValueChange={value => setProjectFilter(value ?? "all")}>
+            <SelectTrigger className="h-8 w-auto max-w-44" aria-label={t("board.project")}><SelectValue>{projectFilter === "all" ? t("board.allProjects") : projectFilter === "none" ? t("board.noProject") : projects.find(project => project.id === projectFilter)?.name}</SelectValue></SelectTrigger>
+            <SelectContent><SelectItem value="all">{t("board.allProjects")}</SelectItem><SelectItem value="none">{t("board.noProject")}</SelectItem>{projects.map(project => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
+          </Select>
+          <Button variant={filters.assignee === defaultAssignee ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("assignee", defaultAssignee)}>{t("board.mine")}</Button>
+          <Button variant={filters.assignee === "all" ? "secondary" : "ghost"} size="sm" onClick={() => setFilter("assignee", "all")}>{t("allUsers")}</Button>
           <Popover>
             <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={t("filter")} />}>
               <SlidersHorizontal />
@@ -223,14 +261,14 @@ export function TaskOverview({
                   <SelectItem value="low">{t("priorities.low")}</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={filters.status} onValueChange={(value) => setFilter("status", value ?? "open")}>
+              {!boardView && <Select value={filters.status} onValueChange={(value) => setFilter("status", value ?? "open")}>
                 <SelectTrigger className="w-full" aria-label={t("filterStatus")}><SelectValue>{statusLabel}</SelectValue></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="open">{t("statuses.open")}</SelectItem>
                   <SelectItem value="done">{t("statuses.done")}</SelectItem>
                   <SelectItem value="all">{t("statuses.all")}</SelectItem>
                 </SelectContent>
-              </Select>
+              </Select>}
               <Button variant="ghost" size="sm" className="justify-start" onClick={resetFilters}>
                 <RotateCcw />
                 {t("resetFilters")}
@@ -238,22 +276,22 @@ export function TaskOverview({
             </PopoverContent>
           </Popover>
 
-          <button type="button" onClick={() => setFilter("assignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+          {filters.assignee !== defaultAssignee && filters.assignee !== "all" && <button type="button" onClick={() => setFilter("assignee", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {!["all", "unassigned"].includes(filters.assignee) ? <UserIdentity userId={filters.assignee} name={assigneeLabel} compact /> : assigneeLabel}<X className="size-3" />
-          </button>
+          </button>}
           {filters.priority !== "all" && (
             <button type="button" onClick={() => setFilter("priority", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
               {priorityLabel}<X className="size-3" />
             </button>
           )}
-          <button type="button" onClick={() => setFilter("status", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
+          {!boardView && <button type="button" onClick={() => setFilter("status", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {statusLabel}<X className="size-3" />
-          </button>
-          <OverviewColumnPicker table={table} />
+          </button>}
+          {!boardView && <OverviewColumnPicker table={table} />}
         </div>
       </header>
 
-      <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button></div></div>} actions={task => (
+      {boardView ? <TaskBoard tasks={visibleTasks} onEdit={editTask} projectId={!["all", "none"].includes(projectFilter) ? projectFilter : null} assigneeId={filters.assignee === "unassigned" ? null : filters.assignee === "all" ? defaultAssignee : filters.assignee} priority={filters.priority === "all" ? "medium" : filters.priority as TaskPriority} /> : <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button></div></div>} actions={task => (
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
@@ -264,7 +302,7 @@ export function TaskOverview({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-      )} />
+      )} />}
     </section>
   );
 }

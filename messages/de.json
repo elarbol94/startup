@@ -975,6 +975,16 @@
     "dayLoad": "{percent}% belegt"
   },
   "tasks": {
+    "board": {
+      "view": "Aufgabenansicht", "list": "Liste", "board": "Board",
+      "todo": "Offen", "in_progress": "In Arbeit", "done": "Erledigt",
+      "search": "Aufgaben suchen", "project": "Projekt", "allProjects": "Alle Projekte", "noProject": "Ohne Projekt", "mine": "Meine",
+      "drag": "{title} verschieben", "move": "{title} verschieben nach", "addIn": "Aufgabe in {stage} hinzufügen",
+      "emptyColumn": "Keine Aufgaben", "created": "Aufgabe erstellt. Aktive Filter gelten weiterhin.",
+      "moveFailed": "Aufgabe konnte nicht verschoben werden. Zuerst offene Unteraufgaben abschließen oder erneut versuchen.",
+      "createFailed": "Aufgabe konnte nicht erstellt werden. Der Titel bleibt erhalten; bitte erneut versuchen.",
+      "mapTodo": "Dashboard: Offen", "mapProgress": "Dashboard: In Arbeit"
+    },
     "planner": {
       "title": "Zeitplanung · {project}",
       "description": "Neue Aufgabe: Entwurf bis zum Speichern im Aufgabenformular. Änderungen an bestehenden Aufgaben werden sofort gespeichert und bleiben auch beim Abbrechen erhalten.",
