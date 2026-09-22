@@ -26,6 +26,17 @@ previews this information; preview time is replaced with actual submission time.
 No page content, console output, or automatic screen capture is collected.
 
 Up to five PNG, JPEG or WebP screenshots, 10 MB each, can be pasted or uploaded.
+**Select affected area** temporarily hides the dialog and lets the reporter draw
+a rectangle on the current page. Arrow keys create/move a selection; Shift plus
+arrows resizes it. Escape or Cancel returns to the intact draft. Confirm renders
+only the selected crop into a local PNG preview, which can be removed before
+submission. Touch selection is supported. The page stays at its current scroll
+position; selection controls and password field values are excluded from the
+capture. Capture is rendered locally with a lazily loaded html2canvas-pro bundle,
+without screen-sharing permission or an external screenshot service. Embedded,
+cross-origin, and some WebGL content may not render; manual screenshot upload
+remains available. Resizing the viewport clears selection (or cancels an ongoing
+capture) to avoid a shifted crop, including when a phone keyboard closes.
 The existing `/api/files` endpoint and task attachment store are reused, with
 server-side size, MIME and signature checks for bug report tasks. Only the reporter
 uploads screenshots; all signed-in users can read them under existing shared task

@@ -1,5 +1,10 @@
 {
   "bugReports": {
+    "selectArea": "Betroffenen Bereich auswählen", "selectHint": "Ziehe ein Rechteck um den betroffenen Teil dieser Seite.",
+    "captureControls": "Screenshot-Auswahl", "useArea": "Ausgewählten Bereich anhängen", "cancelCapture": "Abbrechen",
+    "capturing": "Ausgewählter Bereich wird aufgenommen…", "keyboardHint": "Pfeiltasten: bewegen · Umschalt + Pfeile: Größe · Esc: abbrechen",
+    "captureHint": "Wähle einen Bereich dieser Seite und prüfe den Screenshot vor dem Senden. Eingebettete Inhalte können fehlen; alternativ einen Screenshot hochladen.",
+    "captureFailed": "Der Bereich konnte nicht aufgenommen werden. Wähle einen kleineren Bereich oder füge einen Screenshot ein. Deine Meldung bleibt erhalten.",
     "report": "Fehler melden", "shared": "Meldungen und Screenshots sind für alle angemeldeten Nutzer sichtbar. Prüfe Screenshots vor dem Senden.",
     "viewReports": "Gemeldete Fehler ansehen", "noReports": "Das gemeinsame Bugs-Board erscheint nach der ersten Meldung.",
     "title": "Kurzer Titel", "happened": "Was ist passiert?", "optionalDetails": "Schritte und erwartetes Verhalten (optional)",

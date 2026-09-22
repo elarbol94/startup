@@ -1,5 +1,10 @@
 {
   "bugReports": {
+    "selectArea": "Select affected area", "selectHint": "Drag a rectangle around the affected part of this page.",
+    "captureControls": "Screenshot selection controls", "useArea": "Attach selected area", "cancelCapture": "Cancel",
+    "capturing": "Capturing selected area…", "keyboardHint": "Arrows: move · Shift + arrows: resize · Esc: cancel",
+    "captureHint": "Select an area on this page and review the screenshot before sending. Embedded content may be missing; you can upload a screenshot instead.",
+    "captureFailed": "Could not capture this area. Try a smaller selection or paste/upload a screenshot. Your report is kept.",
     "report": "Report a bug", "shared": "Reports and screenshots are visible to everyone signed in. Check screenshots before sending.",
     "viewReports": "View reported bugs", "noReports": "The shared Bugs board will appear after the first report.",
     "title": "Short title", "happened": "What happened?", "optionalDetails": "Steps and expected behavior (optional)",

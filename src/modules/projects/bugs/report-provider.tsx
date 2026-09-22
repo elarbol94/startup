@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { canonicalTaskHref } from "@/modules/context/routes";
 import { getBugReportContext, submitBugReport } from "./actions";
+import { AreaCapture } from "./area-capture";
 
 const ReportContext = createContext<() => void>(() => {});
 export const useBugReporter = () => useContext(ReportContext);
@@ -24,6 +25,8 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [selectingArea, setSelectingArea] = useState(false);
+  const endSelection = useCallback(() => { setSelectingArea(false); setOpen(true); }, []);
   const [context, setContext] = useState<Awaited<ReturnType<typeof getBugReportContext>> | null>(null);
   const [source, setSource] = useState({ path: "", browser: "" });
   const [title, setTitle] = useState("");
@@ -90,7 +93,8 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   const failedUploads = screenshots.some(item => item.state !== "saved");
   return <ReportContext.Provider value={() => { void show(); }}>
     {children}
-    <Dialog open={open} onOpenChange={next => { if (!busy) setOpen(next); }}>
+    {selectingArea && <AreaCapture onCancel={endSelection} onError={() => { setError(t("captureFailed")); endSelection(); }} onCapture={file => { addFiles([file]); setSource(current => ({ ...current, path: pathname })); endSelection(); }} />}
+    {!selectingArea && <Dialog open={open} onOpenChange={next => { if (!busy) setOpen(next); }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onPaste={event => {
         const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); addFiles(files); }
       }}>
@@ -106,6 +110,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
             </div></details>
           </form>}
         <div className="space-y-2"><Label htmlFor="bug-screenshots">{t("screenshots")}</Label>
+          {!receipt && <><Button type="button" variant="outline" disabled={busy || screenshots.length >= 5} onClick={() => { setOpen(false); setSelectingArea(true); }}>{t("selectArea")}</Button><p className="text-xs text-muted-foreground">{t("captureHint")}</p></>}
           {!receipt && <><Input id="bug-screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={event => { addFiles(Array.from(event.target.files ?? [])); event.target.value = ""; }} /><p className="text-xs text-muted-foreground">{t("fileHint")}</p></>}
           <div className="grid grid-cols-3 gap-2">{screenshots.map(item => <div key={item.id} className="relative min-w-0 rounded border p-1">
             {/* Local object URLs are previews, never remote image requests. */}
@@ -123,6 +128,6 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
           {receipt ? <>{failedUploads ? <Button disabled={busy} onClick={() => void submit()}>{busy && <Loader2 className="size-4 animate-spin" />}{t("retryUploads")}</Button> : <Button onClick={() => { reset(); setOpen(false); }}>{t("close")}</Button>}</> : <Button form="bug-report-form" type="submit" disabled={busy || !context || context.project?.status === "archived" || !title.trim() || !happened.trim()}>{busy && <Loader2 className="size-4 animate-spin" />}{t("submit")}</Button>}
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog>}
   </ReportContext.Provider>;
 }

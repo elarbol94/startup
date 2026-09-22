@@ -13,6 +13,38 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   const title = `Bug report ${Date.now()}`;
   await dialog.getByLabel("Kurzer Titel").fill(title);
   await dialog.getByLabel("Was ist passiert?").fill("The save button did not respond.");
+  // Cancel and keyboard adjustment preserve the report draft.
+  await dialog.getByRole("button", { name: "Betroffenen Bereich auswählen" }).click();
+  const selector = page.getByTestId("bug-area-selector");
+  await expect(selector).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("bug-area-rectangle")).toBeVisible();
+  await page.keyboard.press("Shift+ArrowDown");
+  await page.keyboard.press("Escape");
+  await expect(dialog.getByLabel("Kurzer Titel")).toHaveValue(title);
+  // A fixed-color fixture verifies actual cropped pixels, not merely a preview URL.
+  await page.evaluate(() => {
+    const marker = document.createElement("div"); marker.id = "capture-fixture";
+    marker.style.cssText = "position:fixed;left:100px;top:250px;width:200px;height:120px;background:rgb(255,0,0);z-index:80";
+    document.body.append(marker);
+  });
+  await dialog.getByRole("button", { name: "Betroffenen Bereich auswählen" }).click();
+  await expect(selector).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, 150));
+  await page.mouse.move(220, 330); await page.mouse.down();
+  await page.mouse.move(120, 270, { steps: 5 }); await page.mouse.up();
+  await selector.getByRole("button", { name: "Ausgewählten Bereich anhängen" }).click();
+  const captured = dialog.getByRole("img", { name: /^bug-area-/ });
+  await expect(captured).toBeVisible();
+  const pixels = await captured.evaluate(async element => {
+    const image = element as HTMLImageElement; await image.decode();
+    const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d")!; context.drawImage(image, 0, 0);
+    return { width: canvas.width, height: canvas.height, center: Array.from(context.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data) };
+  });
+  expect(pixels).toEqual({ width: 100, height: 60, center: [255, 0, 0, 255] });
+  await dialog.getByRole("button", { name: /^bug-area-.* entfernen$/ }).click();
+  await page.evaluate(() => document.getElementById("capture-fixture")?.remove());
   await dialog.getByText("Schritte und erwartetes Verhalten (optional)").click();
   await dialog.getByLabel("Schritte zum Reproduzieren").fill("Click save twice.");
   await dialog.getByLabel("Erwartetes Verhalten", { exact: true }).fill("The document should save.");
