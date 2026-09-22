@@ -1,4 +1,20 @@
 {
+  "bugReports": {
+    "report": "Report a bug", "shared": "Reports and screenshots are visible to everyone signed in. Check screenshots before sending.",
+    "viewReports": "View reported bugs", "noReports": "The shared Bugs board will appear after the first report.",
+    "title": "Short title", "happened": "What happened?", "optionalDetails": "Steps and expected behavior (optional)",
+    "steps": "Steps to reproduce", "expected": "Expected behavior", "screenshots": "Screenshots",
+    "fileHint": "Paste or upload up to 5 screenshots: PNG, JPEG or WebP, 10 MB each.", "remove": "Remove {name}",
+    "included": "Automatically included details", "page": "Page", "version": "App version", "browser": "Browser", "time": "Time",
+    "timeHint": "The final submission time is recorded by the server. No query strings, page contents or console logs are collected.",
+    "submit": "Send report", "saved": "Report BUG-{number} saved", "reportNumber": "Bug report BUG-{number}", "openReport": "Open report",
+    "close": "Done", "retryUploads": "Retry screenshots", "uploaded": "Uploaded", "pending": "Pending", "uploadError": "Upload failed",
+    "failed": "Could not save the report. Your input is kept; please try again.",
+    "detailsFailed": "Could not load report details. Close and reopen the task to retry.",
+    "uploadFailed": "Your report is saved, but some screenshots failed. Retry to upload only the missing screenshots.",
+    "invalidFiles": "Choose up to 5 PNG, JPEG or WebP screenshots, each no larger than 10 MB.",
+    "archived": "The Bugs project is archived. Ask an administrator to reopen it. Your draft is kept."
+  },
   "userIdentity": {
     "organizer": "Organizer",
     "participants": "Participants",

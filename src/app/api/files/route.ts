@@ -1,4 +1,5 @@
 import { db } from "@/db";
+import { isBugReport, saveBugScreenshot } from "@/modules/projects/bugs/uploads";
 import { wikiFigureRevisions } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -56,7 +57,9 @@ export async function POST(request: Request) {
       if (role !== "edit" && role !== "owner") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     if (entityType === "wikiPresentationLibrary") return NextResponse.json({ error: "Use the design library" }, { status: 403 });
-    const attachment = await saveAttachment({
+    const attachment = entityType === "task" && isBugReport(entityId)
+      ? await saveBugScreenshot(file, entityId, session.user.id, formData.get("uploadId"))
+      : await saveAttachment({
       file,
       entityType,
       entityId,

@@ -52,6 +52,15 @@ export async function saveAttachment(options: {
   entityId: string;
   userId: string;
 }) {
+  if (options.file.size > MAX_UPLOAD_BYTES) throw new UploadError("File exceeds the 50 MB limit");
+  const buffer = Buffer.from(await options.file.arrayBuffer());
+  return saveAttachmentBuffer({ ...options, buffer });
+}
+
+/** Synchronous persistence for callers that must atomically link an attachment. */
+export function saveAttachmentBuffer(options: {
+  file: File; entityType: AttachmentEntityType; entityId: string; userId: string; buffer: Buffer;
+}) {
   const { file, entityType, entityId, userId } = options;
 
   const ext = file.type === "image/svg+xml" && /\.svgz$/i.test(file.name)
@@ -62,7 +71,7 @@ export async function saveAttachment(options: {
     throw new UploadError("File exceeds the 50 MB limit");
   }
 
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const buffer = options.buffer;
   // Media is served inline: reject disguised HTML and unsupported containers.
   if (/^(audio|video)\//.test(file.type)) {
     const header = buffer.subarray(0, 16);

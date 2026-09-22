@@ -1,4 +1,5 @@
 import { WikiNavigation } from "@/modules/wiki/components/wiki-navigation";
+import { BugReportProvider } from "@/modules/projects/bugs/report-provider";
 import { UserIdentityProvider } from "@/components/user-identity";
 import { listUserIdentities } from "@/modules/settings/queries";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
@@ -52,6 +53,7 @@ export default async function AppLayout({
     <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>
       <DeadlineCreateProvider>
+      <BugReportProvider>
       <style>{`
         [data-app-shell]:has([data-project-focus-root="true"]) > [data-app-chrome] {
           display: none;
@@ -77,6 +79,7 @@ export default async function AppLayout({
           {children}
         </main>
       </div>
+      </BugReportProvider>
       </DeadlineCreateProvider>
     </TaskCreateProvider>
     </WikiNavigation>

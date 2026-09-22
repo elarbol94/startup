@@ -1,4 +1,5 @@
 "use client";
+import { BugReportDetails } from "@/modules/projects/bugs/report-details";
 
 import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
 
@@ -256,7 +257,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                 />
               )}
               {request.task && (
-                <ContextPanel
+                <><BugReportDetails key={request.task.id} taskId={request.task.id} showDescription /><ContextPanel
                   subjectType="task"
                   subjectId={request.task.id}
                   subjectLabel={request.task.title}
@@ -265,7 +266,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                     request.task.projectId,
                   )}
                   compact
-                />
+                /></>
               )}
               <div className="space-y-2">
               <Label htmlFor="context-task-title">{t("title")}</Label>

@@ -55,6 +55,8 @@ import { moduleNav, type ModuleNavItem } from "@/modules/registry";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
+import { Bug } from "lucide-react";
+import { useBugReporter } from "@/modules/projects/bugs/report-provider";
 
 const NAVIGATION_ORDER_STORAGE_KEY = "app-navigation-order:v1";
 
@@ -234,6 +236,8 @@ function AppNavigation({
   const tCalendar = useTranslations("calendar");
   const tTasks = useTranslations("tasks");
   const tDeadlines = useTranslations("deadlines");
+  const tBugs = useTranslations("bugReports");
+  const openBugReporter = useBugReporter();
   const router = useRouter();
   const { openTaskCreator } = useTaskCreator();
   const { openDeadlineCreator } = useDeadlineCreator();
@@ -345,6 +349,11 @@ function AppNavigation({
             </SortableContext>
           </DndContext>
           <div className="mt-auto flex flex-col gap-1">
+            <button type="button" aria-label={tBugs("report")} title={tBugs("report")}
+              className={cn("flex h-10 items-center rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground", compact ? "justify-center px-0" : "gap-3 px-3")}
+              onClick={() => { onNavigate?.(); openBugReporter(); }}>
+              <Bug className="size-5" />{!compact && <span>{tBugs("report")}</span>}
+            </button>
             <NavLink
               href="/settings"
               label={t("settings")}

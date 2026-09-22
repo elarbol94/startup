@@ -1,4 +1,5 @@
 "use client";
+import { BugReportDetails } from "@/modules/projects/bugs/report-details";
 
 import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
 
@@ -179,6 +180,7 @@ export function TaskDialog({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          {task && <BugReportDetails key={task.id} taskId={task.id} />}
           {isSubtask && parentTask && (
             <div className="flex items-center gap-1.5 rounded-md border bg-muted/35 px-3 py-2 text-xs text-muted-foreground">
               <span>{t("subtaskOf")}</span>

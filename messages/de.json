@@ -1,4 +1,20 @@
 {
+  "bugReports": {
+    "report": "Fehler melden", "shared": "Meldungen und Screenshots sind für alle angemeldeten Nutzer sichtbar. Prüfe Screenshots vor dem Senden.",
+    "viewReports": "Gemeldete Fehler ansehen", "noReports": "Das gemeinsame Bugs-Board erscheint nach der ersten Meldung.",
+    "title": "Kurzer Titel", "happened": "Was ist passiert?", "optionalDetails": "Schritte und erwartetes Verhalten (optional)",
+    "steps": "Schritte zum Reproduzieren", "expected": "Erwartetes Verhalten", "screenshots": "Screenshots",
+    "fileHint": "Bis zu 5 Screenshots einfügen oder hochladen: PNG, JPEG oder WebP, jeweils 10 MB.", "remove": "{name} entfernen",
+    "included": "Automatisch beigefügte Angaben", "page": "Seite", "version": "App-Version", "browser": "Browser", "time": "Zeitpunkt",
+    "timeHint": "Der endgültige Meldezeitpunkt wird vom Server erfasst. URL-Parameter, Seiteninhalte und Konsolenprotokolle werden nicht gesammelt.",
+    "submit": "Meldung senden", "saved": "Meldung BUG-{number} gespeichert", "reportNumber": "Fehlermeldung BUG-{number}", "openReport": "Meldung öffnen",
+    "close": "Fertig", "retryUploads": "Screenshots erneut hochladen", "uploaded": "Hochgeladen", "pending": "Ausstehend", "uploadError": "Upload fehlgeschlagen",
+    "failed": "Die Meldung konnte nicht gespeichert werden. Deine Eingaben bleiben erhalten. Bitte erneut versuchen.",
+    "detailsFailed": "Die Meldungsdetails konnten nicht geladen werden. Schließe und öffne die Aufgabe erneut.",
+    "uploadFailed": "Deine Meldung wurde gespeichert, aber einige Screenshots fehlen. Erneut versuchen lädt nur fehlende Screenshots hoch.",
+    "invalidFiles": "Wähle bis zu 5 PNG-, JPEG- oder WebP-Screenshots mit jeweils höchstens 10 MB.",
+    "archived": "Das Bugs-Projekt ist archiviert. Bitte einen Administrator, es wieder zu öffnen. Dein Entwurf bleibt erhalten."
+  },
   "userIdentity": {
     "organizer": "Organisiert von",
     "participants": "Teilnehmende",
