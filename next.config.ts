@@ -43,7 +43,6 @@ const nextConfig: NextConfig = {
     }];
   },
   experimental: {
-    instantNavigationDevToolsToggle: true,
     // On Windows this project's persistent Turbopack cache grew past 4 GB,
     // causing long cache compactions and excessive memory use in development.
     turbopackFileSystemCacheForDev: false,
