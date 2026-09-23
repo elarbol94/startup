@@ -79,6 +79,7 @@ export function TaskDialog({
   parentTask: BoardTaskDto | null;
   subtasks: BoardTaskDto[];
   predecessorOptions?: Array<{ id: string; title: string; dueDate: string | null; type: "project" | "task" }>;
+  readOnly?: boolean;
 }) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");

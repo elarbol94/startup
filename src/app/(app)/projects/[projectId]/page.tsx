@@ -1,7 +1,7 @@
 import { UserAttribution } from "@/components/user-identity";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getLocale } from "next-intl/server";
+import { getTranslations } from "next-intl/server";
 import { ArrowLeft, BookOpen, KanbanSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getBoard, getPortfolioSchedule, getProject, listMembers } from "@/modules/projects/queries";
@@ -19,10 +19,10 @@ export default async function ProjectBoardPage({
   searchParams: Promise<{ view?: string }>;
 }) {
   await requireUser();
-  const [{ projectId }, query, locale] = await Promise.all([
+  const [{ projectId }, query, t] = await Promise.all([
     params,
     searchParams,
-    getLocale(),
+    getTranslations("projects"),
   ]);
   const project = getProject(projectId);
   if (!project) notFound();
@@ -30,7 +30,6 @@ export default async function ProjectBoardPage({
   const projectContext = knowledgeView
     ? listEntityContext("project", projectId)
     : undefined;
-  const de = locale !== "en";
 
   const { columns, tasksByColumn, subtasksByParent } = getBoard(projectId);
   const members = listMembers();
@@ -45,7 +44,7 @@ export default async function ProjectBoardPage({
       <header className="flex flex-wrap items-center gap-3 border-b pb-4">
         <Link
           href="/projects"
-          aria-label={de ? "Zurück zu Projekten" : "Back to projects"}
+          aria-label={t("backToProjects")}
           className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
         >
           <ArrowLeft className="size-4" />
@@ -57,7 +56,11 @@ export default async function ProjectBoardPage({
         <div className="min-w-0">
           <h1 className="truncate text-2xl font-semibold tracking-tight">
             {project.name}
-          </h1><UserAttribution userId={project.managerId} relation="managedBy" /><UserAttribution userId={project.createdBy} relation="createdBy" />
+          </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <UserAttribution userId={project.managerId} relation="managedBy" />
+            <UserAttribution userId={project.createdBy} relation="createdBy" />
+          </div>
           {project.description && (
             <p className="mt-0.5 max-w-2xl truncate text-xs text-muted-foreground">
               {project.description}
@@ -65,7 +68,7 @@ export default async function ProjectBoardPage({
           )}
         </div>
         <nav
-          aria-label={de ? "Projektansicht" : "Project view"}
+          aria-label={t("projectView")}
           className="ml-auto flex rounded-lg border bg-muted/40 p-1"
         >
           <Link
@@ -78,7 +81,7 @@ export default async function ProjectBoardPage({
             )}
           >
             <KanbanSquare className="size-4" />
-            {de ? "Aufgaben" : "Tasks"}
+            {t("viewTasks")}
           </Link>
           <Link
             href={`/projects/${projectId}?view=knowledge`}
@@ -90,7 +93,7 @@ export default async function ProjectBoardPage({
             )}
           >
             <BookOpen className="size-4" />
-            {de ? "Wissen" : "Knowledge"}
+            {t("viewKnowledge")}
           </Link>
         </nav>
       </header>

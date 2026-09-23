@@ -2,13 +2,21 @@
 
 import { UserIdentity } from "@/components/user-identity";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   DndContext,
   DragOverlay,
+  KeyboardSensor,
   MouseSensor,
   TouchSensor,
   closestCorners,
@@ -20,6 +28,7 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -28,24 +37,43 @@ import { useDroppable } from "@dnd-kit/core";
 import { toast } from "sonner";
 import {
   ArrowLeft,
+  ArrowRight,
   AlertTriangle,
+  Archive,
   CalendarDays,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Loader2,
   MoreHorizontal,
   Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
-import { moveTask, deleteColumn, upsertColumn } from "@/modules/projects/actions";
+import {
+  moveTask,
+  deleteColumn,
+  setProjectStatus,
+  upsertColumn,
+} from "@/modules/projects/actions";
+import { moveColumn } from "@/modules/projects/column-actions";
 import type { projects as projectsTable } from "@/modules/projects/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { TaskDialog, type BoardTaskDto, type MemberDto } from "./task-dialog";
@@ -96,7 +124,7 @@ function RecursiveTaskRows({
   columns: ColumnDto[];
   expandedTasks: Set<string>;
   onToggleTask: (taskId: string) => void;
-  onAddSubtask: (task: BoardTaskDto) => void;
+  onAddSubtask?: (task: BoardTaskDto) => void;
   onEditTask: (task: BoardTaskDto) => void;
 }) {
   const t = useTranslations("projects");
@@ -144,7 +172,7 @@ function RecursiveTaskRows({
           ) : (
             <AlertTriangle className="size-3 text-amber-600" aria-label={t("unscheduled")} />
           )}
-          {!task.isMilestone && (
+          {!task.isMilestone && onAddSubtask && (
             <button
               type="button"
               className="rounded p-0.5 text-muted-foreground hover:bg-violet-100 hover:text-foreground dark:hover:bg-violet-950"
@@ -203,8 +231,11 @@ function TaskCard({
   const t = useTranslations("projects");
   const format = useFormatter();
   const today = localDateInZone(new Date(), "Europe/Vienna");
+  const inCompletedColumn = Boolean(
+    columns.find((column) => column.id === task.columnId)?.isCompleted,
+  );
   const overdue =
-    task.dueDate !== null && task.dueDate < today;
+    !inCompletedColumn && task.dueDate !== null && task.dueDate < today;
   const subtasks = subtasksByParent[task.id] ?? [];
   const leaves = descendantLeaves(task.id, subtasksByParent);
   const completedSubtasks = leaves.filter(
@@ -315,14 +346,14 @@ function TaskCard({
                 columns={columns}
                 expandedTasks={expandedTasks}
                 onToggleTask={onToggleTask ?? (() => undefined)}
-                onAddSubtask={(child) => onAddSubtask?.(child)}
+                onAddSubtask={onAddSubtask}
                 onEditTask={(child) => onEditSubtask?.(child)}
               />
             </div>
           )}
         </div>
       )}
-      {!overlay && onAddSubtask && (
+      {!overlay && onAddSubtask && !task.isMilestone && (
         <button
           type="button"
           data-add-subtask-for={task.id}
@@ -352,6 +383,7 @@ function SortableTask({
   onEditSubtask,
   expandedTasks,
   onToggleTask,
+  readOnly,
 }: {
   task: BoardTaskDto;
   subtasksByParent: Record<string, BoardTaskDto[]>;
@@ -361,13 +393,34 @@ function SortableTask({
   onEditSubtask: (task: BoardTaskDto) => void;
   expandedTasks: Set<string>;
   onToggleTask: (taskId: string) => void;
+  readOnly: boolean;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id: task.id, data: { type: "task", columnId: task.columnId } });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    setActivatorNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: task.id,
+    data: { type: "task", columnId: task.columnId },
+    disabled: readOnly,
+  });
+  // The card wrapper is also the keyboard activator, so Space/Enter on the
+  // nested buttons (subtasks, add subtask) keep their own behaviour.
+  const setRefs = useCallback(
+    (node: HTMLElement | null) => {
+      setNodeRef(node);
+      setActivatorNodeRef(node);
+    },
+    [setNodeRef, setActivatorNodeRef],
+  );
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setRefs}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={isDragging ? "opacity-40" : undefined}
       {...attributes}
@@ -378,7 +431,7 @@ function SortableTask({
         subtasksByParent={subtasksByParent}
         columns={columns}
         onClick={onClick}
-        onAddSubtask={onAddSubtask}
+        onAddSubtask={readOnly ? undefined : onAddSubtask}
         onEditSubtask={onEditSubtask}
         expanded={expandedTasks.has(task.id)}
         onToggleExpanded={() => onToggleTask(task.id)}
@@ -404,7 +457,11 @@ function BoardColumn({
   onDelete,
   onToggleCompleted,
   onWorkflowStage,
+  onMove,
   canDelete,
+  canMoveLeft,
+  canMoveRight,
+  readOnly,
 }: {
   column: ColumnDto;
   tasks: BoardTaskDto[];
@@ -420,13 +477,18 @@ function BoardColumn({
   onDelete: () => void;
   onToggleCompleted: () => void;
   onWorkflowStage: (stage: "todo" | "in_progress") => void;
+  onMove: (direction: "left" | "right") => void;
   canDelete: boolean;
+  canMoveLeft: boolean;
+  canMoveRight: boolean;
+  readOnly: boolean;
 }) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");
   const { setNodeRef } = useDroppable({
     id: column.id,
     data: { type: "column" },
+    disabled: readOnly,
   });
   const boardT = useTranslations("tasks.board");
 
@@ -439,11 +501,19 @@ function BoardColumn({
         <span className="text-sm font-medium">{column.name}</span>
         <span className="text-xs text-muted-foreground">{tasks.length}</span>
         <div className="ml-auto flex items-center">
-          <Button variant="ghost" size="icon-xs" onClick={onAddTask} title={t("newTask")} aria-label={t("newTask")}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            onClick={onAddTask}
+            disabled={readOnly}
+            title={t("newTask")}
+            aria-label={t("newTask")}
+          >
             <Plus className="size-3.5" />
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger
+              disabled={readOnly}
               render={
                 <Button
                   variant="ghost"
@@ -459,6 +529,15 @@ function BoardColumn({
                 <Pencil className="mr-2 size-4" />
                 {t("renameColumn")}
               </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveLeft} onClick={() => onMove("left")}>
+                <ArrowLeft className="mr-2 size-4" />
+                {t("moveColumnLeft")}
+              </DropdownMenuItem>
+              <DropdownMenuItem disabled={!canMoveRight} onClick={() => onMove("right")}>
+                <ArrowRight className="mr-2 size-4" />
+                {t("moveColumnRight")}
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem onClick={onToggleCompleted}>
                 <CheckCircle2 className="mr-2 size-4" />
                 {column.isCompleted
@@ -495,11 +574,79 @@ function BoardColumn({
               onEditSubtask={onEditSubtask}
               expandedTasks={expandedTasks}
               onToggleTask={onToggleTask}
+              readOnly={readOnly}
             />
           ))}
         </div>
       </SortableContext>
     </div>
+  );
+}
+
+/** Small create/rename dialog; Enter submits the form, Escape closes it. */
+function ColumnNameDialog({
+  open,
+  initialName,
+  renaming,
+  onOpenChange,
+  onSave,
+}: {
+  open: boolean;
+  initialName: string;
+  renaming: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (name: string) => Promise<void>;
+}) {
+  const t = useTranslations("projects");
+  const tCommon = useTranslations("common");
+  const [name, setName] = useState(initialName);
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!name.trim() || pending) return;
+    setPending(true);
+    try {
+      await onSave(name.trim());
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-sm">
+        <DialogHeader>
+          <DialogTitle>{renaming ? t("renameColumn") : t("newColumn")}</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="board-column-name">{t("columnName")}</Label>
+            <Input
+              id="board-column-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={100}
+              autoFocus
+              required
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              {tCommon("cancel")}
+            </Button>
+            <Button type="submit" disabled={pending || !name.trim()}>
+              {pending && <Loader2 className="size-4 animate-spin" />}
+              {tCommon("save")}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -524,6 +671,7 @@ export function BoardClient({
   const tCommon = useTranslations("common");
   const router = useRouter();
   const searchParams = useSearchParams();
+  const readOnly = project.status === "archived";
 
   // Local optimistic copy of the board, refreshed from the server props
   // via render-time state adjustment.
@@ -542,11 +690,20 @@ export function BoardClient({
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(
     () => new Set(),
   );
+  const [columnDialog, setColumnDialog] = useState<{
+    key: number;
+    open: boolean;
+    column: ColumnDto | null;
+  }>({ key: 0, open: false, column: null });
+  const [restoring, setRestoring] = useState(false);
   const dragStartBoardRef = useRef<Record<string, BoardTaskDto[]> | null>(null);
+  // True while the open task dialog owns a history entry pushed by openTask.
+  const pushedTaskEntryRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
   const taskIndex = useMemo(() => {
@@ -579,6 +736,16 @@ export function BoardClient({
     }, 0);
     return () => window.clearTimeout(timer);
   }, [focusedTaskId, taskIndex]);
+
+  // Browser Back/Forward leaves the pushed entry; useSearchParams then drops
+  // `task` and the effect above closes the dialog.
+  useEffect(() => {
+    const onPopState = () => {
+      pushedTaskEntryRef.current = false;
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
 
   function findColumnOf(taskId: string): string | undefined {
     for (const [columnId, list] of Object.entries(board)) {
@@ -630,9 +797,9 @@ export function BoardClient({
     });
   }
 
-  async function onDragEnd(event: DragEndEvent) {
+  function onDragEnd(event: DragEndEvent) {
     const { active, over } = event;
-    setActiveTask(null);
+    const startBoard = dragStartBoardRef.current;
     if (!over) {
       restoreCancelledDrag();
       return;
@@ -641,45 +808,67 @@ export function BoardClient({
     const overId = String(over.id);
     const toColumn =
       over.data.current?.type === "column" ? overId : findColumnOf(overId);
-    if (!toColumn) return;
+    const column = toColumn ? [...(board[toColumn] ?? [])] : [];
+    const fromIndex = column.findIndex((item) => item.id === activeId);
+    if (!toColumn || fromIndex === -1) {
+      restoreCancelledDrag();
+      return;
+    }
 
-    // Compute final position within the target column.
+    // Compute the final position once, outside any state updater, so the
+    // move is persisted exactly once.
+    let toIndex =
+      over.data.current?.type === "column"
+        ? column.length - 1
+        : column.findIndex((item) => item.id === overId);
+    if (toIndex < 0) toIndex = column.length - 1;
+    const [moved] = column.splice(fromIndex, 1);
+    column.splice(toIndex, 0, moved);
+    const afterTaskId = toIndex > 0 ? column[toIndex - 1].id : null;
+
     dragStartBoardRef.current = null;
-    setBoard((current) => {
-      const column = [...(current[toColumn] ?? [])];
-      const fromIndex = column.findIndex((item) => item.id === activeId);
-      if (fromIndex === -1) return current;
-      let toIndex =
-        over.data.current?.type === "column"
-          ? column.length - 1
-          : column.findIndex((item) => item.id === overId);
-      if (toIndex < 0) toIndex = column.length - 1;
-      const next = { ...current };
-      const [moved] = column.splice(fromIndex, 1);
-      column.splice(toIndex, 0, moved);
-      next[toColumn] = column;
+    setActiveTask(null);
+    setBoard({ ...board, [toColumn]: column });
 
-      const afterTaskId = toIndex > 0 ? column[toIndex - 1].id : null;
-      moveTask({ taskId: activeId, columnId: toColumn, afterTaskId }).catch(() => {
-        toast.error(tCommon("error"));
-        router.refresh();
-      });
-      return next;
+    const startColumn = startBoard?.[toColumn] ?? [];
+    const startIndex = startColumn.findIndex((item) => item.id === activeId);
+    if (
+      startIndex !== -1 &&
+      (startIndex > 0 ? startColumn[startIndex - 1].id : null) === afterTaskId
+    ) {
+      return; // Dropped where it started.
+    }
+    moveTask({ taskId: activeId, columnId: toColumn, afterTaskId }).catch(() => {
+      toast.error(tCommon("error"));
+      router.refresh();
     });
   }
 
-  async function onRenameColumn(column: ColumnDto) {
-    const name = window.prompt(t("columnName"), column.name);
-    if (!name?.trim()) return;
-    await upsertColumn({ id: column.id, projectId: project.id, name: name.trim() });
-    router.refresh();
+  function openColumnDialog(column: ColumnDto | null) {
+    setColumnDialog((current) => ({ key: current.key + 1, open: true, column }));
   }
 
-  async function onAddColumn() {
-    const name = window.prompt(t("columnName"));
-    if (!name?.trim()) return;
-    await upsertColumn({ projectId: project.id, name: name.trim() });
-    router.refresh();
+  function closeColumnDialog() {
+    setColumnDialog((current) => ({ ...current, open: false }));
+  }
+
+  async function saveColumnName(name: string) {
+    const column = columnDialog.column;
+    if (column && column.name === name) {
+      closeColumnDialog();
+      return;
+    }
+    try {
+      await upsertColumn(
+        column
+          ? { id: column.id, projectId: project.id, name }
+          : { projectId: project.id, name },
+      );
+      closeColumnDialog();
+      router.refresh();
+    } catch {
+      toast.error(tCommon("error"));
+    }
   }
 
   async function onDeleteColumn(column: ColumnDto) {
@@ -692,7 +881,29 @@ export function BoardClient({
     }
   }
 
+  async function onMoveColumn(column: ColumnDto, direction: "left" | "right") {
+    try {
+      const { moved } = await moveColumn({ columnId: column.id, direction });
+      if (moved) router.refresh();
+    } catch {
+      toast.error(tCommon("error"));
+    }
+  }
+
+  async function onRestoreProject() {
+    setRestoring(true);
+    try {
+      await setProjectStatus(project.id, "active");
+      router.refresh();
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setRestoring(false);
+    }
+  }
+
   function openNewTask(columnId: string, parentTaskId: string | null = null) {
+    if (readOnly) return;
     setEditingTask(null);
     setNewTaskColumnId(columnId);
     setNewTaskParentId(parentTaskId);
@@ -705,14 +916,24 @@ export function BoardClient({
     setNewTaskParentId(task.parentTaskId);
     setTaskDialogOpen(true);
     const params = new URLSearchParams(window.location.search);
+    if (params.get("task") === task.id) return;
     params.set("task", task.id);
     window.history.pushState(null, "", `${window.location.pathname}?${params.toString()}`);
+    pushedTaskEntryRef.current = true;
   }
 
   function setDialogOpen(nextOpen: boolean) {
     setTaskDialogOpen(nextOpen);
     if (nextOpen) return;
     const params = new URLSearchParams(window.location.search);
+    if (!params.has("task")) return;
+    if (pushedTaskEntryRef.current) {
+      // Undo our own push so Back afterwards leaves the board as expected.
+      pushedTaskEntryRef.current = false;
+      window.history.back();
+      return;
+    }
+    // Opened directly via ?task=: nothing of ours to pop, just clean the URL.
     params.delete("task");
     const query = params.toString();
     window.history.replaceState(
@@ -732,17 +953,42 @@ export function BoardClient({
   }
 
   async function onToggleCompleted(column: ColumnDto) {
-    await upsertColumn({
-      id: column.id,
-      projectId: project.id,
-      name: column.name,
-      isCompleted: !column.isCompleted,
-    });
-    router.refresh();
+    try {
+      await upsertColumn({
+        id: column.id,
+        projectId: project.id,
+        name: column.name,
+        isCompleted: !column.isCompleted,
+      });
+      router.refresh();
+    } catch {
+      toast.error(tCommon("error"));
+    }
   }
 
   return (
     <div className="flex h-full min-w-0 w-full flex-col gap-4">
+      {readOnly && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+        >
+          <Archive className="size-4 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">{t("archivedTitle")}</p>
+            <p className="text-xs opacity-80">{t("archivedDescription")}</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRestoreProject}
+            disabled={restoring}
+          >
+            {restoring && <Loader2 className="size-4 animate-spin" />}
+            {t("unarchive")}
+          </Button>
+        </div>
+      )}
       <div className={cn("flex min-w-0 w-full items-center gap-2", hideHeader && "justify-end")}>
         {!hideHeader && (
           <>
@@ -768,7 +1014,7 @@ export function BoardClient({
           onClick={() => {
             openNewTask(columns[0]?.id ?? "");
           }}
-          disabled={columns.length === 0}
+          disabled={readOnly || columns.length === 0}
         >
           <Plus className="size-4" />
           {t("newTask")}
@@ -776,6 +1022,7 @@ export function BoardClient({
       </div>
 
       <DndContext
+        id={`board-${project.id}`}
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={onDragStart}
@@ -784,7 +1031,7 @@ export function BoardClient({
         onDragCancel={restoreCancelledDrag}
       >
         <div className="flex min-w-0 max-w-full flex-1 items-start gap-3 overflow-x-auto pb-4">
-          {columns.map((column) => (
+          {columns.map((column, index) => (
             <BoardColumn
               key={column.id}
               column={column}
@@ -793,6 +1040,9 @@ export function BoardClient({
               columns={columns}
               expandedTasks={expandedTasks}
               canDelete={columns.length > 1}
+              canMoveLeft={index > 0}
+              canMoveRight={index < columns.length - 1}
+              readOnly={readOnly}
               onAddTask={() => openNewTask(column.id)}
               onAddSubtask={(task) => {
                 setExpandedTasks((current) => {
@@ -811,29 +1061,43 @@ export function BoardClient({
               onEditTask={openTask}
               onEditSubtask={openTask}
               onToggleTask={toggleTask}
-              onRename={() => onRenameColumn(column)}
+              onRename={() => openColumnDialog(column)}
               onDelete={() => onDeleteColumn(column)}
               onToggleCompleted={() => onToggleCompleted(column)}
+              onMove={(direction) => onMoveColumn(column, direction)}
               onWorkflowStage={async workflowStage => {
                 try { await upsertColumn({ id: column.id, projectId: project.id, name: column.name, workflowStage }); router.refresh(); }
                 catch { toast.error(tCommon("error")); }
               }}
             />
           ))}
-          <Button
-            variant="outline"
-            size="sm"
-            className="mt-1 shrink-0"
-            onClick={onAddColumn}
-          >
-            <Plus className="size-4" />
-            {t("newColumn")}
-          </Button>
+          {!readOnly && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-1 shrink-0"
+              onClick={() => openColumnDialog(null)}
+            >
+              <Plus className="size-4" />
+              {t("newColumn")}
+            </Button>
+          )}
         </div>
         <DragOverlay>
-          {activeTask && <TaskCard task={activeTask} overlay />}
+          {activeTask && <TaskCard task={activeTask} columns={columns} overlay />}
         </DragOverlay>
       </DndContext>
+
+      <ColumnNameDialog
+        key={columnDialog.key}
+        open={columnDialog.open}
+        initialName={columnDialog.column?.name ?? ""}
+        renaming={columnDialog.column !== null}
+        onOpenChange={(open) => {
+          if (!open) closeColumnDialog();
+        }}
+        onSave={saveColumnName}
+      />
 
       <TaskDialog
         open={taskDialogOpen}
@@ -853,6 +1117,7 @@ export function BoardClient({
         }
         subtasks={editingTask ? (subtasksByParent[editingTask.id] ?? []) : []}
         predecessorOptions={predecessorOptions.filter((candidate) => candidate.id !== editingTask?.id)}
+        readOnly={readOnly}
       />
     </div>
   );
