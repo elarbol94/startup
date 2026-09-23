@@ -35,8 +35,6 @@ import {
   type ScheduleEntityChange,
   type SchedulePreview,
   taskDescendants,
-  addCalendarDays,
-  calendarDayDistance,
 } from "@/modules/projects/schedule";
 
 import { getPortfolioSchedule } from "./queries";
@@ -54,42 +52,8 @@ import {
   syncTaskAncestors,
 } from "./task-sync";
 import { detachTaskFromProject, moveTaskSubtreeToProject } from "./task-move";
+import { cascadeProjectSuccessors, deleteProjectRows, revalidateProjectPaths } from "./project-links";
 
-
-/** Applies project successors after their predecessor's finish moves. */
-function cascadeProjectSuccessors(predecessorType: "project" | "task", predecessorId: string, visited = new Set<string>()) {
-  const predecessorDueDate = predecessorType === "project"
-    ? db.select({ dueDate: projects.targetEndDate }).from(projects).where(eq(projects.id, predecessorId)).get()?.dueDate
-    : db.select({ dueDate: tasks.dueDate }).from(tasks).where(eq(tasks.id, predecessorId)).get()?.dueDate;
-  if (!predecessorDueDate) return;
-  const requiredStart = addCalendarDays(predecessorDueDate, 1);
-  const links = db.select().from(projectDependencies).where(and(eq(projectDependencies.predecessorType, predecessorType), eq(projectDependencies.predecessorId, predecessorId))).all();
-  for (const link of links) {
-    if (visited.has(link.successorProjectId)) continue;
-    visited.add(link.successorProjectId);
-    const successor = db.select().from(projects).where(eq(projects.id, link.successorProjectId)).get();
-    if (!successor?.plannedStartDate || !successor.targetEndDate || successor.plannedStartDate >= requiredStart) continue;
-    const shift = calendarDayDistance(successor.plannedStartDate, requiredStart);
-    db.transaction((tx) => {
-      tx.update(projects).set({ plannedStartDate: requiredStart, targetEndDate: addCalendarDays(successor.targetEndDate!, shift), updatedAt: new Date() }).where(eq(projects.id, successor.id)).run();
-      const projectTasks = tx.select().from(tasks).where(eq(tasks.projectId, successor.id)).all();
-      for (const task of projectTasks) {
-        if (!task.startDate || !task.dueDate) continue;
-        tx.update(tasks).set({ startDate: addCalendarDays(task.startDate, shift), dueDate: addCalendarDays(task.dueDate, shift), updatedAt: new Date() }).where(eq(tasks.id, task.id)).run();
-      }
-    });
-    cascadeProjectSuccessors("project", successor.id, visited);
-  }
-  if (predecessorType === "project") {
-    for (const link of db.select().from(projectTaskDependencies).where(eq(projectTaskDependencies.predecessorProjectId, predecessorId)).all()) {
-      const successor = db.select().from(tasks).where(eq(tasks.id, link.successorTaskId)).get();
-      if (!successor?.startDate || !successor.dueDate || successor.startDate >= requiredStart) continue;
-      const shift = calendarDayDistance(successor.startDate, requiredStart);
-      db.update(tasks).set({ startDate: requiredStart, dueDate: addCalendarDays(successor.dueDate, shift), updatedAt: new Date() }).where(eq(tasks.id, successor.id)).run();
-      cascadeProjectSuccessors("task", successor.id, visited);
-    }
-  }
-}
 
 // --- Projects ---
 
@@ -131,13 +95,19 @@ const projectSchema = z.object({
 
 export type ProjectInput = z.input<typeof projectSchema>;
 
-// Column names are created per locale on the client side.
+// Callers pass translated column names; the fallback uses the request locale.
 export async function upsertProject(
   input: ProjectInput,
   defaultColumns?: string[],
 ): Promise<typeof projects.$inferSelect> {
-  const user = await requireUserOrThrow();
+  const actor = await requireUserOrThrow();
   const data = projectSchema.parse(input);
+  if (
+    data.managerId &&
+    !db.select({ id: user.id }).from(user).where(eq(user.id, data.managerId)).get()
+  ) {
+    throw new Error("Manager not found");
+  }
 
   if (data.id) {
     const projectId = data.id;
@@ -229,77 +199,103 @@ export async function upsertProject(
       syncProjectBounds(projectId);
     });
     if (scheduleDatesChanged) cascadeProjectSuccessors("project", projectId);
-    revalidatePath("/projects");
+    revalidateProjectPaths(projectId);
     return db.select().from(projects).where(eq(projects.id, projectId)).get()!;
   }
 
-  const row = db
-    .insert(projects)
-    .values({
-      name: data.name,
-      description: data.description,
-      color: data.color,
-      managerId: data.managerId,
-      plannedStartDate: data.plannedStartDate,
-      targetEndDate: data.targetEndDate,
-      createdBy: user.id,
-    })
-    .returning({ id: projects.id })
-    .get();
-
-  if (data.predecessor) {
-    db.insert(projectDependencies).values({
-      predecessorType: data.predecessor.type,
-      predecessorId: data.predecessor.id,
-      successorProjectId: row.id,
-    }).run();
+  const predecessor = data.predecessor;
+  if (predecessor) {
+    const exists = predecessor.type === "project"
+      ? db.select({ id: projects.id }).from(projects).where(eq(projects.id, predecessor.id)).get()
+      : db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, predecessor.id)).get();
+    if (!exists) throw new Error("Predecessor not found");
   }
 
-  const columnNames = (defaultColumns ?? ["Offen", "In Arbeit", "Erledigt"])
-    .slice(0, 10)
-    .filter((name) => name.trim().length > 0);
-  db.insert(projectColumns)
-    .values(
-      columnNames.map((name, index) => ({
-        projectId: row.id,
-        name,
-        sortOrder: (index + 1) * SORT_GAP,
-        isCompleted: index === columnNames.length - 1,
-        workflowStage: index === 0 ? "todo" as const : "in_progress" as const,
-      })),
-    )
-    .run();
+  const columnNames = projectColumnNamesSchema
+    .parse(defaultColumns ?? (await defaultProjectColumnNames()))
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  if (columnNames.length === 0) throw new Error("A project needs at least one column");
 
-  cascadeProjectSuccessors("project", row.id);
+  const row = db.transaction((tx) => {
+    const created = tx
+      .insert(projects)
+      .values({
+        name: data.name,
+        description: data.description,
+        color: data.color,
+        managerId: data.managerId,
+        plannedStartDate: data.plannedStartDate,
+        targetEndDate: data.targetEndDate,
+        createdBy: actor.id,
+      })
+      .returning({ id: projects.id })
+      .get();
 
-  revalidatePath("/projects");
+    if (predecessor) {
+      tx.insert(projectDependencies).values({
+        predecessorType: predecessor.type,
+        predecessorId: predecessor.id,
+        successorProjectId: created.id,
+      }).run();
+    }
+
+    tx.insert(projectColumns)
+      .values(
+        columnNames.map((name, index) => ({
+          projectId: created.id,
+          name,
+          sortOrder: (index + 1) * SORT_GAP,
+          isCompleted: index === columnNames.length - 1,
+          workflowStage: index === 0 ? "todo" as const : "in_progress" as const,
+        })),
+      )
+      .run();
+    return created;
+  });
+
+  if (predecessor) cascadeProjectSuccessors(predecessor.type, predecessor.id);
+
+  revalidateProjectPaths(row.id);
   return db.select().from(projects).where(eq(projects.id, row.id)).get()!;
 }
 
+const projectColumnNamesSchema = z.array(z.string().max(100)).max(10);
+
+/** Default board columns in the requesting user's language. */
+async function defaultProjectColumnNames(): Promise<string[]> {
+  try {
+    const { getTranslations } = await import("next-intl/server");
+    const t = await getTranslations("projects");
+    return [t("colOpen"), t("colInProgress"), t("colDone")];
+  } catch {
+    // Outside a request (scripts, tests) there is no locale; use the primary UI language.
+    return ["Offen", "In Arbeit", "Erledigt"];
+  }
+}
+
+const projectIdSchema = z.string().min(1).max(128);
+
 export async function setProjectStatus(id: string, status: "active" | "archived") {
   await requireUserOrThrow();
+  const projectId = projectIdSchema.parse(id);
   const nextStatus = z.enum(["active", "archived"]).parse(status);
   db.update(projects)
     .set({ status: nextStatus, updatedAt: new Date() })
-    .where(eq(projects.id, id))
+    .where(eq(projects.id, projectId))
     .run();
-  revalidatePath("/projects");
+  revalidateProjectPaths(projectId);
 }
 
+/**
+ * Deletes a project, its columns, tasks and every dependency or context link
+ * that points at the project or one of its tasks, in one transaction.
+ */
 export async function deleteProject(id: string) {
   await requireUserOrThrow();
-  db.transaction((tx) => {
-    tx.delete(contextLinks)
-      .where(
-        and(
-          eq(contextLinks.ownerType, "project"),
-          eq(contextLinks.ownerId, id),
-        ),
-      )
-      .run();
-    tx.delete(projects).where(eq(projects.id, id)).run();
-  });
-  revalidatePath("/projects");
+  const projectId = projectIdSchema.parse(id);
+  db.transaction((tx) => deleteProjectRows(tx, projectId));
+  revalidateProjectPaths(projectId);
 }
 
 // --- Columns ---

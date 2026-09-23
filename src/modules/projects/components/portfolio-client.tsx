@@ -19,6 +19,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   AlertTriangle,
+  Archive,
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
@@ -41,6 +42,7 @@ import {
   LocateFixed,
   Minimize2,
   PanelRightClose,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -58,10 +60,8 @@ import {
   resetDependencyRoutes,
   reapplyPortfolioScheduleChange,
   revertPortfolioScheduleChange,
-  upsertProject,
   upsertTask,
   upsertTaskDependency,
-  type ProjectInput,
   type TaskInput,
 } from "@/modules/projects/actions";
 import type {
@@ -101,7 +101,7 @@ import {
 } from "@/modules/projects/gantt-routing";
 import { planStructureMove, structureDropPlacement, type DropPlacement } from "../structure";
 import { ProjectsClient } from "./projects-client";
-import { ColorPicker } from "@/components/ui/color-picker";
+import { ProjectDialogs, projectPredecessorOptions, type ProjectDialogState } from "./project-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1406,76 +1406,6 @@ function ScheduleInspector({
   );
 }
 
-function NewProjectDialog({
-  open,
-  onOpenChange,
-  members,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  members: PortfolioSchedule["members"];
-}) {
-  const t = useTranslations("projects");
-  const tCommon = useTranslations("common");
-  const router = useRouter();
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#2563eb");
-  const [managerId, setManagerId] = useState("none");
-  const [plannedStartDate, setPlannedStartDate] = useState("");
-  const [targetEndDate, setTargetEndDate] = useState("");
-  const [pending, setPending] = useState(false);
-
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
-    setPending(true);
-    try {
-      const input: ProjectInput = {
-        name,
-        description,
-        color,
-        managerId: managerId === "none" ? null : managerId,
-        plannedStartDate: plannedStartDate || null,
-        targetEndDate: targetEndDate || null,
-      };
-      await upsertProject(
-        input,
-        [t("colOpen"), t("colInProgress"), t("colDone")],
-      );
-      onOpenChange(false);
-      setName("");
-      setDescription("");
-      toast.success(tCommon("saved"));
-      router.refresh();
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>{t("newProject")}</DialogTitle></DialogHeader>
-        <form onSubmit={submit} className="grid gap-4">
-          <div className="grid gap-2"><Label htmlFor="portfolio-project-name">{t("name")}</Label><Input id="portfolio-project-name" value={name} onChange={(event) => setName(event.target.value)} required /></div>
-          <div className="grid gap-2"><Label htmlFor="portfolio-project-description">{t("description")}</Label><Textarea id="portfolio-project-description" value={description} onChange={(event) => setDescription(event.target.value)} rows={3} /></div>
-          <div className="grid grid-cols-[5rem_1fr] gap-3">
-            <div className="grid gap-2"><Label htmlFor="portfolio-project-color">{t("color")}</Label><ColorPicker aria-label={t("color")} id="portfolio-project-color" value={color} onChange={setColor} className="h-9 w-full cursor-pointer rounded-md border bg-background p-1" /></div>
-            <div className="grid gap-2"><Label htmlFor="portfolio-project-manager">{t("manager")}</Label><Select value={managerId} onValueChange={(value) => setManagerId(value ?? "none")}><SelectTrigger id="portfolio-project-manager" className="w-full"><SelectValue>{managerId === "none" ? t("unassigned") : <UserIdentity userId={managerId} />}</SelectValue></SelectTrigger><SelectContent><SelectItem value="none">{t("unassigned")}</SelectItem>{members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select></div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid gap-2"><Label htmlFor="portfolio-project-start">{t("plannedStart")}</Label><Input id="portfolio-project-start" type="date" value={plannedStartDate} onChange={(event) => setPlannedStartDate(event.target.value)} /></div>
-            <div className="grid gap-2"><Label htmlFor="portfolio-project-target">{t("targetEnd")}</Label><Input id="portfolio-project-target" type="date" value={targetEndDate} min={plannedStartDate || undefined} onChange={(event) => setTargetEndDate(event.target.value)} /></div>
-          </div>
-          <Button type="submit" disabled={pending}>{tCommon("save")}</Button>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 export type EmbeddedProjectPlanner = {
   projectId: string;
   draftTask: PortfolioTask;
@@ -1531,7 +1461,7 @@ export function PortfolioClient({
 
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(embedded ? [embedded.projectId] : []));
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
-  const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [projectDialog, setProjectDialog] = useState<ProjectDialogState>(null);
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(initialFocusedTaskId));
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
     initialFocusedTaskId,
@@ -4412,7 +4342,7 @@ export function PortfolioClient({
             )}
           </div>
         </div>
-        <Button size="sm" onClick={() => setProjectDialogOpen(true)}><Plus className="size-4" />{t("newProject")}</Button>
+        <Button size="sm" onClick={() => setProjectDialog({ kind: "create" })}><Plus className="size-4" />{t("newProject")}</Button>
       </header>
       )}
 
@@ -4516,10 +4446,7 @@ export function PortfolioClient({
       </div>}
 
       {view === "projects" && !focusedTask ? (
-        <ProjectsClient projects={projects} members={schedule.members} predecessorOptions={[
-          ...schedule.projects.map((project) => ({ id: project.id, title: project.name, dueDate: project.targetEndDate, type: "project" as const })),
-          ...schedule.tasks.map((task) => ({ id: task.id, title: task.title, dueDate: task.dueDate, type: "task" as const })),
-        ]} />
+        <ProjectsClient projects={projects} members={schedule.members} predecessorOptions={projectPredecessorOptions(schedule)} />
       ) : (
         <div className="flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card">
           <div className="min-w-0 flex-1">
@@ -5346,6 +5273,17 @@ export function PortfolioClient({
                             >
                               <FolderKanban className="size-3.5" />{t("openBoard")}
                             </DropdownMenuItem>
+                            {(() => {
+                              const project = schedule.projects.find((item) => item.id === row.projectId);
+                              return project && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={() => setProjectDialog({ kind: "edit", project })}><Pencil className="size-3.5" />{t("editProject")}</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => setProjectDialog({ kind: "archive", project })}><Archive className="size-3.5" />{t("archive")}</DropdownMenuItem>
+                                  <DropdownMenuItem variant="destructive" onClick={() => setProjectDialog({ kind: "delete", project })}><Trash2 className="size-3.5" />{t("deleteProject")}</DropdownMenuItem>
+                                </>
+                              );
+                            })()}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       )}
@@ -5722,7 +5660,7 @@ export function PortfolioClient({
         </div>
       )}
 
-      <NewProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} members={schedule.members} />
+      <ProjectDialogs state={projectDialog} onStateChange={setProjectDialog} members={schedule.members} predecessorOptions={projectPredecessorOptions(schedule)} />
       <Dialog open={Boolean(pendingDelete)} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>{t("deleteTaskTitle")}</DialogTitle></DialogHeader>

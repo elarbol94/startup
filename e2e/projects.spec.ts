@@ -43,8 +43,8 @@ test("create a project with default kanban columns", async ({ page }) => {
 
   await page.goto("/projects");
   await page.getByRole("button", { name: "Neues Projekt" }).click();
-  await page.locator("#portfolio-project-name").fill("Website Relaunch");
-  await page.locator("#portfolio-project-description").fill("Neue Firmenwebsite");
+  await page.locator("#project-name").fill("Website Relaunch");
+  await page.locator("#project-description").fill("Neue Firmenwebsite");
   await page.getByRole("button", { name: "Speichern" }).click();
 
   await expect(page.getByText("Website Relaunch")).toBeVisible();

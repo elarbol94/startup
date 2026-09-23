@@ -6,6 +6,7 @@ import { ArrowLeft, BookOpen, KanbanSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { getBoard, getPortfolioSchedule, getProject, listMembers } from "@/modules/projects/queries";
 import { BoardClient } from "@/modules/projects/components/board-client";
+import { ProjectSettingsButton } from "@/modules/projects/components/project-dialog";
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { listEntityContext } from "@/modules/context/queries";
@@ -96,6 +97,7 @@ export default async function ProjectBoardPage({
             {t("viewKnowledge")}
           </Link>
         </nav>
+        <ProjectSettingsButton project={project} members={members} predecessorOptions={predecessorOptions} />
       </header>
 
       {knowledgeView ? (
