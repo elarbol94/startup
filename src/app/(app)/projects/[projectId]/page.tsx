@@ -39,6 +39,11 @@ export default async function ProjectBoardPage({
     ...schedule.projects.map((project) => ({ id: project.id, title: project.name, dueDate: project.targetEndDate, type: "project" as const })),
     ...schedule.tasks.map((task) => ({ id: task.id, title: task.title, dueDate: task.dueDate, type: "task" as const })),
   ];
+  // A project cannot follow itself or one of its own tasks.
+  const ownTaskIds = new Set(schedule.tasks.filter((task) => task.projectId === projectId).map((task) => task.id));
+  const projectPredecessorOptions = predecessorOptions.filter((option) =>
+    option.type === "project" ? option.id !== projectId : !ownTaskIds.has(option.id),
+  );
 
   return (
     <div className="grid min-w-0 gap-5">
@@ -97,7 +102,7 @@ export default async function ProjectBoardPage({
             {t("viewKnowledge")}
           </Link>
         </nav>
-        <ProjectSettingsButton project={project} members={members} predecessorOptions={predecessorOptions} />
+        <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
       </header>
 
       {knowledgeView ? (

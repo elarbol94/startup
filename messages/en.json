@@ -1681,7 +1681,7 @@
     "taskReadOnlyArchived": "This project is archived. Its tasks are read-only.",
     "subtaskProgress": "{completed} of {total} complete",
     "toggleSubtasks": "Expand or collapse subtasks",
-    "summaryScheduleDescription": "Progress is calculated from descendant tasks. Dates are editable container boundaries and cannot be resized inside the descendant schedule.",
+    "summaryScheduleDescription": "Progress is calculated from descendant tasks. The dates follow the subtasks; use “Fit to children” to recalculate them.",
     "summaryDatesReadOnly": "A summary task's dates come from its subtasks. Move its bar in the timeline or fit it to the subtasks.",
     "fitToTasks": "Fit to tasks",
     "fitToChildren": "Fit to children",

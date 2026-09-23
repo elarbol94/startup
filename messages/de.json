@@ -1681,7 +1681,7 @@
     "taskReadOnlyArchived": "Das Projekt ist archiviert. Aufgaben können nur angesehen werden.",
     "subtaskProgress": "{completed} von {total} erledigt",
     "toggleSubtasks": "Unteraufgaben ein- oder ausklappen",
-    "summaryScheduleDescription": "Der Fortschritt wird aus allen untergeordneten Aufgaben berechnet. Der Zeitraum ist ein bearbeitbarer Rahmen und kann nicht in den Zeitplan der Unteraufgaben hinein verkleinert werden.",
+    "summaryScheduleDescription": "Der Fortschritt wird aus allen untergeordneten Aufgaben berechnet. Der Zeitraum ergibt sich aus den Unteraufgaben; mit „An Unteraufgaben anpassen“ wird er neu berechnet.",
     "summaryDatesReadOnly": "Die Termine einer Sammelaufgabe ergeben sich aus ihren Unteraufgaben. Verschiebe den Balken in der Zeitleiste oder passe ihn an die Unteraufgaben an.",
     "fitToTasks": "An Aufgaben anpassen",
     "fitToChildren": "An Unteraufgaben anpassen",
