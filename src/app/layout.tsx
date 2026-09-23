@@ -7,7 +7,7 @@ import { HtmlLocaleSync } from "@/components/html-locale-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
-export const unstable_instant = false;
+export const instant = false;
 
 export const viewport: Viewport = {
   width: "device-width",

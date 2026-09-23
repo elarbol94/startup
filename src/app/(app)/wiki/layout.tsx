@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth";
 import { getResearchNavigation } from "@/modules/wiki/research-queries";
 import { ResearchSidebar } from "@/modules/wiki/components/research-sidebar";
 
-export const unstable_instant = false;
+export const instant = false;
 
 async function AuthenticatedResearchSidebar() {
   const currentUser = await requireUser();

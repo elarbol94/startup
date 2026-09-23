@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth";
 import { SettingsTabs } from "./settings-tabs";
 
-export const unstable_instant = false;
+export const instant = false;
 
 async function SettingsChrome({
   children,

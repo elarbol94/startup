@@ -14,7 +14,7 @@ import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-crea
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
 // shell captured from a runtime sample.
-export const unstable_instant = false;
+export const instant = false;
 
 async function AuthenticatedSidebar() {
   const user = await requireUser();

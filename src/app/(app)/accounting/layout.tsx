@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { Landmark } from "@/components/server-safe-icons";
 import { AccountingNav } from "@/modules/accounting/components/accounting-nav";
 
-export const unstable_instant = false;
+export const instant = false;
 
 async function AccountingHeader() {
   const t = await getTranslations("accountingShell");
