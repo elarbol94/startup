@@ -135,6 +135,10 @@ export function InvoiceEditor({
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!allValid || !customerId) return;
+    if (initial?.id && initial.issueDate && initial.issueDate.slice(0, 4) !== issueDate.slice(0, 4)) {
+      toast.error(t("yearChangeBlocked"));
+      return;
+    }
     setPending(true);
     try {
       const input: InvoiceInput = {

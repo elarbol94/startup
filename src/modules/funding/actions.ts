@@ -1,10 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
+  entries,
   fundingBookingAllocations,
   fundingBudgetItems,
   fundingDisbursements,
@@ -346,17 +347,39 @@ export async function upsertFundingBookingAllocation(input: FundingBookingAlloca
     .where(eq(fundingBudgetItems.id, data.budgetItemId))
     .get();
   if (!budgetItem || budgetItem.projectId !== data.projectId) throw new Error("Budget item not found");
-  if (data.id) {
-    const existing = db
-      .select({ projectId: fundingBookingAllocations.projectId })
-      .from(fundingBookingAllocations)
-      .where(eq(fundingBookingAllocations.id, data.id))
-      .get();
-    if (!existing || existing.projectId !== data.projectId) throw new Error("Allocation not found");
-    db.update(fundingBookingAllocations).set(data).where(eq(fundingBookingAllocations.id, data.id)).run();
-  } else {
-    db.insert(fundingBookingAllocations).values(data).run();
-  }
+  // Contract §5.5: the over-allocation check and the write share one transaction.
+  db.transaction((tx) => {
+    if (data.accountingEntryId) {
+      const entry = tx
+        .select({ status: entries.status, grossAmountCents: entries.grossAmountCents })
+        .from(entries)
+        .where(eq(entries.id, data.accountingEntryId))
+        .get();
+      if (!entry || entry.status !== "finalized") throw new Error("Only finalized bookings can be allocated");
+      const allocated = tx
+        .select({ value: sql<number>`coalesce(sum(${fundingBookingAllocations.actualAmountCents}), 0)` })
+        .from(fundingBookingAllocations)
+        .where(and(
+          eq(fundingBookingAllocations.accountingEntryId, data.accountingEntryId),
+          data.id ? ne(fundingBookingAllocations.id, data.id) : undefined,
+        ))
+        .get()?.value ?? 0;
+      if (allocated + data.actualAmountCents > Math.abs(entry.grossAmountCents)) {
+        throw new Error("Allocations exceed the booking amount");
+      }
+    }
+    if (data.id) {
+      const existing = tx
+        .select({ projectId: fundingBookingAllocations.projectId })
+        .from(fundingBookingAllocations)
+        .where(eq(fundingBookingAllocations.id, data.id))
+        .get();
+      if (!existing || existing.projectId !== data.projectId) throw new Error("Allocation not found");
+      tx.update(fundingBookingAllocations).set(data).where(eq(fundingBookingAllocations.id, data.id)).run();
+    } else {
+      tx.insert(fundingBookingAllocations).values(data).run();
+    }
+  });
   revalidateFunding(data.projectId);
 }
 

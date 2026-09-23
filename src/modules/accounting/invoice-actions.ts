@@ -77,7 +77,11 @@ const itemSchema = z.object({
   quantityThousandths: z.number().int().positive(),
   unitPriceCents: z.number().int().min(0),
   vatRate: z.number().int(),
-});
+}).refine(
+  // Keeps line and invoice totals exact integers (100 lines of at most 9e11 cents stay far below 2^53).
+  (item) => item.quantityThousandths * item.unitPriceCents <= 9e14,
+  { message: "Line amount too large", path: ["unitPriceCents"] },
+);
 
 const invoiceDateSchema = z.string().refine(isValidIsoDate, {
   message: "Invalid calendar date",
@@ -125,6 +129,11 @@ export async function upsertInvoice(
     if (!existing) throw new Error("Invoice not found");
     if (existing.status !== "draft") {
       throw new Error("Only draft invoices can be edited");
+    }
+    // The number was allocated from the issue year; moving the draft to another
+    // year would leave a gap in one year's sequence (§ 11 UStG).
+    if (Number(data.issueDate.slice(0, 4)) !== existing.numberYear) {
+      throw new Error("The invoice year cannot change");
     }
 
     db.transaction(() => {
@@ -233,10 +242,28 @@ export async function setInvoiceStatus(
       );
     }
 
+    let issuedSnapshot = invoice.issuedSnapshot;
+    if (newStatus === "sent") {
+      const settings = getAppSettings();
+      const recipient = tx.select().from(customers).where(eq(customers.id, invoice.customerId)).get();
+      issuedSnapshot = {
+        issuer: {
+          companyName: settings.companyName,
+          address: settings.address,
+          uid: settings.uid,
+          iban: settings.iban,
+          bic: settings.bic,
+          kleinunternehmer: settings.kleinunternehmer,
+        },
+        customer: { name: recipient?.name ?? "", address: recipient?.address ?? "", uid: recipient?.uid ?? "" },
+      };
+    }
+
     const transition = tx
       .update(invoices)
       .set({
         status: newStatus,
+        issuedSnapshot,
         paidAt: newStatus === "paid" ? new Date() : invoice.paidAt,
         updatedAt: new Date(),
       })
@@ -255,7 +282,7 @@ export async function setInvoiceStatus(
       if (existingEntry) {
         throw new Error("This invoice already has ledger entries");
       }
-      const customer = tx
+      const customer = invoice.issuedSnapshot?.customer ?? tx
         .select()
         .from(customers)
         .where(eq(customers.id, invoice.customerId))

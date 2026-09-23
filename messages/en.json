@@ -1482,6 +1482,7 @@
   },
   "invoices": {
     "title": "Invoices",
+    "yearChangeBlocked": "The invoice number belongs to its issue year. To bill in another year, cancel this draft and create a new invoice.",
     "newInvoice": "New invoice",
     "editInvoice": "Edit invoice",
     "invoiceNumber": "Invoice number",

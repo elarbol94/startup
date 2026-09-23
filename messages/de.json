@@ -1482,6 +1482,7 @@
   },
   "invoices": {
     "title": "Rechnungen",
+    "yearChangeBlocked": "Die Rechnungsnummer gehört zum Jahr des Rechnungsdatums. Für ein anderes Jahr storniere diesen Entwurf und lege eine neue Rechnung an.",
     "newInvoice": "Neue Rechnung",
     "editInvoice": "Rechnung bearbeiten",
     "invoiceNumber": "Rechnungsnummer",

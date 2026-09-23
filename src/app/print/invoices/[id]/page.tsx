@@ -2,7 +2,6 @@ import { notFound } from "next/navigation";
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
-import { getAppSettings } from "@/modules/settings/queries";
 import { getInvoiceWithItems } from "@/modules/accounting/invoice-queries";
 import { PrintButton } from "./print-button";
 
@@ -16,12 +15,11 @@ export default async function InvoicePrintPage({
   const { id } = await params;
   const data = getInvoiceWithItems(id);
   if (!data) notFound();
-  const { invoice, customer, items, totals } = data;
+  const { invoice, customer, issuer, items, totals } = data;
 
   const t = await getTranslations("invoices");
   const locale = await getLocale();
   const format = await getFormatter();
-  const settings = getAppSettings();
 
   const formatDate = (iso: string) =>
     format.dateTime(new Date(iso), {
@@ -36,11 +34,11 @@ export default async function InvoicePrintPage({
 
       <header className="flex items-start justify-between border-b pb-6">
         <div>
-          <h1 className="text-xl font-bold">{settings.companyName}</h1>
+          <h1 className="text-xl font-bold">{issuer.companyName}</h1>
           <p className="whitespace-pre-line text-neutral-600">
-            {settings.address}
+            {issuer.address}
           </p>
-          {settings.uid && <p className="text-neutral-600">UID: {settings.uid}</p>}
+          {issuer.uid && <p className="text-neutral-600">UID: {issuer.uid}</p>}
         </div>
         <div className="text-right">
           <h2 className="text-2xl font-semibold">
@@ -134,7 +132,7 @@ export default async function InvoicePrintPage({
         </div>
       </section>
 
-      {settings.kleinunternehmer && (
+      {issuer.kleinunternehmer && (
         <p className="mt-6 text-neutral-600">{t("kleinunternehmerNote")}</p>
       )}
 
@@ -142,11 +140,11 @@ export default async function InvoicePrintPage({
         <p className="mt-6 whitespace-pre-line text-neutral-600">{invoice.notes}</p>
       )}
 
-      {settings.iban && (
+      {issuer.iban && (
         <footer className="mt-10 border-t pt-4 text-neutral-600">
           {t("paymentInfo", {
-            iban: settings.iban,
-            bic: settings.bic || "none",
+            iban: issuer.iban,
+            bic: issuer.bic || "none",
           })}
         </footer>
       )}

@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, lt, or, sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { customers, invoiceItems, invoices } from "@/db/schema";
+import { getAppSettings } from "@/modules/settings/queries";
 import { computeInvoiceTotals, type InvoiceItemInput } from "./lib/invoice";
 
 export function listCustomers() {
@@ -170,7 +171,19 @@ export function getInvoiceWithItems(id: string) {
   const invoice = db.select().from(invoices).where(eq(invoices.id, id)).get();
   if (!invoice) return null;
 
-  const customer = getCustomer(invoice.customerId);
+  // Issued invoices print exactly what was issued; drafts follow live data.
+  const liveCustomer = getCustomer(invoice.customerId);
+  const snapshot = invoice.issuedSnapshot;
+  const customer = snapshot?.customer && liveCustomer ? { ...liveCustomer, ...snapshot.customer } : liveCustomer;
+  const settings = getAppSettings();
+  const issuer = snapshot?.issuer ?? {
+    companyName: settings.companyName,
+    address: settings.address,
+    uid: settings.uid,
+    iban: settings.iban,
+    bic: settings.bic,
+    kleinunternehmer: settings.kleinunternehmer,
+  };
   const items = db
     .select()
     .from(invoiceItems)
@@ -178,5 +191,5 @@ export function getInvoiceWithItems(id: string) {
     .orderBy(asc(invoiceItems.sortOrder))
     .all();
 
-  return { invoice, customer, items, totals: computeInvoiceTotals(items) };
+  return { invoice, customer, issuer, items, totals: computeInvoiceTotals(items) };
 }

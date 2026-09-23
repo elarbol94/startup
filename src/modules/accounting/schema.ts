@@ -54,6 +54,12 @@ export const customers = sqliteTable("customers", {
 });
 
 export const invoiceStatuses = ["draft", "sent", "paid", "canceled"] as const;
+
+/** Issuer and recipient as printed when the invoice left draft (§ 11 UStG: an issued invoice must not change). */
+export type InvoiceIssueSnapshot = {
+  issuer: { companyName: string; address: string; uid: string; iban: string; bic: string; kleinunternehmer: boolean };
+  customer: { name: string; address: string; uid: string };
+};
 export type InvoiceStatus = (typeof invoiceStatuses)[number];
 
 // § 11 UStG requires gapless sequential numbering: numbers are allocated
@@ -74,6 +80,8 @@ export const invoices = sqliteTable(
     dueDate: text("due_date"),
     status: text("status", { enum: invoiceStatuses }).notNull().default("draft"),
     notes: text("notes").notNull().default(""),
+    // Null while draft; set once on draft -> sent.
+    issuedSnapshot: text("issued_snapshot", { mode: "json" }).$type<InvoiceIssueSnapshot>(),
     paidAt: integer("paid_at", { mode: "timestamp_ms" }),
     createdBy: text("created_by")
       .notNull()
