@@ -135,7 +135,8 @@ test("metadata version changes do not cause repeated conflicts and older revisio
   await editor.click();
   await page.keyboard.press("ControlOrMeta+End");
   await page.keyboard.type(" Newer version");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 25_000 });
+  // The live-collaboration status can read "Gespeichert" at the same time.
+  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 25_000 });
   await expect(page.getByText("Bearbeitungskonflikt", { exact: true })).toHaveCount(0);
 
   await page
