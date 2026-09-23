@@ -1,5 +1,5 @@
 import { taskAssigneeFields } from "@/modules/projects/assignees";
-import { withWorkItemFocus } from "@/modules/context/routes";
+import { canonicalTaskHref, withWorkItemFocus } from "@/modules/context/routes";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/core-schema";
@@ -119,17 +119,38 @@ function listAccessibleCalendars(userId: string) {
   });
 }
 
-function taskHref(
+/**
+ * Opens a task on its project board, otherwise at its origin route; tasks and
+ * deadlines without either open in the dashboard's details dialog.
+ */
+export function taskHref(
   id: string,
   projectId: string | null,
   contextRoute: string | null,
   kind: "task" | "deadline",
 ) {
-  if (projectId) return `/projects/${projectId}?task=${id}`;
-  if (contextRoute) {
-    return withWorkItemFocus(contextRoute, id, kind);
-  }
-  return "/";
+  if (projectId && kind === "task") return canonicalTaskHref(id, projectId);
+  return withWorkItemFocus(contextRoute || "/", id, kind);
+}
+
+/** Resolves the links of tasks that calendar events point to. */
+function linkedTaskHrefs(taskIds: string[]) {
+  if (taskIds.length === 0) return new Map<string, string>();
+  const rows = db
+    .select({
+      id: tasks.id,
+      kind: tasks.kind,
+      projectId: tasks.projectId,
+      contextRoute: taskContexts.route,
+    })
+    .from(tasks)
+    .leftJoin(taskContexts, eq(tasks.id, taskContexts.taskId))
+    .where(inArray(tasks.id, taskIds))
+    .all();
+  return new Map(rows.map((row) => [
+    row.id,
+    taskHref(row.id, row.projectId, row.contextRoute, row.kind),
+  ]));
 }
 
 export function listCalendarWorkspace(input: {
@@ -190,6 +211,13 @@ export function listCalendarWorkspace(input: {
   const calendarById = new Map(
     accessible.map((calendar) => [calendar.id, calendar]),
   );
+  const linkedHrefs = linkedTaskHrefs([
+    ...new Set(
+      eventRows
+        .map((event) => event.linkedTaskId)
+        .filter((taskId): taskId is string => Boolean(taskId)),
+    ),
+  ]);
 
   const items: CalendarItem[] = [];
   for (const event of eventRows) {
@@ -239,7 +267,7 @@ export function listCalendarWorkspace(input: {
         href: detailsHidden
           ? null
           : event.linkedTaskId
-          ? taskHref(event.linkedTaskId, null, null, "task")
+          ? linkedHrefs.get(event.linkedTaskId) ?? null
           : null,
         editable: calendar.role === "owner" || calendar.role === "editor",
         availability: event.availability,
@@ -414,7 +442,7 @@ export function listCalendarWorkspace(input: {
       startAt: null,
       endAt: null,
       timezone: null,
-      href: `/projects?project=${project.id}`,
+      href: `/projects/${encodeURIComponent(project.id)}`,
       editable: true,
       availability: "free",
       calendarId: null,

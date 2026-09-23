@@ -286,7 +286,7 @@ export function listTaskOverview(filters: TaskOverviewFilters = {}) {
         ? withWorkItemFocus(task.contextRoute, task.id, "task")
         : task.projectId
           ? canonicalTaskHref(task.id, task.projectId)
-          : "/",
+          : canonicalTaskHref(task.id),
     };
   });
 }
@@ -344,9 +344,7 @@ export function listDeadlineOverview(filters: DeadlineOverviewFilters = {}) {
         ...deadline,
         deadlineDate: deadline.deadlineDate ?? "",
         deadlineAt: deadline.deadlineAt?.toISOString() ?? null,
-        href: deadline.contextRoute
-          ? withWorkItemFocus(deadline.contextRoute, deadline.id, "deadline")
-          : "/",
+        href: withWorkItemFocus(deadline.contextRoute || "/", deadline.id, "deadline"),
       };
     });
 }
