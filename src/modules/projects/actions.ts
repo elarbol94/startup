@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import {
   contextLinks,
@@ -43,6 +44,8 @@ import {
 
 import { getPortfolioSchedule } from "./queries";
 import { saveTaskAssignees, taskAssigneeFields } from "./assignees";
+import { pickColumnDeletionTarget } from "./column-rules";
+import { deleteTaskSubtreeSideRows } from "./cleanup";
 
 const SORT_GAP = 1000;
 
@@ -294,8 +297,52 @@ export async function deleteProject(id: string) {
 
 // --- Columns ---
 
+const idSchema = z.string().min(1);
+
+/** Refreshes every page that lists project tasks, their status or their dates. */
+function revalidateTaskViews(projectId: string | null | undefined) {
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  revalidatePath("/");
+  revalidatePath("/calendar");
+  revalidatePath("/wiki", "layout");
+}
+
+/**
+ * Brings the tasks of one column in line with its completed flag: a completed
+ * column holds done tasks, an open column holds open tasks. `completedAt` is
+ * only stamped on tasks that become done, so earlier completion dates survive.
+ */
+function syncColumnTaskStatus(columnId: string, isCompleted: boolean, onlyTaskIds?: string[]) {
+  const now = new Date();
+  const inColumn = onlyTaskIds
+    ? and(eq(tasks.columnId, columnId), inArray(tasks.id, onlyTaskIds))
+    : eq(tasks.columnId, columnId);
+  if (isCompleted) {
+    db.update(tasks)
+      .set({ status: "done", completedAt: now, progress: 100, updatedAt: now })
+      .where(and(inColumn, eq(tasks.status, "open")))
+      .run();
+    db.update(tasks)
+      .set({ progress: 100, updatedAt: now })
+      .where(and(inColumn, eq(tasks.status, "done"), sql`${tasks.progress} != 100`))
+      .run();
+  } else {
+    db.update(tasks)
+      .set({
+        status: "open",
+        completedAt: null,
+        lastOpenColumnId: columnId,
+        progress: sql`min(${tasks.progress}, 99)`,
+        updatedAt: now,
+      })
+      .where(and(inColumn, eq(tasks.status, "done")))
+      .run();
+  }
+}
+
 const columnSchema = z.object({
-  id: z.string().optional(),
+  id: z.string().min(1).optional(),
   projectId: z.string().min(1),
   name: z.string().min(1).max(100),
   isCompleted: z.boolean().optional(),
@@ -322,13 +369,10 @@ export async function upsertColumn(input: z.infer<typeof columnSchema>) {
         })
         .where(eq(projectColumns.id, columnId))
         .run();
-      if (data.isCompleted) {
-        db.update(tasks)
-          .set({ progress: 100, updatedAt: new Date() })
-          .where(eq(tasks.columnId, columnId))
-          .run();
+      if (data.isCompleted !== undefined) {
+        syncColumnTaskStatus(columnId, data.isCompleted);
+        syncProjectParents(data.projectId);
       }
-      if (data.isCompleted !== undefined) syncProjectParents(data.projectId);
     });
   } else {
     const max =
@@ -347,48 +391,46 @@ export async function upsertColumn(input: z.infer<typeof columnSchema>) {
       })
       .run();
   }
-  revalidatePath(`/projects/${data.projectId}`);
-  revalidatePath("/projects");
-  revalidatePath("/");
+  revalidateTaskViews(data.projectId);
 }
 
-/** Deleting a column moves its tasks to the first remaining column. */
+/** Deleting a column moves its tasks to the closest matching remaining column. */
 export async function deleteColumn(id: string) {
   await requireUserOrThrow();
+  const columnId = idSchema.parse(id);
   const column = db
     .select()
     .from(projectColumns)
-    .where(eq(projectColumns.id, id))
+    .where(eq(projectColumns.id, columnId))
     .get();
   if (!column) return;
 
-  const fallback = db
+  const remaining = db
     .select()
     .from(projectColumns)
-    .where(
-      and(
-        eq(projectColumns.projectId, column.projectId),
-        sql`${projectColumns.id} != ${id}`,
-      ),
-    )
-    .orderBy(asc(projectColumns.sortOrder))
-    .get();
+    .where(eq(projectColumns.projectId, column.projectId))
+    .all();
+  const fallback = pickColumnDeletionTarget(column, remaining);
   if (!fallback) throw new Error("Cannot delete the last column");
 
   db.transaction(() => {
-    db.update(tasks)
-      .set({
-        columnId: fallback.id,
-        ...(fallback.isCompleted ? { progress: 100 } : {}),
-      })
-      .where(eq(tasks.columnId, id))
-      .run();
-    db.delete(projectColumns).where(eq(projectColumns.id, id)).run();
+    const movedIds = db
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(eq(tasks.columnId, columnId))
+      .all()
+      .map((task) => task.id);
+    if (movedIds.length > 0) {
+      db.update(tasks)
+        .set({ columnId: fallback.id, updatedAt: new Date() })
+        .where(inArray(tasks.id, movedIds))
+        .run();
+      syncColumnTaskStatus(fallback.id, fallback.isCompleted, movedIds);
+    }
+    db.delete(projectColumns).where(eq(projectColumns.id, columnId)).run();
     syncProjectParents(column.projectId);
   });
-  revalidatePath(`/projects/${column.projectId}`);
-  revalidatePath("/projects");
-  revalidatePath("/");
+  revalidateTaskViews(column.projectId);
 }
 
 // --- Tasks ---
@@ -1013,10 +1055,11 @@ export async function upsertContextualTask(
   let columnId = desiredColumn?.id ?? null;
   const now = new Date();
   let id = data.id;
+  const stageColumnNames = projectId && data.workflowStage ? await dashboardColumnNames() : undefined;
 
   db.transaction((tx) => {
     if (projectId && data.workflowStage) {
-      columnId = dashboardColumn(projectId, data.status === "done" ? "done" : data.workflowStage).id;
+      columnId = dashboardColumn(projectId, data.status === "done" ? "done" : data.workflowStage, stageColumnNames).id;
     }
     const values = {
       kind: data.kind,
@@ -1177,26 +1220,40 @@ export async function moveContextualDeadline(
   };
 }
 
+type DashboardStage = "todo" | "in_progress" | "done";
+type DashboardColumnNames = Record<DashboardStage, string>;
+
+/** Localised names for the stage columns the dashboard may have to create. */
+async function dashboardColumnNames(): Promise<DashboardColumnNames> {
+  const t = await getTranslations("projects");
+  return { todo: t("colOpen"), in_progress: t("colInProgress"), done: t("colDone") };
+}
+
 /** Resolves a shared workflow stage without renaming any existing project column. */
-function dashboardColumn(projectId: string, stage: "todo" | "in_progress" | "done") {
+function dashboardColumn(
+  projectId: string,
+  stage: DashboardStage,
+  names: DashboardColumnNames = { todo: "Offen", in_progress: "In Arbeit", done: "Erledigt" },
+) {
   const columns = db.select().from(projectColumns).where(eq(projectColumns.projectId, projectId))
     .orderBy(asc(projectColumns.sortOrder), asc(projectColumns.id)).all();
   const existing = columns.find(column => stage === "done" ? column.isCompleted : !column.isCompleted && column.workflowStage === stage);
   if (existing) return existing;
   return db.insert(projectColumns).values({
     projectId,
-    name: stage === "done" ? "Erledigt" : stage === "in_progress" ? "In Arbeit" : "Offen",
+    name: names[stage],
     isCompleted: stage === "done",
     workflowStage: stage === "in_progress" ? "in_progress" : "todo",
     sortOrder: (columns.at(-1)?.sortOrder ?? 0) + SORT_GAP,
   }).returning().get();
 }
 
-export async function moveDashboardTask(input: { taskId: string; stage: "todo" | "in_progress" | "done" }) {
+export async function moveDashboardTask(input: { taskId: string; stage: DashboardStage }) {
   await requireUserOrThrow();
   const data = z.object({ taskId: z.string().min(1), stage: z.enum(["todo", "in_progress", "done"]) }).parse(input);
   const task = db.select().from(tasks).where(eq(tasks.id, data.taskId)).get();
   if (!task || task.kind !== "task") throw new Error("Task not found");
+  const columnNames = task.projectId ? await dashboardColumnNames() : undefined;
   db.transaction(() => {
     if (task.projectId && data.stage === "done") {
       const descendants = taskDescendants(projectHierarchyRows(task.projectId), task.id);
@@ -1206,14 +1263,14 @@ export async function moveDashboardTask(input: { taskId: string; stage: "todo" |
     }
     const currentColumn = task.columnId ? db.select().from(projectColumns).where(eq(projectColumns.id, task.columnId)).get() : undefined;
     const sameStage = currentColumn && (data.stage === "done" ? currentColumn.isCompleted : !currentColumn.isCompleted && currentColumn.workflowStage === data.stage);
-    const column = task.projectId ? sameStage ? currentColumn : dashboardColumn(task.projectId, data.stage) : undefined;
+    const column = task.projectId ? sameStage ? currentColumn : dashboardColumn(task.projectId, data.stage, columnNames) : undefined;
     const now = new Date();
     db.update(tasks).set({
       columnId: column?.id ?? null,
       status: data.stage === "done" ? "done" : "open",
       workflowStage: data.stage === "done" ? task.workflowStage : data.stage,
       lastOpenColumnId: data.stage === "done" ? task.lastOpenColumnId ?? task.columnId : column?.id ?? null,
-      completedAt: data.stage === "done" ? task.completedAt ?? now : null,
+      completedAt: data.stage === "done" ? completionTime(task, now) : null,
       progress: data.stage === "done" ? 100 : Math.min(task.progress, 99),
       sortOrder: column?.id !== task.columnId ? nextContextTaskSortOrder(column?.id ?? null) : task.sortOrder,
       updatedAt: now,
@@ -1223,58 +1280,75 @@ export async function moveDashboardTask(input: { taskId: string; stage: "todo" |
       syncProjectBounds(task.projectId);
     }
   });
-  if (task.projectId) revalidatePath(`/projects/${task.projectId}`);
-  revalidatePath("/projects");
-  revalidatePath("/");
-  revalidatePath("/wiki", "layout");
-  revalidatePath("/calendar");
+  revalidateTaskViews(task.projectId);
 }
+
+/** Keeps the original completion time of a task that is already done. */
+function completionTime(task: { status: "open" | "done"; completedAt: Date | null }, now: Date) {
+  return task.status === "done" && task.completedAt ? task.completedAt : now;
+}
+
+const taskStatusSchema = z.object({ id: z.string().min(1), status: z.enum(["open", "done"]) });
 
 export async function setTaskStatus(id: string, status: "open" | "done") {
   await requireUserOrThrow();
-  const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
+  const data = taskStatusSchema.parse({ id, status });
+  const task = db.select().from(tasks).where(eq(tasks.id, data.id)).get();
   if (!task) throw new Error("Task not found");
+  const projectId = task.projectId;
   const now = new Date();
   let columnId = task.columnId;
   let lastOpenColumnId = task.lastOpenColumnId;
 
-  if (task.projectId) {
-    if (status === "done") {
-      const completed = firstProjectColumn(task.projectId, true);
+  if (projectId) {
+    const currentColumn = task.columnId
+      ? db.select().from(projectColumns).where(eq(projectColumns.id, task.columnId)).get()
+      : undefined;
+    if (data.status === "done") {
+      const descendants = taskDescendants(projectHierarchyRows(projectId), task.id);
+      if (leafTasks(descendants).some((child) => !child.columnIsCompleted)) {
+        throw new Error("Complete all subtasks before completing the parent");
+      }
+      const completed = currentColumn?.isCompleted
+        ? currentColumn
+        : firstProjectColumn(projectId, true);
       if (!completed) throw new Error("Project has no completed column");
-      if (task.status === "open") lastOpenColumnId = task.columnId;
+      if (task.status === "open" && !currentColumn?.isCompleted) lastOpenColumnId = task.columnId;
       columnId = completed.id;
+    } else if (currentColumn && !currentColumn.isCompleted) {
+      lastOpenColumnId = currentColumn.id;
     } else {
       const remembered = task.lastOpenColumnId
         ? db.select().from(projectColumns).where(
             and(
               eq(projectColumns.id, task.lastOpenColumnId),
-              eq(projectColumns.projectId, task.projectId),
+              eq(projectColumns.projectId, projectId),
               eq(projectColumns.isCompleted, false),
             ),
           ).get()
         : undefined;
-      columnId = remembered?.id ?? firstProjectColumn(task.projectId, false)?.id ?? null;
+      columnId = remembered?.id ?? firstProjectColumn(projectId, false)?.id ?? null;
       if (!columnId) throw new Error("Project has no open column");
       lastOpenColumnId = columnId;
     }
   }
 
-  db.update(tasks).set({
-    status,
-    columnId,
-    lastOpenColumnId,
-    completedAt: status === "done" ? task.completedAt ?? now : null,
-    progress: status === "done" ? 100 : Math.min(task.progress, 99),
-    updatedAt: now,
-  }).where(eq(tasks.id, id)).run();
-  if (task.projectId) {
-    syncProjectBounds(task.projectId);
-    revalidatePath(`/projects/${task.projectId}`);
-    revalidatePath("/projects");
-  }
-  revalidatePath("/");
-  revalidatePath("/wiki", "layout");
+  db.transaction(() => {
+    db.update(tasks).set({
+      status: data.status,
+      columnId,
+      lastOpenColumnId,
+      completedAt: data.status === "done" ? completionTime(task, now) : null,
+      progress: data.status === "done" ? 100 : Math.min(task.progress, 99),
+      ...(columnId !== task.columnId ? { sortOrder: nextContextTaskSortOrder(columnId) } : {}),
+      updatedAt: now,
+    }).where(eq(tasks.id, task.id)).run();
+    if (projectId) {
+      if (task.parentTaskId) syncTaskAncestors(task.id);
+      syncProjectBounds(projectId);
+    }
+  });
+  revalidateTaskViews(projectId);
 }
 
 export async function deleteTask(id: string) {
@@ -1282,6 +1356,7 @@ export async function deleteTask(id: string) {
   const task = db.select().from(tasks).where(eq(tasks.id, id)).get();
   if (!task) return;
   db.transaction((tx) => {
+    deleteTaskSubtreeSideRows(tx, [id]);
     tx.delete(contextLinks)
       .where(
         and(
@@ -1477,49 +1552,51 @@ export async function moveTask(input: z.infer<typeof moveSchema>) {
   const collision =
     (prev && sortOrder <= prev.sortOrder) || (next && sortOrder >= next.sortOrder);
 
-  if (collision) {
-    // Renumber the whole column with fresh gaps, then place the task.
-    const ordered = [...columnTasks];
-    ordered.splice(afterIndex + 1, 0, { id: data.taskId, sortOrder: 0 });
-    db.transaction((tx) => {
+  // Status fields follow the target column. A task that is already done keeps
+  // its completion time; a task leaving a completed column is reopened the same
+  // way setTaskStatus reopens it (progress capped below 100).
+  const now = new Date();
+  const statusFields = targetColumn.isCompleted
+    ? {
+        columnId: data.columnId,
+        status: "done" as const,
+        completedAt: completionTime(task, now),
+        lastOpenColumnId: task.status === "open" ? task.columnId : task.lastOpenColumnId ?? task.columnId,
+        progress: 100,
+      }
+    : {
+        columnId: data.columnId,
+        status: "open" as const,
+        completedAt: null,
+        lastOpenColumnId: data.columnId,
+        progress: task.status === "done" ? Math.min(task.progress, 99) : task.progress,
+      };
+  const changesStatus = statusFields.status !== task.status || data.columnId !== task.columnId;
+
+  db.transaction((tx) => {
+    if (collision) {
+      // Renumber the whole column with fresh gaps, then place the task.
+      const ordered = [...columnTasks];
+      ordered.splice(afterIndex + 1, 0, { id: data.taskId, sortOrder: 0 });
       ordered.forEach((t, index) => {
         tx.update(tasks)
           .set({
             sortOrder: (index + 1) * SORT_GAP,
-            ...(t.id === data.taskId ? {
-              columnId: data.columnId,
-              status: targetColumn.isCompleted ? "done" as const : "open" as const,
-              completedAt: targetColumn.isCompleted ? new Date() : null,
-              lastOpenColumnId: targetColumn.isCompleted
-                ? task.lastOpenColumnId ?? task.columnId
-                : data.columnId,
-              ...(targetColumn.isCompleted ? { progress: 100 } : {}),
-            } : {}),
+            ...(t.id === data.taskId ? { ...statusFields, updatedAt: now } : {}),
           })
           .where(eq(tasks.id, t.id))
           .run();
       });
-    });
-  } else {
-    db.update(tasks)
-      .set({
-        columnId: data.columnId,
-        sortOrder,
-        status: targetColumn.isCompleted ? "done" : "open",
-        completedAt: targetColumn.isCompleted ? new Date() : null,
-        lastOpenColumnId: targetColumn.isCompleted
-          ? task.lastOpenColumnId ?? task.columnId
-          : data.columnId,
-        ...(targetColumn.isCompleted ? { progress: 100 } : {}),
-      })
-      .where(eq(tasks.id, data.taskId))
-      .run();
-  }
+    } else {
+      tx.update(tasks)
+        .set({ ...statusFields, sortOrder, updatedAt: now })
+        .where(eq(tasks.id, data.taskId))
+        .run();
+    }
+    if (task.parentTaskId && changesStatus) syncTaskAncestors(task.id);
+  });
 
-  if (task.parentTaskId) syncTaskAncestors(task.id);
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/projects");
-  revalidatePath("/");
+  revalidateTaskViews(projectId);
 }
 
 // --- Task dependencies ---
@@ -1627,7 +1704,21 @@ export async function upsertTaskDependency(
 
 export async function deleteTaskDependency(id: string) {
   await requireUserOrThrow();
-  db.delete(taskDependencies).where(eq(taskDependencies.id, id)).run();
+  const dependencyId = idSchema.parse(id);
+  const projectIds = db
+    .select({ projectId: tasks.projectId })
+    .from(taskDependencies)
+    .innerJoin(
+      tasks,
+      sql`${tasks.id} in (${taskDependencies.predecessorTaskId}, ${taskDependencies.successorTaskId})`,
+    )
+    .where(eq(taskDependencies.id, dependencyId))
+    .all()
+    .map((row) => row.projectId);
+  db.delete(taskDependencies).where(eq(taskDependencies.id, dependencyId)).run();
+  new Set(projectIds).forEach((projectId) => {
+    if (projectId) revalidatePath(`/projects/${projectId}`);
+  });
   revalidatePath("/projects");
 }
 

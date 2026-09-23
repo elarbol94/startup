@@ -5,6 +5,10 @@ import { readFileSync } from "node:fs";
 
 vi.mock("@/lib/auth", () => ({ requireUserOrThrow: vi.fn(async () => ({ id: "actor" })) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next-intl/server", () => ({
+  getTranslations: vi.fn(async () => (key: string) =>
+    ({ colOpen: "Offen", colInProgress: "In Arbeit", colDone: "Erledigt" })[key] ?? key),
+}));
 vi.mock("@/db", async () => {
   const { drizzle } = await import("drizzle-orm/better-sqlite3");
   const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");

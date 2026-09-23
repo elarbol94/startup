@@ -26,6 +26,7 @@ import type { CitationSource, CitationStyle, Contributor } from "./lib/citations
 import { decorateCitationSource } from "./lib/citations.server";
 import { resolveStoredUserMarkColor } from "@/lib/user-mark-colors.server";
 import { measureServerOperation } from "@/lib/performance-server";
+import { canonicalTaskHref } from "@/modules/context/routes";
 
 export type TagDto = { id: string; name: string; color: string };
 
@@ -601,9 +602,12 @@ export function listNotifications(userId: string, unreadOnly = false) {
     .all()
     .map((notification) => ({
       ...notification,
-      taskRoute: notification.taskRoute ?? (notification.taskKind === "task"
-        ? notification.taskProjectId ? `/projects/${encodeURIComponent(notification.taskProjectId)}` : "/"
-        : null),
+      // Project tasks open on their board; other work items at their origin.
+      taskRoute: notification.taskKind === "task" && notification.taskId && notification.taskProjectId
+        ? canonicalTaskHref(notification.taskId, notification.taskProjectId)
+        : notification.taskRoute ?? (notification.taskKind === "task" && notification.taskId
+          ? canonicalTaskHref(notification.taskId)
+          : null),
       actorMarkColor: resolveStoredUserMarkColor(notification.actorMarkColor),
     }));
 }

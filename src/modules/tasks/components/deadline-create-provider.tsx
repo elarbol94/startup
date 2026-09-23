@@ -8,10 +8,11 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { CalendarClock, CalendarDays, Check, Clock3, Loader2, Save, X } from "lucide-react";
@@ -19,6 +20,7 @@ import {
   getContextualTaskOptions,
   upsertContextualDeadline,
 } from "@/modules/projects/actions";
+import { getContextualDeadlineForEdit } from "@/modules/projects/deadline-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -37,7 +39,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { localDeadlineToUtc, localTimeFromIso } from "../deadline-utils";
+import { deadlineEditOptions, localDeadlineToUtc, localTimeFromIso } from "../deadline-utils";
 import {
   WorkItemFieldError,
   WorkItemOriginCard,
@@ -86,6 +88,11 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
   const tCommon = useTranslations("common");
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Wiki pages and PDFs focus `?deadline=` in their own view; elsewhere the
+  // link opens the deadline in this dialog.
+  const deepLinkedDeadlineId = pathname.startsWith("/wiki") ? null : searchParams.get("deadline");
+  const lastDeepLink = useRef<string | null>(null);
   const [open, setOpen] = useState(false);
   const [options, setOptions] = useState<Awaited<ReturnType<typeof getContextualTaskOptions>> | null>(null);
   const [request, setRequest] = useState<OpenDeadlineOptions>({});
@@ -121,6 +128,41 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
         .catch(() => toast.error(tCommon("error")));
     }
   }, [options, tCommon]);
+
+  const openFromLink = useRef(openDeadlineCreator);
+  useEffect(() => {
+    openFromLink.current = openDeadlineCreator;
+  }, [openDeadlineCreator]);
+
+  useEffect(() => {
+    if (!deepLinkedDeadlineId) {
+      lastDeepLink.current = null;
+      return;
+    }
+    if (lastDeepLink.current === deepLinkedDeadlineId) return;
+    let active = true;
+    lastDeepLink.current = deepLinkedDeadlineId;
+    void getContextualDeadlineForEdit(deepLinkedDeadlineId)
+      .then((deadline) => {
+        if (active) openFromLink.current(deadlineEditOptions(deadline, t("origins.app")));
+      })
+      .catch(() => {
+        if (!active) return;
+        lastDeepLink.current = null;
+        toast.error(tCommon("error"));
+      });
+    return () => {
+      active = false;
+    };
+  }, [deepLinkedDeadlineId, t, tCommon]);
+
+  const setDialogOpen = useCallback((next: boolean) => {
+    setOpen(next);
+    if (next || !lastDeepLink.current) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("deadline");
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }, []);
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
@@ -185,7 +227,7 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
       });
       request.onCreated?.(result.id);
       toast.success(request.deadline ? t("updated") : t("created"));
-      setOpen(false);
+      setDialogOpen(false);
       router.refresh();
     } catch {
       setErrors({ save: t("saveError") });
@@ -197,7 +239,7 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
   return (
     <DeadlineCreatorContext.Provider value={value}>
       {children}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={setDialogOpen}>
         <DialogContent className="flex max-h-[min(92dvh,48rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
           <DialogHeader className="shrink-0 space-y-1 px-6 pb-5 pt-6">
             <div className="mb-2 grid size-10 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">

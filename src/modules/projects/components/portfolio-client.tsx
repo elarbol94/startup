@@ -146,6 +146,7 @@ import {
   localDateValue,
 } from "@/modules/tasks/deadline-utils";
 import { localDateInZone } from "@/modules/calendar/date-utils";
+import { withWorkItemFocus } from "@/modules/context/routes";
 
 type ProjectCard = PortfolioSchedule["projects"][number] & { openTasks: number };
 type Zoom = "week" | "month" | "quarter";
@@ -4557,10 +4558,7 @@ export function PortfolioClient({
           )}
           <div className={embedded ? "hidden" : "grid gap-2 p-2 md:hidden"} role="tree" aria-label={t("workBreakdown")}>
             {!focusedTask && schedule.deadlines.map((deadline) => {
-              const separator = deadline.contextRoute?.includes("?") ? "&" : "?";
-              const href = deadline.contextRoute
-                ? `${deadline.contextRoute}${separator}deadline=${encodeURIComponent(deadline.id)}`
-                : "/";
+              const href = withWorkItemFocus(deadline.contextRoute || "/", deadline.id, "deadline");
               const localDate = localDateValue(deadline.dueDate ?? "");
               const deadlineLabel = deadline.deadlineAt
                 ? format.dateTime(new Date(deadline.deadlineAt), { dateStyle: "medium", timeStyle: "short" })
@@ -5021,10 +5019,7 @@ export function PortfolioClient({
                         deadlineAt: deadline.deadlineAt,
                         status: deadline.status,
                       }, renderedAt);
-                      const separator = deadline.contextRoute?.includes("?") ? "&" : "?";
-                      const href = deadline.contextRoute
-                        ? `${deadline.contextRoute}${separator}deadline=${encodeURIComponent(deadline.id)}`
-                        : "/";
+                      const href = withWorkItemFocus(deadline.contextRoute || "/", deadline.id, "deadline");
                       const localDate = localDateValue(deadline.dueDate);
                       const deadlineLabel = deadline.deadlineAt
                         ? format.dateTime(new Date(deadline.deadlineAt), { dateStyle: "medium", timeStyle: "short" })
