@@ -43,6 +43,7 @@ import {
 
 import { getPortfolioSchedule } from "./queries";
 import { saveTaskAssignees, taskAssigneeFields } from "./assignees";
+import { assertProjectEditable } from "./guards";
 
 const SORT_GAP = 1000;
 
@@ -305,6 +306,7 @@ const columnSchema = z.object({
 export async function upsertColumn(input: z.infer<typeof columnSchema>) {
   await requireUserOrThrow();
   const data = columnSchema.parse(input);
+  assertProjectEditable(data.projectId);
 
   if (data.id) {
     const columnId = data.id;
@@ -361,6 +363,7 @@ export async function deleteColumn(id: string) {
     .where(eq(projectColumns.id, id))
     .get();
   if (!column) return;
+  assertProjectEditable(column.projectId);
 
   const fallback = db
     .select()
@@ -604,6 +607,7 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
   if (existing && existing.kind !== "task") throw new Error("Task kind cannot be changed");
   // The update never rewrites projectId, so a foreign projectId would pass the column check below and orphan the task.
   if (existing && existing.projectId !== data.projectId) throw new Error("Task belongs to another project");
+  assertProjectEditable(data.projectId);
   const parent = data.parentTaskId
     ? db.select().from(tasks).where(eq(tasks.id, data.parentTaskId)).get()
     : undefined;
@@ -1429,6 +1433,7 @@ export async function moveTask(input: z.infer<typeof moveSchema>) {
   if (!task) throw new Error("Task not found");
   if (!task.projectId) throw new Error("Only project tasks can move between columns");
   const projectId = task.projectId;
+  assertProjectEditable(projectId);
   const targetColumn = db
     .select({ projectId: projectColumns.projectId, isCompleted: projectColumns.isCompleted })
     .from(projectColumns)
