@@ -1,25 +1,16 @@
 "use client";
 
-import { UserIdentity, UserAttribution } from "@/components/user-identity";
+import { UserAttribution } from "@/components/user-identity";
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
-import {
-  deleteProject,
-  setProjectStatus,
-  upsertProject,
-  type ProjectInput,
-} from "@/modules/projects/actions";
-import type { projects as projectsTable } from "@/modules/projects/schema";
+import { setProjectStatus } from "@/modules/projects/actions";
 import { Badge } from "@/components/ui/badge";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -28,27 +19,20 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { addCalendarDays } from "@/modules/projects/schedule";
+  ProjectDialogs,
+  type ProjectDialogState,
+  type ProjectMember,
+  type ProjectPredecessorOption,
+  type ProjectRecord,
+} from "@/modules/projects/components/project-dialog";
 
-type Project = typeof projectsTable.$inferSelect & { openTasks: number };
+type Project = ProjectRecord & { openTasks: number };
 
 export function ProjectsClient({
   projects,
@@ -56,96 +40,43 @@ export function ProjectsClient({
   predecessorOptions = [],
 }: {
   projects: Project[];
-  members?: Array<{ id: string; name: string }>;
-  predecessorOptions?: Array<{ id: string; title: string; dueDate: string | null; type: "project" | "task" }>;
+  members?: ProjectMember[];
+  predecessorOptions?: ProjectPredecessorOption[];
 }) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");
+  const router = useRouter();
+  // Local copy for instant feedback; replaced whenever the server sends new props.
   const [items, setItems] = useState(projects);
+  const [prevProjects, setPrevProjects] = useState(projects);
+  if (prevProjects !== projects) {
+    setPrevProjects(projects);
+    setItems(projects);
+  }
+  const [dialog, setDialog] = useState<ProjectDialogState>(null);
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<Project | null>(null);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("#2563eb");
-  const [managerId, setManagerId] = useState("none");
-  const [plannedStartDate, setPlannedStartDate] = useState("");
-  const [targetEndDate, setTargetEndDate] = useState("");
-  const [pending, setPending] = useState(false);
-  const [predecessor, setPredecessor] = useState("none");
-
-  function openDialog(project: Project | null) {
-    setEditing(project);
-    setName(project?.name ?? "");
-    setDescription(project?.description ?? "");
-    setColor(project?.color ?? "#2563eb");
-    setManagerId(project?.managerId ?? "none");
-    setPlannedStartDate(project?.plannedStartDate ?? "");
-    setTargetEndDate(project?.targetEndDate ?? "");
-    setPredecessor("none");
-    setDialogOpen(true);
+  function onSaved(saved: ProjectRecord) {
+    setItems((current) => {
+      const existing = current.find((project) => project.id === saved.id);
+      const next = { ...saved, openTasks: existing?.openTasks ?? 0 };
+      return existing
+        ? current.map((project) => (project.id === saved.id ? next : project))
+        : [next, ...current];
+    });
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setPending(true);
-    try {
-      const input: ProjectInput = {
-        id: editing?.id,
-        name,
-        description,
-        color,
-        managerId: managerId === "none" ? null : managerId,
-        plannedStartDate: plannedStartDate || null,
-        targetEndDate: targetEndDate || null,
-        predecessor: !editing && predecessor !== "none" ? (() => { const [type, id] = predecessor.split(":"); return { type: type as "project" | "task", id }; })() : null,
-      };
-      const saved = await upsertProject(input, [
-        t("colOpen"),
-        t("colInProgress"),
-        t("colDone"),
-      ]);
-      setItems((current) => {
-        const existing = current.find((project) => project.id === saved.id);
-        const next = {
-          ...saved,
-          openTasks: existing?.openTasks ?? 0,
-        };
-        return existing
-          ? current.map((project) => (project.id === saved.id ? next : project))
-          : [next, ...current];
-      });
-      toast.success(tCommon("saved"));
-      setDialogOpen(false);
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setPending(false);
-    }
-  }
-
-  async function onDelete(project: Project) {
-    if (!window.confirm(tCommon("confirmDeleteTitle"))) return;
-    const previous = items;
-    setItems((current) => current.filter((item) => item.id !== project.id));
-    try {
-      await deleteProject(project.id);
-    } catch {
-      setItems(previous);
-      toast.error(tCommon("error"));
-    }
-  }
-
-  async function toggleArchived(project: Project) {
-    const previous = items;
-    const status = project.status === "archived" ? "active" : "archived";
+  function setLocalStatus(id: string, status: Project["status"]) {
     setItems((current) =>
-      current.map((item) =>
-        item.id === project.id ? { ...item, status } : item,
-      ),
+      current.map((item) => (item.id === id ? { ...item, status } : item)),
     );
+  }
+
+  async function restore(project: Project) {
+    const previous = items;
+    setLocalStatus(project.id, "active");
     try {
-      await setProjectStatus(project.id, status);
+      await setProjectStatus(project.id, "active");
+      router.refresh();
     } catch {
       setItems(previous);
       toast.error(tCommon("error"));
@@ -157,7 +88,7 @@ export function ProjectsClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <Button size="sm" className="self-start" onClick={() => openDialog(null)}>
+      <Button size="sm" className="self-start" onClick={() => setDialog({ kind: "create" })}>
         <Plus className="size-4" />
         {t("newProject")}
       </Button>
@@ -196,17 +127,17 @@ export function ProjectsClient({
                     <MoreHorizontal className="size-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => openDialog(project)}>
+                    <DropdownMenuItem onClick={() => setDialog({ kind: "edit", project })}>
                       <Pencil className="mr-2 size-4" />
                       {tCommon("edit")}
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => toggleArchived(project)}>
+                    <DropdownMenuItem onClick={() => setDialog({ kind: "archive", project })}>
                       <Archive className="mr-2 size-4" />
                       {t("archive")}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      onClick={() => onDelete(project)}
+                      onClick={() => setDialog({ kind: "delete", project })}
                     >
                       <Trash2 className="mr-2 size-4" />
                       {t("deleteProject")}
@@ -235,7 +166,7 @@ export function ProjectsClient({
       {archived.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-medium text-muted-foreground">
-            {t("archive")}
+            {t("archived")}
           </h2>
           <div className="flex flex-col divide-y rounded-md border">
             {archived.map((project) => (
@@ -247,13 +178,13 @@ export function ProjectsClient({
                 <span className="flex-1 text-sm text-muted-foreground">
                   {project.name}<br /><UserAttribution userId={project.managerId} relation="managedBy" />
                 </span>
-                <Badge variant="secondary">{t("archive")}</Badge>
+                <Badge variant="secondary">{t("archived")}</Badge>
                 <Button
                   variant="ghost"
                   size="icon-xs"
                   title={t("unarchive")}
                   aria-label={t("unarchive")}
-                  onClick={() => toggleArchived(project)}
+                  onClick={() => restore(project)}
                 >
                   <ArchiveRestore className="size-3.5" />
                 </Button>
@@ -261,7 +192,7 @@ export function ProjectsClient({
                   variant="ghost"
                   size="icon-xs"
                   aria-label={t("deleteProject")}
-                  onClick={() => onDelete(project)}
+                  onClick={() => setDialog({ kind: "delete", project })}
                 >
                   <Trash2 className="size-3.5" />
                 </Button>
@@ -271,109 +202,15 @@ export function ProjectsClient({
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {editing ? t("editProject") : t("newProject")}
-            </DialogTitle>
-          </DialogHeader>
-          <form onSubmit={onSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-name">{t("name")}</Label>
-              <Input
-                id="project-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={200}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-description">{t("description")}</Label>
-              <Textarea
-                id="project-description"
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                maxLength={2000}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-color">{t("color")}</Label>
-              <ColorPicker
-                aria-label={t("color")}
-                id="project-color"
-                value={color}
-                onChange={setColor}
-                className="h-9 w-16 cursor-pointer rounded-md border bg-background p-1"
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="project-manager">{t("manager")}</Label>
-              <Select
-                value={managerId}
-                onValueChange={(value) => setManagerId(value ?? "none")}
-              >
-                <SelectTrigger id="project-manager" className="w-full">
-                  <SelectValue>
-                    {managerId === "none"
-                      ? t("unassigned")
-                      : <UserIdentity userId={managerId} />}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("unassigned")}</SelectItem>
-                  {members.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      <UserIdentity userId={member.id} name={member.name} />
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="project-planned-start">{t("plannedStart")}</Label>
-                <Input
-                  id="project-planned-start"
-                  type="date"
-                  value={plannedStartDate}
-                  onChange={(event) => setPlannedStartDate(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="project-target-end">{t("targetEnd")}</Label>
-                <Input
-                  id="project-target-end"
-                  type="date"
-                  min={plannedStartDate || undefined}
-                  value={targetEndDate}
-                  onChange={(event) => setTargetEndDate(event.target.value)}
-                />
-              </div>
-            </div>
-            {!editing && <div className="flex flex-col gap-2">
-              <Label htmlFor="project-predecessor">{t("choosePredecessor")}</Label>
-              <Select value={predecessor} onValueChange={(value) => {
-                const next = value ?? "none";
-                setPredecessor(next);
-                const selected = predecessorOptions.find((option) => `${option.type}:${option.id}` === next);
-                if (selected?.dueDate) setPlannedStartDate(addCalendarDays(selected.dueDate, 1));
-              }}>
-                <SelectTrigger id="project-predecessor" className="w-full"><SelectValue>{predecessor === "none" ? t("choosePredecessor") : predecessorOptions.find((option) => `${option.type}:${option.id}` === predecessor)?.title}</SelectValue></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t("choosePredecessor")}</SelectItem>
-                  {predecessorOptions.filter((option) => option.dueDate).map((option) => <SelectItem key={`${option.type}:${option.id}`} value={`${option.type}:${option.id}`}>{option.type === "project" ? `${t("newProject")}: ${option.title}` : option.title}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>}
-            <Button type="submit" disabled={pending}>
-              {tCommon("save")}
-            </Button>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <ProjectDialogs
+        state={dialog}
+        onStateChange={setDialog}
+        members={members}
+        predecessorOptions={predecessorOptions}
+        onSaved={onSaved}
+        onArchived={(id) => setLocalStatus(id, "archived")}
+        onDeleted={(id) => setItems((current) => current.filter((item) => item.id !== id))}
+      />
     </div>
   );
 }

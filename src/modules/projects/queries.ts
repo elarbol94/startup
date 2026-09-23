@@ -1,6 +1,6 @@
 import { canonicalTaskHref, withWorkItemFocus } from "@/modules/context/routes";
 import { assignedTo, unassignedTask, taskAssigneeFields } from "./assignees";
-import { and, asc, desc, eq, gte, isNull, lte, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gte, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
   projectColumns,
@@ -25,10 +25,11 @@ export function listProjects(options?: { includeArchived?: boolean }) {
 
   if (rows.length === 0) return rows.map((row) => ({ ...row, openTasks: 0 }));
 
+  // Open top-level tasks only; subtasks roll up into their parent.
   const counts = db
     .select({ projectId: tasks.projectId, count: sql<number>`count(*)` })
     .from(tasks)
-    .where(isNull(tasks.parentTaskId))
+    .where(and(isNull(tasks.parentTaskId), ne(tasks.status, "done")))
     .groupBy(tasks.projectId)
     .all();
   const countMap = new Map(counts.map((c) => [c.projectId, c.count]));
