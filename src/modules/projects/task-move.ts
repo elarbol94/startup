@@ -3,6 +3,7 @@ import { db } from "@/db";
 import {
   contextLinks,
   projectColumns,
+  projectDependencies,
   projectTaskDependencies,
   projects,
   taskDependencies,
@@ -242,6 +243,10 @@ export function deleteTaskLiftingChildren(taskId: string): { projectId: string |
         .run();
     });
   }
+  // The children were lifted above, so only the task's own side rows remain.
+  db.delete(projectDependencies)
+    .where(and(eq(projectDependencies.predecessorType, "task"), eq(projectDependencies.predecessorId, task.id)))
+    .run();
   db.delete(contextLinks)
     .where(and(eq(contextLinks.ownerType, "task"), eq(contextLinks.ownerId, task.id)))
     .run();

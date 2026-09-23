@@ -34,7 +34,7 @@ describe("saved structure ordering", () => {
  });
  it("rejects a dependent child before any hierarchy write", async () => {
   db.insert(taskDependencies).values({ id: "dep", predecessorTaskId: "a", successorTaskId: "b" }).run();
-  await expect(reparentTask({ taskId: "b", parentTaskId: "a" })).rejects.toThrow();
+  await expect(reparentTask({ taskId: "b", parentTaskId: "a" })).resolves.toEqual({ ok: false, code: "hierarchy" });
   expect(db.select().from(tasks).where(eq(tasks.id, "b")).get()?.parentTaskId).toBeNull();
  });
  it("saves project ordering without changing dates", async () => {

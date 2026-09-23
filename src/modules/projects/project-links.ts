@@ -2,7 +2,6 @@ import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
-  contextLinks,
   projectColumns,
   projectDependencies,
   projectTaskDependencies,
@@ -11,6 +10,7 @@ import {
   tasks,
 } from "@/db/schema";
 import { addCalendarDays, calendarDayDistance } from "@/modules/projects/schedule";
+import { deleteProjectSideRows } from "./cleanup";
 
 type Db = typeof db;
 type Tx = Parameters<Parameters<Db["transaction"]>[0]>[0];
@@ -222,18 +222,6 @@ export function projectImpact(projectId: string): ProjectImpact {
  * are removed explicitly so no orphan rows remain.
  */
 export function deleteProjectRows(tx: Tx, projectId: string) {
-  const projectTaskIds = tx.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId));
-  tx.delete(contextLinks)
-    .where(or(
-      and(eq(contextLinks.ownerType, "project"), eq(contextLinks.ownerId, projectId)),
-      and(eq(contextLinks.ownerType, "task"), inArray(contextLinks.ownerId, projectTaskIds)),
-    ))
-    .run();
-  tx.delete(projectDependencies)
-    .where(or(
-      and(eq(projectDependencies.predecessorType, "project"), eq(projectDependencies.predecessorId, projectId)),
-      and(eq(projectDependencies.predecessorType, "task"), inArray(projectDependencies.predecessorId, projectTaskIds)),
-    ))
-    .run();
+  deleteProjectSideRows(tx, projectId);
   tx.delete(projects).where(eq(projects.id, projectId)).run();
 }

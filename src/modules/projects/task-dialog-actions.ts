@@ -78,24 +78,15 @@ export async function addTaskDependencyFromDialog(
   input: z.input<typeof dependencyInputSchema>,
 ): Promise<TaskDialogResult> {
   const data = dependencyInputSchema.parse(input);
-  try {
-    await upsertTaskDependency({
-      ...data,
-      routeOffsetDays: null,
-      routeOffsetRows: null,
-    });
-    return { ok: true };
-  } catch (error) {
-    const messages = errorMessages(error);
-    if (messages.includes("Dependency cycle")) return { ok: false, code: "dependency_cycle" };
-    if (
-      messages.includes("A task cannot depend on itself") ||
-      messages.includes("A summary task cannot depend on its own subtasks")
-    ) {
-      return { ok: false, code: "dependency_hierarchy" };
-    }
-    throw error;
-  }
+  const result = await upsertTaskDependency({
+    ...data,
+    routeOffsetDays: null,
+    routeOffsetRows: null,
+  });
+  if (result.ok) return { ok: true };
+  if (result.code === "cycle") return { ok: false, code: "dependency_cycle" };
+  if (result.code === "hierarchy") return { ok: false, code: "dependency_hierarchy" };
+  throw new Error(`Dependency could not be saved: ${result.code}`);
 }
 
 /**
