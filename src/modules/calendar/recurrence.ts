@@ -55,7 +55,9 @@ export function validateRecurrenceRule(rule: string | null) {
   if (!/(^|\n)(RRULE:)?FREQ=/.test(value)) {
     throw new Error("Invalid recurrence rule");
   }
-  parseRule(value);
+  const { freq } = parseRule(value);
+  // Sub-daily rules expand to thousands of occurrences per view and block the server.
+  if (freq === undefined || freq > RRule.DAILY) throw new Error("Invalid recurrence rule");
   return value.replace(/^RRULE:/, "");
 }
 
@@ -81,7 +83,14 @@ export function expandEventOccurrences(
     const exception = exceptionByKey.get(occurrence.occurrenceKey);
     if (exception?.cancelled) return null;
     if (!exception) return occurrence;
-    return { ...occurrence, ...exceptionOverrides(exception.overrideJson) };
+    // Overrides are stored as JSON, so their times come back as ISO strings.
+    const overrides = exceptionOverrides(exception.overrideJson);
+    return {
+      ...occurrence,
+      ...overrides,
+      startAt: overrides.startAt ? new Date(overrides.startAt) : occurrence.startAt,
+      endAt: overrides.endAt ? new Date(overrides.endAt) : occurrence.endAt,
+    };
   };
 
   if (!event.recurrenceRule) {

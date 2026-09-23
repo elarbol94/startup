@@ -84,7 +84,15 @@ export async function createPresentationFromWikiPage(input: { pageId: string; in
     .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
     .get();
   if (!page) throw new Error("Page not found");
-  const { elements, steps } = presentationFromWikiPage(page, { includeImages });
+  // Same media rule as savePresentation: a deck can be published without login,
+  // so it must never pick up a non-wiki attachment referenced in the page JSON.
+  const { elements, steps } = presentationFromWikiPage(page, {
+    includeImages,
+    allowImage: (attachmentId) => {
+      const attachment = getAttachment(attachmentId);
+      return attachment?.entityType === "wikiPage" && attachment.mimeType.startsWith("image/");
+    },
+  });
   const row = db
     .insert(wikiPresentations)
     .values({

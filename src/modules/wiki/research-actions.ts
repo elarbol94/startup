@@ -266,10 +266,13 @@ export async function purgeFromTrash(entityType: "page" | "source", id: string) 
     deleteAttachmentsFor("wikiSource", id);
     db.delete(wikiSources).where(eq(wikiSources.id, id)).run();
   } else {
-    const all = db.select({ id: wikiPages.id, parentId: wikiPages.parentId }).from(wikiPages).all();
+    const all = db.select({ id: wikiPages.id, parentId: wikiPages.parentId, deletedAt: wikiPages.deletedAt }).from(wikiPages).all();
+    if (!all.find((item) => item.id === id)?.deletedAt) throw new Error("Only trashed pages can be purged");
     const purgeIds = new Set<string>([id]);
     let changed = true;
     while (changed) { changed = false; for (const candidate of all) if (candidate.parentId && purgeIds.has(candidate.parentId) && !purgeIds.has(candidate.id)) { purgeIds.add(candidate.id); changed = true; } }
+    // A live page can sit below a trashed one (e.g. created from a stale tab); never destroy it.
+    if (all.some((item) => purgeIds.has(item.id) && !item.deletedAt)) throw new Error("Page still has active subpages");
     const byId = new Map(all.map((item) => [item.id, item]));
     const depth = (item: { id: string; parentId: string | null }) => { let value = 0; let current = item; while (current.parentId && byId.has(current.parentId)) { value += 1; current = byId.get(current.parentId)!; } return value; };
     const ordered = all.filter((item) => purgeIds.has(item.id)).sort((a, b) => depth(b) - depth(a));

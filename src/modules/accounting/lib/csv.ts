@@ -68,6 +68,8 @@ const HEADER = [
 ];
 
 function escapeField(value: string): string {
+  // Free-text cells: a leading = + - @ (or tab/CR) would run as a spreadsheet formula.
+  if (/^[=+\-@\t\r]/.test(value)) value = `'${value}`;
   if (/[;"\r\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }

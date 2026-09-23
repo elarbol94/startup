@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { db } from "@/db";
 import { performanceEvents } from "@/db/schema";
 import {
@@ -31,12 +32,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const length = Number(request.headers.get("content-length") ?? 0);
-  if (length > 24_000) {
+  const bounded = await limitedRequest(request, 24_000);
+  if (!bounded) {
     return NextResponse.json({ error: "Payload too large" }, { status: 413 });
   }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = bodySchema.safeParse(await bounded.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid metrics" }, { status: 400 });
   }

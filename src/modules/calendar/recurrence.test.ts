@@ -81,5 +81,26 @@ describe("calendar recurrence", () => {
       "Invalid recurrence rule",
     );
   });
-});
 
+  it("returns edited timed occurrences with Date times, as stored overrides are JSON", () => {
+    const [occurrence] = expandEventOccurrences(
+      {
+        id: "daily", title: "Standup", description: "", location: "", address: "", allDay: false,
+        startDate: null, endDate: null,
+        startAt: new Date("2026-07-01T08:00:00.000Z"), endAt: new Date("2026-07-01T08:15:00.000Z"),
+        timezone: "Europe/Vienna", recurrenceRule: "FREQ=DAILY;COUNT=1",
+      },
+      [{ occurrenceKey: "2026-07-01T08:00:00.000Z", cancelled: false, overrideJson: JSON.stringify({ startAt: "2026-07-01T09:00:00.000Z", endAt: "2026-07-01T09:15:00.000Z" }) }],
+      new Date("2026-06-30T00:00:00.000Z"),
+      new Date("2026-07-02T00:00:00.000Z"),
+    );
+    expect(occurrence.startAt).toEqual(new Date("2026-07-01T09:00:00.000Z"));
+    expect(occurrence.endAt).toEqual(new Date("2026-07-01T09:15:00.000Z"));
+  });
+
+  it("rejects sub-daily recurrence", () => {
+    expect(() => validateRecurrenceRule("FREQ=SECONDLY")).toThrow();
+    expect(() => validateRecurrenceRule("FREQ=HOURLY;COUNT=5")).toThrow();
+    expect(validateRecurrenceRule("FREQ=DAILY;COUNT=5")).toBe("FREQ=DAILY;COUNT=5");
+  });
+});

@@ -71,6 +71,15 @@ export function dateRange(start: string, endExclusive: string, limit = 62) {
   return dates;
 }
 
+export function isValidTimezone(timezone: string) {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone: timezone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function localDateInZone(date: Date, timezone: string) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,

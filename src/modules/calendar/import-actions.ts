@@ -1,10 +1,9 @@
 "use server";
 
-import { isIP } from "node:net";
-import { lookup } from "node:dns/promises";
 import { createHash, createHmac } from "node:crypto";
 import { z } from "zod";
 import { requireUserOrThrow } from "@/lib/auth";
+import { fetchPublicText } from "@/lib/public-fetch";
 import { analyzeCalendarImportWithAi } from "./calendar-ai";
 import {
   mergeCalendarImportSuggestions,
@@ -30,106 +29,6 @@ function safetyIdentifier(userId: string) {
   return secret
     ? createHmac("sha256", secret).update(userId).digest("hex")
     : createHash("sha256").update(userId).digest("hex");
-}
-
-function isPrivateAddress(address: string) {
-  const normalized = address.toLowerCase();
-  if (
-    normalized === "::1" ||
-    normalized === "0:0:0:0:0:0:0:1" ||
-    normalized.startsWith("fc") ||
-    normalized.startsWith("fd") ||
-    normalized.startsWith("fe80:")
-  ) {
-    return true;
-  }
-  const parts = address.split(".").map(Number);
-  if (parts.length !== 4 || parts.some(Number.isNaN)) return false;
-  return (
-    parts[0] === 10 ||
-    parts[0] === 127 ||
-    parts[0] === 0 ||
-    (parts[0] === 169 && parts[1] === 254) ||
-    (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) ||
-    (parts[0] === 192 && parts[1] === 168)
-  );
-}
-
-async function assertPublicUrl(value: string) {
-  const url = new URL(normalizeCalendarUrl(value));
-  if (!["http:", "https:"].includes(url.protocol)) {
-    throw new Error("Only HTTP and HTTPS URLs are supported");
-  }
-  if (url.username || url.password) {
-    throw new Error("URLs with credentials are not supported");
-  }
-  if (
-    url.hostname === "localhost" ||
-    url.hostname.endsWith(".local") ||
-    (isIP(url.hostname) && isPrivateAddress(url.hostname))
-  ) {
-    throw new Error("Private network URLs are not supported");
-  }
-  const addresses = await lookup(url.hostname, { all: true });
-  if (addresses.some((entry) => isPrivateAddress(entry.address))) {
-    throw new Error("Private network URLs are not supported");
-  }
-  return url;
-}
-
-async function readLimitedBody(response: Response) {
-  const declaredLength = Number(response.headers.get("content-length") ?? 0);
-  if (declaredLength > MAX_URL_BYTES) {
-    throw new Error("The linked page is too large");
-  }
-  const reader = response.body?.getReader();
-  if (!reader) return "";
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > MAX_URL_BYTES) {
-      await reader.cancel();
-      throw new Error("The linked page is too large");
-    }
-    chunks.push(value);
-  }
-  const combined = new Uint8Array(size);
-  let offset = 0;
-  for (const chunk of chunks) {
-    combined.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return new TextDecoder().decode(combined);
-}
-
-async function fetchPublicPage(value: string) {
-  let url = await assertPublicUrl(value);
-  for (let redirect = 0; redirect <= 3; redirect += 1) {
-    const response = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(8_000),
-      headers: {
-        Accept: "text/html,text/calendar,text/plain;q=0.9,*/*;q=0.2",
-        "User-Agent": "management-platform-calendar-import/1.0",
-      },
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-      if (!location || redirect === 3) throw new Error("Too many redirects");
-      url = await assertPublicUrl(new URL(location, url).toString());
-      continue;
-    }
-    if (!response.ok) throw new Error(`The linked page returned ${response.status}`);
-    return {
-      body: await readLimitedBody(response),
-      contentType: response.headers.get("content-type") ?? "",
-      finalUrl: url.toString(),
-    };
-  }
-  throw new Error("The linked page could not be loaded");
 }
 
 function decodeHtml(value: string) {
@@ -229,7 +128,14 @@ export async function analyzeCalendarUrl(input: {
       timezone: timezoneSchema,
     })
     .parse(input);
-  const result = await fetchPublicPage(data.url);
+  const result = await fetchPublicText(normalizeCalendarUrl(data.url), {
+    maxBytes: MAX_URL_BYTES,
+    redirects: 3,
+    headers: {
+      Accept: "text/html,text/calendar,text/plain;q=0.9,*/*;q=0.2",
+      "User-Agent": "management-platform-calendar-import/1.0",
+    },
+  });
   if (/text\/calendar/i.test(result.contentType) || /BEGIN:VEVENT/i.test(result.body)) {
     return {
       ...parseCalendarImport(result.body, {

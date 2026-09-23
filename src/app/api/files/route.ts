@@ -4,10 +4,12 @@ import { wikiFigureRevisions } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { attachmentAccessError } from "@/lib/attachment-access";
 import {
   isAttachmentEntityType,
   listAttachmentsFor,
+  MAX_UPLOAD_BYTES,
   saveAttachment,
   UploadError,
 } from "@/lib/files";
@@ -36,7 +38,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const formData = await request.formData();
+  // One file plus a few form fields.
+  const bounded = await limitedRequest(request, MAX_UPLOAD_BYTES + 1024 * 1024);
+  if (!bounded) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  const formData = await bounded.formData();
   const file = formData.get("file");
   const entityType = formData.get("entityType");
   const entityId = formData.get("entityId");

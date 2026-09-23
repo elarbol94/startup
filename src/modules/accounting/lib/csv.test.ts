@@ -39,6 +39,12 @@ describe("buildEntriesCsv", () => {
     expect(csv).toContain('"Hosting; Zusatz ""Premium"""');
   });
 
+  it("neutralises cells that a spreadsheet would run as formulas", () => {
+    const csv = buildEntriesCsv([{ ...baseEntry, description: '=HYPERLINK("http://x")', counterparty: "@SUM(A1)", notes: "-1+1" }]);
+    expect(csv).toContain(`;"'=HYPERLINK(""http://x"")";'@SUM(A1);`);
+    expect(csv).toContain(";'-1+1;");
+  });
+
   it("uses CRLF line endings", () => {
     const csv = buildEntriesCsv([baseEntry]);
     expect(csv.split("\r\n")).toHaveLength(3); // header + row + trailing

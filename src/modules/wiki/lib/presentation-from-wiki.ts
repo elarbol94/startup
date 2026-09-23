@@ -21,6 +21,8 @@ export type WikiPresentationSourcePage = {
 export type PresentationFromWikiOptions = {
   /** Off skips embedded images entirely, leaving pure heading frames. Default true. */
   includeImages?: boolean;
+  /** Filters image references; the page JSON is user-editable and may name any attachment id. */
+  allowImage?: (attachmentId: string) => boolean;
 };
 
 type Section = {
@@ -165,7 +167,9 @@ export function presentationFromWikiPage(
     section.source.syncSubsections = true;
     section.source.knownSectionIds = current?.subsections?.map((child) => child.id) ?? [];
   }
-  if (!includeImages) for (const section of walkSections(outline)) section.images = [];
+  for (const section of walkSections(outline)) {
+    section.images = includeImages ? section.images.filter((image) => options.allowImage?.(image.attachmentId) ?? true) : [];
+  }
 
   if (!outline.length) {
     const id = "id-1";

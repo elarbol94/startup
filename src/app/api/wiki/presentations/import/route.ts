@@ -1,4 +1,5 @@
 import { getSession } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { db } from "@/db";
 import { wikiPresentations } from "@/db/schema";
 import { saveAttachment, deleteAttachmentsFor } from "@/lib/files";
@@ -10,10 +11,11 @@ export async function POST(request: Request) {
   const session = await getSession();
   if (!session) return Response.json({ error: "Unauthorized" }, { status: 401 });
   if (request.headers.get("sec-fetch-site") === "cross-site") return Response.json({ error: "Forbidden" }, { status: 403 });
-  if (Number(request.headers.get("content-length")) > 51 * 1024 * 1024) return Response.json({ error: "File too large" }, { status: 413 });
+  const bounded = await limitedRequest(request, 51 * 1024 * 1024);
+  if (!bounded) return Response.json({ error: "File too large" }, { status: 413 });
   const id = createId();
   try {
-    const data = await request.formData(), file = data.get("file");
+    const data = await bounded.formData(), file = data.get("file");
     if (!(file instanceof File) || !/\.pptx$/i.test(file.name) || file.size > 50 * 1024 * 1024) return Response.json({ error: "Use a .pptx under 50 MB" }, { status: 400 });
     const imported = importPresentationPptx(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.pptx$/i, ""));
     const media = new Map<string, string>();

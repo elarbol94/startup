@@ -1,20 +1,23 @@
 import mammoth from "mammoth";
 import { requireUserOrThrow } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { deleteAttachment, saveAttachment } from "@/lib/files";
 import { requireFigurePage, validateFigureFile } from "@/modules/wiki/figure-assets";
-import { docxHtmlToTiptap } from "@/modules/wiki/lib/docx-import";
+import { boundedDocx, docxHtmlToTiptap } from "@/modules/wiki/lib/docx-import";
 
 export async function POST(request: Request) {
   const created: string[] = [];
   try {
     const currentUser = await requireUserOrThrow();
-    const form = await request.formData();
+    const bounded = await limitedRequest(request, 11 * 1024 * 1024);
+    if (!bounded) return Response.json({ error: "Invalid DOCX file" }, { status: 413 });
+    const form = await bounded.formData();
     const file = form.get("file");
     const pageId = String(form.get("pageId") || "");
     requireFigurePage(pageId);
     if (!(file instanceof File) || file.size === 0 || file.size > 10 * 1024 * 1024) return Response.json({ error: "Invalid DOCX file" }, { status: 400 });
     let total = 0;
-    const result = await mammoth.convertToHtml({ buffer: Buffer.from(await file.arrayBuffer()) }, {
+    const result = await mammoth.convertToHtml({ buffer: boundedDocx(new Uint8Array(await file.arrayBuffer())) }, {
       styleMap: ["p[style-name='Caption'] => p.figure-caption:fresh", "p[style-name='Beschriftung'] => p.figure-caption:fresh"],
       convertImage: mammoth.images.imgElement(async (image) => {
         const extension = ({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg" } as Record<string, string>)[image.contentType];

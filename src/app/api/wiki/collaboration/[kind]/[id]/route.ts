@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { sqlite } from "@/db";
 import { applyRoomUpdate, authorize, loadRoom, replayRoom, roomKey, wireRoom } from "@/modules/wiki/collaboration/store";
 
@@ -18,17 +19,9 @@ export async function POST(request: Request, context: Context) {
   try {
     const { kind, id } = paramsSchema.parse(await context.params);
     authorize(kind, id, login.user, login.session.id);
-    // Bound actual streamed bytes, not only the untrusted Content-Length header.
-    const reader = request.body?.getReader();
-    if (!reader) throw new Error("Missing body");
-    let size = 0; const chunks: Uint8Array[] = [];
-    while (true) {
-      const chunk = await reader.read(); if (chunk.done) break;
-      size += chunk.value.byteLength;
-      if (size > 4_100_000) { await reader.cancel(); return Response.json({ error: "Too large" }, { status: 413 }); }
-      chunks.push(chunk.value);
-    }
-    const input = bodySchema.parse(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+    const bounded = await limitedRequest(request, 4_100_000);
+    if (!bounded) return Response.json({ error: "Too large" }, { status: 413 });
+    const input = bodySchema.parse(await bounded.json());
     authorize(kind, id, login.user, login.session.id);
     const room = input.update ? applyRoomUpdate(kind, id, input.update, login.user) : loadRoom(kind, id);
     if (input.presence) sqlite.prepare("INSERT INTO wiki_collaboration_presence (room, session, user_id, awareness, touched_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(room, session) DO UPDATE SET awareness = excluded.awareness, touched_at = excluded.touched_at WHERE user_id = excluded.user_id")

@@ -21,7 +21,7 @@ import {
 } from "./schema";
 import { calendarRoleForUser, ensureCalendarWorkspace } from "./queries";
 import { validateRecurrenceRule } from "./recurrence";
-import { zonedParts } from "./date-utils";
+import { isValidTimezone, zonedParts } from "./date-utils";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const timePattern = /^\d{2}:\d{2}$/;
@@ -40,7 +40,8 @@ const eventInputSchema = z
     endDate: z.string().regex(datePattern).nullable(),
     startAt: z.string().datetime().nullable(),
     endAt: z.string().datetime().nullable(),
-    timezone: z.string().trim().min(1).max(120),
+    // An invalid zone would throw while rendering every viewer's calendar.
+    timezone: z.string().trim().min(1).max(120).refine(isValidTimezone),
     availability: z.enum(["busy", "free"]).default("busy"),
     recurrenceRule: z.string().max(1000).nullable(),
     linkedTaskId: z.string().nullable().default(null),

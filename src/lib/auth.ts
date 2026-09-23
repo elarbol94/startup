@@ -31,6 +31,12 @@ export const auth = betterAuth({
   rateLimit: {
     enabled: process.env.E2E_TEST !== "true",
   },
+  // Cloudflare overwrites CF-Connecting-IP with the real client address. A
+  // client-appended X-Forwarded-For has several hops, which Better Auth refuses,
+  // collapsing clients into one shared rate-limit bucket.
+  advanced: {
+    ipAddress: { ipAddressHeaders: ["cf-connecting-ip", "x-forwarded-for"] },
+  },
   emailAndPassword: {
     enabled: true,
   },

@@ -1,3 +1,4 @@
+import { unzipSync, zipSync } from "fflate";
 import { DOMParser, type Node as HtmlNode, type Element } from "@xmldom/xmldom";
 import type { TiptapNode } from "./tiptap";
 import { stripFigureNumber } from "./figure";
@@ -82,4 +83,19 @@ export function docxHtmlToTiptap(html: string): TiptapNode {
     } else content.push(...blocks(child));
   }
   return { type: "doc", content: content.length ? content : [{ type: "paragraph" }] };
+}
+
+/**
+ * mammoth's JSZip has no decompression limit. Unpack with fflate under explicit
+ * limits (same scheme as the PPTX importer), then hand mammoth a stored,
+ * uncompressed archive whose size is exactly what was checked.
+ */
+export function boundedDocx(bytes: Uint8Array) {
+  let total = 0, count = 0;
+  const files = unzipSync(bytes, { filter: (file) => {
+    total += file.originalSize;
+    if (++count > 4000 || file.originalSize > 25 * 1024 * 1024 || total > 80 * 1024 * 1024 || file.originalSize > Math.max(1024 * 1024, file.size * 200)) throw new Error("DOCX decompression limit");
+    return true;
+  } });
+  return Buffer.from(zipSync(files, { level: 0 }));
 }

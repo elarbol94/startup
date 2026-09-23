@@ -121,6 +121,14 @@ describe("presentationFromWikiPage", () => {
     expect(elements.some((el) => el.type === "image")).toBe(false);
   });
 
+  it("keeps only images the caller allows", () => {
+    const { elements } = presentationFromWikiPage(
+      { title: "Doc", contentJson: doc([heading(1, "Chapter"), image("wiki-image"), image("receipt")]) },
+      { allowImage: (id) => id === "wiki-image" },
+    );
+    expect(elements.flatMap((el) => el.type === "image" ? [el.content.attachmentId] : [])).toEqual(["wiki-image"]);
+  });
+
   it("drops images that appear before any heading", () => {
     const { elements } = presentationFromWikiPage({
       title: "Doc",

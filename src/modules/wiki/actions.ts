@@ -113,6 +113,9 @@ export async function createPage(
 ): Promise<{ slug: string }> {
   const user = await requireUserOrThrow();
   const data = createSchema.parse(input);
+  if (data.parentId && !db.select({ id: wikiPages.id }).from(wikiPages).where(and(eq(wikiPages.id, data.parentId), isNull(wikiPages.deletedAt))).get()) {
+    throw new Error("Parent page not found");
+  }
 
   const slug = uniqueSlug(data.title);
   const row = db

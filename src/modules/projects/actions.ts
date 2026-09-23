@@ -600,6 +600,8 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
     : undefined;
   if (data.id && !existing) throw new Error("Task not found");
   if (existing && existing.kind !== "task") throw new Error("Task kind cannot be changed");
+  // The update never rewrites projectId, so a foreign projectId would pass the column check below and orphan the task.
+  if (existing && existing.projectId !== data.projectId) throw new Error("Task belongs to another project");
   const parent = data.parentTaskId
     ? db.select().from(tasks).where(eq(tasks.id, data.parentTaskId)).get()
     : undefined;
@@ -1433,11 +1435,12 @@ export async function moveTask(input: z.infer<typeof moveSchema>) {
   if (!task.projectId) throw new Error("Only project tasks can move between columns");
   const projectId = task.projectId;
   const targetColumn = db
-    .select({ isCompleted: projectColumns.isCompleted })
+    .select({ projectId: projectColumns.projectId, isCompleted: projectColumns.isCompleted })
     .from(projectColumns)
     .where(eq(projectColumns.id, data.columnId))
     .get();
   if (!targetColumn) throw new Error("Column not found");
+  if (targetColumn.projectId !== projectId) throw new Error("Column belongs to another project");
   const descendants = taskDescendants(projectHierarchyRows(projectId), task.id);
   const children = leafTasks(descendants);
   if (

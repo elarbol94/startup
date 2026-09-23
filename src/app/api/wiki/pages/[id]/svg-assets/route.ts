@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSession } from "@/lib/auth";
+import { limitedRequest } from "@/lib/request-body";
 import { listSvgAssets, restoreSvgAsset, syncSvgAssetsFromFolder, updateSvgAsset } from "@/modules/wiki/svg-assets";
 
 const MAX_SYNC_FILES = 500;
@@ -44,7 +45,10 @@ export async function GET(_request: Request, { params }: Params) {
 export async function POST(request: Request, { params }: Params) {
   const session = await getSession();
   if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const [{ id }, formData] = await Promise.all([params, request.formData()]);
+  // ponytail: one cap for the whole folder sync; per-file size is checked in syncSvgAssetsFromFolder.
+  const bounded = await limitedRequest(request, 200 * 1024 * 1024);
+  if (!bounded) return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+  const [{ id }, formData] = await Promise.all([params, bounded.formData()]);
   const files = formData.getAll("files").filter((entry): entry is File => entry instanceof File);
   const paths = formData.getAll("paths");
   if (

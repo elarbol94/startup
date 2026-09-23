@@ -16,7 +16,7 @@ import {
 } from "@/db/schema";
 import { linkSupportingSource, saveSource } from "./research-actions";
 import { graphicsSidecarSchema } from "./lib/source-input";
-import { deleteAttachment, getAttachmentAbsolutePath, retainAttachmentVersion, saveAttachment } from "@/lib/files";
+import { deleteAttachment, getAttachmentAbsolutePath, MAX_UPLOAD_BYTES, retainAttachmentVersion, saveAttachment, UploadError } from "@/lib/files";
 import { isSafeInlineSvg } from "@/lib/svg-upload";
 import { parseDocumentSettings } from "./lib/document-settings";
 import { applyDocumentTypography, type SvgDocument, type SvgElement } from "./lib/svg-typography";
@@ -268,6 +268,8 @@ export async function syncSvgAssetsFromFolder(input: {
   for (const { path: sourcePath, file } of graphics) {
     let assetId = "";
     try {
+      // The in-place overwrite below bypasses saveAttachment, so apply its size limit here.
+      if (file.size > MAX_UPLOAD_BYTES) throw new UploadError("File exceeds the 50 MB limit");
       const buffer = Buffer.from(await file.arrayBuffer());
       const sourceSha256 = crypto.createHash("sha256").update(buffer).digest("hex");
       const columns = {
