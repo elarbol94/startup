@@ -18,6 +18,8 @@ async function login(page: Page) {
     await page.locator("#username").fill("admin");
     await page.locator("#password").fill("super-secret-1");
     await page.getByRole("button", { name: "Anmelden" }).click();
+    // Navigating before sign-in completes cancels it and lands back on /login.
+    await page.waitForURL((url) => !url.pathname.startsWith("/login"));
   }
   await page.goto("/");
   // The first page after signing in may still be compiling, so this is not a 5s wait.

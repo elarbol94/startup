@@ -43,6 +43,10 @@ const nextConfig: NextConfig = {
     }];
   },
   experimental: {
+    // Next 16.3 validates every page for instant navigation in dev by default and
+    // logs an error for each session-reading page. Validate only segments that opt
+    // in via `export const instant` (the pre-16.3 behaviour).
+    instantInsights: { validationLevel: "manual-warning" },
     // On Windows this project's persistent Turbopack cache grew past 4 GB,
     // causing long cache compactions and excessive memory use in development.
     turbopackFileSystemCacheForDev: false,
