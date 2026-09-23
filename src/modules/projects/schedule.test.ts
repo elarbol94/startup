@@ -26,7 +26,11 @@ import {
   shiftScheduledTasks,
   weightedProgress,
   calendarDaysInclusive,
+  applyProjectLinkCascade,
+  isTaskDone,
+  projectScheduleRisk,
 } from "./schedule";
+import { ScheduleError } from "./schedule-errors";
 
 describe("project schedule", () => {
   it("uses every calendar day, including weekends", () => {
@@ -744,5 +748,83 @@ describe("project schedule", () => {
       { id: "child", startDate: "2026-07-25", dueDate: "2026-07-28" },
       { id: "unscheduled", startDate: null, dueDate: null },
     ]);
+  });
+});
+
+describe("project risk", () => {
+  const today = "2026-09-23";
+  const leaf = (id: string, startDate: string, dueDate: string, progress: number, done = false) => ({
+    id, startDate, dueDate, progress, columnIsCompleted: done,
+  });
+
+  it("does not flag a project whose slack absorbs a slightly late task", () => {
+    // The demo data: tasks a few days overdue at 45 %, target in November.
+    expect(projectScheduleRisk({ targetEndDate: "2026-11-07" }, [
+      leaf("late", "2026-09-10", "2026-09-18", 45),
+      leaf("next", "2026-10-20", "2026-10-28", 0),
+    ], today)).toBe(false);
+  });
+
+  it("flags work forecast to finish after the target", () => {
+    expect(projectScheduleRisk({ targetEndDate: "2026-09-25" }, [
+      leaf("late", "2026-09-01", "2026-09-20", 0),
+    ], today)).toBe(true);
+    expect(projectScheduleRisk({ targetEndDate: "2026-09-25" }, [
+      leaf("planned", "2026-09-24", "2026-09-30", 0),
+    ], today)).toBe(true);
+  });
+
+  it("counts done by completed column, not by progress", () => {
+    expect(projectScheduleRisk({ targetEndDate: null }, [leaf("done", "2026-09-01", "2026-09-10", 20, true)], today)).toBe(false);
+    expect(projectScheduleRisk({ targetEndDate: null }, [leaf("open", "2026-09-01", "2026-09-10", 100)], today)).toBe(true);
+  });
+
+  it("flags a missed milestone", () => {
+    expect(projectScheduleRisk({ targetEndDate: "2026-12-31" }, [
+      { ...leaf("m", "2026-09-20", "2026-09-20", 0), isMilestone: true },
+    ], today)).toBe(true);
+    expect(isTaskDone({ columnIsCompleted: true })).toBe(true);
+  });
+});
+
+describe("project link cascade", () => {
+  const tasks = [
+    { id: "a", projectId: "p", startDate: "2026-09-01", dueDate: "2026-09-05" },
+    { id: "q1", projectId: "q", startDate: "2026-09-12", dueDate: "2026-09-15" },
+    { id: "r1", projectId: "r", startDate: "2026-09-17", dueDate: "2026-09-18" },
+  ];
+  const projects = [
+    { id: "p", startDate: "2026-09-01", dueDate: "2026-09-10" },
+    { id: "q", startDate: "2026-09-12", dueDate: "2026-09-16" },
+    { id: "r", startDate: "2026-09-17", dueDate: "2026-09-20" },
+  ];
+  const edit = { entityType: "task" as const, entityId: "a", operation: "move" as const, startDate: "2026-09-08", dueDate: "2026-09-12" };
+  const core = previewScheduleEdit({ tasks, projects, dependencies: [], edit });
+
+  it("pushes project successors transitively after the predecessor's finish", () => {
+    const links = [
+      { predecessorType: "project" as const, predecessorId: "p", successorType: "project" as const, successorId: "q" },
+      { predecessorType: "project" as const, predecessorId: "q", successorType: "project" as const, successorId: "r" },
+    ];
+    const preview = applyProjectLinkCascade({ tasks, projects, dependencies: [], edit, links, preview: core });
+    const byKey = new Map(preview.changes.map((change) => [`${change.entityType}:${change.entityId}`, change]));
+    expect(byKey.get("project:q")).toMatchObject({ afterStartDate: "2026-09-13", afterDueDate: "2026-09-17", cause: "dependency" });
+    expect(byKey.get("task:q1")).toMatchObject({ beforeStartDate: "2026-09-12", afterStartDate: "2026-09-13" });
+    expect(byKey.get("project:r")).toMatchObject({ afterStartDate: "2026-09-18", afterDueDate: "2026-09-21" });
+    expect(byKey.get("task:a")?.cause).toBe("direct");
+  });
+
+  it("returns the preview unchanged when no link is violated", () => {
+    const links = [{ predecessorType: "task" as const, predecessorId: "a", successorType: "task" as const, successorId: "r1" }];
+    expect(applyProjectLinkCascade({ tasks, projects, dependencies: [], edit, links, preview: core })).toBe(core);
+  });
+
+  it("rejects project links that loop", () => {
+    const links = [
+      { predecessorType: "project" as const, predecessorId: "p", successorType: "project" as const, successorId: "q" },
+      { predecessorType: "project" as const, predecessorId: "q", successorType: "project" as const, successorId: "p" },
+    ];
+    expect(() => applyProjectLinkCascade({ tasks, projects, dependencies: [], edit, links, preview: core }))
+      .toThrow(ScheduleError);
   });
 });

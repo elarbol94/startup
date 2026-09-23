@@ -1209,21 +1209,30 @@ export function CalendarClient({
       ...edit,
       expectedPreview: { changes: preview.changes },
     });
+    // Expected failures come back as a result; the caller's catch shows them.
+    if (!result.ok) throw new Error(result.code);
     router.refresh();
     toast.success(t("scheduleMoved"), {
       action: result.changeSetId
         ? {
             label: t("undo"),
             onClick: () => {
-              void revertPortfolioScheduleChange(result.changeSetId!).then(() => {
+              void revertPortfolioScheduleChange(result.changeSetId!).then((reverted) => {
                 router.refresh();
+                if (!reverted.ok) {
+                  toast.error(t("calendarSaveError"));
+                  return;
+                }
                 toast(t("scheduleMoved"), {
                   action: {
                     label: t("redo"),
                     onClick: () => {
                       void reapplyPortfolioScheduleChange(
                         result.changeSetId!,
-                      ).then(() => router.refresh());
+                      ).then((reapplied) => {
+                        router.refresh();
+                        if (!reapplied.ok) toast.error(t("calendarSaveError"));
+                      });
                     },
                   },
                 });
@@ -1250,12 +1259,13 @@ export function CalendarClient({
           await moveProjectItem(item, targetDate);
         }
       } else if (item.kind === "deadline" && item.allDay) {
-        await moveContextualDeadline({
+        const moved = await moveContextualDeadline({
           id: item.sourceId,
           deadlineDate: targetDate,
           deadlineAt: null,
           expectedUpdatedAt: item.updatedAt,
         });
+        if (!moved.ok) throw new Error(moved.code);
         router.refresh();
       } else if ((item.kind === "event" || item.kind === "focus") && item.allDay) {
         const duration = Math.max(

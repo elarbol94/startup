@@ -64,6 +64,8 @@ import {
   type ProjectInput,
   type TaskInput,
 } from "@/modules/projects/actions";
+import { deleteTaskKeepChildren } from "@/modules/projects/delete-actions";
+import type { ScheduleErrorCode } from "@/modules/projects/schedule-errors";
 import type {
   PortfolioSchedule,
   PortfolioTask,
@@ -77,8 +79,10 @@ import {
   hasScheduleCycle,
   assertDependencyEndpoints,
   indentTarget,
+  isTaskDone,
   leafTasks,
   outdentTarget,
+  projectScheduleRisk,
   suggestTaskPlacement,
   taskAncestors,
   taskDescendants,
@@ -217,14 +221,6 @@ type StoredPortfolioViewState = {
     expandedTasks: string[];
   };
 };
-type StoredReparentViewState = {
-  taskId: string;
-  expandedProjects: string[];
-  expandedTasks: string[];
-  scrollLeft: number;
-  scrollTop: number;
-  inspectorOpen: boolean;
-};
 
 const LEFT_WIDTH = 440;
 const ROW_HEIGHT = 44;
@@ -241,7 +237,6 @@ const MIN_DAY_WIDTH = 6;
 const MAX_DAY_WIDTH = 44;
 const ZOOM_WHEEL_SENSITIVITY = 0.0015;
 const FOCUS_VIEW_STORAGE_KEY = "projects.focusPortfolioView";
-const REPARENT_VIEW_STORAGE_KEY = "projects.reparentPortfolioView";
 const DEPENDENCY_TYPE_OPTIONS: DependencyType[] = [
   "finish_to_start",
   "start_to_start",
@@ -771,47 +766,52 @@ function clearStoredPortfolioView() {
   }
 }
 
-function storeReparentView(view: StoredReparentViewState) {
-  try {
-    window.sessionStorage.setItem(REPARENT_VIEW_STORAGE_KEY, JSON.stringify(view));
-  } catch {
-    // Reparenting remains functional when browser storage is unavailable.
-  }
-}
-
-function takeStoredReparentView(): StoredReparentViewState | null {
-  try {
-    const stored = JSON.parse(
-      window.sessionStorage.getItem(REPARENT_VIEW_STORAGE_KEY) ?? "null",
-    ) as StoredReparentViewState | null;
-    window.sessionStorage.removeItem(REPARENT_VIEW_STORAGE_KEY);
-    if (
-      !stored ||
-      typeof stored.taskId !== "string" ||
-      !Array.isArray(stored.expandedProjects) ||
-      !Array.isArray(stored.expandedTasks) ||
-      typeof stored.scrollLeft !== "number" ||
-      typeof stored.scrollTop !== "number" ||
-      typeof stored.inspectorOpen !== "boolean"
-    ) {
-      return null;
-    }
-    return stored;
-  } catch {
-    return null;
-  }
-}
-
 function projectRisk(
   project: PortfolioSchedule["projects"][number],
   tasks: PortfolioTask[],
   today: string,
 ) {
-  const leaves = leafTasks(tasks);
-  const unfinished = leaves.filter((task) => task.progress < 100);
-  const overdue = unfinished.some((task) => task.dueDate && task.dueDate < today);
-  const projectedEnd = maxDate(leaves.map((task) => task.dueDate));
-  return overdue || Boolean(project.targetEndDate && projectedEnd && projectedEnd > project.targetEndDate);
+  return projectScheduleRisk(project, tasks, today);
+}
+
+type ProjectsTranslator = ReturnType<typeof useTranslations<"projects">>;
+
+/** Carries an action's failure code through a multi-step commit's catch. */
+class ScheduleCommitError extends Error {
+  constructor(readonly code: ScheduleErrorCode) {
+    super(code);
+  }
+}
+
+/**
+ * Localized text for an expected scheduling failure. Server actions return a
+ * code rather than throwing, because production builds hide error messages.
+ */
+function scheduleErrorMessage(
+  t: ProjectsTranslator,
+  code: ScheduleErrorCode,
+  context: "schedule" | "dependency" | "structure" | "undo" | "redo" | "delete",
+): string {
+  switch (code) {
+    case "cycle":
+      return context === "dependency"
+        ? t("dependencyCycle")
+        : context === "structure"
+          ? t("structureInvalid")
+          : t("scheduleErrorCycle");
+    case "hierarchy":
+      return context === "dependency" ? t("dependencySaveError") : t("structureInvalid");
+    case "stale":
+      return t("scheduleChanged");
+    case "not-found":
+      return t("scheduleErrorNotFound");
+    case "invalid":
+      return t("scheduleErrorInvalid");
+    case "unavailable":
+      return context === "redo" ? t("redoUnavailable") : t("undoUnavailable");
+    case "blocked":
+      return context === "redo" ? t("redoBlocked") : t("undoBlocked");
+  }
 }
 
 function ScheduleInspector({
@@ -831,6 +831,8 @@ function ScheduleInspector({
   isTaskFocused,
   onTaskSaved,
   onScheduleChanged,
+  onDeleteTask,
+  onFitToChildren,
   embedded = false,
 }: {
   open: boolean;
@@ -848,6 +850,8 @@ function ScheduleInspector({
   onFocusTask: (task: PortfolioTask) => void;
   isTaskFocused: boolean;
   onScheduleChanged?: () => Promise<void>;
+  onDeleteTask?: (task: PortfolioTask) => void;
+  onFitToChildren?: (task: PortfolioTask) => Promise<void>;
   embedded?: boolean;
   onTaskSaved: (taskId: string, parentTaskId: string | null) => void;
 }) {
@@ -892,29 +896,79 @@ function ScheduleInspector({
   const [dependencyPending, setDependencyPending] = useState(false);
   const [pending, setPending] = useState(false);
 
+  const [deletingDependencyId, setDeletingDependencyId] = useState<string | null>(null);
+  const [fitPending, setFitPending] = useState(false);
+
+  // The form follows the task it shows. A new version of the same task (for
+  // example after its bar was dragged) only replaces fields the user has not
+  // edited, so unsaved input survives background updates.
+  const fields = {
+    title,
+    description,
+    columnId,
+    assigneeIds,
+    priority,
+    startDate,
+    dueDate,
+    progress,
+    isMilestone,
+    constraintType,
+    constraintDate,
+  };
+  const taskFields = (): typeof fields => ({
+    title: task?.title ?? "",
+    description: task?.description ?? "",
+    columnId: task?.columnId ?? projectColumns[0]?.id ?? "",
+    assigneeIds: task?.assigneeIds ?? [],
+    priority: task?.priority ?? "medium",
+    startDate: task?.startDate ?? "",
+    dueDate: task?.dueDate ?? "",
+    progress: task?.progress ?? 0,
+    isMilestone: task?.isMilestone ?? false,
+    constraintType: task?.constraintType ?? "asap",
+    constraintDate: task?.constraintDate ?? "",
+  });
   const [syncKey, setSyncKey] = useState<string | null>(null);
+  const [syncedVersion, setSyncedVersion] = useState<number | null>(null);
+  const [baseline, setBaseline] = useState<typeof fields | null>(null);
   const currentKey = open
-    ? `${task?.id ?? "new"}-${task?.updatedAt?.getTime() ?? ""}-${defaultProjectId ?? ""}-${defaultParentTaskId ?? ""}`
+    ? `${task?.id ?? "new"}-${defaultProjectId ?? ""}-${defaultParentTaskId ?? ""}`
     : null;
+  const currentVersion = task?.updatedAt?.getTime() ?? null;
+  const applyFields = (next: typeof fields, keep: (key: keyof typeof fields) => boolean) => {
+    if (!keep("title")) setTitle(next.title);
+    if (!keep("description")) setDescription(next.description);
+    if (!keep("columnId")) setColumnId(next.columnId);
+    if (!keep("assigneeIds")) setAssigneeIds(next.assigneeIds);
+    if (!keep("priority")) setPriority(next.priority);
+    if (!keep("startDate")) setStartDate(next.startDate);
+    if (!keep("dueDate")) setDueDate(next.dueDate);
+    if (!keep("progress")) setProgress(next.progress);
+    if (!keep("isMilestone")) setIsMilestone(next.isMilestone);
+    if (!keep("constraintType")) setConstraintType(next.constraintType);
+    if (!keep("constraintDate")) setConstraintDate(next.constraintDate);
+  };
   if (syncKey !== currentKey) {
     setSyncKey(currentKey);
+    setSyncedVersion(currentVersion);
     if (currentKey !== null) {
-      setTitle(task?.title ?? "");
-      setDescription(task?.description ?? "");
-      setColumnId(task?.columnId ?? projectColumns[0]?.id ?? "");
-      setAssigneeIds(task?.assigneeIds ?? []);
-      setPriority(task?.priority ?? "medium");
-      setStartDate(task?.startDate ?? "");
-      setDueDate(task?.dueDate ?? "");
-      setProgress(task?.progress ?? 0);
-      setIsMilestone(task?.isMilestone ?? false);
-      setConstraintType(task?.constraintType ?? "asap");
-      setConstraintDate(task?.constraintDate ?? "");
+      const next = taskFields();
+      setBaseline(next);
+      applyFields(next, () => false);
       setPredecessorId("none");
       setDependencyType("finish_to_start");
       setLagDays(0);
       setDependencyEditorDraft(null);
     }
+  } else if (currentKey !== null && syncedVersion !== currentVersion) {
+    setSyncedVersion(currentVersion);
+    const next = taskFields();
+    // A field is dirty when it differs from what the form last loaded.
+    applyFields(next, (key) =>
+      baseline !== null &&
+      JSON.stringify(fields[key]) !== JSON.stringify(baseline[key]),
+    );
+    setBaseline(next);
   }
 
   const incoming = task
@@ -967,9 +1021,10 @@ function ScheduleInspector({
   }
 
   async function addDependency() {
-    if (!task || predecessorId === "none") return;
+    if (!task || predecessorId === "none" || dependencyPending) return;
+    setDependencyPending(true);
     try {
-      await upsertTaskDependency({
+      const result = await upsertTaskDependency({
         predecessorTaskId: predecessorId,
         successorTaskId: task.id,
         dependencyType,
@@ -977,13 +1032,81 @@ function ScheduleInspector({
         routeOffsetDays: null,
         routeOffsetRows: null,
       });
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
       setPredecessorId("none");
       setDependencyType("finish_to_start");
       setLagDays(0);
       if (onScheduleChanged) await onScheduleChanged();
       else router.refresh();
-    } catch (error) {
-      toast.error(error instanceof Error && error.message.includes("cycle") ? t("dependencyCycle") : tCommon("error"));
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setDependencyPending(false);
+    }
+  }
+
+  /**
+   * Removes a link straight away and offers undo, like a schedule edit. Undo
+   * saves the same link again.
+   */
+  async function removeIncomingDependency(dependency: PortfolioDependency) {
+    if (deletingDependencyId) return;
+    setDeletingDependencyId(dependency.id);
+    try {
+      const result = await deleteTaskDependency(dependency.id);
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
+      if (onScheduleChanged) await onScheduleChanged();
+      else router.refresh();
+      const removed = result.dependency;
+      toast(t("dependencyDeleted"), {
+        duration: 5000,
+        action: {
+          label: t("undo"),
+          onClick: () => {
+            void (async () => {
+              try {
+                const restored = await upsertTaskDependency({
+                  predecessorTaskId: removed.predecessorTaskId,
+                  successorTaskId: removed.successorTaskId,
+                  dependencyType: dependencyTypeOf(removed),
+                  lagDays: removed.lagDays,
+                  routeOffsetDays: removed.routeOffsetDays,
+                  routeOffsetRows: removed.routeOffsetRows,
+                });
+                if (!restored.ok) {
+                  toast.error(scheduleErrorMessage(t, restored.code, "dependency"));
+                  return;
+                }
+                if (onScheduleChanged) await onScheduleChanged();
+                else router.refresh();
+                toast.success(t("dependencyRestored"));
+              } catch {
+                toast.error(tCommon("error"));
+              }
+            })();
+          },
+        },
+      });
+    } catch {
+      toast.error(t("dependencySaveError"));
+    } finally {
+      setDeletingDependencyId(null);
+    }
+  }
+
+  async function fitToChildren() {
+    if (!task || !onFitToChildren || fitPending) return;
+    setFitPending(true);
+    try {
+      await onFitToChildren(task);
+    } finally {
+      setFitPending(false);
     }
   }
 
@@ -1001,7 +1124,7 @@ function ScheduleInspector({
     }
     setDependencyPending(true);
     try {
-      await upsertTaskDependency({
+      const result = await upsertTaskDependency({
         id: dependencyEditorDraft.isNew
           ? undefined
           : dependencyEditorDraft.id,
@@ -1012,16 +1135,16 @@ function ScheduleInspector({
         routeOffsetDays: dependencyEditorDraft.routeOffsetDays,
         routeOffsetRows: dependencyEditorDraft.routeOffsetRows,
       });
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
       setDependencyEditorDraft(null);
       if (onScheduleChanged) await onScheduleChanged();
       else router.refresh();
       toast.success(t("dependencySaved"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error && error.message.includes("cycle")
-          ? t("dependencyCycle")
-          : t("dependencySaveError"),
-      );
+    } catch {
+      toast.error(t("dependencySaveError"));
     } finally {
       setDependencyPending(false);
     }
@@ -1031,7 +1154,11 @@ function ScheduleInspector({
     if (!dependencyEditorDraft || dependencyEditorDraft.isNew) return;
     setDependencyPending(true);
     try {
-      await deleteTaskDependency(dependencyEditorDraft.id);
+      const result = await deleteTaskDependency(dependencyEditorDraft.id);
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
       setDependencyEditorDraft(null);
       if (onScheduleChanged) await onScheduleChanged();
       else router.refresh();
@@ -1157,15 +1284,27 @@ function ScheduleInspector({
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
               <Label htmlFor="schedule-start">{isMilestone ? t("milestoneDate") : t("startDate")}</Label>
-              <Input id="schedule-start" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+              <Input id="schedule-start" type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} disabled={isSummary} aria-describedby={isSummary ? "schedule-summary-dates" : undefined} />
             </div>
             {!isMilestone && (
               <div className="grid gap-2">
                 <Label htmlFor="schedule-due">{t("dueDate")}</Label>
-                <Input id="schedule-due" type="date" value={dueDate} min={startDate || undefined} onChange={(event) => setDueDate(event.target.value)} />
+                <Input id="schedule-due" type="date" value={dueDate} min={startDate || undefined} onChange={(event) => setDueDate(event.target.value)} disabled={isSummary} aria-describedby={isSummary ? "schedule-summary-dates" : undefined} />
               </div>
             )}
           </div>
+          {isSummary && task && (
+            <div className="-mt-2 flex items-start justify-between gap-3">
+              <p id="schedule-summary-dates" className="text-xs text-muted-foreground">
+                {t("summaryDatesReadOnly")}
+              </p>
+              {onFitToChildren && (
+                <Button type="button" variant="outline" size="sm" className="shrink-0" onClick={() => void fitToChildren()} disabled={fitPending}>
+                  <Minimize2 className="size-3.5" />{t("fitToChildren")}
+                </Button>
+              )}
+            </div>
+          )}
           {!isSummary && (
             <div className="grid gap-3 rounded-md border bg-muted/25 p-3">
               <div className="grid gap-2">
@@ -1222,7 +1361,7 @@ function ScheduleInspector({
                   <h3 className="text-sm font-medium">{t("subtasks")}</h3>
                   <p className="text-xs text-muted-foreground">
                     {t("subtaskProgress", {
-                      completed: childTasks.filter((child) => child.progress === 100).length,
+                      completed: childTasks.filter(isTaskDone).length,
                       total: childTasks.length,
                     })}
                   </p>
@@ -1274,11 +1413,16 @@ function ScheduleInspector({
                       </span>
                       <span className="font-mono text-[10px] text-muted-foreground">{dependency.lagDays >= 0 ? "+" : ""}{dependency.lagDays}d</span>
                     </button>
-                    <Button type="button" variant="ghost" size="icon-xs" aria-label={tCommon("delete")} onClick={async () => {
-                      await deleteTaskDependency(dependency.id);
-                      if (onScheduleChanged) await onScheduleChanged();
-                      else router.refresh();
-                    }}><Trash2 className="size-3.5" /></Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={t("deleteDependency")}
+                      title={t("deleteDependency")}
+                      disabled={deletingDependencyId !== null}
+                      aria-busy={deletingDependencyId === dependency.id}
+                      onClick={() => void removeIncomingDependency(dependency)}
+                    ><Trash2 className="size-3.5" /></Button>
                   </div>
                 );
               })}
@@ -1315,7 +1459,7 @@ function ScheduleInspector({
                     </SelectContent>
                   </Select>
                   <Input type="number" min={-365} max={365} value={lagDays} onChange={(event) => setLagDays(Number(event.target.value))} aria-label={t("lagDays")} />
-                  <Button type="button" variant="outline" size="icon" onClick={addDependency} disabled={predecessorId === "none"} aria-label={t("addDependency")}><Plus className="size-4" /></Button>
+                  <Button type="button" variant="outline" size="icon" onClick={addDependency} disabled={predecessorId === "none" || dependencyPending} aria-label={t("addDependency")}><Plus className="size-4" /></Button>
                 </div>
               </div>
               <Dialog
@@ -1350,9 +1494,22 @@ function ScheduleInspector({
               </Dialog>
             </div>
           )}
-          <Button type="submit" disabled={pending || !title.trim() || !columnId}>
-            {tCommon("save")}
-          </Button>
+          <div className="flex items-center gap-2">
+            {task && onDeleteTask && (
+              <Button
+                type="button"
+                variant="ghost"
+                className="text-destructive hover:text-destructive"
+                disabled={pending}
+                onClick={() => onDeleteTask(task)}
+              >
+                <Trash2 className="size-4" />{t("deleteTask")}
+              </Button>
+            )}
+            <Button type="submit" className="flex-1" disabled={pending || !title.trim() || !columnId}>
+              {tCommon("save")}
+            </Button>
+          </div>
         </form>
     </>
   );
@@ -1570,6 +1727,7 @@ export function PortfolioClient({
     task: PortfolioTask;
     descendantCount: number;
   } | null>(null);
+  const [deletePending, setDeletePending] = useState(false);
   const [revealTaskId, setRevealTaskId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [viewPanning, setViewPanning] = useState(false);
@@ -1685,6 +1843,10 @@ export function PortfolioClient({
   const fittedPortfolioRef = useRef(false);
   const fittedFocusRef = useRef<string | null>(null);
   const routeFocusedTaskRef = useRef<string | null>(initialFocusedTaskId);
+  // True only when this page pushed the focus URL itself. Then the previous
+  // history entry is the portfolio and leaving focus can go back to it; after
+  // a direct load it may be another site, so leaving focus replaces instead.
+  const focusPushedRef = useRef(false);
   // A bar is both draggable and clickable, and the browser fires click after
   // pointerup either way. Once the pointer has travelled past the threshold the
   // gesture was a drag, so the click that follows must not open the inspector.
@@ -1744,6 +1906,7 @@ export function PortfolioClient({
     const frame = requestAnimationFrame(() => {
       const previousFocusedTaskId = routeFocusedTaskRef.current;
       routeFocusedTaskRef.current = initialFocusedTaskId;
+      if (!initialFocusedTaskId) focusPushedRef.current = false;
       setFocusedTaskId(initialFocusedTaskId);
       if (initialFocusedTaskId) {
         if (!portfolioViewRef.current) {
@@ -1781,41 +1944,6 @@ export function PortfolioClient({
     });
     return () => cancelAnimationFrame(frame);
   }, [initialFocusedTaskId]);
-
-  useEffect(() => {
-    if (isEmbedded) return;
-    const stored = takeStoredReparentView();
-    if (!stored) return;
-
-    let layoutFrame: number | null = null;
-    let focusFrame: number | null = null;
-    const stateFrame = requestAnimationFrame(() => {
-      setExpandedProjects(new Set(stored.expandedProjects));
-      setExpandedTasks(new Set(stored.expandedTasks));
-      setSelectedTaskId(stored.taskId);
-      setInspectorOpen(stored.inspectorOpen);
-      layoutFrame = requestAnimationFrame(() => {
-        focusFrame = requestAnimationFrame(() => {
-          scrollRef.current?.scrollTo({
-            left: stored.scrollLeft,
-            top: stored.scrollTop,
-            behavior: "auto",
-          });
-          const taskRow = [
-            ...document.querySelectorAll<HTMLElement>("[data-task-id]"),
-          ].find((element) => element.dataset.taskId === stored.taskId);
-          taskRow
-            ?.querySelector<HTMLButtonElement>('[data-task-bar="true"]')
-            ?.focus({ preventScroll: true });
-        });
-      });
-    });
-    return () => {
-      cancelAnimationFrame(stateFrame);
-      if (layoutFrame !== null) cancelAnimationFrame(layoutFrame);
-      if (focusFrame !== null) cancelAnimationFrame(focusFrame);
-    };
-  }, [isEmbedded]);
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
@@ -2315,7 +2443,7 @@ export function PortfolioClient({
   }, [revealTaskId, rows, reducedMotion]);
 
   const nextMilestone = schedule.tasks
-    .filter((task) => task.isMilestone && task.dueDate && task.dueDate >= today && task.progress < 100)
+    .filter((task) => task.isMilestone && task.dueDate && task.dueDate >= today && !isTaskDone(task))
     .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))[0];
   const riskCount = schedule.projects.filter((project) =>
     projectRisk(project, tasksByProject.get(project.id) ?? [], today),
@@ -2408,6 +2536,7 @@ export function PortfolioClient({
     if (focusedTaskId) {
       router.replace(projectsFocusHref(task.id), { scroll: false });
     } else {
+      focusPushedRef.current = true;
       router.push(projectsFocusHref(task.id), { scroll: false });
     }
   }
@@ -2424,7 +2553,9 @@ export function PortfolioClient({
       setSelectedTaskId(savedView.selectedTaskId);
       setInspectorOpen(savedView.inspectorOpen);
       clearStoredPortfolioView();
-      router.back();
+      if (focusPushedRef.current) router.back();
+      else router.replace(projectsFocusHref(null), { scroll: false });
+      focusPushedRef.current = false;
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({
           left: savedView.scrollLeft,
@@ -2634,7 +2765,7 @@ export function PortfolioClient({
     if (dependencyCommitPending || dependency.isNew) return;
     setDependencyCommitPending(true);
     try {
-      const persisted = await upsertTaskDependency({
+      const result = await upsertTaskDependency({
         id: dependency.id,
         predecessorTaskId: dependency.predecessorTaskId,
         successorTaskId: dependency.successorTaskId,
@@ -2643,6 +2774,12 @@ export function PortfolioClient({
         routeOffsetDays,
         routeOffsetRows,
       });
+      if (!result.ok) {
+        setDependencyDraft(dependency);
+        toast.error(t("dependencyRouteSaveError"));
+        return;
+      }
+      const persisted = result.dependency;
       setDependencyDraft({
         ...persisted,
         dependencyType: dependencyTypeOf(persisted),
@@ -2844,7 +2981,7 @@ export function PortfolioClient({
     }
     setDependencyCommitPending(true);
     try {
-      const persisted = await upsertTaskDependency({
+      const result = await upsertTaskDependency({
         id: dependencyDraft.isNew ? undefined : dependencyDraft.id,
         predecessorTaskId: dependencyDraft.predecessorTaskId,
         successorTaskId: dependencyDraft.successorTaskId,
@@ -2853,6 +2990,11 @@ export function PortfolioClient({
         routeOffsetDays: dependencyDraft.routeOffsetDays,
         routeOffsetRows: dependencyDraft.routeOffsetRows,
       });
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
+      const persisted = result.dependency;
       setDependencyDraft({
         ...persisted,
         dependencyType: dependencyTypeOf(persisted),
@@ -2861,12 +3003,8 @@ export function PortfolioClient({
       setDependencyEditorOpen(false);
       await refreshSchedule();
       toast.success(t("dependencySaved"));
-    } catch (error) {
-      toast.error(
-        error instanceof Error && error.message.includes("cycle")
-          ? t("dependencyCycle")
-          : t("dependencySaveError"),
-      );
+    } catch {
+      toast.error(t("dependencySaveError"));
     } finally {
       setDependencyCommitPending(false);
     }
@@ -2882,7 +3020,11 @@ export function PortfolioClient({
     }
     setDependencyCommitPending(true);
     try {
-      await deleteTaskDependency(dependencyDraft.id);
+      const result = await deleteTaskDependency(dependencyDraft.id);
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "dependency"));
+        return;
+      }
       setDependencyDraft(null);
       setDependencyEditorOpen(false);
       await refreshSchedule();
@@ -3074,7 +3216,12 @@ export function PortfolioClient({
     if (!changeSetId || undoPending) return;
     setUndoPending(true);
     try {
-      await revertPortfolioScheduleChange(changeSetId);
+      const result = await revertPortfolioScheduleChange(changeSetId);
+      if (!result.ok) {
+        setUndoChangeSetId(null);
+        toast.error(scheduleErrorMessage(t, result.code, "undo"));
+        return;
+      }
       setUndoChangeSetId(null);
       setRedoChangeSetId(changeSetId);
       await refreshSchedule();
@@ -3090,7 +3237,12 @@ export function PortfolioClient({
     if (!changeSetId || redoPending) return;
     setRedoPending(true);
     try {
-      await reapplyPortfolioScheduleChange(changeSetId);
+      const result = await reapplyPortfolioScheduleChange(changeSetId);
+      if (!result.ok) {
+        setRedoChangeSetId(null);
+        toast.error(scheduleErrorMessage(t, result.code, "redo"));
+        return;
+      }
       setRedoChangeSetId(null);
       setUndoChangeSetId(changeSetId);
       await refreshSchedule();
@@ -3149,6 +3301,21 @@ export function PortfolioClient({
     });
   }
 
+  /** Shrinks or grows a summary to its children, with undo (R4). */
+  async function fitTaskDates(task: PortfolioTask) {
+    try {
+      const result = await fitTaskToChildren(task.id);
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "schedule"));
+        return;
+      }
+      await refreshSchedule();
+      offerScheduleUndo(result.changeSetId);
+    } catch {
+      toast.error(tCommon("error"));
+    }
+  }
+
   function offerScheduleUndo(
     changeSetId: string | null,
     description?: string,
@@ -3181,7 +3348,7 @@ export function PortfolioClient({
     dependency: PortfolioDependency,
     lagDays: number,
   ) {
-    await upsertTaskDependency({
+    const result = await upsertTaskDependency({
       id: dependency.id,
       predecessorTaskId: dependency.predecessorTaskId,
       successorTaskId: dependency.successorTaskId,
@@ -3190,6 +3357,7 @@ export function PortfolioClient({
       routeOffsetDays: dependency.routeOffsetDays,
       routeOffsetRows: dependency.routeOffsetRows,
     });
+    if (!result.ok) throw new ScheduleCommitError(result.code);
   }
 
   /**
@@ -3258,6 +3426,7 @@ export function PortfolioClient({
         ...input,
         expectedPreview: { changes: preview.changes },
       });
+      if (!result.ok) throw new ScheduleCommitError(result.code);
       await refreshSchedule();
       offerScheduleUndo(
         result.changeSetId,
@@ -3277,8 +3446,8 @@ export function PortfolioClient({
       clearDrag();
       await refreshSchedule();
       toast.error(
-        error instanceof Error && error.message.includes("another session")
-          ? t("scheduleChanged")
+        error instanceof ScheduleCommitError
+          ? scheduleErrorMessage(t, error.code, "schedule")
           : tCommon("error"),
       );
     } finally {
@@ -3533,33 +3702,82 @@ export function PortfolioClient({
     });
   }
 
-  async function confirmDeleteTask() {
-    if (!pendingDelete) return;
-    const { task } = pendingDelete;
-    setPendingDelete(null);
-    try {
-      await deleteTask(task.id);
-      await refreshSchedule();
-      toast.success(tCommon("deleted"));
-    } catch {
-      toast.error(tCommon("error"));
+  function closeDeletedTask(task: PortfolioTask, subtreeDeleted: boolean) {
+    const removed = new Set([
+      task.id,
+      ...(subtreeDeleted ? taskDescendants(schedule.tasks, task.id).map((child) => child.id) : []),
+    ]);
+    if (selectedTaskId && removed.has(selectedTaskId)) {
+      setSelectedTaskId(null);
+      setInspectorOpen(false);
     }
   }
 
-  async function outdentChildrenThenDelete() {
-    if (!pendingDelete) return;
+  async function confirmDeleteTask() {
+    if (!pendingDelete || deletePending) return;
     const { task } = pendingDelete;
-    setPendingDelete(null);
+    setDeletePending(true);
     try {
-      const children = schedule.tasks.filter((candidate) => candidate.parentTaskId === task.id);
-      for (const child of children) {
-        await reparentTask({ taskId: child.id, parentTaskId: task.parentTaskId ?? null });
-      }
       await deleteTask(task.id);
+      setPendingDelete(null);
+      closeDeletedTask(task, true);
       await refreshSchedule();
       toast.success(tCommon("deleted"));
     } catch {
       toast.error(tCommon("error"));
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
+  /** Lifts the children to the deleted task's parent in one transaction. */
+  async function outdentChildrenThenDelete() {
+    if (!pendingDelete || deletePending) return;
+    const { task } = pendingDelete;
+    setDeletePending(true);
+    try {
+      const result = await deleteTaskKeepChildren(task.id);
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "delete"));
+        return;
+      }
+      setPendingDelete(null);
+      closeDeletedTask(task, false);
+      if (task.parentTaskId) {
+        setExpandedTasks((current) => new Set([...current, task.parentTaskId!]));
+      }
+      await refreshSchedule();
+      toast.success(tCommon("deleted"));
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setDeletePending(false);
+    }
+  }
+
+  /**
+   * Moves a task in the hierarchy and refreshes in place. A soft refresh keeps
+   * client state, including unsaved inspector edits, the scroll position and
+   * which rows are expanded.
+   */
+  async function reparentRow(task: PortfolioTask, parentTaskId: string | null) {
+    if (structurePending) return;
+    setStructurePending(true);
+    try {
+      const result = await reparentTask({ taskId: task.id, parentTaskId });
+      if (!result.ok) {
+        toast.error(scheduleErrorMessage(t, result.code, "structure"));
+        return;
+      }
+      setExpandedProjects((current) => new Set([...current, task.projectId]));
+      if (parentTaskId) {
+        setExpandedTasks((current) => new Set([...current, parentTaskId]));
+      }
+      await refreshSchedule();
+    } catch {
+      toast.error(tCommon("error"));
+    } finally {
+      setStructurePending(false);
     }
   }
 
@@ -3575,22 +3793,7 @@ export function PortfolioClient({
       toast.error(t("indentUnavailable"));
       return;
     }
-    try {
-      await reparentTask({ taskId: task.id, parentTaskId: target.id });
-      storeReparentView({
-        taskId: task.id,
-        expandedProjects: [...new Set([...expandedProjects, task.projectId])],
-        expandedTasks: [...new Set([...expandedTasks, target.id])],
-        scrollLeft: scrollRef.current?.scrollLeft ?? 0,
-        scrollTop: scrollRef.current?.scrollTop ?? 0,
-        inspectorOpen,
-      });
-      // This tree is backed by synchronous SQLite reads. Preserve the user's
-      // place across the hard reload needed to expose the new hierarchy.
-      window.location.reload();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tCommon("error"));
-    }
+    await reparentRow(task, target.id);
   }
 
   /** Lifts a task out to its grandparent (R5). */
@@ -3602,25 +3805,7 @@ export function PortfolioClient({
       toast.error(t("outdentUnavailable"));
       return;
     }
-    try {
-      await reparentTask({ taskId: task.id, parentTaskId: target });
-      storeReparentView({
-        taskId: task.id,
-        expandedProjects: [...new Set([...expandedProjects, task.projectId])],
-        expandedTasks: [
-          ...new Set([
-            ...expandedTasks,
-            ...(target ? [target] : []),
-          ]),
-        ],
-        scrollLeft: scrollRef.current?.scrollLeft ?? 0,
-        scrollTop: scrollRef.current?.scrollTop ?? 0,
-        inspectorOpen,
-      });
-      window.location.reload();
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : tCommon("error"));
-    }
+    await reparentRow(task, target);
   }
 
   function startProjectDrag(
@@ -3902,6 +4087,11 @@ export function PortfolioClient({
         deadlineAt: next.deadlineAt,
         expectedUpdatedAt: deadline.updatedAt,
       });
+      if (!result.ok) {
+        setDeadlinePreview(null);
+        toast.error(scheduleErrorMessage(t, result.code, "schedule"));
+        return;
+      }
       setDeadlinePreview({ id: deadline.id, ...result.current });
       await refreshSchedule();
       toast.success(t("scheduleSaved"), {
@@ -3911,12 +4101,13 @@ export function PortfolioClient({
             void (async () => {
               try {
                 setDeadlinePreview({ id: deadline.id, ...result.previous });
-                await moveContextualDeadline({
+                const reverted = await moveContextualDeadline({
                   id: deadline.id,
                   deadlineDate: result.previous.deadlineDate,
                   deadlineAt: result.previous.deadlineAt,
                   expectedUpdatedAt: result.current.updatedAt,
                 });
+                if (!reverted.ok) throw new ScheduleCommitError(reverted.code);
                 await refreshSchedule();
               } catch {
                 setDeadlinePreview({ id: deadline.id, ...result.current });
@@ -3926,13 +4117,9 @@ export function PortfolioClient({
           },
         },
       });
-    } catch (error) {
+    } catch {
       setDeadlinePreview(null);
-      toast.error(
-        error instanceof Error && error.message.includes("another session")
-          ? t("scheduleChanged")
-          : tCommon("error"),
-      );
+      toast.error(tCommon("error"));
     } finally {
       setDeadlineCommitPending(false);
     }
@@ -3972,7 +4159,11 @@ export function PortfolioClient({
       setStructurePending(true);
       if (move.kind === "project") await reorderProject(move);
       else {
-        await reparentTask(move);
+        const result = await reparentTask(move);
+        if (!result.ok) {
+          toast.error(scheduleErrorMessage(t, result.code, "structure"));
+          return;
+        }
         setExpandedProjects(current => new Set([...current, source.projectId]));
         if (move.parentTaskId) setExpandedTasks(current => new Set([...current, move.parentTaskId!]));
       }
@@ -4759,7 +4950,7 @@ export function PortfolioClient({
                   if (!geometry) return null;
                   const selected = dependencyDraft?.id === dependency.id;
                   const hovered = hoveredDependencyId === dependency.id;
-                  const conflict = conflicts.has(dependency.successorTaskId) && effectiveSchedule.tasks.some((task) => task.id === dependency.successorTaskId && task.progress < 100);
+                  const conflict = conflicts.has(dependency.successorTaskId) && effectiveSchedule.tasks.some((task) => task.id === dependency.successorTaskId && !isTaskDone(task));
                   const predecessorTitle =
                     effectiveSchedule.tasks.find(
                       (task) => task.id === dependency.predecessorTaskId,
@@ -5313,7 +5504,7 @@ export function PortfolioClient({
                       )}
                       {row.task?.assignees.length ? <span className="flex w-12 shrink-0 items-center -space-x-1">{row.task.assignees.slice(0, 2).map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}{row.task.assignees.length > 2 && <span className="bg-card text-[10px]">+{row.task.assignees.length - 2}</span>}</span> : null}
                       {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600" aria-label={t("projectRiskExplanation")} /></span>}
-                      {isConflict && <span tabIndex={0} title={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.progress >= 100 ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.progress >= 100 ? "historicalConflict" : "activeConflict")} /></span>}
+                      {isConflict && <span tabIndex={0} title={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.task && isTaskDone(row.task) ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")} /></span>}
                       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
                       {!embedded && row.kind === "project" && (
                         <DropdownMenu>
@@ -5383,16 +5574,7 @@ export function PortfolioClient({
                             )}
                             {row.isSummary && (
                               <DropdownMenuItem
-                                onClick={async () => {
-                                  if (!row.task) return;
-                                  try {
-                                    const result = await fitTaskToChildren(row.task.id);
-                                    await refreshSchedule();
-                                    offerScheduleUndo(result.changeSetId);
-                                  } catch {
-                                    toast.error(tCommon("error"));
-                                  }
-                                }}
+                                onClick={() => row.task && void fitTaskDates(row.task)}
                               >
                                 <Minimize2 className="size-3.5" />{t("fitToChildren")}
                               </DropdownMenuItem>
@@ -5703,6 +5885,8 @@ export function PortfolioClient({
             }}
             schedule={schedule}
             onScheduleChanged={embedded ? refreshSchedule : undefined}
+            onDeleteTask={selectedTask && !isDraftTask(selectedTask.id) ? requestDeleteTask : undefined}
+            onFitToChildren={fitTaskDates}
             embedded={isEmbedded}
             task={selectedTask}
             defaultProjectId={newTaskContext?.projectId ?? null}
@@ -5728,7 +5912,7 @@ export function PortfolioClient({
       )}
 
       <NewProjectDialog open={projectDialogOpen} onOpenChange={setProjectDialogOpen} members={schedule.members} />
-      <Dialog open={Boolean(pendingDelete)} onOpenChange={(open) => !open && setPendingDelete(null)}>
+      <Dialog open={Boolean(pendingDelete)} onOpenChange={(open) => !open && !deletePending && setPendingDelete(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>{t("deleteTaskTitle")}</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground">
@@ -5740,11 +5924,11 @@ export function PortfolioClient({
               : t("deleteTaskConfirm", { title: pendingDelete?.task.title ?? "" })}
           </p>
           <div className="flex flex-wrap justify-end gap-2">
-            <Button variant="outline" onClick={() => setPendingDelete(null)}>{tCommon("cancel")}</Button>
+            <Button variant="outline" disabled={deletePending} onClick={() => setPendingDelete(null)}>{tCommon("cancel")}</Button>
             {pendingDelete && pendingDelete.descendantCount > 0 && (
-              <Button variant="outline" onClick={outdentChildrenThenDelete}>{t("outdentChildrenInstead")}</Button>
+              <Button variant="outline" disabled={deletePending} onClick={() => void outdentChildrenThenDelete()}>{t("outdentChildrenInstead")}</Button>
             )}
-            <Button variant="destructive" onClick={confirmDeleteTask}>{tCommon("delete")}</Button>
+            <Button variant="destructive" disabled={deletePending} onClick={() => void confirmDeleteTask()}>{tCommon("delete")}</Button>
           </div>
         </DialogContent>
       </Dialog>

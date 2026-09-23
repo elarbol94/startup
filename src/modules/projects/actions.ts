@@ -23,10 +23,11 @@ import {
 import { requireUserOrThrow } from "@/lib/auth";
 import { safeInternalRoute } from "@/lib/internal-route";
 import {
+  applyProjectLinkCascade,
   assertDependencyEndpoints,
   assertTaskHierarchy,
+  type ProjectScheduleLink,
   dependencyConflictEdgeKeys,
-  expandContainerEnvelope,
   hasScheduleCycle,
   inferScheduleEditOperation,
   leafTasks,
@@ -34,15 +35,21 @@ import {
   scheduleContainmentViolations,
   type ScheduleEntityChange,
   type SchedulePreview,
-  taskAncestors,
   taskDescendants,
-  weightedProgress,
   addCalendarDays,
   calendarDayDistance,
 } from "@/modules/projects/schedule";
 
 import { getPortfolioSchedule } from "./queries";
 import { saveTaskAssignees, taskAssigneeFields } from "./assignees";
+import {
+  projectHierarchyRows,
+  syncParentSummary,
+  syncProjectBounds,
+  syncProjectParents,
+  syncTaskAncestors,
+} from "./hierarchy-sync";
+import { ScheduleError, scheduleFailure, type ScheduleFailure } from "./schedule-errors";
 
 const SORT_GAP = 1000;
 
@@ -457,141 +464,6 @@ function nextSortOrder(columnId: string, parentTaskId: string | null): number {
       .where(scope)
       .get()?.value ?? 0;
   return max + SORT_GAP;
-}
-
-function projectHierarchyRows(projectId: string) {
-  return db
-    .select({
-      id: tasks.id,
-      projectId: sql<string>`${tasks.projectId}`,
-      parentTaskId: tasks.parentTaskId,
-      startDate: tasks.startDate,
-      dueDate: tasks.dueDate,
-      progress: tasks.progress,
-      isMilestone: tasks.isMilestone,
-      columnId: tasks.columnId,
-      columnIsCompleted: projectColumns.isCompleted,
-    })
-    .from(tasks)
-    .innerJoin(projectColumns, eq(tasks.columnId, projectColumns.id))
-    .where(eq(tasks.projectId, projectId))
-    .all();
-}
-
-/**
- * Expands a summary around its children while preserving any authored slack.
- * Callers work deepest-first so every parent sees already-contained children.
- */
-function syncParentSummary(parentTaskId: string): void {
-  const parent = db.select().from(tasks).where(eq(tasks.id, parentTaskId)).get();
-  if (!parent?.projectId) return;
-  const projectId = parent.projectId;
-  const projectTasks = projectHierarchyRows(projectId);
-  const descendants = taskDescendants(projectTasks, parentTaskId);
-  if (descendants.length === 0) return;
-  const leaves = leafTasks([projectTasks.find((task) => task.id === parentTaskId)!, ...descendants])
-    .filter((task) => task.id !== parentTaskId);
-  const children = projectTasks.filter((task) => task.parentTaskId === parentTaskId);
-  const envelope = expandContainerEnvelope(parent, children);
-  const columns = db
-    .select()
-    .from(projectColumns)
-    .where(eq(projectColumns.projectId, projectId))
-    .orderBy(asc(projectColumns.sortOrder))
-    .all();
-  const allComplete = leaves.length > 0 && leaves.every((child) => child.columnIsCompleted);
-  const currentColumn = columns.find((column) => column.id === parent.columnId);
-  const completedColumn = columns.find((column) => column.isCompleted);
-  const activeFallback = columns.filter((column) => !column.isCompleted).at(-1);
-  const columnId = allComplete
-    ? completedColumn?.id ?? parent.columnId
-    : currentColumn?.isCompleted
-      ? activeFallback?.id ?? parent.columnId
-      : parent.columnId;
-  db.update(tasks)
-    .set({
-      startDate: envelope.startDate,
-      dueDate: envelope.dueDate,
-      progress: allComplete ? 100 : weightedProgress(leaves),
-      columnId,
-      status: allComplete ? "done" : "open",
-      completedAt: allComplete ? parent.completedAt ?? new Date() : null,
-      lastOpenColumnId: allComplete
-        ? parent.lastOpenColumnId ?? (currentColumn?.isCompleted ? null : currentColumn?.id ?? null)
-        : columnId,
-      isMilestone: false,
-      // A summary's dates are derived, so a constraint on it would never apply.
-      constraintType: "asap",
-      constraintDate: null,
-      updatedAt: new Date(),
-    })
-    .where(eq(tasks.id, parentTaskId))
-    .run();
-}
-
-function syncProjectParents(projectId: string): void {
-  const rows = projectHierarchyRows(projectId);
-  const parentIds = [...new Set(
-    rows
-      .map((task) => task.parentTaskId)
-      .filter((parentTaskId): parentTaskId is string => Boolean(parentTaskId)),
-  )].sort(
-    (left, right) =>
-      taskAncestors(rows, right).length - taskAncestors(rows, left).length,
-  );
-  parentIds.forEach((id) => syncParentSummary(id));
-}
-
-/** Expands a project around all scheduled work without ever shrinking it. */
-function syncProjectBounds(projectId: string): void {
-  const project = db
-    .select()
-    .from(projects)
-    .where(eq(projects.id, projectId))
-    .get();
-  if (!project) return;
-  const projectTasks = db
-    .select({
-      startDate: tasks.startDate,
-      dueDate: tasks.dueDate,
-    })
-    .from(tasks)
-    .where(eq(tasks.projectId, projectId))
-    .all();
-  const envelope = expandContainerEnvelope(
-    {
-      id: project.id,
-      startDate: project.plannedStartDate,
-      dueDate: project.targetEndDate,
-    },
-    projectTasks,
-  );
-  const plannedStartDate = envelope.startDate;
-  const targetEndDate = envelope.dueDate;
-  if (
-    plannedStartDate === project.plannedStartDate &&
-    targetEndDate === project.targetEndDate
-  ) {
-    return;
-  }
-  db.update(projects)
-    .set({
-      plannedStartDate,
-      targetEndDate,
-      updatedAt: new Date(),
-    })
-    .where(eq(projects.id, projectId))
-    .run();
-}
-
-function syncTaskAncestors(taskId: string): void {
-  const task = db.select().from(tasks).where(eq(tasks.id, taskId)).get();
-  if (!task?.projectId) return;
-  const rows = projectHierarchyRows(task.projectId);
-  if (rows.some((candidate) => candidate.parentTaskId === taskId)) {
-    syncParentSummary(taskId);
-  }
-  taskAncestors(rows, taskId).forEach((ancestor) => syncParentSummary(ancestor.id));
 }
 
 export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
@@ -1144,10 +1016,11 @@ export async function moveContextualDeadline(
   const data = moveContextualDeadlineSchema.parse(input);
   const deadline = db.select().from(tasks).where(eq(tasks.id, data.id)).get();
   if (!deadline || deadline.kind !== "deadline") {
-    throw new Error("Deadline not found");
+    return { ok: false as const, code: "not-found" as const };
   }
   if (deadline.updatedAt.toISOString() !== data.expectedUpdatedAt) {
-    throw new Error("Deadline changed in another session");
+    // Changed in another session.
+    return { ok: false as const, code: "stale" as const };
   }
   const deadlineAt = data.deadlineAt ? new Date(data.deadlineAt) : null;
   const now = new Date();
@@ -1163,6 +1036,7 @@ export async function moveContextualDeadline(
   revalidatePath("/projects");
   revalidatePath("/");
   return {
+    ok: true as const,
     id: deadline.id,
     previous: {
       deadlineDate: deadline.dueDate ?? data.deadlineDate,
@@ -1311,12 +1185,27 @@ const reparentSchema = z.object({
  * afterwards, so a summary that just lost its last child keeps the dates it had
  * and becomes an ordinary task again.
  */
-export async function reparentTask(input: z.input<typeof reparentSchema>) {
+export async function reparentTask(
+  input: z.input<typeof reparentSchema>,
+): Promise<{ ok: true } | ScheduleFailure> {
   await requireUserOrThrow();
   const data = reparentSchema.parse(input);
+  let projectId: string;
+  try {
+    projectId = reparentTaskRows(data);
+  } catch (error) {
+    return scheduleFailure(error);
+  }
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/projects");
+  return { ok: true };
+}
+
+/** Validates and writes a reparent; returns the task's project. */
+function reparentTaskRows(data: z.infer<typeof reparentSchema>): string {
   const task = db.select().from(tasks).where(eq(tasks.id, data.taskId)).get();
-  if (!task) throw new Error("Task not found");
-  if (!task.projectId) throw new Error("Only project tasks can be nested");
+  if (!task) throw new ScheduleError("not-found", "Task not found");
+  if (!task.projectId) throw new ScheduleError("invalid", "Only project tasks can be nested");
   const projectId = task.projectId;
 
 
@@ -1336,7 +1225,7 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
     },
   );
   if (taskDescendants(projectTasks, task.id).length > 0 && task.isMilestone) {
-    throw new Error("Milestones cannot contain subtasks");
+    throw new ScheduleError("hierarchy", "Milestones cannot contain subtasks");
   }
 
   const siblings = db
@@ -1356,7 +1245,7 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
   const anchor = data.beforeTaskId
     ? siblings.findIndex((sibling) => sibling.id === data.beforeTaskId)
     : -1;
-  if (data.beforeTaskId && anchor < 0) throw new Error("The destination moved; refresh and try again");
+  if (data.beforeTaskId && anchor < 0) throw new ScheduleError("stale", "The destination moved; refresh and try again");
   const orderedIds = siblings.map((sibling) => sibling.id);
   orderedIds.splice(anchor < 0 ? orderedIds.length : anchor, 0, task.id);
   const sortOrder = (orderedIds.indexOf(task.id) + 1) * SORT_GAP;
@@ -1392,17 +1281,22 @@ export async function reparentTask(input: z.input<typeof reparentSchema>) {
       syncProjectBounds(projectId);
     }
   });
-
-  revalidatePath(`/projects/${projectId}`);
-  revalidatePath("/projects");
+  return projectId;
 }
 
+/**
+ * Keeps the older contract (throws on failure) because its only caller, the
+ * project row menu, still reads `changeSetId` directly. Prefer the typed
+ * result of `applyPortfolioScheduleChange` for new callers.
+ */
 export async function fitProjectToTasks(projectId: string) {
-  return applyPortfolioScheduleChange({
+  const result = await applyPortfolioScheduleChange({
     entityType: "project",
     entityId: projectId,
     operation: "fit",
   });
+  if (!result.ok) throw new Error(`Fit failed: ${result.code}`);
+  return result;
 }
 
 export async function fitTaskToChildren(taskId: string) {
@@ -1541,11 +1435,24 @@ const dependencySchema = z.object({
   routeOffsetRows: z.number().int().min(-400).max(400).nullable().default(null),
 });
 
+type TaskDependencyRow = typeof taskDependencies.$inferSelect;
+
 export async function upsertTaskDependency(
-  input: z.infer<typeof dependencySchema>,
-) {
+  input: z.input<typeof dependencySchema>,
+): Promise<{ ok: true; dependency: TaskDependencyRow } | ScheduleFailure> {
   await requireUserOrThrow();
   const data = dependencySchema.parse(input);
+  let persisted: TaskDependencyRow;
+  try {
+    persisted = db.transaction(() => saveTaskDependency(data));
+  } catch (error) {
+    return scheduleFailure(error);
+  }
+  revalidatePath("/projects");
+  return { ok: true, dependency: persisted };
+}
+
+function saveTaskDependency(data: z.infer<typeof dependencySchema>): TaskDependencyRow {
   // Summary tasks may sit at either end of a link (R6). A link between a task
   // and its own ancestor or descendant is still impossible, because a summary
   // already spans its subtree.
@@ -1553,8 +1460,17 @@ export async function upsertTaskDependency(
     .select({ id: tasks.id, parentTaskId: tasks.parentTaskId })
     .from(tasks)
     .all();
+  if (
+    !hierarchyTasks.some((task) => task.id === data.predecessorTaskId) ||
+    !hierarchyTasks.some((task) => task.id === data.successorTaskId)
+  ) {
+    throw new ScheduleError("not-found", "Task not found");
+  }
   assertDependencyEndpoints(hierarchyTasks, data);
   const existing = db.select().from(taskDependencies).all();
+  if (data.id && !existing.some((dependency) => dependency.id === data.id)) {
+    throw new ScheduleError("not-found", "Dependency not found");
+  }
   const candidate = [
     ...existing.filter((dependency) => dependency.id !== data.id),
     {
@@ -1567,7 +1483,7 @@ export async function upsertTaskDependency(
     },
   ];
   if (hasScheduleCycle(hierarchyTasks, candidate)) {
-    throw new Error("Dependency cycle");
+    throw new ScheduleError("cycle", "Dependency cycle");
   }
   if (data.id) {
     db.update(taskDependencies)
@@ -1601,7 +1517,6 @@ export async function upsertTaskDependency(
       db.insert(taskDependencies).values(data).run();
     }
   }
-  revalidatePath("/projects");
   const persisted = data.id
     ? db
         .select()
@@ -1625,10 +1540,23 @@ export async function upsertTaskDependency(
   return persisted;
 }
 
-export async function deleteTaskDependency(id: string) {
+/**
+ * Returns the deleted row so the caller can offer undo by saving it again.
+ * Deleting a link that is already gone reports `not-found`.
+ */
+export async function deleteTaskDependency(
+  id: string,
+): Promise<{ ok: true; dependency: TaskDependencyRow } | ScheduleFailure> {
   await requireUserOrThrow();
-  db.delete(taskDependencies).where(eq(taskDependencies.id, id)).run();
+  const dependencyId = z.string().min(1).parse(id);
+  const deleted = db
+    .delete(taskDependencies)
+    .where(eq(taskDependencies.id, dependencyId))
+    .returning()
+    .get();
+  if (!deleted) return { ok: false, code: "not-found" };
   revalidatePath("/projects");
+  return { ok: true, dependency: deleted };
 }
 
 // --- Authoritative schedule previews, applies, and undo ---
@@ -1703,21 +1631,48 @@ function scheduleEntityId(input: z.infer<typeof scheduleMoveSchema>): string {
   const id =
     input.entityId ??
     (input.entityType === "project" ? input.projectId : input.taskId);
-  if (!id) throw new Error("A schedule entity is required");
+  if (!id) throw new ScheduleError("invalid", "A schedule entity is required");
   return id;
 }
 
 type ScheduleReader = Pick<typeof db, "select">;
 
+/** Project-level finish-to-start links, in the planner's shape. */
+function projectScheduleLinks(reader: ScheduleReader): ProjectScheduleLink[] {
+  return [
+    ...reader
+      .select()
+      .from(projectDependencies)
+      .all()
+      .map((link) => ({
+        predecessorType: link.predecessorType,
+        predecessorId: link.predecessorId,
+        successorType: "project" as const,
+        successorId: link.successorProjectId,
+      })),
+    ...reader
+      .select()
+      .from(projectTaskDependencies)
+      .all()
+      .map((link) => ({
+        predecessorType: "project" as const,
+        predecessorId: link.predecessorProjectId,
+        successorType: "task" as const,
+        successorId: link.successorTaskId,
+      })),
+  ];
+}
+
 /**
  * The projects a schedule edit can reach: the one being edited plus any joined
- * to it by a dependency. Everything outside that set is untouchable, so there is
- * no reason to load it.
+ * to it by a task dependency or a project-level link. Everything outside that
+ * set is untouchable, so there is no reason to load it.
  */
 function scheduleScope(
   reader: ScheduleReader,
   projectId: string,
   dependencies: { predecessorTaskId: string; successorTaskId: string }[],
+  links: ProjectScheduleLink[],
 ): Set<string> {
   const projectByTask = new Map(
     reader
@@ -1726,13 +1681,23 @@ function scheduleScope(
       .all()
       .map((task) => [task.id, task.projectId]),
   );
+  const endpointProject = (type: "project" | "task", id: string) =>
+    type === "project" ? id : projectByTask.get(id);
+  const edges = [
+    ...dependencies.map((dependency) => [
+      projectByTask.get(dependency.predecessorTaskId),
+      projectByTask.get(dependency.successorTaskId),
+    ]),
+    ...links.map((link) => [
+      endpointProject(link.predecessorType, link.predecessorId),
+      endpointProject(link.successorType, link.successorId),
+    ]),
+  ];
   const scope = new Set([projectId]);
   let grew = true;
   while (grew) {
     grew = false;
-    for (const dependency of dependencies) {
-      const from = projectByTask.get(dependency.predecessorTaskId);
-      const to = projectByTask.get(dependency.successorTaskId);
+    for (const [from, to] of edges) {
       if (!from || !to || from === to) continue;
       if (scope.has(from) && !scope.has(to)) {
         scope.add(to);
@@ -1746,12 +1711,13 @@ function scheduleScope(
   return scope;
 }
 
-function computeSchedulePreview(
+function loadSchedulePlan(
   input: z.infer<typeof scheduleMoveSchema>,
-  reader: ScheduleReader = db,
-): SchedulePreview {
+  reader: ScheduleReader,
+) {
   const entityId = scheduleEntityId(input);
   const dependencies = reader.select().from(taskDependencies).all();
+  const links = projectScheduleLinks(reader);
   const rootProjectId =
     input.entityType === "project"
       ? entityId
@@ -1760,8 +1726,8 @@ function computeSchedulePreview(
           .from(tasks)
           .where(eq(tasks.id, entityId))
           .get()?.projectId;
-  if (!rootProjectId) throw new Error("Task not found");
-  const scope = scheduleScope(reader, rootProjectId, dependencies);
+  if (!rootProjectId) throw new ScheduleError("not-found", "Task not found");
+  const scope = scheduleScope(reader, rootProjectId, dependencies, links);
   const scopeIds = [...scope];
 
   const taskRows = reader
@@ -1795,10 +1761,11 @@ function computeSchedulePreview(
       taskIdsInScope.has(dependency.predecessorTaskId) &&
       taskIdsInScope.has(dependency.successorTaskId),
   );
-  return previewScheduleEdit({
+  return {
     tasks: taskRows,
     projects: projectRows,
     dependencies: scopedDependencies,
+    links,
     edit: {
       entityType: input.entityType,
       entityId,
@@ -1806,7 +1773,29 @@ function computeSchedulePreview(
       startDate: input.startDate,
       dueDate: input.dueDate,
     },
-  });
+  };
+}
+
+/** The edit and its task-level cascade only; project-level links are ignored. */
+function computeSchedulePreview(
+  input: z.infer<typeof scheduleMoveSchema>,
+  reader: ScheduleReader = db,
+): SchedulePreview {
+  return previewScheduleEdit(loadSchedulePlan(input, reader));
+}
+
+/**
+ * The edit plus the push of project-level successors. `core` is what the
+ * timeline previews locally (it does not know project links); `preview` is
+ * what gets written and recorded for undo.
+ */
+function computeLinkedSchedulePreview(
+  input: z.infer<typeof scheduleMoveSchema>,
+  reader: ScheduleReader = db,
+): { core: SchedulePreview; preview: SchedulePreview } {
+  const plan = loadSchedulePlan(input, reader);
+  const core = previewScheduleEdit(plan);
+  return { core, preview: applyProjectLinkCascade({ ...plan, preview: core }) };
 }
 
 export async function previewPortfolioScheduleChange(
@@ -1814,7 +1803,7 @@ export async function previewPortfolioScheduleChange(
 ) {
   await requireUserOrThrow();
   const data = scheduleMoveSchema.parse(input);
-  const preview = computeSchedulePreview(data);
+  const { preview } = computeLinkedSchedulePreview(data);
   const taskIds = preview.changes
     .filter((change) => change.entityType === "task")
     .map((change) => change.entityId);
@@ -1876,135 +1865,172 @@ function canonicalChanges(
   );
 }
 
+export type ScheduleApplyResult =
+  | {
+      ok: true;
+      changeSetId: string | null;
+      changes: ScheduleEntityChange[];
+      preview: SchedulePreview;
+    }
+  | ScheduleFailure;
+
 export async function applyPortfolioScheduleChange(
-  input: z.infer<typeof scheduleApplySchema>,
-) {
+  input: z.input<typeof scheduleApplySchema>,
+): Promise<ScheduleApplyResult> {
   const user = await requireUserOrThrow();
   const data = scheduleApplySchema.parse(input);
   if (data.operation !== "fit" && !data.expectedPreview) {
-    throw new Error("Confirm the current schedule preview before saving");
+    // Confirm the current schedule preview before saving.
+    return { ok: false, code: "invalid" };
   }
 
-  const result = db.transaction((tx) => {
-    // Read, recompute, compare, and write on the same SQLite transaction
-    // snapshot. Row-level before checks below remain a second line of defense.
-    const preview = computeSchedulePreview(data, tx);
-    const changes = preview.changes;
+  let result: { changeSetId: string | null; changes: ScheduleEntityChange[]; preview: SchedulePreview };
+  try {
+    result = db.transaction((tx) => applyScheduleRows(tx, data, user.id));
+  } catch (error) {
+    return scheduleFailure(error);
+  }
+  if (result.changeSetId) revalidatePath("/projects");
+  return { ok: true, ...result };
+}
+
+function applyScheduleRows(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  data: z.infer<typeof scheduleApplySchema>,
+  userId: string,
+) {
+  // Read, recompute, compare, and write on the same SQLite transaction
+  // snapshot. Row-level before checks below remain a second line of defense.
+  // The client previews without project-level links, so its expectation
+  // may match either the bare edit or the edit with pushed successors.
+  const { core, preview } = computeLinkedSchedulePreview(data, tx);
+  const changes = preview.changes;
+  if (data.expectedPreview) {
+    const expected = canonicalChanges(data.expectedPreview.changes);
     if (
-      data.expectedPreview &&
-      canonicalChanges(data.expectedPreview.changes) !==
-        canonicalChanges(changes)
+      expected !== canonicalChanges(core.changes) &&
+      expected !== canonicalChanges(changes)
     ) {
-      throw new Error("Schedule preview is out of date");
+      throw new ScheduleError("stale", "Schedule preview is out of date");
     }
-    if (changes.length === 0) {
-      return { changeSetId: null, changes, preview };
-    }
-    const changeSet = tx
-      .insert(scheduleChangeSets)
-      .values({ createdBy: user.id })
-      .returning({ id: scheduleChangeSets.id })
-      .get();
-    const taskChanges = changes.filter(
-      (change) => change.entityType === "task",
-    );
-    const projectChanges = changes.filter(
-      (change) => change.entityType === "project",
-    );
-    if (taskChanges.length > 0) {
-      tx.insert(scheduleChangeItems)
-        .values(
-          taskChanges.map((change) => ({
+  }
+  if (changes.length === 0) {
+    return { changeSetId: null, changes, preview };
+  }
+  const changeSet = tx
+    .insert(scheduleChangeSets)
+    .values({ createdBy: userId })
+    .returning({ id: scheduleChangeSets.id })
+    .get();
+  const taskChanges = changes.filter(
+    (change) => change.entityType === "task",
+  );
+  const projectChanges = changes.filter(
+    (change) => change.entityType === "project",
+  );
+  if (taskChanges.length > 0) {
+    tx.insert(scheduleChangeItems)
+      .values(
+        taskChanges.map((change) => ({
+        changeSetId: changeSet.id,
+        taskId: change.entityId,
+        beforeStartDate: change.beforeStartDate,
+        beforeDueDate: change.beforeDueDate,
+        afterStartDate: change.afterStartDate,
+        afterDueDate: change.afterDueDate,
+        })),
+      )
+      .run();
+  }
+  if (projectChanges.length > 0) {
+    tx.insert(projectScheduleChangeItems)
+      .values(
+        projectChanges.map((change) => ({
           changeSetId: changeSet.id,
-          taskId: change.entityId,
+          projectId: change.entityId,
           beforeStartDate: change.beforeStartDate,
           beforeDueDate: change.beforeDueDate,
           afterStartDate: change.afterStartDate,
           afterDueDate: change.afterDueDate,
-          })),
-        )
-        .run();
+        })),
+      )
+      .run();
+  }
+  for (const change of taskChanges) {
+    const current = tx
+      .select({
+        startDate: tasks.startDate,
+        dueDate: tasks.dueDate,
+      })
+      .from(tasks)
+      .where(eq(tasks.id, change.entityId))
+      .get();
+    if (
+      !current ||
+      current.startDate !== change.beforeStartDate ||
+      current.dueDate !== change.beforeDueDate
+    ) {
+      throw new ScheduleError("stale", "Schedule changed in another session");
     }
-    if (projectChanges.length > 0) {
-      tx.insert(projectScheduleChangeItems)
-        .values(
-          projectChanges.map((change) => ({
-            changeSetId: changeSet.id,
-            projectId: change.entityId,
-            beforeStartDate: change.beforeStartDate,
-            beforeDueDate: change.beforeDueDate,
-            afterStartDate: change.afterStartDate,
-            afterDueDate: change.afterDueDate,
-          })),
-        )
-        .run();
+    tx.update(tasks)
+      .set({
+        startDate: change.afterStartDate,
+        dueDate: change.afterDueDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(tasks.id, change.entityId))
+      .run();
+  }
+  for (const change of projectChanges) {
+    const current = tx
+      .select({
+        startDate: projects.plannedStartDate,
+        dueDate: projects.targetEndDate,
+      })
+      .from(projects)
+      .where(eq(projects.id, change.entityId))
+      .get();
+    if (
+      !current ||
+      current.startDate !== change.beforeStartDate ||
+      current.dueDate !== change.beforeDueDate
+    ) {
+      throw new ScheduleError("stale", "Schedule changed in another session");
     }
-    for (const change of taskChanges) {
-      const current = tx
-        .select({
-          startDate: tasks.startDate,
-          dueDate: tasks.dueDate,
-        })
-        .from(tasks)
-        .where(eq(tasks.id, change.entityId))
-        .get();
-      if (
-        !current ||
-        current.startDate !== change.beforeStartDate ||
-        current.dueDate !== change.beforeDueDate
-      ) {
-        throw new Error("Schedule changed in another session");
-      }
-      tx.update(tasks)
-        .set({
-          startDate: change.afterStartDate,
-          dueDate: change.afterDueDate,
-          updatedAt: new Date(),
-        })
-        .where(eq(tasks.id, change.entityId))
-        .run();
-    }
-    for (const change of projectChanges) {
-      const current = tx
-        .select({
-          startDate: projects.plannedStartDate,
-          dueDate: projects.targetEndDate,
-        })
-        .from(projects)
-        .where(eq(projects.id, change.entityId))
-        .get();
-      if (
-        !current ||
-        current.startDate !== change.beforeStartDate ||
-        current.dueDate !== change.beforeDueDate
-      ) {
-        throw new Error("Schedule changed in another session");
-      }
-      tx.update(projects)
-        .set({
-          plannedStartDate: change.afterStartDate,
-          targetEndDate: change.afterDueDate,
-          updatedAt: new Date(),
-        })
-        .where(eq(projects.id, change.entityId))
-        .run();
-    }
-    return { changeSetId: changeSet.id, changes, preview };
-  });
-  if (result.changeSetId) revalidatePath("/projects");
-  return result;
+    tx.update(projects)
+      .set({
+        plannedStartDate: change.afterStartDate,
+        targetEndDate: change.afterDueDate,
+        updatedAt: new Date(),
+      })
+      .where(eq(projects.id, change.entityId))
+      .run();
+  }
+  return { changeSetId: changeSet.id, changes, preview };
 }
 
-export async function revertPortfolioScheduleChange(changeSetId: string) {
+/** Runs a synchronous write and reports an expected scheduling failure. */
+function scheduleTry(run: () => void): ScheduleFailure | null {
+  try {
+    run();
+    return null;
+  } catch (error) {
+    return scheduleFailure(error);
+  }
+}
+
+export async function revertPortfolioScheduleChange(
+  changeSetId: string,
+): Promise<{ ok: true } | ScheduleFailure> {
   await requireUserOrThrow();
-  db.transaction((tx) => {
+  const failure = scheduleTry(() => db.transaction((tx) => {
     const set = tx
       .select()
       .from(scheduleChangeSets)
       .where(eq(scheduleChangeSets.id, changeSetId))
       .get();
     if (!set || set.status !== "applied") {
-      throw new Error("Change cannot be undone");
+      throw new ScheduleError("unavailable", "Change cannot be undone");
     }
     const items = tx
       .select()
@@ -2054,7 +2080,7 @@ export async function revertPortfolioScheduleChange(changeSetId: string) {
         current.startDate !== item.afterStartDate ||
         current.dueDate !== item.afterDueDate
       ) {
-        throw new Error("A later edit prevents undo");
+        throw new ScheduleError("blocked", "A later edit prevents undo");
       }
     }
     for (const item of projectItems) {
@@ -2064,7 +2090,7 @@ export async function revertPortfolioScheduleChange(changeSetId: string) {
         current.startDate !== item.afterStartDate ||
         current.dueDate !== item.afterDueDate
       ) {
-        throw new Error("A later edit prevents undo");
+        throw new ScheduleError("blocked", "A later edit prevents undo");
       }
     }
 
@@ -2093,12 +2119,12 @@ export async function revertPortfolioScheduleChange(changeSetId: string) {
         : project;
     });
     if (hasScheduleCycle(restoredTasks, dependencies)) {
-      throw new Error("A later hierarchy edit prevents undo");
+      throw new ScheduleError("blocked", "A later hierarchy edit prevents undo");
     }
     if (
       scheduleContainmentViolations(restoredTasks, restoredProjects).length > 0
     ) {
-      throw new Error("Newly nested work prevents undo");
+      throw new ScheduleError("blocked", "Newly nested work prevents undo");
     }
     const currentConflicts = dependencyConflictEdgeKeys(
       currentTasks,
@@ -2111,7 +2137,7 @@ export async function revertPortfolioScheduleChange(changeSetId: string) {
     if (
       [...restoredConflicts].some((conflict) => !currentConflicts.has(conflict))
     ) {
-      throw new Error("A later dependency prevents undo");
+      throw new ScheduleError("blocked", "A later dependency prevents undo");
     }
 
     for (const item of items) {
@@ -2138,21 +2164,25 @@ export async function revertPortfolioScheduleChange(changeSetId: string) {
       .set({ status: "reverted", revertedAt: new Date() })
       .where(eq(scheduleChangeSets.id, changeSetId))
       .run();
-  });
+  }));
+  if (failure) return failure;
   revalidatePath("/projects");
+  return { ok: true };
 }
 
 /** Reapplies a change set that was just reverted, with the same safeguards as undo. */
-export async function reapplyPortfolioScheduleChange(changeSetId: string) {
+export async function reapplyPortfolioScheduleChange(
+  changeSetId: string,
+): Promise<{ ok: true } | ScheduleFailure> {
   await requireUserOrThrow();
-  db.transaction((tx) => {
+  const failure = scheduleTry(() => db.transaction((tx) => {
     const set = tx
       .select()
       .from(scheduleChangeSets)
       .where(eq(scheduleChangeSets.id, changeSetId))
       .get();
     if (!set || set.status !== "reverted") {
-      throw new Error("Change cannot be redone");
+      throw new ScheduleError("unavailable", "Change cannot be redone");
     }
     const items = tx
       .select()
@@ -2200,7 +2230,7 @@ export async function reapplyPortfolioScheduleChange(changeSetId: string) {
         current.startDate !== item.beforeStartDate ||
         current.dueDate !== item.beforeDueDate
       ) {
-        throw new Error("A later edit prevents redo");
+        throw new ScheduleError("blocked", "A later edit prevents redo");
       }
     }
     for (const item of projectItems) {
@@ -2210,7 +2240,7 @@ export async function reapplyPortfolioScheduleChange(changeSetId: string) {
         current.startDate !== item.beforeStartDate ||
         current.dueDate !== item.beforeDueDate
       ) {
-        throw new Error("A later edit prevents redo");
+        throw new ScheduleError("blocked", "A later edit prevents redo");
       }
     }
 
@@ -2231,17 +2261,17 @@ export async function reapplyPortfolioScheduleChange(changeSetId: string) {
         : project;
     });
     if (hasScheduleCycle(reappliedTasks, dependencies)) {
-      throw new Error("A later hierarchy edit prevents redo");
+      throw new ScheduleError("blocked", "A later hierarchy edit prevents redo");
     }
     if (scheduleContainmentViolations(reappliedTasks, reappliedProjects).length > 0) {
-      throw new Error("Newly nested work prevents redo");
+      throw new ScheduleError("blocked", "Newly nested work prevents redo");
     }
     const currentConflicts = dependencyConflictEdgeKeys(currentTasks, dependencies);
     const reappliedConflicts = dependencyConflictEdgeKeys(reappliedTasks, dependencies);
     if (
       [...reappliedConflicts].some((conflict) => !currentConflicts.has(conflict))
     ) {
-      throw new Error("A later dependency prevents redo");
+      throw new ScheduleError("blocked", "A later dependency prevents redo");
     }
 
     for (const item of items) {
@@ -2268,8 +2298,10 @@ export async function reapplyPortfolioScheduleChange(changeSetId: string) {
       .set({ status: "applied", revertedAt: null })
       .where(eq(scheduleChangeSets.id, changeSetId))
       .run();
-  });
+  }));
+  if (failure) return failure;
   revalidatePath("/projects");
+  return { ok: true };
 }
 
 const projectOrderSchema = z.object({ projectId: z.string().min(1), beforeProjectId: z.string().min(1).nullable() });

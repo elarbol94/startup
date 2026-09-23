@@ -1,3 +1,5 @@
+import { ScheduleError } from "./schedule-errors";
+
 /**
  * How a task reacts when one of its predecessors moves.
  *
@@ -182,7 +184,7 @@ const DAY_MS = 86_400_000;
 
 function parseIsoDate(value: string): Date {
   const date = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(date.getTime())) throw new Error(`Invalid date: ${value}`);
+  if (Number.isNaN(date.getTime())) throw new ScheduleError("invalid", `Invalid date: ${value}`);
   return date;
 }
 
@@ -191,7 +193,7 @@ function toIsoDate(date: Date): string {
 }
 
 export function addCalendarDays(value: string, amount: number): string {
-  if (!Number.isInteger(amount)) throw new Error("Day offset must be an integer");
+  if (!Number.isInteger(amount)) throw new ScheduleError("invalid", "Day offset must be an integer");
   const date = parseIsoDate(value);
   date.setUTCDate(date.getUTCDate() + amount);
   return toIsoDate(date);
@@ -418,7 +420,7 @@ export function assertDependencyEndpoints<
   T extends { id: string; parentTaskId?: string | null },
 >(tasks: T[], dependency: Pick<ScheduleDependency, "predecessorTaskId" | "successorTaskId">): void {
   if (dependency.predecessorTaskId === dependency.successorTaskId) {
-    throw new Error("A task cannot depend on itself");
+    throw new ScheduleError("hierarchy", "A task cannot depend on itself");
   }
   const relatedByHierarchy =
     taskAncestors(tasks, dependency.successorTaskId).some(
@@ -428,7 +430,7 @@ export function assertDependencyEndpoints<
       (ancestor) => ancestor.id === dependency.successorTaskId,
     );
   if (relatedByHierarchy) {
-    throw new Error("A summary task cannot depend on its own subtasks");
+    throw new ScheduleError("hierarchy", "A summary task cannot depend on its own subtasks");
   }
 }
 
@@ -593,12 +595,12 @@ export function previewScheduleCascade(
   },
 ): ScheduleChange[] {
   if (hasScheduleCycle(sourceTasks, dependencies)) {
-    throw new Error("Dependency cycle");
+    throw new ScheduleError("cycle", "Dependency cycle");
   }
   const original = new Map(sourceTasks.map((task) => [task.id, task]));
   const working = new Map(sourceTasks.map((task) => [task.id, { ...task }]));
   const root = working.get(rootChange.taskId);
-  if (!root) throw new Error("Task not found");
+  if (!root) throw new ScheduleError("not-found", "Task not found");
 
   const childrenByParent = directChildren(sourceTasks);
   const depthById = new Map(
@@ -656,13 +658,13 @@ export function previewScheduleCascade(
   const operation = rootChange.operation ?? "move";
   if (operation === "fit") {
     if (!rootDescendants || rootDescendants.length === 0) {
-      throw new Error("Only a task with children can be fitted");
+      throw new ScheduleError("invalid", "Only a task with children can be fitted");
     }
     const envelope = descendantEnvelope(
       rootDescendants.map((task) => working.get(task.id)!),
     );
     if (!envelope.startDate || !envelope.dueDate) {
-      throw new Error("Schedule at least one child before fitting the task");
+      throw new ScheduleError("invalid", "Schedule at least one child before fitting the task");
     }
     working.set(root.id, {
       ...root,
@@ -672,14 +674,14 @@ export function previewScheduleCascade(
     touched.add(root.id);
   } else {
     if (!rootChange.startDate || !rootChange.dueDate) {
-      throw new Error("Schedule dates are required");
+      throw new ScheduleError("invalid", "Schedule dates are required");
     }
     const normalizedStart = toIsoDate(parseIsoDate(rootChange.startDate));
     const normalizedDue = root.isMilestone
       ? normalizedStart
       : toIsoDate(parseIsoDate(rootChange.dueDate));
     if (normalizedDue < normalizedStart) {
-      throw new Error("Due date precedes start date");
+      throw new ScheduleError("invalid", "Due date precedes start date");
     }
     if (
       operation === "move" &&
@@ -746,7 +748,7 @@ export function previewScheduleCascade(
       settled = false;
     }
   }
-  if (!settled) throw new Error("Dependency cycle");
+  if (!settled) throw new ScheduleError("cycle", "Dependency cycle");
   rollupAncestorsInPlace(working, childrenByParent, depthById, touched);
 
   const changes: ScheduleChange[] = [];
@@ -770,13 +772,13 @@ function normalizedEditDates(
   milestone = false,
 ): { startDate: string; dueDate: string } {
   if (!edit.startDate || !edit.dueDate) {
-    throw new Error("Schedule dates are required");
+    throw new ScheduleError("invalid", "Schedule dates are required");
   }
   const startDate = toIsoDate(parseIsoDate(edit.startDate));
   const dueDate = milestone
     ? startDate
     : toIsoDate(parseIsoDate(edit.dueDate));
-  if (dueDate < startDate) throw new Error("Due date precedes start date");
+  if (dueDate < startDate) throw new ScheduleError("invalid", "Due date precedes start date");
   return { startDate, dueDate };
 }
 
@@ -812,7 +814,7 @@ function constrainingTaskIds(
 export function previewScheduleEdit(input: SchedulePlanInput): SchedulePreview {
   const edit = { ...input.edit };
   if (hasScheduleCycle(input.tasks, input.dependencies)) {
-    throw new Error("Dependency cycle");
+    throw new ScheduleError("cycle", "Dependency cycle");
   }
 
   const originalTasks = new Map(
@@ -861,7 +863,7 @@ export function previewScheduleEdit(input: SchedulePlanInput): SchedulePreview {
 
   if (edit.entityType === "task") {
     const target = workingTasks.get(edit.entityId);
-    if (!target) throw new Error("Task not found");
+    if (!target) throw new ScheduleError("not-found", "Task not found");
     const descendants = taskDescendants(taskList(), target.id);
     if (edit.operation === "move") {
       descendants.forEach((task) => subtreeTaskIds.add(task.id));
@@ -903,7 +905,7 @@ export function previewScheduleEdit(input: SchedulePlanInput): SchedulePreview {
     );
   } else {
     const project = workingProjects.get(edit.entityId);
-    if (!project) throw new Error("Project not found");
+    if (!project) throw new ScheduleError("not-found", "Project not found");
     const members = taskList().filter(
       (task) => task.projectId === project.id,
     );
@@ -911,7 +913,7 @@ export function previewScheduleEdit(input: SchedulePlanInput): SchedulePreview {
 
     if (edit.operation === "fit") {
       if (!envelope.startDate || !envelope.dueDate) {
-        throw new Error("Schedule at least one task before fitting the project");
+        throw new ScheduleError("invalid", "Schedule at least one task before fitting the project");
       }
       workingProjects.set(project.id, {
         ...project,
@@ -923,7 +925,7 @@ export function previewScheduleEdit(input: SchedulePlanInput): SchedulePreview {
       if (edit.operation === "move") {
         const currentStart = project.startDate ?? envelope.startDate;
         if (!currentStart) {
-          throw new Error("Place the project before moving it");
+          throw new ScheduleError("invalid", "Place the project before moving it");
         }
         const offset = calendarDayDistance(currentStart, dates.startDate);
         for (const shifted of shiftScheduledTasks(members, offset)) {
@@ -1338,7 +1340,7 @@ export function taskAncestors<
   const seen = new Set<string>([taskId]);
   let cursor = byId.get(taskId);
   while (cursor?.parentTaskId) {
-    if (seen.has(cursor.parentTaskId)) throw new Error("Task hierarchy cycle");
+    if (seen.has(cursor.parentTaskId)) throw new ScheduleError("cycle", "Task hierarchy cycle");
     seen.add(cursor.parentTaskId);
     const parent = byId.get(cursor.parentTaskId);
     if (!parent) break;
@@ -1358,7 +1360,7 @@ export function taskSubtree<
   T extends { id: string; parentTaskId?: string | null },
 >(tasks: T[], taskId: string): TaskSubtree<T> {
   const root = tasks.find((task) => task.id === taskId);
-  if (!root) throw new Error("Task not found");
+  if (!root) throw new ScheduleError("not-found", "Task not found");
   const descendants = taskDescendants(tasks, taskId);
   return { root, descendants, leaves: leafTasks([root, ...descendants]) };
 }
@@ -1624,12 +1626,194 @@ export function assertTaskHierarchy<
 >(tasks: T[], task: T): void {
   if (!task.parentTaskId) return;
   const parent = tasks.find((candidate) => candidate.id === task.parentTaskId);
-  if (!parent) throw new Error("Parent task not found");
-  if (parent.projectId !== task.projectId) throw new Error("Parent task belongs to another project");
-  if (parent.isMilestone) throw new Error("Milestones cannot contain subtasks");
-  if (parent.id === task.id) throw new Error("A task cannot be its own parent");
+  if (!parent) throw new ScheduleError("not-found", "Parent task not found");
+  if (parent.projectId !== task.projectId) throw new ScheduleError("hierarchy", "Parent task belongs to another project");
+  if (parent.isMilestone) throw new ScheduleError("hierarchy", "Milestones cannot contain subtasks");
+  if (parent.id === task.id) throw new ScheduleError("hierarchy", "A task cannot be its own parent");
   const descendants = taskDescendants(tasks, task.id);
   if (descendants.some((descendant) => descendant.id === parent.id)) {
-    throw new Error("Task hierarchy cycle");
+    throw new ScheduleError("cycle", "Task hierarchy cycle");
   }
+}
+
+/**
+ * A task counts as done when it sits in a completed column. This is the rule
+ * the board uses; `progress` is only an estimate and can lag behind.
+ */
+export function isTaskDone(task: { columnIsCompleted?: boolean | null }): boolean {
+  return Boolean(task.columnIsCompleted);
+}
+
+/**
+ * Whether a project is at risk of missing its target.
+ *
+ * Unfinished work that is already overdue cannot finish before today, so its
+ * remaining share of the planned duration is projected from today. The project
+ * is at risk when that forecast (or any planned finish) lands after the target,
+ * or when a milestone was missed. A single task running a few days late inside
+ * a project with slack is not a risk to the project. Without a target date,
+ * any overdue unfinished work counts, because there is nothing to absorb it.
+ */
+export function projectScheduleRisk(
+  project: { targetEndDate: string | null },
+  tasks: (ScheduleTask & { columnIsCompleted?: boolean | null })[],
+  today: string,
+): boolean {
+  const leaves = leafTasks(tasks);
+  let overdue = false;
+  let forecastEnd: string | null = null;
+  for (const task of leaves) {
+    if (!task.dueDate) continue;
+    let finish = task.dueDate;
+    if (!isTaskDone(task) && task.dueDate < today) {
+      if (task.isMilestone) return true;
+      overdue = true;
+      const duration = task.startDate
+        ? Math.max(1, calendarDaysInclusive(task.startDate, task.dueDate))
+        : 1;
+      const progress = Math.min(100, Math.max(0, task.progress ?? 0));
+      const remaining = Math.max(1, Math.ceil((duration * (100 - progress)) / 100));
+      finish = addCalendarDays(today, remaining - 1);
+    }
+    if (!forecastEnd || finish > forecastEnd) forecastEnd = finish;
+  }
+  if (!project.targetEndDate) return overdue;
+  return Boolean(forecastEnd && forecastEnd > project.targetEndDate);
+}
+
+/**
+ * A finish-to-start link from a project or task to a whole project, or from a
+ * project to a task (`project_dependencies` and `project_task_dependencies`).
+ */
+export type ProjectScheduleLink = {
+  predecessorType: "project" | "task";
+  predecessorId: string;
+  successorType: "project" | "task";
+  successorId: string;
+};
+
+/**
+ * Pushes project-level successors after a schedule edit. Whenever the finish
+ * of a linked predecessor moved, a successor that now starts on or before that
+ * finish is moved to the day after it, using the same planner as a timeline
+ * move so its subtree, task dependencies and containers follow. The result
+ * lists every change once, with before values from the original input, so the
+ * whole push is recorded in one change set and undone together.
+ */
+export function applyProjectLinkCascade(
+  input: SchedulePlanInput & {
+    links: ProjectScheduleLink[];
+    preview: SchedulePreview;
+  },
+): SchedulePreview {
+  if (input.links.length === 0) return input.preview;
+  const tasks = new Map(input.tasks.map((task) => [task.id, { ...task }]));
+  const projects = new Map(
+    input.projects.map((project) => [project.id, { ...project }]),
+  );
+  const keyOf = (type: ScheduleEntityType, id: string) => `${type}:${id}`;
+  const causes = new Map<string, ScheduleChangeCause>();
+  const apply = (changes: ScheduleEntityChange[]) => {
+    for (const change of changes) {
+      const key = keyOf(change.entityType, change.entityId);
+      if (!causes.has(key)) causes.set(key, change.cause);
+      const dates = {
+        startDate: change.afterStartDate,
+        dueDate: change.afterDueDate,
+      };
+      if (change.entityType === "task") {
+        const task = tasks.get(change.entityId);
+        if (task) tasks.set(task.id, { ...task, ...dates });
+      } else {
+        const project = projects.get(change.entityId);
+        if (project) projects.set(project.id, { ...project, ...dates });
+      }
+    }
+  };
+  const finishMoved = (changes: ScheduleEntityChange[]) =>
+    changes
+      .filter((change) => change.beforeDueDate !== change.afterDueDate)
+      .map((change) => keyOf(change.entityType, change.entityId));
+
+  apply(input.preview.changes);
+  let frontier = new Set(finishMoved(input.preview.changes));
+  let pushedAny = false;
+  let rounds = 0;
+  while (frontier.size > 0) {
+    // Every round follows one link further; more rounds than links means the
+    // project links form a loop that would push forever.
+    if (++rounds > input.links.length + 1) {
+      throw new ScheduleError("cycle", "Project dependency cycle");
+    }
+    const next = new Set<string>();
+    for (const link of input.links) {
+      if (!frontier.has(keyOf(link.predecessorType, link.predecessorId))) continue;
+      const predecessor =
+        link.predecessorType === "project"
+          ? projects.get(link.predecessorId)
+          : tasks.get(link.predecessorId);
+      const successor =
+        link.successorType === "project"
+          ? projects.get(link.successorId)
+          : tasks.get(link.successorId);
+      if (!predecessor?.dueDate || !successor?.startDate || !successor.dueDate) {
+        continue;
+      }
+      const requiredStart = addCalendarDays(predecessor.dueDate, 1);
+      if (successor.startDate >= requiredStart) continue;
+      const shift = calendarDayDistance(successor.startDate, requiredStart);
+      const pushed = previewScheduleEdit({
+        tasks: [...tasks.values()],
+        projects: [...projects.values()],
+        dependencies: input.dependencies,
+        edit: {
+          entityType: link.successorType,
+          entityId: link.successorId,
+          operation: "move",
+          startDate: requiredStart,
+          dueDate: addCalendarDays(successor.dueDate, shift),
+        },
+      });
+      apply(pushed.changes.map((change) => ({ ...change, cause: "dependency" as const })));
+      finishMoved(pushed.changes).forEach((key) => next.add(key));
+      pushedAny = true;
+    }
+    frontier = next;
+  }
+  if (!pushedAny) return input.preview;
+
+  const changed = <T extends { id: string; startDate: string | null; dueDate: string | null }>(
+    entityType: ScheduleEntityType,
+    originals: T[],
+    current: Map<string, T>,
+  ): ScheduleEntityChange[] =>
+    originals.flatMap((before) => {
+      const after = current.get(before.id)!;
+      if (before.startDate === after.startDate && before.dueDate === after.dueDate) {
+        return [];
+      }
+      return [{
+        entityType,
+        entityId: before.id,
+        beforeStartDate: before.startDate,
+        beforeDueDate: before.dueDate,
+        afterStartDate: after.startDate,
+        afterDueDate: after.dueDate,
+        cause: causes.get(keyOf(entityType, before.id)) ?? "dependency",
+      }];
+    });
+  const taskChanges = changed("task", input.tasks, tasks);
+  const projectChanges = changed("project", input.projects, projects);
+  return {
+    ...input.preview,
+    changes: [...taskChanges, ...projectChanges],
+    impact: {
+      ...input.preview.impact,
+      affectedTaskCount: taskChanges.length,
+      affectedProjectCount: projectChanges.length,
+      conflictTaskIds: [
+        ...dependencyConflicts([...tasks.values()], input.dependencies),
+      ],
+    },
+  };
 }
