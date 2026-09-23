@@ -21,6 +21,7 @@ import {
   wikiNotifications,
 } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
+import { safeInternalRoute } from "@/lib/internal-route";
 import {
   assertDependencyEndpoints,
   assertTaskHierarchy,
@@ -267,8 +268,9 @@ export async function upsertProject(
 
 export async function setProjectStatus(id: string, status: "active" | "archived") {
   await requireUserOrThrow();
+  const nextStatus = z.enum(["active", "archived"]).parse(status);
   db.update(projects)
-    .set({ status, updatedAt: new Date() })
+    .set({ status: nextStatus, updatedAt: new Date() })
     .where(eq(projects.id, id))
     .run();
   revalidatePath("/projects");
@@ -921,13 +923,6 @@ export async function getContextualTaskForEdit(id: string) {
     .get();
   if (!task) throw new Error("Task not found");
   return task;
-}
-
-function safeInternalRoute(route: string) {
-  if (!route.startsWith("/") || route.startsWith("//")) {
-    throw new Error("Task context must use an internal route");
-  }
-  return route;
 }
 
 function firstProjectColumn(projectId: string, completed: boolean) {

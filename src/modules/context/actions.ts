@@ -8,12 +8,15 @@ import {
   contextLinks,
   projects,
   taskContexts,
+  taskContextTypes,
   tasks,
+  type TaskContextType,
   wikiPages,
   wikiPdfDocuments,
   wikiSources,
 } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
+import { safeInternalRoute } from "@/lib/internal-route";
 import {
   contextOwnerTypes,
   contextRelationTypes,
@@ -45,13 +48,6 @@ const linkSchema = z.object({
   label: z.string().trim().min(1).max(300),
   anchorJson: z.string().max(20_000).default("{}"),
 });
-
-function safeInternalRoute(route: string) {
-  if (!route.startsWith("/") || route.startsWith("//")) {
-    throw new Error("Context links must use an internal route");
-  }
-  return route;
-}
 
 function assertOwner(type: "project" | "task", id: string) {
   const exists =
@@ -173,7 +169,21 @@ export async function unlinkContext(linkId: string) {
 export async function restoreContextLink(
   input: z.input<typeof linkSchema>,
 ) {
-  return linkContext(input);
+  const restored = await linkContext(input);
+  // Undo of unlinkContext: an origin link also carried the task's context row.
+  const data = linkSchema.parse(input);
+  if (data.ownerType === "task" && data.relation === "origin" && (taskContextTypes as readonly string[]).includes(data.targetType)) {
+    db.insert(taskContexts).values({
+      taskId: data.ownerId,
+      type: data.targetType as TaskContextType,
+      entityId: data.targetId,
+      route: safeInternalRoute(data.route),
+      label: data.label,
+      anchorJson: data.anchorJson,
+    }).onConflictDoNothing().run();
+    revalidateContextRoutes();
+  }
+  return restored;
 }
 
 export async function searchWorkspace(query: string) {

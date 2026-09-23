@@ -30,17 +30,17 @@ describe("Word import", () => {
 describe("boundedDocx", () => {
   it("rejects archives that inflate past the limits, including lying size headers", async () => {
     const { zipSync } = await import("fflate");
-    const bomb = zipSync({ "word/document.xml": new Uint8Array(30 * 1024 * 1024) }, { level: 9 });
+    const bomb = zipSync({ "word/document.xml": new Uint8Array(4 * 1024 * 1024) }, { level: 9 });
     expect(() => boundedDocx(bomb)).toThrow();
     // Declare 1 KB uncompressed in both the local and the central header.
-    const lying = zipSync({ "word/document.xml": new Uint8Array(20 * 1024 * 1024) }, { level: 9 });
+    const lying = zipSync({ "word/document.xml": new Uint8Array(4 * 1024 * 1024) }, { level: 9 });
     const view = new DataView(lying.buffer);
     for (let offset = 0; offset < lying.length - 4; offset += 1) {
       const signature = view.getUint32(offset, true);
       if (signature === 0x04034b50) view.setUint32(offset + 22, 1024, true);
       if (signature === 0x02014b50) view.setUint32(offset + 24, 1024, true);
     }
-    // fflate allocates the declared size, so the lie yields truncated bytes, never 20 MB.
+    // fflate allocates the declared size, so the lie yields truncated bytes, never 4 MB.
     const { unzipSync } = await import("fflate");
     expect(unzipSync(new Uint8Array(boundedDocx(lying)))["word/document.xml"].length).toBe(1024);
   });

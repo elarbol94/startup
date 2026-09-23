@@ -326,8 +326,9 @@ export async function addComment(input: z.infer<typeof commentSchema>) {
       }).returning({ id: wikiCommentThreads.id }).get().id;
       if (data.assigneeId && data.assigneeId !== currentUser.id) db.insert(wikiNotifications).values({ userId: data.assigneeId, actorId: currentUser.id, type: "assignment", pageId: data.pageId, threadId }).run();
     } else {
-      const thread = db.select().from(wikiCommentThreads).where(eq(wikiCommentThreads.id, threadId)).get();
-      if (thread && thread.createdBy !== currentUser.id) db.insert(wikiNotifications).values({ userId: thread.createdBy, actorId: currentUser.id, type: "reply", pageId: data.pageId, threadId }).run();
+      const thread = db.select().from(wikiCommentThreads).where(and(eq(wikiCommentThreads.id, threadId), eq(wikiCommentThreads.pageId, data.pageId))).get();
+      if (!thread) throw new Error("Comment thread not found");
+      if (thread.createdBy !== currentUser.id) db.insert(wikiNotifications).values({ userId: thread.createdBy, actorId: currentUser.id, type: "reply", pageId: data.pageId, threadId }).run();
     }
     db.insert(wikiComments).values({ threadId: threadId!, body: data.body, createdBy: currentUser.id }).run();
     const mentioned = db.select({ id: user.id, name: user.name }).from(user).where(isNull(user.removedAt)).all().filter((person) => data.body.toLocaleLowerCase().includes(`@${person.name.toLocaleLowerCase()}`) && person.id !== currentUser.id);

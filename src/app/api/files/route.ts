@@ -59,7 +59,9 @@ export async function POST(request: Request) {
   try {
     const denied = attachmentAccessError(session.user, entityType, entityId, "upload");
     if (denied) return NextResponse.json({ error: denied === 404 ? "Not found" : "Forbidden" }, { status: denied });
-    const attachment = entityType === "task" && isBugReport(entityId)
+    // Only the bug-report screenshot flow sends uploadId (idempotent retries);
+    // other files on a bug task are ordinary task attachments.
+    const attachment = entityType === "task" && formData.has("uploadId") && isBugReport(entityId)
       ? await saveBugScreenshot(file, entityId, session.user.id, formData.get("uploadId"))
       : await saveAttachment({
       file,

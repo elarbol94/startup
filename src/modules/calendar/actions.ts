@@ -1,7 +1,7 @@
 "use server";
 
 import { createId } from "@paralleldrive/cuid2";
-import { and, eq, inArray, lt, gt, isNull } from "drizzle-orm";
+import { and, eq, inArray, lt, gt, isNotNull, isNull, or } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -20,7 +20,7 @@ import {
   calendars,
 } from "./schema";
 import { calendarRoleForUser, ensureCalendarWorkspace } from "./queries";
-import { validateRecurrenceRule } from "./recurrence";
+import { expandEventOccurrences, validateRecurrenceRule } from "./recurrence";
 import { isValidTimezone, zonedParts } from "./date-utils";
 
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -200,6 +200,8 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
   const now = new Date();
   const id = data.id ?? createId();
   db.transaction((tx) => {
+    // RSVPs survive ordinary edits; a moved event asks everyone again.
+    let keepResponses = false;
     if (data.id) {
       const existing = tx
         .select()
@@ -207,6 +209,13 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
         .where(eq(calendarEvents.id, data.id))
         .get();
       if (!existing) throw new Error("Event not found");
+      keepResponses =
+        existing.allDay === data.allDay &&
+        existing.startDate === (data.allDay ? data.startDate : null) &&
+        existing.endDate === (data.allDay ? data.endDate : null) &&
+        (existing.startAt?.getTime() ?? null) === (data.allDay ? null : startAt?.getTime() ?? null) &&
+        (existing.endAt?.getTime() ?? null) === (data.allDay ? null : endAt?.getTime() ?? null) &&
+        existing.recurrenceRule === recurrenceRule;
       requireCalendarEditor(existing.calendarId, currentUser.id);
       if (
         data.expectedUpdatedAt &&
@@ -260,6 +269,15 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
         })
         .run();
     }
+    const previousResponses = new Map(
+      keepResponses
+        ? tx.select({ userId: calendarEventAttendees.userId, response: calendarEventAttendees.response })
+            .from(calendarEventAttendees)
+            .where(eq(calendarEventAttendees.eventId, id))
+            .all()
+            .map((row) => [row.userId, row.response] as const)
+        : [],
+    );
     tx.delete(calendarEventAttendees)
       .where(eq(calendarEventAttendees.eventId, id))
       .run();
@@ -269,7 +287,7 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
           attendeeIds.map((userId) => ({
             eventId: id,
             userId,
-            response: "needs_action" as const,
+            response: previousResponses.get(userId) ?? ("needs_action" as const),
           })),
         )
         .run();
@@ -905,15 +923,10 @@ export async function claimDueCalendarReminders() {
   ensureCalendarWorkspace(currentUser.id);
   const now = new Date();
   const lower = new Date(now.getTime() - 2 * 60_000);
-  const upper = new Date(now.getTime() + 24 * 60 * 60_000);
+  // Reminders may be set up to 30 days ahead (reminderMinutes max).
+  const upper = new Date(now.getTime() + 43_200 * 60_000 + 2 * 60_000);
   const candidates = db
-    .select({
-      reminderId: calendarReminders.id,
-      minutesBefore: calendarReminders.minutesBefore,
-      eventId: calendarEvents.id,
-      title: calendarEvents.title,
-      startAt: calendarEvents.startAt,
-    })
+    .select({ reminder: calendarReminders, event: calendarEvents })
     .from(calendarReminders)
     .innerJoin(calendarEvents, eq(calendarReminders.eventId, calendarEvents.id))
     .where(
@@ -921,31 +934,44 @@ export async function claimDueCalendarReminders() {
         eq(calendarReminders.userId, currentUser.id),
         eq(calendarEvents.status, "confirmed"),
         eq(calendarEvents.allDay, false),
-        gt(calendarEvents.startAt, lower),
         lt(calendarEvents.startAt, upper),
+        // Series are expanded below; single events must start in the window.
+        or(isNotNull(calendarEvents.recurrenceRule), gt(calendarEvents.startAt, lower)),
       ),
     )
     .all();
-  const due = candidates.filter((candidate) => {
-    if (!candidate.startAt) return false;
-    const remindAt =
-      candidate.startAt.getTime() - candidate.minutesBefore * 60_000;
-    return remindAt <= now.getTime() && remindAt >= lower.getTime();
-  });
+  const recurringIds = [...new Set(candidates.filter(({ event }) => event.recurrenceRule).map(({ event }) => event.id))];
+  const exceptions = recurringIds.length
+    ? db.select().from(calendarEventExceptions).where(inArray(calendarEventExceptions.eventId, recurringIds)).all()
+    : [];
+  const due = candidates.flatMap(({ reminder, event }) =>
+    expandEventOccurrences(event, exceptions.filter((row) => row.eventId === event.id), lower, upper)
+      .filter((occurrence) => {
+        if (!occurrence.startAt || occurrence.startAt <= lower) return false;
+        const remindAt = occurrence.startAt.getTime() - reminder.minutesBefore * 60_000;
+        return remindAt <= now.getTime() && remindAt >= lower.getTime();
+      })
+      .map((occurrence) => ({
+        reminderId: reminder.id,
+        eventId: event.id,
+        title: occurrence.title,
+        occurrenceKey: occurrence.occurrenceKey,
+        startAt: occurrence.startAt!.toISOString(),
+      })),
+  );
   const delivered: { id: string; title: string; startAt: string }[] = [];
   db.transaction((tx) => {
     for (const reminder of due) {
-      const occurrenceKey = reminder.startAt!.toISOString();
       const result = tx
         .insert(calendarReminderDeliveries)
-        .values({ reminderId: reminder.reminderId, occurrenceKey })
+        .values({ reminderId: reminder.reminderId, occurrenceKey: reminder.occurrenceKey })
         .onConflictDoNothing()
         .run();
       if (result.changes > 0) {
         delivered.push({
           id: reminder.eventId,
           title: reminder.title,
-          startAt: occurrenceKey,
+          startAt: reminder.startAt,
         });
       }
     }
