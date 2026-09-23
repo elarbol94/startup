@@ -3700,6 +3700,8 @@ export function PortfolioClient({
         toast.error(scheduleErrorMessage(t, result.code, "structure"));
         return;
       }
+      // Keep the moved row selected so it stays in context after the refresh.
+      setSelectedTaskId(task.id);
       setExpandedProjects((current) => new Set([...current, task.projectId]));
       if (parentTaskId) {
         setExpandedTasks((current) => new Set([...current, parentTaskId]));

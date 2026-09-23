@@ -237,15 +237,10 @@ test("indent a task and expose its parent as a schedule container", async ({ pag
   await target
     .getByRole("button", { name: "Aktionen für Landingpage prüfen" })
     .click();
-  const documentTimeOrigin = await page.evaluate(() => performance.timeOrigin);
   await page.getByRole("menuitem", { name: "Einrücken" }).click();
-  await page.waitForFunction(
-    (previousTimeOrigin) => performance.timeOrigin !== previousTimeOrigin,
-    documentTimeOrigin,
-  );
 
-  // The hard refresh preserves the selected task, scroll position, and the
-  // expanded parent, so the moved row stays in context.
+  // Indenting refreshes the schedule in place (no hard reload, so unsaved
+  // inspector edits survive) and keeps the moved row selected and in view.
   const parent = page
     .getByTestId("portfolio-gantt")
     .locator('[data-row-kind="task"]')
