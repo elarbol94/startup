@@ -52,12 +52,15 @@ describe("breakdownFromGross", () => {
   });
 
   it("always satisfies net + vat === gross", () => {
+    // One assertion over all 20k cases; per-case expect() is slow enough to time out on loaded machines.
+    const mismatches: string[] = [];
     for (const rate of [20, 13, 10, 0] as const) {
       for (let gross = 0; gross <= 5000; gross++) {
         const { netCents, vatCents } = breakdownFromGross(gross, rate);
-        expect(netCents + vatCents).toBe(gross);
+        if (netCents + vatCents !== gross) mismatches.push(`${gross}@${rate}`);
       }
     }
+    expect(mismatches).toEqual([]);
   });
 
   it("rejects negative and non-integer amounts", () => {
