@@ -368,6 +368,8 @@ export async function upsertEntry(input: EntryInput): Promise<{ id: string }> {
       const existing = tx.select().from(entries).where(eq(entries.id, id)).get();
       if (!existing) throw new Error("Entry not found");
       if (existing.status === "voided") throw new Error("Voided entries cannot be edited");
+      // A finalized booking may only be voided (audited), never turned back into a deletable draft.
+      if (existing.status === "finalized" && data.status !== "finalized") throw new Error("Finalized entries cannot be reverted to draft");
       const existingTaxLines = tx.select().from(entryTaxLines).where(eq(entryTaxLines.entryId, id)).all();
       const existingPaymentLines = tx.select().from(entryPaymentLines).where(eq(entryPaymentLines.entryId, id)).all();
       tx.insert(entryAuditLog).values({

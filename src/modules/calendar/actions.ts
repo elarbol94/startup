@@ -114,8 +114,11 @@ function timedConflicts(input: {
       startAt: calendarEvents.startAt,
       endAt: calendarEvents.endAt,
       createdBy: calendarEvents.createdBy,
+      calendarId: calendarEvents.calendarId,
+      calendarVisibility: calendars.visibility,
     })
     .from(calendarEvents)
+    .innerJoin(calendars, eq(calendarEvents.calendarId, calendars.id))
     .where(
       and(
         eq(calendarEvents.allDay, false),
@@ -147,11 +150,23 @@ function timedConflicts(input: {
       .map((event) => event.id),
   );
   for (const attendee of attendeeRows) conflictedIds.add(attendee.eventId);
+  // Conflicts span other people's calendars: expose free/busy time, but the
+  // title only where the caller could read it in their own calendar view.
+  const ownEventIds = new Set(
+    attendeeRows.filter((row) => row.userId === input.userId).map((row) => row.eventId),
+  );
+  const roles = new Map<string, ReturnType<typeof calendarRoleForUser>>();
+  const titleVisible = (event: (typeof busyEvents)[number]) => {
+    if (event.createdBy === input.userId || ownEventIds.has(event.id)) return true;
+    if (!roles.has(event.calendarId)) roles.set(event.calendarId, calendarRoleForUser(event.calendarId, input.userId));
+    const role = roles.get(event.calendarId);
+    return Boolean(role) && !(role === "viewer" && event.calendarVisibility === "busy");
+  };
   return busyEvents
     .filter((event) => conflictedIds.has(event.id))
     .map((event) => ({
       id: event.id,
-      title: event.title,
+      title: titleVisible(event) ? event.title : "Busy",
       startAt: event.startAt?.toISOString() ?? "",
       endAt: event.endAt?.toISOString() ?? "",
     }));

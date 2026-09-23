@@ -76,9 +76,12 @@ function decodeReceiptCursor(cursor?: string) {
 export function listReceiptDocuments(paging?: {
   cursor?: string;
   limit?: number;
+  includePersonnel?: boolean;
 }) {
   const cursor = decodeReceiptCursor(paging?.cursor);
   const conditions = [eq(attachments.entityType, "entry")];
+  // Payroll receipts are only listed for roles that may see personnel data.
+  if (!paging?.includePersonnel) conditions.push(ne(categories.template, "personnel"));
   if (cursor) {
     conditions.push(
       or(
@@ -126,7 +129,7 @@ export function listReceiptDocuments(paging?: {
 }
 
 export function listReceiptDocumentsPage(
-  paging: { cursor?: string; limit?: number } = {},
+  paging: { cursor?: string; limit?: number; includePersonnel?: boolean } = {},
 ) {
   const limit = Math.min(100, Math.max(1, paging.limit ?? 50));
   const rows = listReceiptDocuments({ ...paging, limit: limit + 1 });
@@ -144,12 +147,14 @@ export function listReceiptDocumentsPage(
   };
 }
 
-export function receiptDocumentCount() {
+export function receiptDocumentCount(includePersonnel = false) {
   return (
     db
       .select({ value: sql<number>`count(*)` })
       .from(attachments)
-      .where(eq(attachments.entityType, "entry"))
+      .innerJoin(entries, eq(attachments.entityId, entries.id))
+      .innerJoin(categories, eq(entries.categoryId, categories.id))
+      .where(and(eq(attachments.entityType, "entry"), includePersonnel ? undefined : ne(categories.template, "personnel")))
       .get()?.value ?? 0
   );
 }
@@ -286,31 +291,22 @@ export function listEntries(
   for (const item of auditRows) {
     auditMap.set(item.entryId, [...(auditMap.get(item.entryId) ?? []), item]);
   }
-  return rows.map((row) => ({
-    ...row,
-    description:
-      row.categoryTemplate === "personnel" && !filters.includePersonnelDetails
-        ? "Personalkosten"
-        : row.description,
-    counterparty:
-      row.categoryTemplate === "personnel" && !filters.includePersonnelDetails
-        ? ""
-        : row.counterparty,
-    specialFields:
-      row.categoryTemplate === "personnel" && !filters.includePersonnelDetails
-        ? {}
-        : row.specialFields,
-    attachmentCount: countMap.get(row.id) ?? 0,
-    taxLines: taxMap.get(row.id) ?? [],
-    paymentLines:
-      row.categoryTemplate === "personnel" && !filters.includePersonnelDetails
-        ? []
-        : paymentMap.get(row.id) ?? [],
-    auditHistory:
-      row.categoryTemplate === "personnel" && !filters.includePersonnelDetails
-        ? []
-        : auditMap.get(row.id) ?? [],
-  }));
+  return rows.map((row) => {
+    const masked = row.categoryTemplate === "personnel" && !filters.includePersonnelDetails;
+    return {
+      ...row,
+      description: masked ? "Personalkosten" : row.description,
+      counterparty: masked ? "" : row.counterparty,
+      documentNumber: masked ? "" : row.documentNumber,
+      notes: masked ? "" : row.notes,
+      warningOverrideReason: masked ? "" : row.warningOverrideReason,
+      specialFields: masked ? {} : row.specialFields,
+      attachmentCount: masked ? 0 : countMap.get(row.id) ?? 0,
+      taxLines: taxMap.get(row.id) ?? [],
+      paymentLines: masked ? [] : paymentMap.get(row.id) ?? [],
+      auditHistory: masked ? [] : auditMap.get(row.id) ?? [],
+    };
+  });
 }
 
 export function listEntriesPage(

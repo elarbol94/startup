@@ -9,6 +9,7 @@ import {
   Upload,
   Users,
 } from "@/components/server-safe-icons";
+import { requireUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import { toLocalIsoDate } from "@/modules/accounting/lib/date";
 import {
@@ -62,12 +63,15 @@ export async function DocumentsWorkspace({
   const format = await getFormatter();
   const invoicePage = listInvoicesPage({ cursor, limit: 50 });
   const invoices = invoicePage.items;
+  const user = await requireUser();
+  const includePersonnel = user.role === "admin" || user.role === "personnel";
   const receiptPage = listReceiptDocumentsPage({
     cursor: receiptCursor,
     limit: 50,
+    includePersonnel,
   });
   const receipts = receiptPage.items;
-  const totalReceipts = receiptDocumentCount();
+  const totalReceipts = receiptDocumentCount(includePersonnel);
   const today = toLocalIsoDate();
   const summary = invoiceStatusSummary(today);
 

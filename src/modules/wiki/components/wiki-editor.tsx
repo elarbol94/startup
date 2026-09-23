@@ -1121,8 +1121,9 @@ function CollaborativeWikiEditor({
           // and silently drops everything else, so no hand-rolled HTML->Tiptap
           // converter is needed here.
           const { html: sanitized, hadImages } = sanitizePastedHtml(html);
-          const container = document.createElement("div");
-          container.innerHTML = sanitized;
+          // An inert document: unlike innerHTML on a live-document element, it never
+          // loads images or runs handlers that slipped past the regex sanitizer.
+          const container = new window.DOMParser().parseFromString(sanitized, "text/html").body;
           const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(container, { preserveWhitespace: true });
           event.preventDefault();
           view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());

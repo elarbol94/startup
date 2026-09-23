@@ -4,7 +4,7 @@ import { wikiFigureRevisions } from "@/db/schema";
 import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth";
-import { presentationRole } from "@/modules/wiki/presentation-access";
+import { attachmentAccessError } from "@/lib/attachment-access";
 import {
   isAttachmentEntityType,
   listAttachmentsFor,
@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Invalid request" }, { status: 400 });
   }
 
-  if (entityType === "wikiPresentation" && !presentationRole(entityId, session.user)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (attachmentAccessError(session.user, entityType, entityId, "read")) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const immutable = entityType === "wikiPage" ? new Set(db.select({ id: wikiFigureRevisions.attachmentId }).from(wikiFigureRevisions).all().map((row) => row.id)) : new Set<string>();
   return NextResponse.json(listAttachmentsFor(entityType, entityId).filter((file) => !immutable.has(file.id)));
 }
@@ -52,11 +52,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    if (entityType === "wikiPresentation") {
-      const role = presentationRole(entityId, session.user);
-      if (role !== "edit" && role !== "owner") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-    if (entityType === "wikiPresentationLibrary") return NextResponse.json({ error: "Use the design library" }, { status: 403 });
+    const denied = attachmentAccessError(session.user, entityType, entityId, "upload");
+    if (denied) return NextResponse.json({ error: denied === 404 ? "Not found" : "Forbidden" }, { status: denied });
     const attachment = entityType === "task" && isBugReport(entityId)
       ? await saveBugScreenshot(file, entityId, session.user.id, formData.get("uploadId"))
       : await saveAttachment({
