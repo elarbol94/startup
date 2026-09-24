@@ -1,4 +1,13 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(docker exec management-platform-app-1 node dist-scripts/bug-reports.mjs export:*)",
+      "Bash(docker exec management-platform-app-1 node dist-scripts/bug-reports.mjs mark:*)",
+      "Bash(docker cp management-platform-app-1:/data/uploads/:*)",
+      "Bash(npm run bugs:*)"
+    ]
+  },
+
   "hooks": {
     "PreToolUse": [
       {
