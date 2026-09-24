@@ -74,9 +74,13 @@ above the catch-all route so `/collab` is matched first:
 
 ```text
 Hostname: startup.elarbol.me
-Path:     collab
+Path:     ^/collab
 Service:  http://localhost:3008
 ```
+
+The path field is a regular expression matched anywhere in the URL path, so
+anchor it with `^/`. A bare `collab` also matches app URLs that merely contain
+the word and sends them to the collaboration server instead of the app.
 
 The editor connects to `wss://startup.elarbol.me/collab` by default; Access
 covers it because it is the same hostname. `COLLAB_HOST_PORT` (default 3008)
