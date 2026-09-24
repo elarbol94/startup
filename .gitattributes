@@ -1,0 +1,35 @@
+# Normalize line endings: the repository stores LF, and checkouts use LF on
+# every OS (Windows editors, WSL, Docker and CI all read the same bytes).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary files: never convert or diff as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.avif  binary
+*.ico   binary
+*.pdf   binary
+*.docx  binary
+*.xlsx  binary
+*.pptx  binary
+*.zip   binary
+*.gz    binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.otf   binary
+*.db    binary
+*.sqlite binary
+*.onnx  binary
+*.wasm  binary
+*.pbf   binary
+
+# Generated lockfile: keep out of textual diffs and merge noise.
+package-lock.json -diff linguist-generated
