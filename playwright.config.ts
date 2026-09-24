@@ -30,6 +30,8 @@ export default defineConfig({
           timeout: Number(process.env.PLAYWRIGHT_SERVER_TIMEOUT ?? 120_000),
           env: {
             PORT: String(port),
+            // Live-collaboration WebSocket server (separate port per test server).
+            COLLAB_PORT: String(port + 1),
             HOSTNAME: "127.0.0.1",
             DATABASE_PATH: path.resolve("data/e2e.db"),
             UPLOADS_PATH: path.resolve("data/e2e-uploads"),

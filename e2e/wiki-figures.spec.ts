@@ -21,7 +21,7 @@ async function note(page: Page) {
   return { editor, id: request.url().split("/").at(-2)!, sessionId: request.postDataJSON().sessionId as string };
 }
 async function loadDoc(page: Page, id: string, sessionId: string, content: unknown[]) {
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const documentUrl = page.url();
   await page.goto("/wiki/inbox");
   await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "acquire", sessionId } });
@@ -66,7 +66,7 @@ test("insert, caption, resize, wrap, crop and insert a live reference and figure
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Abbildungsverzeichnis einfügen", exact: true }).click();
   await expect(editor.locator("[data-figure-list]")).toContainText("Umsatz nach Quartal");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=docx`); expect(response.ok(), await response.text()).toBeTruthy();
   const files = unzipSync(await response.body()); expect(Object.keys(files).some((name) => /word\/media\/.+\.svg$/.test(name))).toBeTruthy(); expect(strFromU8(files["word/document.xml"])).toContain("Umsatz nach Quartal");
   const imported = await page.request.post("/api/wiki/docx/import", { multipart: { pageId: id, file: { name: "report.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await response.body() } } });
@@ -108,7 +108,7 @@ test("linked revisions update every instance without a text save; references and
   ]);
   await expect(editor.locator(".wiki-document-cross-reference")).toHaveText("Abbildung 1");
   await expect(editor.locator(".wiki-figure-list-row")).toHaveCount(2);
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   let saves = 0; page.on("request", (request) => { if (request.url().endsWith(`/pages/${id}/content`)) saves++; });
   const updated = await page.request.post(`/api/wiki/pages/${id}/figures`, { multipart: { sourceId, path: "revenue.svg", assetId: linked.id, expectedVersion: "1", file: { name: "revenue.svg", mimeType: "image/svg+xml", buffer: artwork("#14845B") } } }); expect(updated.ok(), await updated.text()).toBeTruthy();
   await expect(editor.locator("figure img").first()).toHaveAttribute("src", /v=2$/); await expect(editor.locator("figure img").last()).toHaveAttribute("src", /v=2$/); expect(saves).toBe(0);
@@ -145,7 +145,7 @@ test("a persisted folder handle follows replacement files and recovers from an i
   await dialog.getByRole("button", { name: "Verknüpft einfügen" }).click();
   const figure = editor.locator("figure[data-figure-view]"); await expect(figure).toHaveCount(1);
   await figure.getByLabel("Bildunterschrift", { exact: true }).fill("Meine unveränderte Beschriftung");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await write(artwork("#119944").toString()); await expect(figure.locator("img")).toHaveAttribute("src", /v=2$/);
   await write("incomplete file"); await expect(figure).toContainText("Quelldatei nicht erreichbar"); await expect(figure.locator("img")).toHaveAttribute("src", /v=2$/);
   await write(artwork("#992233").toString()); await expect(figure.locator("img")).toHaveAttribute("src", /v=3$/);
@@ -160,7 +160,7 @@ test("native diagrams are numbered, editable and embedded in Word", async ({ pag
   await expect(figure.locator("img")).toHaveAttribute("src", /^data:image\/svg/);
   await figure.getByLabel("Bildunterschrift", { exact: true }).fill("Prüfverfahren");
   await expect(figure.locator("figcaption")).toContainText("Abbildung 1");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=docx`); expect(response.ok(), await response.text()).toBeTruthy();
   const files = unzipSync(await response.body()); expect(Object.keys(files).some((name) => /word\/media\/.+\.svg$/.test(name))).toBeTruthy();
 });
@@ -175,7 +175,7 @@ test("multi-page figure lists paginate and missing references offer repair", asy
   const reference = editor.locator(".wiki-document-cross-reference"); await expect(reference).toContainText("Verweisziel fehlt"); await reference.click();
   await page.getByRole("dialog").getByRole("button", { name: /Abbildung 1: Ergebnis 1:/ }).click();
   await expect(reference).toHaveText("Abbildung 1");
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("figure-list-pages.png") });
   const pdfResponse = await page.request.get(`/api/wiki/pages/${id}/export?format=pdf`); expect(pdfResponse.ok(), await pdfResponse.text()).toBeTruthy();
   const bytes = await pdfResponse.body(); const pdf = await PDFDocument.load(bytes); expect(pdf.getPageCount()).toBeGreaterThan(4);

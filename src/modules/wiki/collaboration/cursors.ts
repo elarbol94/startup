@@ -5,9 +5,9 @@ import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { absolutePositionToRelativePosition, relativePositionToAbsolutePosition, ySyncPluginKey } from "@tiptap/y-tiptap";
 import * as Y from "yjs";
 import { decode, encode } from "./codec";
-import type { CollaborationProvider } from "./provider";
+import type { CollaborationClient } from "./provider";
 
-export function collaborationCursors(provider: CollaborationProvider) {
+export function collaborationCursors(provider: CollaborationClient) {
   const key = new PluginKey("collaboration-cursors");
   return Extension.create({
     name: "collaborationCursors",

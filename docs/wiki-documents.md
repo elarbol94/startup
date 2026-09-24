@@ -106,11 +106,14 @@ Regression coverage: `e2e/document-editor.spec.ts` and
 
 ## Saving and recovery
 
-- Changes are saved as incremental shared updates. Acknowledgements cover only
-  the submitted updates; edits made during the request remain pending.
-- Reconnect retries and replay are idempotent. Local recovery is isolated by
-  account, item and tab, and merges into the current shared state.
-- Local storage failures display a warning without stopping server saves.
+- Changes travel as incremental shared updates over a WebSocket (Hocuspocus);
+  the server stores the document debounced, on request and when everyone
+  leaves. "Gespeichert" means everything shown is stored on the server.
+- Each tab keeps an IndexedDB copy, so offline edits survive closing the tab
+  and merge on reconnect. Storage failures display a warning without stopping
+  server saves.
+- A save the server refuses (too large, invalid) shows its reason but keeps the
+  editor usable; undo the change and saving resumes. Only lost access locks it.
 - Exports wait for pending updates and stop if saving fails.
 - History restoration is a shared operation and preserves the replaced state.
 - Older whole-document save requests cannot overwrite an initialized shared item.

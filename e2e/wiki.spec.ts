@@ -19,7 +19,7 @@ async function quickNote(page: Page, title: string, body: string) {
   await page.keyboard.type(title);
   await page.keyboard.press("Enter");
   await page.keyboard.type(body);
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
   await page.reload();
   await expect(page.getByRole("button", { name: title })).toBeVisible();
 }
@@ -169,7 +169,7 @@ test("document mode persists page layout, document blocks, templates, and PDF ex
 
   await panel.getByLabel("Name der neuen Vorlage").fill("E2E application profile");
   await panel.getByRole("button", { name: "Als Vorlage speichern" }).click();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
 
   await page.reload();
   await expect(page.getByTestId("document-layout-panel")).toBeVisible();
@@ -283,7 +283,7 @@ test("internal links create backlinks and unified search finds content", async (
   await page.getByRole("button", { name: "Dokument verlinken" }).click();
   await page.getByRole("button", { name: "Onboarding" }).first().click();
   await expect(page.getByText("Nicht gespeichert", { exact: true })).toBeVisible();
-  await expect(page.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
   const onboardingHref = await page.locator(".ProseMirror").getByRole("link", { name: "Onboarding" }).getAttribute("href");
   expect(onboardingHref).toBeTruthy();
   await page.goto(onboardingHref!);

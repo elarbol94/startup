@@ -124,6 +124,16 @@ export const getSession = cache(async function getSession() {
   return auth.api.getSession({ headers: await headers() });
 });
 
+/**
+ * Resolves the session for requests outside Next.js' request scope, such as
+ * the live-collaboration WebSocket handshake (which carries the same cookies).
+ */
+export async function getSessionFromHeaders(requestHeaders: Headers) {
+  const localSession = getLocalDevelopmentSession();
+  if (localSession) return localSession;
+  return auth.api.getSession({ headers: requestHeaders });
+}
+
 /** Redirects to /login when unauthenticated. Use in pages/layouts. */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();

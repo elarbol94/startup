@@ -3,7 +3,7 @@ import { ySyncPluginKey } from "@tiptap/y-tiptap";
 import { presentationCanvasReducer, type PresentationCanvasAction, type PresentationCanvasState } from "../lib/presentation";
 import { LOCAL, patchPresentation, presentationJSON } from "./codec";
 import { presentationValuesEqual } from "../lib/presentation-merge";
-import type { CollaborationProvider } from "./provider";
+import type { CollaborationClient } from "./provider";
 
 const snapshotOf = (state: PresentationCanvasState) => ({ elements: state.elements, steps: state.steps, title: state.title, settings: state.settings, background: state.background });
 
@@ -12,7 +12,7 @@ export class PresentationBridge {
   private state: PresentationCanvasState;
   undo: Y.UndoManager | null = null;
   private gestureChanged = false;
-  constructor(private provider: CollaborationProvider | null, initial: PresentationCanvasState, private notify: (action: PresentationCanvasAction) => void) { this.state = initial; }
+  constructor(private provider: CollaborationClient | null, initial: PresentationCanvasState, private notify: (action: PresentationCanvasAction) => void) { this.state = initial; }
   connect = () => {
     if (!this.provider) return () => {};
     const doc = this.provider.doc;

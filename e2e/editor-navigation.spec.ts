@@ -24,19 +24,25 @@ for (const kind of ["page", "presentation"] as const) {
       await expect(page.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
     }
     const editorUrl = page.url();
+    // Pages save over a WebSocket, presentations over HTTP: block each its way.
     const endpoint = `**/api/wiki/collaboration/${kind}/*`;
     let attempts = 0;
-    await page.route(endpoint, async route => {
+    if (kind === "page") await page.context().setOffline(true);
+    else await page.route(endpoint, async route => {
       if (route.request().method() === "POST" && route.request().postDataJSON()?.update) {
         attempts++;
         await route.fulfill({ status: 503, body: "Temporarily unavailable" });
       } else await route.continue();
     });
+    const saveAttempted = async (before: number) => {
+      if (kind === "page") await page.waitForTimeout(1_000);
+      else await expect.poll(() => attempts).toBeGreaterThan(before);
+    };
     const draft = `Keep this unsaved ${kind} ${Date.now()}`;
     if (kind === "page") await page.locator(".ProseMirror").fill(draft);
     else await page.getByRole("textbox", { name: "Titel der Präsentation" }).fill(draft);
     await page.getByTestId("app-sidebar").getByRole("button", { name: "Projekte", exact: true }).press("Enter");
-    await expect.poll(() => attempts).toBeGreaterThan(0);
+    await saveAttempted(0);
     await expect(page).toHaveURL(editorUrl);
     await expect(page.getByText("Deine Änderungen konnten nicht gespeichert werden. Bitte behebe das Speicherproblem vor dem Verlassen.", { exact: true })).toBeVisible();
     await expect(page).toHaveURL(editorUrl);
@@ -45,19 +51,20 @@ for (const kind of ["page", "presentation"] as const) {
       // save boundary as the application rail.
       let before = attempts;
       await page.keyboard.press("Control+Shift+n");
-      await expect.poll(() => attempts).toBeGreaterThan(before);
+      await saveAttempted(before);
       await expect(page).toHaveURL(editorUrl);
       await page.getByRole("button", { name: "Wiki-Inhalt öffnen", exact: true }).click();
       const picker = page.getByRole("dialog");
       await picker.getByRole("combobox").fill("Projekte");
       before = attempts;
       await picker.getByRole("option", { name: /Projekte/ }).click();
-      await expect.poll(() => attempts).toBeGreaterThan(before);
+      await saveAttempted(before);
       await expect(page).toHaveURL(editorUrl);
       await page.keyboard.press("Escape");
     }
     // Recover and retry the same navigation. The latest edit must survive reopening.
-    await page.unroute(endpoint);
+    if (kind === "page") await page.context().setOffline(false);
+    else await page.unroute(endpoint);
     await page.getByTestId("app-sidebar").getByRole("button", { name: "Projekte", exact: true }).press("Enter");
     await expect(page).toHaveURL(/\/projects$/);
     await page.goto(editorUrl);

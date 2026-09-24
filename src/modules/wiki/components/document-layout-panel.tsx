@@ -198,6 +198,8 @@ export function DocumentLayoutPanel({
       const response = await fetch("/api/wiki/docx/import", { method: "POST", body: form });
       if (!response.ok) throw new Error("DOCX import failed");
       const result = await response.json() as { document: object };
+      // Larger documents cannot be stored; refuse before replacing anything.
+      if (JSON.stringify(result.document).length > 2_000_000) throw new Error("Imported document too large");
       // An import may finish after the author typed more or lost the edit lease.
       if (!editor.isEditable || !editor.state.doc.eq(originalDocument)) throw new Error("Document changed during import");
       editor.commands.setContent(result.document);

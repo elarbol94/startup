@@ -11,6 +11,10 @@ import { parseDocumentSettings } from "../lib/document-settings";
 import { defaultPresentationSettings, parsePresentationCanvas, parsePresentationSteps, presentationSnapshotSchema, type PresentationSnapshot } from "../lib/presentation";
 import { getAttachment } from "@/lib/files";
 import { decode, encode, documentJSON, presentationJSON, patchPresentation, seedPage, type Kind } from "./codec";
+import { pushToLiveDocument } from "./live-registry";
+
+/** Transaction origin for database state merged into a live document. */
+export const DATABASE_ORIGIN = "collaboration-database";
 
 export type Viewer = { id: string; role?: string | null; name?: string };
 type Room = { key: string; state: Buffer; sequence: number };
@@ -111,6 +115,13 @@ function commit(kind: Kind, id: string, room: Room, doc: Y.Doc, viewer: Viewer) 
   return { key: room.key, state, sequence };
 }
 export function applyRoomUpdate(kind: Kind, id: string, update: string, viewer: Viewer) {
+  const room = applyRoomUpdateInTransaction(kind, id, update, viewer);
+  // Tabs still on the HTTP transport (e.g. open during an upgrade) and live
+  // WebSocket editors see each other's changes.
+  pushToLiveDocument(kind, id, room.state);
+  return room;
+}
+function applyRoomUpdateInTransaction(kind: Kind, id: string, update: string, viewer: Viewer) {
   return sqlite.transaction(() => {
     authorize(kind, id, viewer);
     const room = loadRoom(kind, id);
@@ -125,12 +136,34 @@ export function applyRoomUpdate(kind: Kind, id: string, update: string, viewer: 
 }
 // Server-side restoration and notes edits enter the same ordered update stream.
 export function mutateRoom(kind: Kind, id: string, viewer: Viewer, mutate: (doc: Y.Doc) => void) {
-  return sqlite.transaction(() => {
+  const room = sqlite.transaction(() => {
     authorize(kind, id, viewer);
     const room = loadRoom(kind, id);
     const doc = new Y.Doc();
     try { Y.applyUpdate(doc, room.state); mutate(doc); return commit(kind, id, room, doc, viewer); }
     finally { doc.destroy(); }
+  }).immediate();
+  // Editors connected over WebSocket hold the document in memory; merge the
+  // committed change so they see it immediately and later stores keep it.
+  pushToLiveDocument(kind, id, room.state);
+  return room;
+}
+
+/**
+ * Persists a document held in memory by the live WebSocket server.
+ *
+ * Other writers (history restore, older HTTP clients) may have committed to
+ * the room in the meantime, so the stored state is merged into the live
+ * document first; Yjs merging is idempotent, so nothing is lost either way.
+ * Returns the committed room; throws when the document is invalid, too large
+ * or no longer accessible.
+ */
+export function storeLiveDocument(kind: Kind, id: string, live: Y.Doc, viewer: Viewer) {
+  return sqlite.transaction(() => {
+    authorize(kind, id, viewer);
+    const room = loadRoom(kind, id);
+    Y.applyUpdate(live, room.state, DATABASE_ORIGIN);
+    return commit(kind, id, room, live, viewer);
   }).immediate();
 }
 export function wireRoom(room: Room) { return { update: encode(room.state), sequence: room.sequence }; }

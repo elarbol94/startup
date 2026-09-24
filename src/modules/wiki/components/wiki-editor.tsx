@@ -2,7 +2,6 @@
 import { SourcePassageButton } from "./source-passage-button";
 
 import { handleEditorLinkClick } from "../lib/editor-links";
-import { clientUUID } from "@/lib/client-uuid";
 
 import { CommentHighlights } from "./comment-highlight-extension";
 
@@ -14,6 +13,10 @@ import Collaboration from "@tiptap/extension-collaboration";
 import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
 import { documentJSON, patchMap, LOCAL } from "../collaboration/codec";
 import { collaborationCursors } from "../collaboration/cursors";
+import { ySyncPluginKey } from "@tiptap/y-tiptap";
+
+// Documents are stored up to ~2 MB of JSON; larger pastes could never be saved.
+const MAX_PASTE_CHARACTERS = 1_000_000;
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
@@ -118,7 +121,6 @@ function CollaborativeWikiEditor({
   pageTitle,
   pageSlug,
   pageVersion,
-  pageContentVersion,
   initialContent,
   initialProofingLanguage,
   initialProofingPrefs,
@@ -146,6 +148,7 @@ function CollaborativeWikiEditor({
   isPrimaryAuthor,
 }: WikiEditorProps) {
   const collaboration = useCollaborationContext()!;
+  const tCollaboration = useTranslations("collaboration");
   const t = useTranslations("wiki"); const tTasks = useTranslations("tasks"); const tDeadlines = useTranslations("deadlines"); const format = useFormatter(); const router = useRouter(); const searchParams = useSearchParams(); const externalSearchQuery = searchParams.get("search")?.trim() ?? ""; const { openTaskCreator } = useTaskCreator(); const { openDeadlineCreator } = useDeadlineCreator(); const [saveState, setSaveState] = useState<"idle" | "unsaved" | "saving" | "saved" | "offline" | "error" | "conflict">("idle");
   const { panel, setPanel, setSaveState: reportSaveState } = useDocumentWorkspace();
   useEffect(() => { reportSaveState(saveState); }, [saveState, reportSaveState]);
@@ -228,10 +231,10 @@ function CollaborativeWikiEditor({
   const [wikiShortcuts, setWikiShortcuts] = useState(loadWikiShortcutBindings);
   const [initialPreferences] = useState(loadEditorPreferences);
   const [statusVisible, setStatusVisible] = useState(initialPreferences.statusVisible); const [minimalToolbar, setMinimalToolbar] = useState(initialPreferences.minimalToolbar); const [typewriterMode, setTypewriterMode] = useState(initialPreferences.typewriterMode); const typewriterModeRef = useRef(initialPreferences.typewriterMode);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const contentVersion = useRef(pageContentVersion); const lastServerContent = useRef(initialContent); const documentModeRef = useRef(initialDocumentMode); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const editorSessionId = useRef(clientUUID()); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const lastServerContent = useRef(initialContent); const documentModeRef = useRef(initialDocumentMode); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
   const [leaseState, setLeaseState] = useState<"checking" | "editable" | "locked">("checking");
   const leaseStateRef = useRef<"checking" | "editable" | "locked">("checking");
-  const [recoveryAvailable, setRecoveryAvailable] = useState(true);
+  const recoveryAvailable = collaboration.recoveryAvailable;
   const discardingDraft = useRef(false);
   const flushSaveRef = useRef<() => Promise<boolean>>(async () => false);
   const navigating = useRef(false);
@@ -260,9 +263,6 @@ function CollaborativeWikiEditor({
     };
   }
 
-  const writeDraft = useCallback((value: string) => {
-    setRecoveryAvailable(writeEditorStorage(storageKey, value));
-  }, [storageKey]);
 
   function updateDerivedState(currentEditor: Editor) {
     setSuggestionCounts(countSuggestions(currentEditor.getJSON() as never));
@@ -321,37 +321,12 @@ function CollaborativeWikiEditor({
     updateDerivedState(currentEditor);
     if (!contentSyncDirty.current) return;
     contentSyncDirty.current = false;
-    const json = JSON.stringify(currentEditor.getJSON());
-    pendingSave.current = json;
-    writeDraft(JSON.stringify({
-      contentJson: json,
-      documentMode: documentModeRef.current,
-      documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current),
-      baseContentVersion: contentVersion.current,
-      editorSessionId: editorSessionId.current,
-      savedAt: Date.now(),
-    }));
-    pendingSave.current = json;
-    if (conflictBlocked.current) { setSaveState("conflict"); return; }
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(persistLatestContent, 2_000);
-    if (!maxSaveTimer.current) {
-      maxSaveTimer.current = setTimeout(() => {
-        maxSaveTimer.current = null;
-        persistLatestContent();
-      }, 10_000);
-    }
+    // Persisting is the collaboration provider's job (IndexedDB copy plus the
+    // live server); no whole-document snapshots are written here.
+    if (conflictBlocked.current) setSaveState("conflict");
   }
   flushContentSyncRef.current = flushContentSync;
 
-  // A save takes its snapshot when the timer fires, never when it was armed:
-  // a request carrying text from a moment ago would drop the local journal of
-  // the newer keystrokes once the server confirmed it.
-  function persistLatestContent() {
-    if (!pendingSave.current) return;
-    const json = liveEditor.current ? JSON.stringify(liveEditor.current.getJSON()) : pendingSave.current;
-    if (json) void persistContent(json);
-  }
 
   // Remember where the pointer sits on the page so the next zoom step can put
   // that exact spot back under it. Coordinates outside the visible page (toolbar
@@ -401,7 +376,6 @@ function CollaborativeWikiEditor({
     return saved;
   }
   flushSaveRef.current = flushSave;
-  async function takeOverEditing() { await collaboration.flush(); }
 
   function requestWikiTask(targetEditor: Editor) {
     const { from, to } = targetEditor.state.selection;
@@ -470,6 +444,11 @@ function CollaborativeWikiEditor({
         const clipboard = event.clipboardData;
         if (!clipboard) return false;
         const html = clipboard.getData("text/html");
+        if (Math.max(html.length, clipboard.getData("text/plain").length) > MAX_PASTE_CHARACTERS) {
+          event.preventDefault();
+          toast.error(t("editor.paste.tooLarge"));
+          return true;
+        }
         if (html) {
           // Sanitize first, then hand off to the schema's own DOMParser: it already
           // keeps only the nodes/marks each extension's parseHTML() rule recognizes
@@ -503,10 +482,11 @@ function CollaborativeWikiEditor({
       if (repairs.length) { const transaction = editor.state.tr; repairs.forEach(({ position, attrs }) => transaction.setNodeMarkup(position, undefined, attrs)); editor.view.dispatch(transaction); }
       if (!normalizeCitationLabels(editor, sources, citationStyle, citationLocale)) updateDerivedState(editor);
     },
-    onUpdate({ editor }) {
+    onUpdate({ editor, transaction }) {
       if (normalizeCitationLabels(editor, sources, citationStyle, citationLocale)) return;
+      const remote = Boolean(transaction.getMeta(ySyncPluginKey)?.isChangeOrigin);
       if (conflictBlocked.current) setSaveState("conflict");
-      else setSaveState("unsaved");
+      else if (transaction.docChanged && !remote) setSaveState("unsaved");
       refreshToolbarState();
       scheduleContentSync(editor, true);
     },
@@ -529,7 +509,7 @@ function CollaborativeWikiEditor({
 
   useEffect(() => {
     const update = () => {
-      const editable = collaboration.ready && !["denied", "error"].includes(collaboration.status);
+      const editable = collaboration.ready && collaboration.status !== "denied";
       leaseStateRef.current = editable ? "editable" : "locked";
       setLeaseState(leaseStateRef.current);
       setSaveState(collaboration.status === "saved" ? "saved" : collaboration.status === "saving" ? "saving" : collaboration.status === "reconnecting" ? "offline" : "error");
@@ -714,23 +694,8 @@ function CollaborativeWikiEditor({
     return chain.focus();
   }
   function scheduleDocumentSave() {
-    const json = JSON.stringify(activeEditor.getJSON());
-    pendingSave.current = json;
-    writeDraft(JSON.stringify({
-      contentJson: json,
-      documentMode: documentModeRef.current,
-      documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current),
-      baseContentVersion: contentVersion.current,
-      editorSessionId: editorSessionId.current,
-      savedAt: Date.now(),
-    }));
-    setSaveState(conflictBlocked.current ? "conflict" : "unsaved");
-    if (saveTimer.current) clearTimeout(saveTimer.current);
-    if (!conflictBlocked.current) saveTimer.current = setTimeout(persistLatestContent, 2_000);
-    if (!maxSaveTimer.current) maxSaveTimer.current = setTimeout(() => {
-      maxSaveTimer.current = null;
-      persistLatestContent();
-    }, 10_000);
+    // Layout lives in the shared document; the collaboration provider saves it.
+    if (conflictBlocked.current) setSaveState("conflict");
   }
   function openInlineImagePicker() {
     rememberToolbarSelection(); setFigureTargetId(""); setFigureSourceMode(false); setInlineImagePickerOpen(true);
@@ -979,7 +944,7 @@ function CollaborativeWikiEditor({
   {imageUploading && <p className="text-xs text-muted-foreground">{t("uploadingImage")}</p>}
   {imageError && <p className="text-xs text-destructive">{imageError}</p>}
   {!recoveryAvailable && <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">{t("document.recoveryUnavailable")}</p>}
-  {leaseState === "locked" && <div className="flex flex-wrap items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50/70 p-3 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><CloudOff className="size-4" /><span className="flex-1">{t("editor.lease.locked")}</span><Button size="sm" onClick={() => void takeOverEditing()}>{t("editor.lease.takeover")}</Button></div>}
+  {leaseState === "locked" && <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-indigo-200 bg-indigo-50/70 p-3 text-sm text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"><CloudOff className="size-4" /><span className="flex-1">{tCollaboration("denied")}</span></div>}
   {saveState === "conflict" && conflictRevision && <div className="flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/30 dark:text-amber-100"><RotateCcw className="size-4" /><span className="flex-1">{t("editConflictDescription")}</span><Button size="sm" variant="outline" onClick={discardDraftAndReload}>{t("loadCurrent")}</Button><Button size="sm" onClick={() => void restoreConflictDraft()}>{t("restoreMine")}</Button></div>}
   <div className="flex min-w-0 items-start gap-0">
     <div
