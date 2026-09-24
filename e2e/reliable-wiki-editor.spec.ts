@@ -1,5 +1,5 @@
-import * as Y from "yjs";
-import { decode, documentJSON } from "../src/modules/wiki/collaboration/codec";
+import Database from "better-sqlite3";
+import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 
 async function login(page: Page) {
@@ -39,101 +39,83 @@ async function createNote(page: Page) {
 
 test.describe.configure({ timeout: 240_000 });
 
-async function trackedNote(page: Page) {
-  const connection = page.waitForRequest(request => /\/api\/wiki\/collaboration\/page\/[^/?]+$/.test(request.url()));
-  const editor = await createNote(page);
-  const request = await connection;
-  return { editor, id: request.url().split("/").at(-1)! };
+function pageIdForSlug(slug: string) {
+  const sqlite = new Database(path.resolve("data/e2e.db"));
+  try { return (sqlite.prepare("SELECT id FROM wiki_pages WHERE slug = ?").get(decodeURIComponent(slug)) as { id: string }).id; }
+  finally { sqlite.close(); }
 }
-async function recovery(page: Page, id: string) {
-  return page.evaluate(id => {
-    const key = Object.keys(localStorage).find(key => key.startsWith("wiki-collaboration:") && key.includes(`/page/${id}:`));
-    return key ? localStorage.getItem(key) : null;
-  }, id);
+async function trackedNote(page: Page) {
+  const editor = await createNote(page);
+  return { editor, id: pageIdForSlug(new URL(page.url()).pathname.split("/").at(-1)!) };
+}
+const saved = (page: Page) => expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+function storedContent(id: string) {
+  const sqlite = new Database(path.resolve("data/e2e.db"));
+  try { return (sqlite.prepare("SELECT content_json FROM wiki_pages WHERE id = ?").get(id) as { content_json: string }).content_json; }
+  finally { sqlite.close(); }
 }
 
-test("save acknowledgements retain newer text and layout in the recovery journal", async ({ page }) => {
+test("edits made offline survive closing the tab and are stored after reconnecting", async ({ page }) => {
   await login(page);
   const { editor, id } = await trackedNote(page);
-  let firstDone!: () => void;
-  let secondDone!: () => void;
-  const firstGate = new Promise<void>((resolve) => { firstDone = resolve; });
-  const secondGate = new Promise<void>((resolve) => { secondDone = resolve; });
-  let requests = 0;
-  await page.route(`**/api/wiki/collaboration/page/${id}`, async (route) => {
-    if (route.request().method() !== "POST" || !route.request().postDataJSON().update) return route.continue();
-    const index = ++requests;
-    const response = await route.fetch();
-    if (index === 1) await firstGate;
-    if (index === 2) await secondGate;
-    await route.fulfill({ response });
-  });
-  try {
-    await editor.fill("First snapshot");
-    await expect.poll(() => requests).toBe(1);
-    await editor.fill("Newer words must survive");
-    await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await editor.fill("Online words");
+  await saved(page);
+  await page.context().setOffline(true);
+  await editor.press("End");
+  await page.keyboard.insertText(" and offline words");
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
   await page.getByTestId("document-mode-toggle").click();
-    firstDone();
-    await expect.poll(() => requests).toBe(2);
-    const journal = new Y.Doc();
-    Y.applyUpdate(journal, decode((await recovery(page, id))!));
-    expect(JSON.stringify(documentJSON(journal))).toContain("Newer words must survive");
-    expect(journal.getMap("layout").get("documentMode")).toBe(true);
-    journal.destroy();
-    secondDone();
-    await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
-    await page.reload();
-    await expect(editor).toContainText("Newer words must survive");
-    await expect(page.locator(".wiki-document-canvas")).toBeVisible();
-  } finally { firstDone(); secondDone(); }
+  await expect(page.getByTestId("collaboration-status")).toContainText("Verbindung wird wiederhergestellt");
+  const url = page.url();
+  await page.close();
+  await page.context().setOffline(false);
+  const reopened = await page.context().newPage();
+  await reopened.goto(url);
+  const reopenedEditor = reopened.locator(".ProseMirror");
+  await expect(reopenedEditor).toContainText("Online words and offline words");
+  await expect(reopened.locator(".wiki-document-canvas")).toBeVisible();
+  await saved(reopened);
+  await expect.poll(() => storedContent(id)).toContain("and offline words");
 });
 
-test("a lost save response retries successfully without a false conflict", async ({ page }) => {
+test("a save the server refuses reports why, keeps editing possible and recovers after undo", async ({ page }) => {
   await login(page);
   const { editor, id } = await trackedNote(page);
-  let requests = 0;
-  await page.route(`**/api/wiki/collaboration/page/${id}`, async (route) => {
-    if (route.request().method() !== "POST" || !route.request().postDataJSON().update) return route.continue();
-    if (++requests === 1) { await route.fetch(); await route.abort("failed"); }
-    else await route.continue();
-  });
-  await editor.fill("Saved despite a lost response");
-  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
-  expect(requests).toBeGreaterThanOrEqual(2);
-  await page.reload();
-  await expect(editor).toContainText("Saved despite a lost response");
+  await editor.fill("Small document");
+  await saved(page);
+  const paste = (text: string) => page.evaluate((value) => {
+    const data = new DataTransfer(); data.setData("text/plain", value);
+    document.querySelector(".ProseMirror")!.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
+  }, text);
+  // A single oversized paste is refused before it reaches the document.
+  await paste("x".repeat(1_200_000));
+  await expect(page.getByText("Der eingefügte Inhalt ist zu groß für eine Seite.")).toBeVisible();
+  // Several allowed pastes can still grow the page beyond what can be stored.
+  for (let index = 0; index < 3; index++) await paste("y".repeat(900_000));
+  await expect(page.getByTestId("collaboration-status")).toContainText("zu groß zum Speichern", { timeout: 30_000 });
+  await expect(editor).toHaveAttribute("contenteditable", "true");
+  for (let index = 0; index < 3; index++) await editor.press("Control+z");
+  await page.keyboard.insertText(" after undo");
+  await saved(page);
+  expect(storedContent(id)).toContain("after undo");
 });
 
 test("a legacy snapshot cannot overwrite a collaborative document", async ({ page }) => {
   await login(page);
   const { editor, id } = await trackedNote(page);
   await editor.fill("Original words");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  await saved(page);
   const contentJson = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Stale local words" }] }] });
   await page.evaluate(({ id, contentJson }) => localStorage.setItem(`wiki-draft:${id}`, JSON.stringify({ contentJson, baseContentVersion: 1 })), { id, contentJson });
   const stale = await page.request.patch(`/api/wiki/pages/${id}/content`, { data: { contentJson, expectedContentVersion: 1, editorSessionId: "legacy-session" } });
   expect(stale.status()).toBe(400);
   await page.reload();
   await expect(editor).toContainText("Original words");
-  expect(await page.evaluate(id => localStorage.getItem(`wiki-draft:${id}`), id)).toContain("Stale local words");
 });
 
-test("layout-only drafts recover and export includes the last keystrokes", async ({ page }) => {
+test("export includes the last keystrokes", async ({ page }) => {
   await login(page);
   const { editor, id } = await trackedNote(page);
-  await editor.fill("Before layout recovery");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
-  const pattern = `**/api/wiki/collaboration/page/${id}`;
-  await page.route(pattern, route => route.request().method() === "POST" ? route.abort("failed") : route.continue());
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  await expect.poll(() => recovery(page, id)).not.toBeNull();
-  await page.unroute(pattern);
-  await page.reload();
-  await expect(page.locator(".wiki-document-canvas")).toBeVisible();
-  await expect(editor).toHaveAttribute("contenteditable", "true");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
   await editor.fill("Last keystrokes before export");
   await page.getByRole("button", { name: "Mehr", exact: true }).first().click();
   const downloadEvent = page.waitForEvent("download");
@@ -144,21 +126,17 @@ test("layout-only drafts recover and export includes the last keystrokes", async
   expect(await exported.text()).toContain("Last keystrokes before export");
 });
 
-test("server saving still works when local recovery storage is full", async ({ page }) => {
+test("server saving still works when local recovery storage is unavailable", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "indexedDB", { configurable: true, value: { open() { throw new DOMException("Blocked", "SecurityError"); } } });
+  });
   await login(page);
   const { editor, id } = await trackedNote(page);
-  await page.evaluate(() => {
-    const original = Storage.prototype.setItem;
-    Storage.prototype.setItem = function (key, value) {
-      if (key.startsWith("wiki-draft:") || key.startsWith("wiki-collaboration:")) throw new DOMException("Full", "QuotaExceededError");
-      return original.call(this, key, value);
-    };
-  });
-  await editor.fill("Save through a full recovery journal");
+  await editor.fill("Save without a local copy");
   await expect(page.getByTestId("collaboration-status").getByText(/Lokale Wiederherstellung nicht verfügbar/)).toBeVisible();
-  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+  await saved(page);
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
-  expect(await response.text()).toContain("Save through a full recovery journal");
+  expect(await response.text()).toContain("Save without a local copy");
 });
 
 test("applying a template preserves current text by default and uses normal saving", async ({ page }) => {

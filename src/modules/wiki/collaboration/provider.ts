@@ -5,7 +5,27 @@ import { decode, encode, REMOTE, type Kind } from "./codec";
 
 export type Presence = { client: string; name: string; userId: string; cursor?: { anchor: string; head: string } | null; selectedIds?: string[] };
 export type CollaborationStatus = "connecting" | "saving" | "saved" | "reconnecting" | "denied" | "error";
-export class CollaborationProvider {
+
+/** What editors need from a collaboration transport (HTTP or WebSocket). */
+export interface CollaborationClient {
+  readonly doc: Y.Doc;
+  readonly client: string;
+  status: CollaborationStatus;
+  ready: boolean;
+  recoveryAvailable: boolean;
+  people: Presence[];
+  user: { id: string; name: string };
+  /** Why the last save failed, when the transport can tell (e.g. "tooLarge"). */
+  errorReason?: string | null;
+  subscribe(listener: () => void): () => void;
+  setPresence(presence: Pick<Presence, "cursor" | "selectedIds">): void;
+  start(): Promise<void>;
+  /** Resolves true once everything shown locally is durably stored. */
+  flush(): Promise<boolean>;
+  stop(): void;
+}
+
+export class CollaborationProvider implements CollaborationClient {
   readonly doc = new Y.Doc();
   readonly client = clientUUID();
   status: CollaborationStatus = "connecting";

@@ -2648,7 +2648,8 @@
         "takeoverFailed": "Die Bearbeitung konnte nicht übernommen werden."
       },
       "paste": {
-        "imagesDropped": "Bilder aus dem eingefügten Inhalt wurden nicht übernommen. Verwende „Bild einfügen“, um sie hinzuzufügen."
+        "imagesDropped": "Bilder aus dem eingefügten Inhalt wurden nicht übernommen. Verwende „Bild einfügen“, um sie hinzuzufügen.",
+        "tooLarge": "Der eingefügte Inhalt ist zu groß für eine Seite. Bitte in kleineren Teilen einfügen."
       },
       "search": {
         "title": "Suchen und ersetzen",
@@ -4457,7 +4458,11 @@
     "denied": "Bearbeitungszugriff beendet. Ausstehende Änderungen bleiben auf diesem Gerät.",
     "error": "Änderungen konnten nicht gespeichert werden. Diese Seite geöffnet lassen.",
     "selected": "{count} ausgewählt",
-    "recoveryUnavailable": "Lokale Wiederherstellung nicht verfügbar. Bis zum Speichern diese Seite geöffnet lassen."
+    "recoveryUnavailable": "Lokale Wiederherstellung nicht verfügbar. Bis zum Speichern diese Seite geöffnet lassen.",
+    "errorReasons": {
+      "tooLarge": "Die Seite ist zu groß zum Speichern. Bitte die letzte große Einfügung rückgängig machen – bis dahin werden Änderungen nicht gespeichert.",
+      "invalid": "Die letzte Änderung konnte nicht gespeichert werden (ungültiger Inhalt). Bitte rückgängig machen."
+    }
   },
   "overviewDetails": {
     "hint": "Alle Details auf einen Blick. Über den Button gelangen Sie zum Ursprung.",

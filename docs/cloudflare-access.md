@@ -68,6 +68,20 @@ Hostname: startup.elarbol.me
 Service:  http://localhost:3007
 ```
 
+Add a second route on the same hostname for live document collaboration
+(WebSocket; Cloudflare proxies WebSockets without extra settings). Put it
+above the catch-all route so `/collab` is matched first:
+
+```text
+Hostname: startup.elarbol.me
+Path:     collab
+Service:  http://localhost:3008
+```
+
+The editor connects to `wss://startup.elarbol.me/collab` by default; Access
+covers it because it is the same hostname. `COLLAB_HOST_PORT` (default 3008)
+changes the host port Docker Compose publishes, loopback-only like the app.
+
 Copy the raw tunnel token into the untracked `.env` file as
 `CLOUDFLARE_TUNNEL_TOKEN`. Do not paste it into `docker-compose.yml`. The
 Compose service passes it through `TUNNEL_TOKEN`, so it does not appear in the

@@ -21,13 +21,17 @@ test("durable updates replay after a server crash and recover edits made during 
   const reservation = createServer(); reservation.listen(0, "127.0.0.1"); await once(reservation, "listening");
   const port = (reservation.address() as { port: number }).port;
   await new Promise<void>(resolve => reservation.close(() => resolve()));
+  // The live-collaboration WebSocket server needs a second free port.
+  const socketReservation = createServer(); socketReservation.listen(0, "127.0.0.1"); await once(socketReservation, "listening");
+  const collabPort = (socketReservation.address() as { port: number }).port;
+  await new Promise<void>(resolve => socketReservation.close(() => resolve()));
   const baseURL = `http://localhost:${port}`;
   const database = info.outputPath("restart.db");
   let server: ChildProcess | undefined;
   let log = "";
   const start = async () => {
     server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "start", "-p", String(port)], {
-      cwd: process.cwd(), env: { ...process.env, DATABASE_PATH: database, UPLOADS_PATH: info.outputPath("uploads"), BETTER_AUTH_URL: baseURL, BETTER_AUTH_SECRET: "e2e-only-secret-not-for-production-32-bytes-minimum", E2E_TEST: "true", LOCAL_AUTH_BYPASS: "false" }, stdio: ["ignore", "pipe", "pipe"],
+      cwd: process.cwd(), env: { ...process.env, COLLAB_PORT: String(collabPort), DATABASE_PATH: database, UPLOADS_PATH: info.outputPath("uploads"), BETTER_AUTH_URL: baseURL, BETTER_AUTH_SECRET: "e2e-only-secret-not-for-production-32-bytes-minimum", E2E_TEST: "true", LOCAL_AUTH_BYPASS: "false" }, stdio: ["ignore", "pipe", "pipe"],
     });
     server.stdout?.on("data", chunk => { log += chunk.toString(); }); server.stderr?.on("data", chunk => { log += chunk.toString(); });
     await expect.poll(async () => { try { return (await fetch(`${baseURL}/login`)).status; } catch { return 0; } }, { timeout: 45_000 }).toBe(200);

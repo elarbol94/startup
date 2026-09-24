@@ -2648,7 +2648,8 @@
         "takeoverFailed": "Editing could not be taken over."
       },
       "paste": {
-        "imagesDropped": "Images from the pasted content were not included. Use \"Insert image\" to add them."
+        "imagesDropped": "Images from the pasted content were not included. Use \"Insert image\" to add them.",
+        "tooLarge": "The pasted content is too large for one page. Please paste it in smaller parts."
       },
       "search": {
         "title": "Find and replace",
@@ -4455,7 +4456,11 @@
     "denied": "Editing access ended. Your pending changes remain on this device.",
     "error": "Changes could not be saved. Keep this page open.",
     "selected": "{count} selected",
-    "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until saved."
+    "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until saved.",
+    "errorReasons": {
+      "tooLarge": "This page is too large to save. Please undo the last large paste – changes are not saved until then.",
+      "invalid": "The last change could not be saved (invalid content). Please undo it."
+    }
   },
   "overviewDetails": {
     "hint": "Review the details, then use the button to open the original location.",

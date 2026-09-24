@@ -28,5 +28,10 @@ export async function register() {
     startPdfProcessingWorker();
     const { startFigureSyncWorker } = await import("./modules/wiki/figure-assets");
     startFigureSyncWorker();
+    // Live document collaboration (Hocuspocus WebSocket server on COLLAB_PORT).
+    if (process.env.COLLAB_DISABLED !== "true") {
+      const { startCollaborationSocketServer } = await import("./modules/wiki/collaboration/socket-server");
+      startCollaborationSocketServer().catch(() => undefined);
+    }
   }
 }

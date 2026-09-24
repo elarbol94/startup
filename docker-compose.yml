@@ -7,6 +7,9 @@ services:
       # Loopback-only by default prevents bypassing Cloudflare Access through
       # the host's public IP. Override only for a trusted local-network setup.
       - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_HOST_PORT:-3007}:3000"
+      # Live document collaboration (WebSocket). Route https://<host>/collab
+      # here (see docs/cloudflare-access.md), or set COLLAB_PUBLIC_URL.
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${COLLAB_HOST_PORT:-3008}:3001"
     environment:
       # Set BETTER_AUTH_SECRET in a .env file next to this compose file.
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
@@ -22,6 +25,8 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       # Extra trusted browser origins, for example a local development proxy.
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
+      # Where browsers open the collaboration WebSocket. Empty: wss://<host>/collab.
+      COLLAB_PUBLIC_URL: ${COLLAB_PUBLIC_URL:-}
       # Internal-only endpoint; never expose LanguageTool on a host port.
       LANGUAGETOOL_URL: ${LANGUAGETOOL_URL:-http://languagetool:8010}
       # Optional AI-assisted calendar import; deterministic parsing remains the fallback.
