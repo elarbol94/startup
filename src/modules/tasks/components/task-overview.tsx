@@ -183,20 +183,39 @@ export function TaskOverview({
     });
   }
 
+  const statusToggle = (task: OverviewTask) => <button type="button" disabled={pending} onClick={() => toggle(task)} aria-label={task.status === "done" ? t("reopen") : t("markDone")} className={`grid size-6 shrink-0 place-items-center rounded-full border ${task.status === "done" ? "border-emerald-600 bg-emerald-600 text-white" : "hover:border-emerald-500"}`}>{task.status === "done" ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}</button>;
+  const originOf = (task: OverviewTask) => task.contextLabel || task.projectName || task.columnName || t("origins.app");
+  const isOverdue = (task: OverviewTask) => task.status === "open" && !!task.dueDate && task.dueDate < today;
+  const dueDate = (task: OverviewTask) => <span className={`text-xs ${isOverdue(task) ? "text-destructive" : "text-muted-foreground"}`}>{task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "medium" }) : "—"}</span>;
+  const priorityBadge = (task: OverviewTask) => <Badge variant={task.priority === "high" ? "destructive" : "outline"}>{t(`priorities.${task.priority}`)}</Badge>;
+  const titleDetails = (task: OverviewTask) => <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={task.contextLabel || task.projectName || t("origins.app")} href={task.href}
+    fields={[
+      { label: t("assignee"), value: task.assignees.length ? <span className="inline-flex flex-wrap gap-2">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />)}</span> : t("unassigned") },
+      { label: t("priority"), value: t(`priorities.${task.priority}`) },
+      { label: t("status"), value: t(`statuses.${task.status}`) },
+      { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },
+    ]} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${task.status === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</span></ItemDetails>;
+  // Phone layout (< md): stacked row instead of the wide table.
+  const mobileRow = (task: OverviewTask) => <div className="flex items-start gap-3">
+    <div className="pt-0.5">{statusToggle(task)}</div>
+    <div className="min-w-0 flex-1 space-y-1.5">
+      <div className="[&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">{titleDetails(task)}</div>
+      <p className="truncate text-xs text-muted-foreground">{originOf(task)}</p>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        {dueDate(task)}
+        {priorityBadge(task)}
+        {task.assignees.length ? <span className="inline-flex items-center gap-1">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} avatarOnly />)}</span> : <span className="text-xs text-muted-foreground">{t("unassigned")}</span>}
+      </div>
+    </div>
+  </div>;
+
   const table = useOverviewTable("tasks", visibleTasks, [
-    { id: "status", label: t("status"), width: 88, value: task => task.status === "done" ? 1 : 0,
-      render: task => <button type="button" disabled={pending} onClick={() => toggle(task)} aria-label={task.status === "done" ? t("reopen") : t("markDone")} className={`grid size-6 place-items-center rounded-full border ${task.status === "done" ? "border-emerald-600 bg-emerald-600 text-white" : "hover:border-emerald-500"}`}>{task.status === "done" ? <Check className="size-3.5" /> : <span className="size-1.5 rounded-full bg-muted-foreground/40" />}</button> },
-    { id: "title", label: t("title"), width: 220, value: task => task.title, render: task => <ItemDetails onEdit={() => editTask(task)} title={task.title} description={task.description} origin={task.contextLabel || task.projectName || t("origins.app")} href={task.href}
-      fields={[
-        { label: t("assignee"), value: task.assignees.length ? <span className="inline-flex flex-wrap gap-2">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} />)}</span> : t("unassigned") },
-        { label: t("priority"), value: t(`priorities.${task.priority}`) },
-        { label: t("status"), value: t(`statuses.${task.status}`) },
-        { label: t("dueDate"), value: task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "long" }) : "—" },
-      ]} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${task.status === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</span></ItemDetails> },
-    { id: "origin", label: layoutT("origin"), value: task => task.contextLabel || task.projectName || task.columnName || t("origins.app") },
+    { id: "status", label: t("status"), width: 88, value: task => task.status === "done" ? 1 : 0, render: statusToggle },
+    { id: "title", label: t("title"), width: 240, wrap: true, value: task => task.title, render: titleDetails },
+    { id: "origin", label: layoutT("origin"), value: originOf },
     { id: "assignee", label: t("assignee"), value: task => task.assignees.map(person => person.name).join(", ") || null, render: task => <span className="inline-flex max-w-full gap-2 text-xs">{task.assignees.length ? task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact />) : t("unassigned")}</span> },
-    { id: "date", label: t("dueDate"), width: 145, value: task => task.dueDate, render: task => <span className={`text-xs ${task.status === "open" && task.dueDate && task.dueDate < today ? "text-destructive" : "text-muted-foreground"}`}>{task.dueDate ? format.dateTime(localDate(task.dueDate), { dateStyle: "medium" }) : "—"}</span> },
-    { id: "priority", label: t("priority"), width: 110, value: task => ({ high: 3, medium: 2, low: 1 })[task.priority], render: task => <Badge variant={task.priority === "high" ? "destructive" : "outline"}>{t(`priorities.${task.priority}`)}</Badge> },
+    { id: "date", label: t("dueDate"), width: 145, value: task => task.dueDate, render: dueDate },
+    { id: "priority", label: t("priority"), width: 110, value: task => ({ high: 3, medium: 2, low: 1 })[task.priority], render: priorityBadge },
   ], "taskSort");
 
   return (
@@ -225,7 +244,7 @@ export function TaskOverview({
         </div>
         {viewPreference.failed && <p role="status" className="mt-2 text-xs text-destructive">{layoutT("saveFailed")}</p>}
         <div className="mt-4 flex flex-wrap items-center gap-1.5">
-          <Input className="h-8 min-w-24 flex-1 basis-28" value={search} onChange={event => setSearch(event.target.value)} aria-label={t("board.search")} placeholder={t("board.search")} />
+          <Input className="h-8 w-full basis-full sm:w-auto sm:min-w-24 sm:flex-1 sm:basis-28" value={search} onChange={event => setSearch(event.target.value)} aria-label={t("board.search")} placeholder={t("board.search")} />
           <Select value={projectFilter} onValueChange={value => setProjectFilter(value ?? "all")}>
             <SelectTrigger className="h-8 w-auto max-w-44" aria-label={t("board.project")}><SelectValue>{projectFilter === "all" ? t("board.allProjects") : projectFilter === "none" ? t("board.noProject") : projects.find(project => project.id === projectFilter)?.name}</SelectValue></SelectTrigger>
             <SelectContent><SelectItem value="all">{t("board.allProjects")}</SelectItem><SelectItem value="none">{t("board.noProject")}</SelectItem>{projects.map(project => <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>)}</SelectContent>
@@ -291,7 +310,7 @@ export function TaskOverview({
         </div>
       </header>
 
-      {boardView ? <TaskBoard tasks={visibleTasks} onEdit={editTask} projectId={!["all", "none"].includes(projectFilter) ? projectFilter : null} assigneeId={filters.assignee === "unassigned" ? null : filters.assignee === "all" ? defaultAssignee : filters.assignee} priority={filters.priority === "all" ? "medium" : filters.priority as TaskPriority} /> : <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button></div></div>} actions={task => (
+      {boardView ? <TaskBoard tasks={visibleTasks} onEdit={editTask} projectId={!["all", "none"].includes(projectFilter) ? projectFilter : null} assigneeId={filters.assignee === "unassigned" ? null : filters.assignee === "all" ? defaultAssignee : filters.assignee} priority={filters.priority === "all" ? "medium" : filters.priority as TaskPriority} /> : <OverviewTable table={table} label={t("overview")} pending={pending} mobileRow={mobileRow} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openTaskCreator()}>{t("createTask")}</Button></div></div>} actions={task => (
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">

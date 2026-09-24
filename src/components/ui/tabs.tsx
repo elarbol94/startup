@@ -1,5 +1,6 @@
 "use client"
 
+import { useCallback, useEffect, useState } from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 
@@ -38,16 +39,55 @@ const tabsListVariants = cva(
   }
 )
 
+/**
+ * Tracks whether a horizontally scrollable element overflows, so the edge
+ * fade (`scroll-fade-x`) only appears when there really are hidden tabs.
+ */
+function useHorizontalOverflow() {
+  const [node, setNode] = useState<HTMLElement | null>(null)
+  const [overflowing, setOverflowing] = useState(false)
+
+  useEffect(() => {
+    if (!node || typeof ResizeObserver === "undefined") return
+    const update = () => setOverflowing(node.scrollWidth > node.clientWidth + 1)
+    update()
+    const observer = new ResizeObserver(update)
+    observer.observe(node)
+    for (const child of Array.from(node.children)) observer.observe(child)
+    return () => observer.disconnect()
+  }, [node])
+
+  const ref = useCallback((element: HTMLElement | null) => setNode(element), [])
+  return { ref, overflowing }
+}
+
 function TabsList({
   className,
   variant = "default",
+  ref: forwardedRef,
   ...props
 }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
+  const { ref: overflowRef, overflowing } = useHorizontalOverflow()
+  const ref = useCallback(
+    (element: HTMLDivElement | null) => {
+      overflowRef(element)
+      if (typeof forwardedRef === "function") forwardedRef(element)
+      else if (forwardedRef) forwardedRef.current = element
+    },
+    [overflowRef, forwardedRef]
+  )
+
   return (
     <TabsPrimitive.List
+      ref={ref}
       data-slot="tabs-list"
       data-variant={variant}
-      className={cn(tabsListVariants({ variant }), className)}
+      data-overflowing={overflowing || undefined}
+      className={cn(
+        tabsListVariants({ variant }),
+        "group-data-horizontal/tabs:data-overflowing:scroll-fade-x",
+        className
+      )}
       {...props}
     />
   )

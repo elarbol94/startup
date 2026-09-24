@@ -8,24 +8,21 @@ import { Button } from "@/components/ui/button";
 
 export default async function CustomersPage() {
   await requireUser();
-  const t = await getTranslations("invoices");
+  const tDocuments = await getTranslations("documents");
   const customers = listCustomers();
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          nativeButton={false}
-          render={<Link href="/accounting/invoices" aria-label={t("title")} />}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("customers")}
-        </h1>
-      </div>
+    <div className="flex flex-col gap-2">
+      <Button
+        variant="ghost"
+        size="sm"
+        className="-ml-2 self-start"
+        nativeButton={false}
+        render={<Link href="/accounting/invoices" />}
+      >
+        <ArrowLeft className="size-4" />
+        {tDocuments("title")}
+      </Button>
       <CustomersClient customers={customers} />
     </div>
   );

@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SwitchLike } from "./switch-like";
@@ -61,6 +62,7 @@ const copy = {
     title: "Personalkosten",
     subtitle: "Von der Vergütung bis zum belastbaren Projektstundensatz.",
     planningAid: "Planungshilfe · keine zertifizierte Lohnverrechnung",
+    planningAidShort: "Planungshilfe – keine zertifizierte Lohnverrechnung",
     overview: "Übersicht", people: "Personen", calculator: "Rechner", projects: "Projekte",
     funding: "Förderung", scenarios: "Szenarien", rules: "Regelstände",
     annualCost: "Arbeitgeberkosten p. a.", monthlyCost: "Ø Arbeitgeberkosten / Monat",
@@ -105,6 +107,7 @@ const copy = {
     title: "Personnel costs",
     subtitle: "From compensation to a defensible project hourly rate.",
     planningAid: "Planning aid · not certified payroll",
+    planningAidShort: "Planning aid – not certified payroll",
     overview: "Overview", people: "People", calculator: "Calculator", projects: "Projects",
     funding: "Funding", scenarios: "Scenarios", rules: "Rule sets",
     annualCost: "Annual employer cost", monthlyCost: "Avg. employer cost / month",
@@ -302,7 +305,7 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
   return (
     <div className="mx-auto max-w-[1500px] space-y-5">
       <Header t={t} />
-      <nav className="flex gap-1 overflow-x-auto rounded-xl border border-[#dce5e1] dark:border-border bg-[#f7f9f8] dark:bg-muted p-1" aria-label={t.title}>
+      <nav className="scroll-fade-x flex gap-1 overflow-x-auto rounded-xl border border-[#dce5e1] dark:border-border bg-[#f7f9f8] dark:bg-muted p-1" aria-label={t.title}>
         {tabs.map((key) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${tab === key ? "bg-white dark:bg-card text-[#173c32] dark:text-foreground shadow-sm" : "text-[#71807a] dark:text-muted-foreground hover:text-[#29463e] dark:hover:text-foreground"}`}>{t[key]}</button>)}
       </nav>
 
@@ -327,9 +330,9 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
           </div>
           <div className="rounded-2xl border border-[#d8cfba] dark:border-border bg-[#fffdf7] dark:bg-muted p-5">
             <SectionTitle eyebrow={t.closing} title={`${data.year}`} description={t.planningAid} />
-            <Field label={t.month}><Input id="close-month" type="month" defaultValue={`${data.year}-07`} /></Field>
-            <Button disabled={pending || getPayrollRuleSet(data.year).status !== "verified"} className="mt-4 w-full bg-[#173c32] text-white hover:bg-[#244f43]" onClick={() => {
-              const value = (document.getElementById("close-month") as HTMLInputElement).value;
+            <div className="mt-4"><Field label={t.month}><MonthSelect id="close-month" year={data.year} locale={locale} label={t.month} /></Field></div>
+            <Button disabled={pending || getPayrollRuleSet(data.year).status !== "verified"} className="mt-4 w-full" onClick={() => {
+              const value = (document.getElementById("close-month") as HTMLSelectElement).value;
               run(() => closePersonnelMonth(value), t.monthClosed);
             }}><FileClock className="size-4" />{t.closeMonth}</Button>
             {getPayrollRuleSet(data.year).status !== "verified" && <p className="mt-3 flex items-center gap-2 text-sm text-amber-800"><CircleAlert className="size-4" />{t.postingBlocked}</p>}
@@ -348,13 +351,24 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
 }
 
 function Header({ t }: { t: Text }) {
-  return <header className="relative overflow-hidden rounded-2xl bg-[#173c32] px-6 py-7 text-white">
-    <div className="absolute inset-y-0 right-0 w-1/3 bg-[linear-gradient(135deg,transparent,rgba(255,255,255,0.08))]" />
-    <div className="relative flex flex-wrap items-end justify-between gap-4">
-      <div><p className="text-[11px] font-semibold tracking-[0.16em] text-[#b9ccc5] uppercase">{t.planningAid}</p><h1 className="mt-2 text-3xl font-semibold tracking-[-0.03em]">{t.title}</h1><p className="mt-2 text-sm text-[#c7d7d1]">{t.subtitle}</p></div>
-      <div className="flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-2 text-xs"><ShieldCheck className="size-4" />AT 2025–2027</div>
-    </div>
-  </header>;
+  return <PageHeader
+    title={t.title}
+    description={t.subtitle}
+    actions={<>
+      <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs text-muted-foreground"><CircleAlert className="size-3.5" />{t.planningAidShort}</span>
+      <span className="inline-flex items-center gap-1.5 rounded-full border bg-muted/50 px-2.5 py-1 text-xs font-medium text-foreground" title={t.rules}><ShieldCheck className="size-3.5" />AT 2025–2027</span>
+    </>}
+  />;
+}
+
+function MonthSelect({ id, name, year, locale, label, defaultMonth = 7 }: { id?: string; name?: string; year: number; locale: string; label: string; defaultMonth?: number }) {
+  const formatter = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" });
+  return <select id={id} name={name} aria-label={label} required defaultValue={`${year}-${String(defaultMonth).padStart(2, "0")}`} className="h-9 w-full rounded-md border bg-transparent px-3 text-sm">
+    {Array.from({ length: 12 }, (_, index) => {
+      const value = `${year}-${String(index + 1).padStart(2, "0")}`;
+      return <option key={value} value={value}>{formatter.format(new Date(Date.UTC(year, index, 1)))}</option>;
+    })}
+  </select>;
 }
 
 function PeoplePanel({ data, t, locale, pending, run }: { data: PersonnelWorkspaceData; t: Text; locale: string; pending: boolean; run: (action: () => Promise<unknown>, success: string) => void }) {
@@ -409,7 +423,7 @@ function PeoplePanel({ data, t, locale, pending, run }: { data: PersonnelWorkspa
         <Field label={t.validFrom}><Input name="validFrom" type="date" defaultValue={today} required /></Field>
         <Field label={t.amount}><Input name="amount" inputMode="decimal" defaultValue="4500" required /></Field>
         <Field label={t.weeklyHours}><Input name="weeklyHours" inputMode="decimal" defaultValue="40" required /></Field>
-        <Button type="submit" disabled={pending || data.locations.length === 0} className="sm:col-span-2 bg-[#173c32] text-white"><Save className="size-4" />{t.savePerson}</Button>
+        <Button type="submit" disabled={pending || data.locations.length === 0} className="sm:col-span-2"><Save className="size-4" />{t.savePerson}</Button>
       </form>}
     </section>
     <section className="rounded-2xl border border-[#dce5e1] dark:border-border bg-white dark:bg-card p-5">
@@ -522,7 +536,7 @@ function ProjectsPanel({ data, t, locale, pending, run }: PanelProps) {
     if (!person?.annual) return;
     const costRateCents = person.annual.fullHourlyRateCents;
     run(() => upsertProjectHourAllocation({ employeeId: person.id, projectId: String(fd.get("projectId")), payrollMonth: String(fd.get("month")), plannedMinutes: Math.round(Number(fd.get("hours")) * 60), costRateCents }), t.allocationSaved);
-  }}><Field label={t.person}><PersonSelect name="employeeId" label={t.person} options={ready.map(row => ({ value: row.id, userId: row.userId, name: row.name }))} /></Field><Field label={t.projects}><select name="projectId" className="h-9 w-full rounded-md border bg-transparent px-3 text-sm">{data.projects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field><Field label={t.month}><Input name="month" type="month" defaultValue={`${data.year}-07`} required /></Field><Field label={t.hours}><Input name="hours" type="number" step="0.25" defaultValue="40" required /></Field><Button type="submit" disabled={pending || ready.length === 0 || data.projects.length === 0} className="w-full bg-[#315c7b] text-white"><CalendarClock className="size-4" />{t.allocate}</Button></form></section><AllocationTable data={data} locale={locale} t={t} /></div>;
+  }}><Field label={t.person}><PersonSelect name="employeeId" label={t.person} options={ready.map(row => ({ value: row.id, userId: row.userId, name: row.name }))} /></Field><Field label={t.projects}><select name="projectId" className="h-9 w-full rounded-md border bg-transparent px-3 text-sm">{data.projects.map((row) => <option key={row.id} value={row.id}>{row.name}</option>)}</select></Field><Field label={t.month}><MonthSelect name="month" year={data.year} locale={locale} label={t.month} /></Field><Field label={t.hours}><Input name="hours" type="number" step="0.25" defaultValue="40" required /></Field><Button type="submit" disabled={pending || ready.length === 0 || data.projects.length === 0} className="w-full"><CalendarClock className="size-4" />{t.allocate}</Button></form></section><AllocationTable data={data} locale={locale} t={t} /></div>;
 }
 
 function AllocationTable({ data, locale, t }: { data: PersonnelWorkspaceData; locale: string; t: Text }) {

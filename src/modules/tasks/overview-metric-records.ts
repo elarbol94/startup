@@ -16,8 +16,8 @@ export function getOverviewMetricRecords(userId: string, summary: ReturnType<typ
   return {
     openTasks: taskRecords,
     overdue: [...taskRecords.filter(item => item.dateOnly && item.dateOnly < today), ...summary.deadlines.filter(item => isDeadlineOverdue({ ...item, status: "open" }, now)).map(deadlineRecord)],
-    upcomingDeadlines: upcoming.filter(item => item.deadlineDate <= addLocalDays(today, 7)).map(deadlineRecord),
-    nextDeadline: upcoming.slice(0, 1).map(deadlineRecord),
+    // Merged tile: deadlines within the next 7 days, falling back to the single next deadline.
+    upcomingDeadlines: (() => { const soon = upcoming.filter(item => item.deadlineDate <= addLocalDays(today, 7)); return (soon.length ? soon : upcoming.slice(0, 1)).map(deadlineRecord); })(),
     eventsToday: collections.calendar.filter(item => item.today),
     documentsCount: collections.documents, presentationsCount: collections.presentations, projectsCount: collections.projects,
     unreadNews: listNotifications(userId, true).map(item => ({ id: item.id, title: item.taskTitle || item.pageTitle || item.type, href: item.taskId ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task") : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null, date: item.createdAt.getTime(), actor: item.actorName })),

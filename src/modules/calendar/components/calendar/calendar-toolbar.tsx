@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { localDateInZone } from "../../date-utils";
 import type { CalendarView, CalendarWorkspace } from "../../types";
-import type { FilterState } from "./calendar-types";
+import { CALENDAR_VIEWS, MOBILE_VIEW_STORAGE_KEY, type FilterState } from "./calendar-types";
 
 export function CalendarToolbar({
   periodLabel,
@@ -79,7 +79,7 @@ export function CalendarToolbar({
           </Button>
         </div>
         <div className="hidden items-center rounded-lg border bg-background p-0.5 sm:flex">
-          {(["week", "month", "agenda", "team"] as const).map((mode) => (
+          {CALENDAR_VIEWS.map((mode) => (
             <Button
               key={mode}
               variant={view === mode ? "secondary" : "ghost"}
@@ -96,12 +96,18 @@ export function CalendarToolbar({
         <select
           id="calendar-mobile-view"
           value={view}
-          className="h-11 min-w-0 flex-1 rounded-lg border bg-background px-3 text-sm font-medium sm:hidden"
-          onChange={(event) => navigate({ view: event.target.value as CalendarView })}
+          className="h-11 min-w-[7.5rem] flex-1 rounded-lg border bg-background px-3 text-sm font-medium sm:hidden"
+          onChange={(event) => {
+            const next = event.target.value as CalendarView;
+            try {
+              window.localStorage.setItem(MOBILE_VIEW_STORAGE_KEY, next);
+            } catch {}
+            navigate({ view: next });
+          }}
         >
-          {(["week", "month", "agenda", "team"] as const).map((mode) => <option key={mode} value={mode}>{t(mode)}</option>)}
+          {CALENDAR_VIEWS.map((mode) => <option key={mode} value={mode}>{t(mode)}</option>)}
         </select>
-        <Button variant="outline" className="h-11 px-3" disabled={!ownCalendarIds.length}
+        <Button variant="outline" className="h-11 flex-1 px-3 sm:flex-none" disabled={!ownCalendarIds.length}
           aria-pressed={ownCalendarIds.length > 0 && filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id))}
           onClick={() => selectCalendars(filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id)) ? [] : ownCalendarIds)}>{t("myCalendars")}</Button>
         <Button

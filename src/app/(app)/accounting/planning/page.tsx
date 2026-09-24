@@ -1,6 +1,4 @@
-import Link from "next/link";
-import { ArrowLeft } from "@/components/server-safe-icons";
-import { getLocale, getTranslations } from "next-intl/server";
+import { getLocale } from "next-intl/server";
 import { requireUser } from "@/lib/auth";
 import {
   planningOverview,
@@ -8,7 +6,6 @@ import {
   yearsWithPlans,
 } from "@/modules/accounting/queries";
 import { PlanningClient } from "@/modules/accounting/components/planning-client";
-import { Button } from "@/components/ui/button";
 
 export default async function PlanningPage({
   searchParams,
@@ -21,7 +18,7 @@ export default async function PlanningPage({
     params.year && /^\d{4}$/.test(params.year)
       ? Number(params.year)
       : new Date().getFullYear();
-  const [t, locale] = await Promise.all([getTranslations("accounting"), getLocale()]);
+  const locale = await getLocale();
   const rows = planningOverview(year);
   const currentYear = new Date().getFullYear();
   const years = [
@@ -35,22 +32,5 @@ export default async function PlanningPage({
     ]),
   ].sort((a, b) => b - a);
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          nativeButton={false}
-          render={<Link href="/accounting" aria-label={t("overview")} />}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("planning")} {year}
-        </h1>
-      </div>
-      <PlanningClient key={year} rows={rows} year={year} years={years} locale={locale} />
-    </div>
-  );
+  return <PlanningClient key={year} rows={rows} year={year} years={years} locale={locale} />;
 }

@@ -5,7 +5,7 @@
 import type { RefObject } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { CalendarClock } from "lucide-react";
+import { CalendarClock, Diamond } from "lucide-react";
 import type { PortfolioSchedule } from "@/modules/projects/queries";
 import { cn } from "@/lib/utils";
 import {
@@ -13,6 +13,8 @@ import {
   localDateValue,
 } from "@/modules/tasks/deadline-utils";
 import { withWorkItemFocus } from "@/modules/context/routes";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { clusterDeadlineMarkers, DEADLINE_CLUSTER_DISTANCE } from "../deadline-clusters";
 import { DEADLINE_LANE_HEIGHT } from "./portfolio-constants";
 import { calendarDistance } from "./portfolio-utils";
 import type { useDeadlineDrag } from "./use-deadline-drag";
@@ -32,6 +34,7 @@ export function DeadlineLane({
   endDeadlineDrag,
   cancelDeadlineDrag,
   handleDeadlineKey,
+  deadlinePreview,
 }: Pick<
   ReturnType<typeof useDeadlineDrag>,
   | "startDeadlineDrag"
@@ -39,6 +42,7 @@ export function DeadlineLane({
   | "endDeadlineDrag"
   | "cancelDeadlineDrag"
   | "handleDeadlineKey"
+  | "deadlinePreview"
 > & {
   totalWidth: number;
   treeWidth: number;
@@ -50,6 +54,7 @@ export function DeadlineLane({
   dayWidth: number;
   draggedRef: RefObject<boolean>;
 }) {
+  const t = useTranslations("projects");
   const tDeadlines = useTranslations("deadlines");
   const format = useFormatter();
   const router = useRouter();
@@ -71,8 +76,70 @@ export function DeadlineLane({
           <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">{effectiveSchedule.deadlines.length}</span>
         </div>
         <div className="relative" style={{ width: timelineWidth }}>
-          {effectiveSchedule.deadlines.map((deadline) => {
-            if (!deadline.dueDate || deadline.dueDate < range.start || deadline.dueDate > renderedRangeEnd) return null;
+          {clusterDeadlineMarkers(
+            effectiveSchedule.deadlines.filter((deadline): deadline is typeof deadline & { dueDate: string } => Boolean(deadline.dueDate && deadline.dueDate >= range.start && deadline.dueDate <= renderedRangeEnd)),
+            (deadline) => calendarDistance(range.start, deadline.dueDate) * dayWidth + dayWidth / 2,
+            // While a diamond is being dragged every marker stays individual so the drag target never merges away.
+            deadlinePreview ? 0 : DEADLINE_CLUSTER_DISTANCE,
+          ).map((cluster) => {
+            if (cluster.items.length > 1) {
+              const anyOverdue = cluster.items.some((item) => isDeadlineOverdue({ deadlineDate: item.dueDate, deadlineAt: item.deadlineAt, status: item.status }, renderedAt));
+              const allDone = cluster.items.every((item) => item.status === "done");
+              return (
+                <Popover key={cluster.items.map((item) => item.id).join(":")}>
+                  <PopoverTrigger
+                    render={
+                      <button
+                        type="button"
+                        data-deadline-cluster={cluster.items.length}
+                        className="absolute top-1/2 z-[1] grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center focus-visible:outline-2 focus-visible:outline-ring"
+                        style={{ left: cluster.x }}
+                        aria-label={t("deadlineCluster", { count: cluster.items.length })}
+                        title={cluster.items.map((item) => item.title).join("\n")}
+                      />
+                    }
+                  >
+                    <span
+                      className={cn("absolute inset-0.5 rotate-45 rounded-[2px] border-2 bg-card shadow-xs", allDone && "opacity-45")}
+                      style={{ borderColor: allDone ? "#059669" : anyOverdue ? "#dc2626" : "#d97706" }}
+                      aria-hidden
+                    />
+                    <span
+                      className={cn("relative rounded-full px-1 font-mono text-[9px] leading-3.5 font-semibold text-white tabular-nums", allDone ? "bg-emerald-600" : anyOverdue ? "bg-red-600" : "bg-amber-600")}
+                    >
+                      {cluster.items.length}
+                    </span>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-72 p-1" align="center">
+                    <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{t("deadlineCluster", { count: cluster.items.length })}</p>
+                    {cluster.items.map((item) => {
+                      const itemOverdue = isDeadlineOverdue({ deadlineDate: item.dueDate, deadlineAt: item.deadlineAt, status: item.status }, renderedAt);
+                      const itemDate = localDateValue(item.dueDate);
+                      const itemLabel = item.deadlineAt
+                        ? format.dateTime(new Date(item.deadlineAt), { dateStyle: "medium", timeStyle: "short" })
+                        : `${itemDate ? format.dateTime(itemDate, { dateStyle: "medium" }) : item.dueDate} · ${tDeadlines("allDay")}`;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                          onClick={() => router.push(withWorkItemFocus(item.contextRoute || "/", item.id, "deadline"))}
+                        >
+                          <Diamond className={cn("mt-0.5 size-3.5 shrink-0", item.status === "done" ? "text-emerald-600" : itemOverdue ? "fill-red-500 text-red-600" : "fill-amber-500 text-amber-600")} aria-hidden />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn("block truncate", item.status === "done" && "text-muted-foreground line-through")}>{item.title}</span>
+                            <span className={cn("block text-xs", itemOverdue ? "font-medium text-red-700 dark:text-red-400" : "text-muted-foreground")}>
+                              {itemLabel}{itemOverdue ? ` · ${t("overdueTag")}` : ""}
+                            </span>
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              );
+            }
+            const deadline = cluster.items[0];
             const overdue = isDeadlineOverdue({
               deadlineDate: deadline.dueDate,
               deadlineAt: deadline.deadlineAt,

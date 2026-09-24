@@ -1,6 +1,6 @@
 import { getFormatter, getLocale, getTranslations } from "next-intl/server";
-import Link from "next/link";
-import { Download, ArrowLeft } from "@/components/server-safe-icons";
+import { Download } from "@/components/server-safe-icons";
+import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import {
@@ -65,34 +65,26 @@ export default async function ReportPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          nativeButton={false}
-          render={<Link href="/accounting" aria-label={t("overview")} />}
-        >
-          <ArrowLeft className="size-4" />
-        </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          {t("report")} {year}
-        </h1>
-        <div className="ml-auto flex items-center gap-2">
-          <YearSelect years={years} year={year} label={t("year")} />
-          <Button
-            variant="outline"
-            size="sm"
-            nativeButton={false}
-            render={<a href={`/api/accounting/export?year=${year}`} />}
-          >
-            <Download className="size-4" />
-            {t("exportCsv")}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={`${t("report")} ${year}`}
+        actions={
+          <>
+            <YearSelect years={years} year={year} label={t("year")} />
+            <Button
+              variant="outline"
+              nativeButton={false}
+              render={<a href={`/api/accounting/export?year=${year}`} />}
+            >
+              <Download className="size-4" />
+              {t("exportCsv")}
+            </Button>
+          </>
+        }
+      />
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="min-w-0">
           <CardHeader>
             <CardTitle>{t("monthlyOverview")}</CardTitle>
           </CardHeader>
@@ -155,7 +147,7 @@ export default async function ReportPage({
           </CardContent>
         </Card>
 
-        <div className="flex flex-col gap-6">
+        <div className="flex min-w-0 flex-col gap-6">
           <Card>
             <CardHeader>
               <CardTitle>{t("vatSummaryTitle")}</CardTitle>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { FileDown, FileText, MoreHorizontal, Play, Plus, Presentation, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { PresentationListItem } from "../presentation-queries";
@@ -21,18 +22,15 @@ export function PresentationLibrary({ presentations, pages }: { presentations: P
   const [query, setQuery] = useState("");
   const visible = presentations.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
-  return <div className="mx-auto max-w-7xl px-5 py-8 md:px-10 md:py-10">
-    <header className="mb-8 flex flex-wrap items-center justify-between gap-4">
-      <div><h1 className="text-2xl font-semibold tracking-tight">{t("presentations.title")}</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground">{t("presentations.description")}</p></div>
-      <div className="flex items-center gap-3">
-        <Link href="/wiki/presentations/follow" className="text-sm text-muted-foreground hover:text-foreground">{t("presentations.joinLive")}</Link>
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" />}><Plus className="size-4" />{t("presentations.new")}</DropdownMenuTrigger><DropdownMenuContent align="end">
+  return <div className="mx-auto max-w-7xl p-5 md:p-8">
+    <PageHeader title={t("presentations.title")} description={t("presentations.description")} actions={<>
+        <Button variant="ghost" render={<Link href="/wiki/presentations/follow" />} nativeButton={false}>{t("presentations.joinLive")}</Button>
+        <DropdownMenu><DropdownMenuTrigger render={<Button />}><Plus className="size-4" />{t("presentations.new")}</DropdownMenuTrigger><DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setCreation("blank")}><Presentation />{t("workspace.blankOrTemplate")}</DropdownMenuItem>
           <DropdownMenuItem disabled={!pages.length} onClick={() => setCreation("document")}><FileText />{t("presentations.fromWikiPage")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setCreation("import")}><Upload />{studio("importPptx")}</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
-      </div>
-    </header>
+    </>} />
     <NewPresentationForm hideTrigger open={creation === "blank"} onOpenChange={(open) => setCreation(open ? "blank" : null)} />
     <NewPresentationFromWikiPage hideTrigger pages={pages} open={creation === "document"} onOpenChange={(open) => setCreation(open ? "document" : null)} />
     <PresentationImport hideTrigger open={creation === "import"} onOpenChange={(open) => setCreation(open ? "import" : null)} />

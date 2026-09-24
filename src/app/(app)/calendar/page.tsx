@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
 import {
   addDays,
@@ -29,13 +30,20 @@ export default async function CalendarPage({
     new?: string;
   }>;
 }) {
-  const [currentUser, query] = await Promise.all([
+  const [currentUser, query, requestHeaders] = await Promise.all([
     requireUser(),
     searchParams,
+    headers(),
   ]);
+  // Phones get the agenda by default: a 7-column week grid is unreadable at that width.
+  const isPhone =
+    requestHeaders.get("sec-ch-ua-mobile") === "?1" ||
+    /iPhone|iPod|Android.+Mobile|Mobi/i.test(requestHeaders.get("user-agent") ?? "");
   const view = views.has(query.view as CalendarView)
     ? (query.view as CalendarView)
-    : "week";
+    : isPhone
+      ? "agenda"
+      : "week";
   const fallbackDate = localDateInZone(
     new Date(),
     getCalendarTimezone(currentUser.id),

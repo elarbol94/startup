@@ -28,6 +28,7 @@ import {
   ClipboardPlus,
   LayoutDashboard,
   Menu,
+  Plus,
   Search,
   Settings,
   X,
@@ -36,6 +37,15 @@ import { useFocusMode } from "@/components/focus-mode";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Sheet,
   SheetClose,
   SheetContent,
@@ -43,20 +53,13 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { requestAppNavigation } from "@/lib/app-navigation";
-import { moduleNav, type ModuleNavItem } from "@/modules/registry";
+import { moduleNav, navSectionAliases, type ModuleNavItem } from "@/modules/registry";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
-import { Bug } from "lucide-react";
-import { useBugReporter } from "@/modules/projects/bugs/report-provider";
 
 const NAVIGATION_ORDER_STORAGE_KEY = "app-navigation-order:v1";
 
@@ -212,6 +215,76 @@ function SortableNavLink({
   return button;
 }
 
+/** Shortcut hints are only useful with a physical keyboard / fine pointer. */
+const KEYBOARD_HINT_CLASS = "hidden pointer-fine:inline-flex";
+
+function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate?: () => void }) {
+  const t = useTranslations("nav");
+  const router = useRouter();
+  const { openTaskCreator } = useTaskCreator();
+  const { openDeadlineCreator } = useDeadlineCreator();
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            aria-label={compact ? t("quickCreate") : undefined}
+            title={compact ? t("quickCreate") : undefined}
+            className={cn("mb-2 h-10 w-full justify-start", compact ? "justify-center gap-0 px-0" : "gap-3 px-3")}
+          />
+        }
+      >
+        <Plus className="size-5" />
+        <span
+          aria-hidden={compact}
+          className={cn(
+            "min-w-0 truncate whitespace-nowrap transition-all duration-[220ms] ease-out motion-reduce:transition-none",
+            compact ? "max-w-0 overflow-hidden opacity-0" : "max-w-44 opacity-100",
+          )}
+        >
+          {t("new")}
+        </span>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" side="bottom" className="w-60">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t("quickCreate")}</DropdownMenuLabel>
+          <DropdownMenuItem
+            onClick={() => {
+              onNavigate?.();
+              openTaskCreator();
+            }}
+          >
+            <ClipboardPlus className="mr-1 size-4" />
+            {t("newTask")}
+            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}>Ctrl ⇧ A</DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              onNavigate?.();
+              requestAppNavigation("/calendar?new=event", () => router.push("/calendar?new=event"));
+            }}
+          >
+            <CalendarPlus className="mr-1 size-4" />
+            {t("newEvent")}
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => {
+              onNavigate?.();
+              openDeadlineCreator();
+            }}
+          >
+            <CalendarClock className="mr-1 size-4" />
+            {t("newDeadline")}
+            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}>Ctrl ⇧ D</DropdownMenuShortcut>
+          </DropdownMenuItem>
+        </DropdownMenuGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 function AppNavigation({
   compact,
   pathname,
@@ -233,14 +306,7 @@ function AppNavigation({
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
-  const tCalendar = useTranslations("calendar");
-  const tTasks = useTranslations("tasks");
-  const tDeadlines = useTranslations("deadlines");
-  const tBugs = useTranslations("bugReports");
-  const openBugReporter = useBugReporter();
   const router = useRouter();
-  const { openTaskCreator } = useTaskCreator();
-  const { openDeadlineCreator } = useDeadlineCreator();
   const suppressNavigationUntilRef = useRef(0);
   const [navigationOrder, setNavigationOrder] = useState<string[]>(loadNavigationOrder);
   const navigationItems = useMemo(() => orderedNavigationItems(navigationOrder), [navigationOrder]);
@@ -255,7 +321,10 @@ function AppNavigation({
   );
   const isActive = (href: string) => {
     const section = `/${href.split("/")[1]}`;
-    return href === "/" ? pathname === "/" : pathname === section || pathname.startsWith(`${section}/`);
+    if (href === "/") return pathname === "/";
+    const currentSection = `/${pathname.split("/")[1]}`;
+    const effectiveSection = navSectionAliases[currentSection] ?? currentSection;
+    return effectiveSection === section;
   };
 
   function reorderNavigation(activeId: string, overId: string) {
@@ -281,6 +350,7 @@ function AppNavigation({
           aria-label={t("navigationLabel")}
           className={cn("flex flex-1 flex-col gap-1 overflow-y-auto", compact ? "px-2 py-3" : "p-3")}
         >
+          <QuickCreateMenu compact={compact} onNavigate={onNavigate} />
           <button
             type="button"
             onClick={() => {
@@ -307,7 +377,7 @@ function AppNavigation({
               {tCommon("search")}
             </span>
             {!compact && (
-              <kbd className="ml-auto rounded border bg-background px-1 py-0.5 text-[9px]">
+              <kbd className={cn("ml-auto rounded border bg-background px-1 py-0.5 text-[9px]", KEYBOARD_HINT_CLASS)}>
                 Ctrl K
               </kbd>
             )}
@@ -349,11 +419,6 @@ function AppNavigation({
             </SortableContext>
           </DndContext>
           <div className="mt-auto flex flex-col gap-1">
-            <button type="button" aria-label={tBugs("report")} title={tBugs("report")}
-              className={cn("flex h-10 items-center rounded-md text-sm font-medium text-muted-foreground hover:bg-accent/50 hover:text-foreground", compact ? "justify-center px-0" : "gap-3 px-3")}
-              onClick={() => { onNavigate?.(); openBugReporter(); }}>
-              <Bug className="size-5" />{!compact && <span>{tBugs("report")}</span>}
-            </button>
             <NavLink
               href="/settings"
               label={t("settings")}
@@ -362,86 +427,28 @@ function AppNavigation({
               compact={compact}
               onNavigate={onNavigate}
             />
-            <div className="my-1 border-t" />
-            <button
-              type="button"
-              onClick={() => {
-                openTaskCreator();
-                onNavigate?.();
-              }}
-              className={cn(
-                "flex h-10 items-center rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                compact ? "justify-center gap-0 px-0" : "gap-3 px-3",
-              )}
-              aria-label={tTasks("quickAction")}
-              title={tTasks("quickAction")}
-            >
-              <ClipboardPlus className="size-5" />
-              <span aria-hidden={compact} className={cn("min-w-0 truncate whitespace-nowrap transition-all duration-[220ms] ease-out motion-reduce:transition-none", compact ? "max-w-0 -translate-x-1 overflow-hidden opacity-0" : "max-w-44 opacity-100")}>{tTasks("quickAction")}</span>
-            </button>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Link
-                    href="/calendar?new=event"
-                    onClick={onNavigate}
-                    aria-label={tCalendar("quickAction")}
-                    title={tCalendar("quickAction")}
-                    className={cn(
-                      "flex h-10 items-center rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      compact ? "justify-center gap-0 px-0" : "gap-3 px-3",
-                    )}
-                  >
-                    <CalendarPlus className="size-5" />
-                    <span
-                      aria-hidden={compact}
-                      className={cn(
-                        "min-w-0 truncate whitespace-nowrap transition-all duration-[220ms] ease-out motion-reduce:transition-none",
-                        compact
-                          ? "max-w-0 -translate-x-1 overflow-hidden opacity-0"
-                          : "max-w-44 opacity-100",
-                      )}
-                    >
-                      {tCalendar("quickAction")}
-                    </span>
-                  </Link>
-                }
-              />
-              {compact && (
-                <TooltipContent side="right" sideOffset={8}>
-                  {tCalendar("quickAction")}
-                </TooltipContent>
-              )}
-            </Tooltip>
-            <button
-              type="button"
-              onClick={() => {
-                openDeadlineCreator();
-                onNavigate?.();
-              }}
-              className={cn(
-                "flex h-10 items-center rounded-md text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                compact ? "justify-center gap-0 px-0" : "gap-3 px-3",
-              )}
-              aria-label={tDeadlines("quickAction")}
-              title={tDeadlines("quickAction")}
-            >
-              <CalendarClock className="size-5" />
-              <span aria-hidden={compact} className={cn("min-w-0 truncate whitespace-nowrap transition-all duration-[220ms] ease-out motion-reduce:transition-none", compact ? "max-w-0 -translate-x-1 overflow-hidden opacity-0" : "max-w-44 opacity-100")}>{tDeadlines("quickAction")}</span>
-            </button>
           </div>
         </nav>
         <div className={cn("border-t", compact ? "px-2 py-3" : "p-3")}>
-          <UserMenu name={userName} email={userEmail} compact={compact} />
+          <UserMenu name={userName} email={userEmail} compact={compact} onNavigate={onNavigate} />
         </div>
       </div>
     </TooltipProvider>
   );
 }
 
-export function AppSidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
+export function AppSidebar({
+  userName,
+  userEmail,
+  companyName,
+}: {
+  userName: string;
+  userEmail: string;
+  companyName?: string;
+}) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const productName = companyName?.trim() || tCommon("appName");
   const pathname = usePathname();
   const { isFocused } = useFocusMode();
   const [expanded, setExpanded] = useState(false);
@@ -475,8 +482,8 @@ export function AppSidebar({ userName, userEmail }: { userName: string; userEmai
         >
           <Menu className="size-5" />
         </Button>
-        <Link href="/" className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
-          {tCommon("appName")}
+        <Link href="/" title={productName} className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
+          {productName}
         </Link>
         <Button type="button" variant="ghost" size="icon" aria-label={tCommon("search")} onClick={() => setSearchOpen(true)}>
           <Search className="size-5" />
@@ -494,7 +501,7 @@ export function AppSidebar({ userName, userEmail }: { userName: string; userEmai
           <SheetHeader className="flex-row items-center gap-2 border-b p-3 pr-2">
             <LayoutDashboard className="size-5 text-muted-foreground" />
             <div className="min-w-0 flex-1">
-              <SheetTitle className="truncate">{tCommon("appName")}</SheetTitle>
+              <SheetTitle className="truncate">{productName}</SheetTitle>
               <SheetDescription className="sr-only">{t("navigationDescription")}</SheetDescription>
             </div>
             <SheetClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeNavigation")} />}>
@@ -536,6 +543,7 @@ export function AppSidebar({ userName, userEmail }: { userName: string; userEmai
         <div className="flex h-14 shrink-0 items-center overflow-hidden border-b px-4">
           <Link
             href="/"
+            title={productName}
             aria-hidden={!expanded}
             tabIndex={expanded ? 0 : -1}
             className={cn(
@@ -543,7 +551,7 @@ export function AppSidebar({ userName, userEmail }: { userName: string; userEmai
               expanded ? "translate-x-0 opacity-100" : "-translate-x-1 opacity-0",
             )}
           >
-            {tCommon("appName")}
+            {productName}
           </Link>
         </div>
         <AppNavigation

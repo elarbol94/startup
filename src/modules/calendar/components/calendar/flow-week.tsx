@@ -2,17 +2,19 @@
 
 // Week view: all-day row plus the hourly timeline with draggable/resizable events.
 // Used by calendar-client.tsx.
-import { useEffect, useRef, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { useTranslations } from "next-intl";
 import { timedDaySegment } from "../../event-time";
 import { layoutEventColumns } from "../../event-layout";
-import { parseDate } from "../../date-utils";
+import { addDays, parseDate } from "../../date-utils";
+import { layoutAllDayBars } from "../../multi-day";
 import type { CalendarItem, CalendarWorkspace } from "../../types";
 import { TimelineEvent } from "../timeline-event";
 import { cn } from "@/lib/utils";
 import { SourceIcon } from "./source-icon";
 
 const HOURS = Array.from({ length: 24 }, (_, index) => index);
+const ALL_DAY_VISIBLE_LANES = 2;
 
 function formatMinutes(minutes: number) {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
@@ -51,19 +53,15 @@ export function FlowWeek({
   onDropDay: (event: DragEvent, day: string) => void;
   onDropTime: (event: DragEvent, day: string, hour: number) => void;
 }) {
-  const allDayByDate = new Map(
-    days.map((day) => [
-      day,
-      items.filter(
-        (item) =>
-          item.allDay &&
-          item.startDate &&
-          item.endDate &&
-          item.startDate <= day &&
-          item.endDate > day,
-      ),
-    ]),
+  const allDayBars = layoutAllDayBars(items, days);
+  const allDayLaneCount = allDayBars.reduce((max, bar) => Math.max(max, bar.lane + 1), 0);
+  const [allDayExpanded, setAllDayExpanded] = useState(false);
+  const allDayCollapsible = allDayLaneCount > ALL_DAY_VISIBLE_LANES;
+  const visibleAllDayLanes = allDayCollapsible && !allDayExpanded ? ALL_DAY_VISIBLE_LANES : allDayLaneCount;
+  const hiddenAllDayByDay = days.map((_, column) =>
+    allDayBars.filter((bar) => bar.lane >= visibleAllDayLanes && bar.startColumn <= column && bar.endColumn > column).length,
   );
+  const allDayRows = Math.max(1, visibleAllDayLanes + (allDayCollapsible ? 1 : 0));
   const timedByDate = new Map(
     days.map((day) => [
       day,
@@ -128,42 +126,80 @@ export function FlowWeek({
         })}
       </div>
 
-      <div className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] border-b bg-muted/[0.18]">
-        <div className="border-r px-0.5 py-2 text-[8px] text-muted-foreground">
+      <div className={cn("border-b", allDayExpanded && "max-h-[40vh] overflow-y-auto overscroll-contain")}>
+      <div
+        className="grid grid-cols-[3rem_repeat(7,minmax(0,1fr))] bg-muted/[0.18] py-0.5"
+        style={{ gridTemplateRows: `repeat(${allDayRows}, auto)` }}
+      >
+        <div className="border-r px-0.5 py-2 text-[8px] text-muted-foreground" style={{ gridColumn: 1, gridRow: "1 / -1" }}>
           {t("allDay")}
         </div>
-        {days.map((day) => (
+        {days.map((day, column) => (
           <div
             key={day}
-            className="min-h-9 border-r p-1 last:border-r-0"
+            className={cn("min-h-9", column < days.length - 1 && "border-r")}
+            style={{ gridColumn: column + 2, gridRow: "1 / -1" }}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDropDay(event, day)}
             onDoubleClick={() => onNew(day)}
             aria-label={t("dragMove", { date: day })}
-          >
-            <div className="max-h-16 space-y-1 overflow-y-auto">
-              {(allDayByDate.get(day) ?? []).map((item) => (
-                <button
-                  type="button"
-                  draggable={item.editable}
-                  key={item.id}
-                  onDragStart={(event) => onDragStart(event, item)}
-                  onDragEnd={onDragEnd}
-                  onClick={() => onSelect(item)}
-                  className={cn(
-                    "group flex w-full items-center gap-1.5 rounded-md border-l-[3px] bg-background px-1.5 py-1 text-left text-[10px] shadow-sm outline-none hover:ring-1 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring",
-                    draggingId === item.id && "opacity-45",
-                  )}
-                  style={{ borderLeftColor: item.color }}
-                  title={item.title}
-                >
-                  <SourceIcon kind={item.kind} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+          />
         ))}
+        {allDayBars.filter((bar) => bar.lane < visibleAllDayLanes).map(({ item, lane, startColumn, endColumn }) => (
+          <button
+            type="button"
+            draggable={item.editable}
+            key={item.id}
+            onDragStart={(event) => onDragStart(event, item)}
+            onDragEnd={onDragEnd}
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const span = endColumn - startColumn;
+              const offset = Math.min(span - 1, Math.max(0, Math.floor(((event.clientX - rect.left) / rect.width) * span)));
+              onDropDay(event, days[startColumn + offset]);
+            }}
+            onClick={() => onSelect(item)}
+            className={cn(
+              "group z-10 mx-1 my-0.5 flex min-w-0 items-center gap-1.5 rounded-md border-l-[3px] bg-background px-1.5 py-1 text-left text-[10px] shadow-sm outline-none hover:ring-1 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring",
+              item.startDate! < days[0] && "rounded-l-none",
+              item.endDate! > addDays(days[days.length - 1], 1) && "rounded-r-none",
+              draggingId === item.id && "opacity-45",
+            )}
+            style={{ gridColumn: `${startColumn + 2} / ${endColumn + 2}`, gridRow: lane + 1, borderLeftColor: item.color }}
+            title={item.title}
+          >
+            <SourceIcon kind={item.kind} />
+            <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+          </button>
+        ))}
+        {allDayCollapsible && !allDayExpanded &&
+          days.map((day, column) =>
+            hiddenAllDayByDay[column] > 0 ? (
+              <button
+                type="button"
+                key={`more-${day}`}
+                aria-expanded={false}
+                onClick={() => setAllDayExpanded(true)}
+                className="z-10 mx-1 my-0.5 truncate rounded-md px-1.5 py-0.5 text-left text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                style={{ gridColumn: column + 2, gridRow: allDayRows }}
+              >
+                {t("moreAllDay", { count: hiddenAllDayByDay[column] })}
+              </button>
+            ) : null,
+          )}
+        {allDayCollapsible && allDayExpanded && (
+          <button
+            type="button"
+            aria-expanded
+            onClick={() => setAllDayExpanded(false)}
+            className="z-10 mx-1 my-0.5 justify-self-start rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            style={{ gridColumn: "2 / -1", gridRow: allDayRows }}
+          >
+            {t("showLessAllDay")}
+          </button>
+        )}
+      </div>
       </div>
 
       </div>

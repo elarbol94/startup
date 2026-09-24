@@ -140,12 +140,26 @@ export function DeadlineOverview({
     });
   }
 
+  const titleDetails = (deadline: OverviewDeadline) => <DeadlineDetails deadline={deadline} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</span></DeadlineDetails>;
+  const dateTime = (deadline: OverviewDeadline) => <span className={`text-xs ${isDeadlineOverdue(deadline, now) ? "text-destructive" : "text-muted-foreground"}`}>{format.dateTime(localDate(deadline.deadlineDate), { dateStyle: "medium" })} · {deadline.deadlineAt ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" }) : t("allDay")}</span>;
+  const statusBadge = (deadline: OverviewDeadline) => <Badge variant={isDeadlineOverdue(deadline, now) ? "destructive" : "outline"}>{isDeadlineOverdue(deadline, now) ? t("overdue") : t(`statuses.${deadline.status}`)}</Badge>;
+  // Phone layout (< md): stacked row with wrapping title and the date, so similar titles stay distinguishable.
+  const mobileRow = (deadline: OverviewDeadline) => <div className="space-y-1.5">
+    <div className="[&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">{titleDetails(deadline)}</div>
+    <p className="truncate text-xs text-muted-foreground">{deadline.contextLabel || t("origins.app")}</p>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+      {dateTime(deadline)}
+      {statusBadge(deadline)}
+      <UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName || t("unassigned")} avatarOnly />
+    </div>
+  </div>;
+
   const table = useOverviewTable("deadlines", deadlines, [
-    { id: "title", label: t("title"), width: 220, value: deadline => deadline.title, render: deadline => <DeadlineDetails deadline={deadline} className="block w-full rounded text-sm font-medium"><span className={`block truncate ${deadline.status === "done" ? "text-muted-foreground line-through" : ""}`}>{deadline.title}</span></DeadlineDetails> },
+    { id: "title", label: t("title"), width: 240, wrap: true, value: deadline => deadline.title, render: titleDetails },
     { id: "origin", label: layoutT("origin"), value: deadline => deadline.contextLabel || t("origins.app") },
     { id: "assignee", label: t("assignee"), value: deadline => deadline.assigneeName, render: deadline => <UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName || t("unassigned")} compact /> },
-    { id: "date", label: t("dateTime"), width: 185, value: deadline => deadline.deadlineAt ? Date.parse(deadline.deadlineAt) : new Date(`${deadline.deadlineDate}T23:59:59`).getTime(), render: deadline => <span className={`text-xs ${isDeadlineOverdue(deadline, now) ? "text-destructive" : "text-muted-foreground"}`}>{format.dateTime(localDate(deadline.deadlineDate), { dateStyle: "medium" })} · {deadline.deadlineAt ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" }) : t("allDay")}</span> },
-    { id: "status", label: t("status"), width: 115, value: deadline => deadline.status === "done" ? 1 : 0, render: deadline => <Badge variant={isDeadlineOverdue(deadline, now) ? "destructive" : "outline"}>{isDeadlineOverdue(deadline, now) ? t("overdue") : t(`statuses.${deadline.status}`)}</Badge> },
+    { id: "date", label: t("dateTime"), width: 185, value: deadline => deadline.deadlineAt ? Date.parse(deadline.deadlineAt) : new Date(`${deadline.deadlineDate}T23:59:59`).getTime(), render: dateTime },
+    { id: "status", label: t("status"), width: 115, value: deadline => deadline.status === "done" ? 1 : 0, render: statusBadge },
   ], "deadlineSort");
 
   return (
@@ -236,7 +250,7 @@ export function DeadlineOverview({
         </div>
       </header>
 
-      <OverviewTable table={table} label={t("overview")} pending={pending} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openDeadlineCreator()}>{t("createDeadline")}</Button></div></div>} actions={deadline => (
+      <OverviewTable table={table} label={t("overview")} pending={pending} mobileRow={mobileRow} empty={<div><p>{t("empty")}</p><div className="mt-4 flex flex-wrap justify-center gap-2"><Button variant="outline" size="sm" onClick={resetFilters}>{t("resetFilters")}</Button><Button size="sm" onClick={() => openDeadlineCreator()}>{t("createDeadline")}</Button></div></div>} actions={deadline => (
                     <DropdownMenu>
                       <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" aria-label={t("edit")} />}><MoreHorizontal /></DropdownMenuTrigger>
                       <DropdownMenuContent align="end">

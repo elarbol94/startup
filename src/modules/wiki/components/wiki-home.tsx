@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, ArrowUpRight, Clock3, Pin, SlidersHorizontal, Star } from "lucide-react";
+import { ArrowDown, ArrowUp, Clock3, Pin, SlidersHorizontal } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
@@ -52,20 +53,18 @@ export function WikiHome({ items: latestItems, actions }: { items: WikiNavigatio
     if (section === "recent") return recent.flatMap((href) => { const item = items.find((item) => href === item.href || (item.kind === "source" && href.startsWith(`${item.href}/`))); return item ? [item] : []; }).filter((item, index, all) => all.findIndex((other) => other.href === item.href) === index).slice(0, 6);
     return items.filter((item) => item.kind === section).slice(0, compact ? 6 : 4);
   }
+  // An empty "Pinned" card only restates how pinning works; it is replaced by a
+  // one-line hint under the search until something is pinned.
+  const pinnedEmpty = !hidden.includes("pinned") && sectionItems("pinned").length === 0;
   return <main className="mx-auto w-full max-w-7xl p-5 md:p-8" data-testid="wiki-home">
-    <header className="flex flex-wrap items-start justify-between gap-4">
-      <div><h1 className="text-3xl font-semibold tracking-tight">{t("title")}</h1><p className="mt-2 text-sm text-muted-foreground">{t("subtitle")}</p></div>
-      <Button variant="outline" size="sm" onClick={() => setCustomizing(true)}><SlidersHorizontal className="size-4" />{t("customize")}</Button>
-    </header>
-    <section className="mt-6" aria-label={t("search")}><WikiSearchButton /></section>
-    <nav aria-label={t("libraries")} className="mt-5 grid grid-cols-1 gap-2 sm:grid-cols-3">
-      {(["document", "source", "presentation"] as const).map((kind) => { const Icon = wikiItemIcons[kind]; return <Link key={kind} href={libraryPaths[kind]} className="group flex items-center gap-3 rounded-xl border px-4 py-4 transition-colors hover:bg-accent">
-        <Icon className={cn("size-5", kind === "document" ? "text-indigo-400" : kind === "source" ? "text-emerald-500" : "text-amber-500")} /><span className="flex-1 font-medium">{t(kind)}</span><ArrowUpRight className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-      </Link>; })}
-    </nav>
-    <div className="mt-4 flex flex-wrap items-center gap-2">{actions}<Link href="/wiki/favorites" className="ml-auto inline-flex items-center gap-2 px-2 py-2 text-sm text-muted-foreground hover:text-foreground"><Star className="size-4" />{t("favorites")}</Link></div>
-    <div className="mt-8 grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
-      {order.filter((section) => !hidden.includes(section)).map((section) => {
+    <PageHeader title={t("title")} description={t("subtitle")} actions={<>
+      <Button variant="ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal className="size-4" />{t("customize")}</Button>
+      {actions}
+    </>} />
+    <section aria-label={t("search")}><WikiSearchButton /></section>
+    {pinnedEmpty && <p className="mt-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground"><Pin className="size-3 shrink-0" />{t("pinHint")}</p>}
+    <div className="mt-6 grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
+      {order.filter((section) => !hidden.includes(section) && !(section === "pinned" && pinnedEmpty)).map((section) => {
         const entries = sectionItems(section);
         const Icon = section === "pinned" ? Pin : section === "recent" ? Clock3 : wikiItemIcons[section];
         return <section key={section} data-wiki-section={section} className="min-w-0 rounded-xl border bg-card">
@@ -78,7 +77,7 @@ export function WikiHome({ items: latestItems, actions }: { items: WikiNavigatio
               <Link href={item.href} className={cn("flex min-w-0 flex-1 items-center gap-3 px-2", compact ? "py-2" : "py-3")}><ItemIcon className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{item.title}</span>{!compact && <span className="mt-1 block text-xs text-muted-foreground">{t(item.kind)} · {formatter.format(new Date(item.updatedAt))}</span>}</span></Link>
               <button type="button" aria-label={t(pinned ? "unpin" : "pin", { title: item.title })} aria-pressed={pinned} onClick={() => togglePin(item.href)} className={cn("mr-1 rounded-md p-2 focus-visible:ring-2 focus-visible:ring-ring", pinned ? "text-indigo-400" : "text-muted-foreground opacity-60 hover:opacity-100")}><Pin className="size-3.5" /></button>
             </div>;
-          }) : <div className="px-3 py-6 text-sm text-muted-foreground"><p>{t(section === "pinned" ? "pinnedEmpty" : section === "recent" ? "recentEmpty" : "empty")}</p>{section === "recent" && <Button variant="ghost" size="sm" className="mt-3" onClick={openSearch}>{t("switcher")}</Button>}</div>}</div>
+          }) : <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 text-xs text-muted-foreground"><p className="min-w-0 flex-1">{t(section === "pinned" ? "pinnedEmpty" : section === "recent" ? "recentEmpty" : "empty")}</p>{section === "recent" && <Button variant="link" size="xs" className="h-auto px-0" onClick={openSearch}>{t("switcher")}</Button>}</div>}</div>
         </section>;
       })}
     </div>

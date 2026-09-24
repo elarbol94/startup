@@ -4,6 +4,7 @@ import { BookMarked, FileCheck2 } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { listSourcesPage, listDocumentTypes, listTags } from "@/modules/wiki/research-queries";
 import { parseTagList } from "@/modules/wiki/lib/tags";
+import { PageHeader } from "@/components/page-header";
 import { NewSourceDialog } from "@/modules/wiki/components/new-source-dialog";
 import { SourceFilters } from "@/modules/wiki/components/source-filters";
 import { LibraryTools } from "@/modules/wiki/components/library-tools";
@@ -16,7 +17,7 @@ export default async function SourcesPage({ searchParams }: { searchParams: Prom
   const [, t, params] = await Promise.all([requireUser(), getTranslations("wiki"), searchParams]);
   const sourcePage = listSourcesPage({ query: params.q, status: params.status, tagId: params.tag, cursor: params.cursor }); const sources = sourcePage.items; const documentTypes = listDocumentTypes().map((item) => item.value); const tags = listTags();
   const pdfStatus = listPdfDocumentsForSources(sources.map((source) => source.id));
-  return <div className="p-5 md:p-8"><header className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-5"><div><p className="mb-1 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">{t("evidenceLibrary")}</p><h1 className="text-3xl font-semibold tracking-tight">{t("sources")}</h1><p className="mt-1 text-sm text-muted-foreground">{t("sourcesDescription")}</p></div><div className="flex flex-wrap gap-2"><MetadataLookupDialog documentTypes={documentTypes} /><NewSourceDialog documentTypes={documentTypes} /></div></header>
+  return <div className="mx-auto max-w-7xl p-5 md:p-8"><PageHeader eyebrow={t("evidenceLibrary")} title={t("sources")} description={t("sourcesDescription")} actions={<><MetadataLookupDialog documentTypes={documentTypes} /><NewSourceDialog documentTypes={documentTypes} /></>} />
     <PdfUpload dropzone />
     <div className="my-4"><LibraryTools /></div>
     <SourceFilters key={`${params.q ?? ""}:${params.status ?? ""}:${params.tag ?? ""}`} initialQuery={params.q ?? ""} initialStatus={params.status ?? ""} initialTag={params.tag ?? ""} tags={tags} />

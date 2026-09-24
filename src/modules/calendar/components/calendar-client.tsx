@@ -36,11 +36,13 @@ import type {
 } from "../types";
 import { cn } from "@/lib/utils";
 import { canonicalTaskHref } from "@/modules/context/routes";
-import type {
-  CalendarDraft,
-  EventDraft,
-  FilterState,
-  ImportableDraftField,
+import {
+  CALENDAR_VIEWS,
+  MOBILE_VIEW_STORAGE_KEY,
+  type CalendarDraft,
+  type EventDraft,
+  type FilterState,
+  type ImportableDraftField,
 } from "./calendar/calendar-types";
 import { SOURCE_TYPES } from "./calendar/calendar-filter-utils";
 import { blankDraft, itemDraft } from "./calendar/event-draft-utils";
@@ -139,10 +141,17 @@ export function CalendarClient({
     () => null,
   );
   useEffect(() => {
-    if (viewWasExplicit || view === "agenda") return;
+    if (viewWasExplicit) return;
     if (!window.matchMedia("(max-width: 767px)").matches) return;
+    // Phones default to the agenda unless the person picked another view on this device.
+    let preferred: CalendarView = "agenda";
+    try {
+      const stored = window.localStorage.getItem(MOBILE_VIEW_STORAGE_KEY);
+      if (stored && (CALENDAR_VIEWS as readonly string[]).includes(stored)) preferred = stored as CalendarView;
+    } catch {}
+    if (preferred === view) return;
     const params = new URLSearchParams(window.location.search);
-    params.set("view", "agenda");
+    params.set("view", preferred);
     params.set("date", date);
     router.replace(`/calendar?${params.toString()}`);
   }, [date, router, view, viewWasExplicit]);

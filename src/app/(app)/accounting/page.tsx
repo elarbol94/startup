@@ -51,6 +51,9 @@ export default async function AccountingPage({
   if (!years.includes(currentYear)) years.unshift(currentYear);
   if (!years.includes(year)) years.push(year);
   years.sort((a, b) => b - a);
+  // Months after today are not plotted in the balance chart.
+  const throughMonth =
+    year < currentYear ? 12 : year === currentYear ? new Date().getMonth() + 1 : 0;
 
   return (
     <AccountingOverview
@@ -61,6 +64,7 @@ export default async function AccountingPage({
       categories={categories}
       years={years}
       year={year}
+      throughMonth={throughMonth}
       openEntryOnLoad={params.new === "expense" || params.new === "income"}
       canManagePersonnel={canManagePersonnel}
       taxSettings={{ kleinunternehmer: settings.kleinunternehmer, defaultVatRate: settings.defaultVatRate }}

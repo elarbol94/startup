@@ -10,7 +10,30 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cycleSort, parseColumnOrder, reorderColumns, parseColumnWidths, clampColumnWidth, parseTablePreferences, sortFromUrl, sortTableRows, type TablePreferences } from "../overview-table-model";
 import { OverviewEditingContext, useOverviewPreference } from "./overview-preferences";
-export type OverviewColumn<T> = { id: string; label: string; value: (row: T) => string | number | null; render?: (row: T) => ReactNode; width?: number };
+/** `wrap` lets a cell wrap to two lines instead of truncating (e.g. titles that share a prefix). */
+export type OverviewColumn<T> = { id: string; label: string; value: (row: T) => string | number | null; render?: (row: T) => ReactNode; width?: number; wrap?: boolean };
+const mobileRowLimit = 6;
+/**
+ * Stacked row list rendered below `md` instead of the wide table, so phones get
+ * no horizontal (or nested) scrolling. Uses `mobileRow` when given, otherwise the
+ * first visible column as the title and the remaining visible columns as metadata.
+ */
+function OverviewMobileList<T extends { id: string }>({ rows, columns, label, actions, mobileRow }: { rows: T[]; columns: OverviewColumn<T>[]; label: string; actions?: (row: T) => ReactNode; mobileRow?: (row: T) => ReactNode }) {
+  const t = useTranslations("overviewLayout");
+  const [expanded, setExpanded] = useState(false);
+  const shown = expanded ? rows : rows.slice(0, mobileRowLimit);
+  const [first, ...rest] = columns;
+  return <div className="md:hidden">
+    <ul aria-label={label} className="divide-y">{shown.map(row => <li key={row.id} className="flex items-start gap-2 px-4 py-3">
+      <div className="min-w-0 flex-1">{mobileRow ? mobileRow(row) : <>
+        <div className="text-sm font-medium [&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">{first.render ? first.render(row) : first.value(row) ?? "—"}</div>
+        {!!rest.length && <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">{rest.map(column => <span key={column.id} className="min-w-0 max-w-full truncate"><span className="sr-only">{column.label}: </span>{column.render ? column.render(row) : column.value(row) ?? "—"}</span>)}</div>}
+      </>}</div>
+      {actions && <div className="-my-1 shrink-0">{actions(row)}</div>}
+    </li>)}</ul>
+    {rows.length > mobileRowLimit && <div className="border-t p-2"><Button variant="ghost" size="sm" className="w-full" onClick={() => setExpanded(!expanded)}>{expanded ? t("showFewerRows") : t("showAllRows", { count: rows.length })}</Button></div>}
+  </div>;
+}
 export function useOverviewTable<T extends { id: string }>(id: string, rows: T[], columns: OverviewColumn<T>[], sortParam?: string) {
   const locale = useLocale();
   const storage = useOverviewPreference(`table:${id}`);
@@ -61,7 +84,7 @@ function DraggableHeading({ id, label, children, ...props }: { id: string; label
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id });
   return <th ref={setNodeRef} scope="col" {...props} className="relative px-3 py-2 font-medium" style={{ ...props.style, transform: CSS.Translate.toString(transform), transition: transition, zIndex: isDragging ? 30 : undefined, opacity: isDragging ? .7 : undefined }} data-column-id={id} data-column-label={label}>{children({ attributes, listeners })}</th>;
 }
-export function OverviewTable<T extends { id: string }>({ table, label, empty, actions, pending }: { table: TableController<T>; label: string; empty: ReactNode; actions?: (row: T) => ReactNode; pending?: boolean }) {
+export function OverviewTable<T extends { id: string }>({ table, label, empty, actions, pending, mobileRow }: { table: TableController<T>; label: string; empty: ReactNode; actions?: (row: T) => ReactNode; pending?: boolean; mobileRow?: (row: T) => ReactNode }) {
   const t = useTranslations("overviewLayout");
   const [resizing, setResizing] = useState<{ id: string; width: number } | null>(null);
   const start = useRef<{ id: string; x: number; width: number } | null>(null);
@@ -71,6 +94,8 @@ export function OverviewTable<T extends { id: string }>({ table, label, empty, a
   const visible = table.columns.filter(column => table.visible.includes(column.id));
   return <div role="region" aria-label={label} tabIndex={0} aria-busy={pending} className={`min-h-0 flex-1 overflow-auto focus-visible:outline-2 focus-visible:outline-ring ${pending ? "opacity-55" : ""}`}>
     {table.failed && <p role="status" className="p-3 text-xs text-destructive">{t("saveFailed")}</p>}
+    {!!table.rows.length && <OverviewMobileList rows={table.rows} columns={visible} label={label} actions={actions} mobileRow={mobileRow} />}
+    <div className="hidden md:contents">
     <DndContext id={`columns-${table.id}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={({ active, over }) => { if (over) table.reorder(String(active.id), String(over.id)); }} accessibility={{ screenReaderInstructions: { draggable: t("columnDragInstructions") }, announcements: { onDragStart: ({ active }) => t("columnDragStart", { column: table.columns.find(column => column.id === active.id)?.label ?? "" }), onDragOver: ({ over }) => over ? t("columnDragOver", { column: table.columns.find(column => column.id === over.id)?.label ?? "" }) : undefined, onDragEnd: () => t("columnDragEnd"), onDragCancel: () => t("columnDragCancel") } }}><SortableContext items={visible.map(column => column.id)} strategy={horizontalListSortingStrategy}>
     <table className="w-full table-fixed text-left text-sm" style={{ width: visible.reduce((sum, column) => sum + widthOf(column), actions ? 48 : 0), minWidth: "100%" }}>
       <thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground"><tr>
@@ -102,13 +127,14 @@ export function OverviewTable<T extends { id: string }>({ table, label, empty, a
         <th aria-hidden="true" className="p-0" />
       </tr></thead>
       <tbody className="divide-y">{table.rows.map(row => <tr key={row.id} className="hover:bg-muted/30">
-        {visible.map(column => <td key={column.id} className="truncate px-3 py-3" title={String(column.value(row) ?? "")}>
+        {visible.map(column => <td key={column.id} className={`px-3 py-3 ${column.wrap ? "break-words [&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal" : "truncate"}`} title={String(column.value(row) ?? "")}>
           {column.render ? column.render(row) : column.value(row) ?? "—"}
         </td>)}
         {actions && <td className="px-2 py-2">{actions(row)}</td>}
         <td aria-hidden="true" className="p-0" />
       </tr>)}</tbody>
     </table></SortableContext></DndContext>
+    </div>
     {!table.rows.length && <div className="grid min-h-36 place-items-center p-6 text-center text-sm text-muted-foreground">{empty}</div>}
   </div>;
 }

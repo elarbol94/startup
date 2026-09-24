@@ -10,6 +10,7 @@ import {
   yearsWithEntries,
   type EntryFilters,
 } from "@/modules/accounting/queries";
+import { PageHeader } from "@/components/page-header";
 import { LedgerClient } from "@/modules/accounting/components/ledger-client";
 import { getAppSettings } from "@/modules/settings/queries";
 import { listFundingProjects } from "@/modules/funding/queries";
@@ -71,18 +72,12 @@ export default async function BookingsPage({
   years.sort((a, b) => b - a);
 
   return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-[#71807a] uppercase">
-          {t("eyebrow")}
-        </p>
-        <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#15342c] sm:text-[2.35rem] sm:leading-tight">
-          {t("title")}
-        </h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[#65736e] sm:text-base">
-          {t("description")}
-        </p>
-      </div>
+    <div className="flex flex-col gap-5">
+      <PageHeader
+        className="mb-0"
+        title={t("title")}
+        description={t("description")}
+      />
       <LedgerClient
         entries={entryPage.items}
         nextCursor={entryPage.nextCursor}

@@ -17,7 +17,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "management-platform",
+  title: "Management-Plattform",
   description: "Wiki, Buchhaltung und Projektkoordination in einer App",
 };
 

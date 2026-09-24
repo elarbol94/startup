@@ -1,7 +1,8 @@
 import { WikiNavigation } from "@/modules/wiki/components/wiki-navigation";
 import { BugReportProvider } from "@/modules/projects/bugs/report-provider";
 import { UserIdentityProvider } from "@/components/user-identity";
-import { listUserIdentities } from "@/modules/settings/queries";
+import type { Metadata } from "next";
+import { getAppSettings, listUserIdentities } from "@/modules/settings/queries";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
 import { Suspense } from "react";
 import { connection } from "next/server";
@@ -16,9 +17,22 @@ import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-crea
 // shell captured from a runtime sample.
 export const instant = false;
 
+const FALLBACK_PRODUCT_NAME = "Management-Plattform";
+
+function companyDisplayName() {
+  return getAppSettings().companyName.trim();
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  // Company settings live in mutable SQLite rows; read them per request.
+  await connection();
+  const name = companyDisplayName() || FALLBACK_PRODUCT_NAME;
+  return { title: { default: name, template: `%s · ${name}` } };
+}
+
 async function AuthenticatedSidebar() {
   const user = await requireUser();
-  return <AppSidebar userName={user.name} userEmail={user.email} />;
+  return <AppSidebar userName={user.name} userEmail={user.email} companyName={companyDisplayName()} />;
 }
 
 function SidebarFallback() {

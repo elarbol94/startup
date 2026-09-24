@@ -24,7 +24,7 @@ export function YearSelect({
       value={String(year)}
       onValueChange={(value) => router.push(`/accounting/report?year=${value}`)}
     >
-      <SelectTrigger className="w-28" aria-label={label}>
+      <SelectTrigger className="h-9 w-28" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

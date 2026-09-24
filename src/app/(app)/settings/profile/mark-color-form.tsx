@@ -88,7 +88,7 @@ export function MarkColorForm({
     </div>
     <fieldset disabled={pending}>
       <legend className="mb-3 text-sm font-medium">{t("chooseColor")}</legend>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 sm:gap-2">
         {USER_MARK_COLORS.map((color) => {
           const item = availabilityByKey.get(color.key);
           const disabled = !item?.available;
@@ -99,10 +99,10 @@ export function MarkColorForm({
             disabled={disabled}
             aria-pressed={active}
             aria-label={disabled ? t("unavailableColor", { color: t(`colors.${color.key}`) }) : t(`colors.${color.key}`)}
-            title={disabled ? t("unavailable") : t(`colors.${color.key}`)}
+            title={disabled ? t("unavailableColor", { color: t(`colors.${color.key}`) }) : t(`colors.${color.key}`)}
             onClick={() => choose(color.key)}
             className={cn(
-              "group relative flex min-h-20 flex-col items-center justify-center gap-2 rounded-lg border px-2 py-3 text-xs font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-ring",
+              "group relative flex flex-col items-center justify-center gap-1 rounded-lg border px-1 py-2 text-[11px] font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-ring",
               active && "border-transparent ring-2",
               disabled && "cursor-not-allowed opacity-45 grayscale-[.25]",
             )}
@@ -112,10 +112,10 @@ export function MarkColorForm({
               boxShadow: active ? "0 0 0 1px var(--user-mark-solid)" : undefined,
             }}
           >
-            <span className="size-7 rounded-full border-2 bg-background shadow-sm" style={{ borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)" }} />
-            <span>{t(`colors.${color.key}`)}</span>
-            {active && <Check className="absolute right-2 top-2 size-3.5" style={{ color: "var(--user-mark-solid)" }} />}
-            {disabled && <LockKeyhole className="absolute right-2 top-2 size-3 text-muted-foreground" />}
+            <span className="size-6 rounded-full border-2 bg-background shadow-sm" style={{ borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)" }} />
+            <span aria-hidden className="hidden w-full truncate text-center sm:block">{t(`colors.${color.key}`)}</span>
+            {active && <Check className="absolute right-1 top-1 size-3" style={{ color: "var(--user-mark-solid)" }} />}
+            {disabled && <LockKeyhole className="absolute right-1 top-1 size-2.5 text-muted-foreground" />}
           </button>;
         })}
       </div>

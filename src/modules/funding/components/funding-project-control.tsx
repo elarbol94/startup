@@ -16,6 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCents, parseAmountToCents } from "@/lib/money";
+import { PageHeader } from "@/components/page-header";
 import type { FundingProjectControl } from "@/modules/funding/queries";
 import { toAustrianIsoDate } from "@/modules/funding/lib/date";
 import {
@@ -96,22 +97,25 @@ export function FundingProjectControlView({
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0">
-          <Button variant="ghost" size="sm" className="-ml-2 mb-2" render={<Link href="/accounting/funding-projects" />}>
-            <ArrowLeft className="size-4" /> {t("backToList")}
-          </Button>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="truncate text-2xl font-semibold tracking-tight">{project.name}</h1>
-            <StatusBadge status={project.status} label={t(`status.${project.status}`)} />
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {project.fundingBody} · {project.programName || project.templateName || t("customTemplate")}
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => setProjectOpen(true)}>
-          <Pencil className="size-4" /> {t("editProject")}
+      <div className="min-w-0">
+        <Button variant="ghost" size="sm" className="-ml-2 mb-2" nativeButton={false} render={<Link href="/accounting/funding-projects" />}>
+          <ArrowLeft className="size-4" /> {t("backToList")}
         </Button>
+        <PageHeader
+          className="mb-0"
+          title={
+            <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="min-w-0 break-words">{project.name}</span>
+              <StatusBadge status={project.status} label={t(`status.${project.status}`)} />
+            </span>
+          }
+          description={`${project.fundingBody} · ${project.programName || project.templateName || t("customTemplate")}`}
+          actions={
+            <Button variant="outline" onClick={() => setProjectOpen(true)}>
+              <Pencil className="size-4" /> {t("editProject")}
+            </Button>
+          }
+        />
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

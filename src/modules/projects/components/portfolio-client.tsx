@@ -26,6 +26,7 @@ import { DependencyLinkingStrip } from "./portfolio/dependency-linking-strip";
 import { FocusRail } from "./portfolio/focus-rail";
 import { GanttRow } from "./portfolio/gantt-row";
 import { MobileWorkBreakdown } from "./portfolio/mobile-work-breakdown";
+import { MobilePortfolioOverview } from "./mobile-portfolio-overview";
 import { DeleteTaskDialog } from "./portfolio/delete-task-dialog";
 import { PortfolioHeader, TimelineToolbar } from "./portfolio/portfolio-toolbar";
 import { ScheduleInspector } from "./portfolio/schedule-inspector";
@@ -263,9 +264,9 @@ export function PortfolioClient({
       )}
 
       {view === "projects" && !focusedTask ? (
-        <ProjectsClient projects={projects} members={schedule.members} predecessorOptions={projectPredecessorOptions(schedule)} />
+        <ProjectsClient projects={projects} members={schedule.members} hideCreateButton={!embedded} predecessorOptions={projectPredecessorOptions(schedule)} />
       ) : (
-        <div className="flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card">
+        <div className={cn("flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card", !embedded && !focusedTask && "max-md:overflow-visible max-md:border-0 max-md:bg-transparent")}>
           <div className="min-w-0 flex-1">
           {dependencySourceId && (
             <DependencyLinkingStrip
@@ -275,9 +276,18 @@ export function PortfolioClient({
               setDependencyHoverId={setDependencyHoverId}
             />
           )}
+          {!embedded && !focusedTask && (
+            <MobilePortfolioOverview
+              projects={visibleProjects}
+              tasksByProject={tasksByProject}
+              deadlines={effectiveSchedule.deadlines}
+              today={today}
+              now={renderedAt}
+            />
+          )}
           <MobileWorkBreakdown
             {...{
-              embedded, focusedTask, schedule, rows, expandedTasks, selectedTaskId, openTask,
+              embedded, focusedTask, rows, expandedTasks, selectedTaskId, openTask,
               handleTaskScheduleKey,
             }}
           />
@@ -344,7 +354,7 @@ export function PortfolioClient({
                   {...{
                     totalWidth, treeWidth, timelineWidth, effectiveSchedule, range, renderedRangeEnd,
                     renderedAt, dayWidth, draggedRef, startDeadlineDrag, moveDeadlineDrag,
-                    endDeadlineDrag, cancelDeadlineDrag, handleDeadlineKey,
+                    endDeadlineDrag, cancelDeadlineDrag, handleDeadlineKey, deadlinePreview,
                   }}
                 />
               )}

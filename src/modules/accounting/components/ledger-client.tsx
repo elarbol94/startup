@@ -80,7 +80,21 @@ export function LedgerClient({
   }
 
   function monthName(month: number) {
-    return format.dateTime(new Date(2026, month - 1, 1), { month: "long" });
+    return format.dateTime(new Date(Date.UTC(filters.year, month - 1, 1)), {
+      month: "long",
+      timeZone: "UTC",
+    });
+  }
+
+  // Booking dates are plain YYYY-MM-DD strings; format them in UTC so the
+  // calendar day never shifts with the viewer's timezone.
+  function bookingDate(date: string) {
+    return format.dateTime(new Date(`${date}T00:00:00Z`), {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "UTC",
+    });
   }
 
   const exportHref = filters.month
@@ -94,14 +108,14 @@ export function LedgerClient({
           <Filter className="size-3.5" />
           {tBookings("filters")}
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
           <Select
             value={String(filters.year)}
             onValueChange={(value) => setParam("year", value)}
           >
             <SelectTrigger
               aria-label={t("year")}
-              className="w-28 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full border-[#d4ddd8] sm:w-28 dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue />
             </SelectTrigger>
@@ -122,7 +136,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("month")}
-              className="w-40 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full border-[#d4ddd8] sm:w-40 dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.month ? monthName(filters.month) : t("wholeYear")}
@@ -146,16 +160,16 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={tBookings("type")}
-              className="w-36 border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full border-[#d4ddd8] sm:w-36 dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.kind
                   ? t(filters.kind === "income" ? "incomePlural" : "expensePlural")
-                  : t("all")}
+                  : tBookings("allKinds")}
               </SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t("all")}</SelectItem>
+              <SelectItem value="all">{tBookings("allKinds")}</SelectItem>
               <SelectItem value="income">{t("incomePlural")}</SelectItem>
               <SelectItem value="expense">{t("expensePlural")}</SelectItem>
             </SelectContent>
@@ -169,7 +183,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("category")}
-              className="w-56 max-w-full border-[#d4ddd8] dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full border-[#d4ddd8] sm:w-56 dark:border-border bg-[#fbfcfb] dark:bg-muted"
             >
               <SelectValue>
                 {filters.categoryId
@@ -188,7 +202,7 @@ export function LedgerClient({
             </SelectContent>
           </Select>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:ml-auto">
             <Button
               variant="outline"
               size="sm"
@@ -201,7 +215,6 @@ export function LedgerClient({
             </Button>
             <Button
               size="sm"
-              className="bg-[#173c32] px-3 text-white hover:bg-[#245345]"
               onClick={() => {
                 setDialogEntry(null);
                 setDialogOpen(true);
@@ -214,7 +227,44 @@ export function LedgerClient({
         </div>
       </section>
 
-      <section className="grid gap-3 md:hidden" aria-label={tBookings("title")}>
+      <section
+        aria-label={tBookings("periodTotals")}
+        className="grid grid-cols-1 overflow-hidden rounded-2xl sm:grid-cols-3 border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)]"
+      >
+        <div className="flex min-w-0 items-baseline justify-between gap-3 px-4 py-2.5 sm:block sm:p-5">
+          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
+            {t("incomePlural")}
+          </p>
+          <p className="text-sm font-semibold whitespace-nowrap tabular-nums text-[#2f6b55] dark:text-emerald-400 sm:mt-2 sm:text-lg">
+            {formatCents(totals.incomeGross, locale)}
+          </p>
+        </div>
+        <div className="flex min-w-0 items-baseline justify-between gap-3 border-t border-[#e3e8e5] dark:border-border px-4 py-2.5 sm:block sm:border-t-0 sm:border-l sm:p-5">
+          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
+            {t("expensePlural")}
+          </p>
+          <p className="text-sm font-semibold whitespace-nowrap tabular-nums text-[#273f38] dark:text-foreground sm:mt-2 sm:text-lg">
+            {formatCents(
+              totals.expenseGross === 0 ? 0 : -totals.expenseGross,
+              locale,
+            )}
+          </p>
+        </div>
+        <div className="flex min-w-0 items-baseline justify-between gap-3 border-t border-[#e3e8e5] dark:border-border bg-[#f8faf8] dark:bg-muted px-4 py-2.5 sm:block sm:border-t-0 sm:border-l sm:p-5">
+          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
+            {t("balance")}
+          </p>
+          <p
+            className={`text-sm font-semibold whitespace-nowrap tabular-nums sm:mt-2 sm:text-lg ${
+              totals.balance >= 0 ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#a64f3c] dark:text-red-400"
+            }`}
+          >
+            {formatCents(totals.balance, locale)}
+          </p>
+        </div>
+      </section>
+
+      <section className="grid grid-cols-1 gap-3 md:hidden" aria-label={tBookings("title")}>
         {entries.length === 0 ? (
           <div className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-8 text-center text-sm text-[#7a8782] dark:text-muted-foreground">{t("noEntries")}</div>
         ) : entries.map((entry) => {
@@ -225,30 +275,39 @@ export function LedgerClient({
               key={entry.id}
               type="button"
               disabled={!canEdit}
-              className="min-h-28 rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 text-left shadow-[0_1px_2px_rgba(20,47,39,0.03)] transition hover:border-[#b9cac2] dark:hover:border-border disabled:cursor-default disabled:opacity-75"
+              className="w-full min-w-0 rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 text-left shadow-[0_1px_2px_rgba(20,47,39,0.03)] transition hover:border-[#b9cac2] dark:hover:border-border disabled:cursor-default disabled:opacity-75"
               onClick={() => {
                 if (!canEdit) return;
                 setDialogEntry(entry);
                 setDialogOpen(true);
               }}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate font-semibold text-[#213c35] dark:text-foreground">{entry.description}</p>
-                  <UserAttribution userId={entry.createdBy} relation="createdBy" /><p className="mt-1 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty || "—"}</p>
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 font-semibold break-words text-[#213c35] dark:text-foreground">{entry.description}</p>
+                  {entry.counterparty ? (
+                    <p className="mt-0.5 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty}</p>
+                  ) : null}
                 </div>
-                <p className={`shrink-0 font-semibold tabular-nums ${entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"}`}>
+                <p className={`shrink-0 font-semibold whitespace-nowrap tabular-nums ${entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"}`}>
                   {formatCents(sign * entry.grossAmountCents, locale)}
                 </p>
               </div>
-              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[#edf0ee] dark:border-border pt-3">
-                <span className="text-xs tabular-nums text-[#68756f] dark:text-muted-foreground">{format.dateTime(new Date(entry.date), { day: "2-digit", month: "2-digit", year: "numeric" })}</span>
-                <Badge variant="outline" className="max-w-full border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground">
+              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-[#edf0ee] dark:border-border pt-3">
+                <span className="text-xs tabular-nums text-[#68756f] dark:text-muted-foreground">{bookingDate(entry.date)}</span>
+                <Badge variant="outline" className="max-w-full min-w-0 border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground">
                   <span className="mr-1 inline-block size-2 shrink-0 rounded-full" style={{ backgroundColor: entry.categoryColor }} />
                   <span className="truncate">{entry.categoryName}</span>
                 </Badge>
-                {entry.status === "draft" ? <Badge className="bg-amber-50 text-amber-800" variant="outline">{tBookings("draft")}</Badge> : null}
-                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 text-[#83918b] dark:text-muted-foreground" /> : null}
+                {entry.status === "draft" ? <Badge className="bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" variant="outline">{tBookings("draft")}</Badge> : null}
+                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 shrink-0 text-[#83918b] dark:text-muted-foreground" /> : null}
+                {entry.createdBy ? (
+                  <UserAttribution
+                    userId={entry.createdBy}
+                    relation="createdBy"
+                    className="w-full min-w-0 flex-nowrap text-[11px] [&>span:last-child]:min-w-0"
+                  />
+                ) : null}
               </div>
             </button>
           );
@@ -321,14 +380,9 @@ export function LedgerClient({
                   }}
                 >
                   <TableCell className="whitespace-nowrap pl-5 text-[#68756f] dark:text-muted-foreground sm:pl-6">
-                    {format.dateTime(new Date(entry.date), {
-                      day: "2-digit",
-                      month: "2-digit",
-                      year: "numeric",
-                    })}
+                    {bookingDate(entry.date)}
                   </TableCell>
                   <TableCell className="max-w-72">
-                    <UserAttribution userId={entry.createdBy} relation="createdBy" />
                     <span className="flex items-center gap-2">
                       <button
                         type="button"
@@ -347,9 +401,13 @@ export function LedgerClient({
                         <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
                           {entry.description}
                         </span>
-                        <span className="block truncate text-xs text-[#84908c] dark:text-muted-foreground md:hidden">
-                          {entry.counterparty}
-                        </span>
+                        {entry.createdBy ? (
+                          <UserAttribution
+                            userId={entry.createdBy}
+                            relation="createdBy"
+                            className="mt-0.5 flex-nowrap text-[11px] [&>span:last-child]:min-w-0"
+                          />
+                        ) : null}
                       </span>
                       {entry.attachmentCount > 0 && (
                         <Paperclip className="size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
@@ -371,7 +429,7 @@ export function LedgerClient({
                       {entry.categoryName}
                     </Badge>
                     {entry.status === "draft" && (
-                      <Badge className="ml-1 bg-amber-50 text-amber-800" variant="outline">
+                      <Badge className="ml-1 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" variant="outline">
                         {tBookings("draft")}
                       </Badge>
                     )}
@@ -398,6 +456,7 @@ export function LedgerClient({
                           <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentDate")}:</strong> {entry.documentDate ?? "–"}</p>
                           <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentNumber")}:</strong> {entry.documentNumber || "–"}</p>
                           <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("deductible")}:</strong> {entry.deductiblePercent} %</p>
+                          <UserAttribution userId={entry.createdBy} relation="createdBy" className="pt-1" />
                         </div>
                         <div className="space-y-2">
                         <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
@@ -464,43 +523,6 @@ export function LedgerClient({
           </Button>
         </div>
       )}
-
-      <section
-        aria-label={tBookings("periodTotals")}
-        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-3"
-      >
-        <div className="p-4 sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
-            {t("incomePlural")}
-          </p>
-          <p className="mt-2 text-lg font-semibold tabular-nums text-[#2f6b55] dark:text-emerald-400">
-            {formatCents(totals.incomeGross, locale)}
-          </p>
-        </div>
-        <div className="border-t border-[#e3e8e5] dark:border-border p-4 sm:border-t-0 sm:border-l sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
-            {t("expensePlural")}
-          </p>
-          <p className="mt-2 text-lg font-semibold tabular-nums text-[#273f38] dark:text-foreground">
-            {formatCents(
-              totals.expenseGross === 0 ? 0 : -totals.expenseGross,
-              locale,
-            )}
-          </p>
-        </div>
-        <div className="border-t border-[#e3e8e5] dark:border-border bg-[#f8faf8] dark:bg-muted p-4 sm:border-t-0 sm:border-l sm:p-5">
-          <p className="text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
-            {t("balance")}
-          </p>
-          <p
-            className={`mt-2 text-lg font-semibold tabular-nums ${
-              totals.balance >= 0 ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#a64f3c] dark:text-red-400"
-            }`}
-          >
-            {formatCents(totals.balance, locale)}
-          </p>
-        </div>
-      </section>
 
       {dialogOpen && <EntryDialog
         open={dialogOpen}

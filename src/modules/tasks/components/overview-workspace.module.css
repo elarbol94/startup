@@ -15,7 +15,15 @@
 .edge[data-edge="nw"] { left: -4px; top: -4px; cursor: nwse-resize; }
 .edge[data-edge="se"] { right: -4px; bottom: -4px; cursor: nwse-resize; }
 .edge[data-edge="sw"] { left: -4px; bottom: -4px; cursor: nesw-resize; }
-@media (max-width: 1023px) { .panel { width: 100%; } .panel[data-card="true"] { width: calc(50% - .625rem); } }
+@media (max-width: 1023px) {
+  /* Compact 2-column KPI grid; tiles in a row share the height of the tallest one. */
+  .grid { gap: .75rem; align-items: stretch; }
+  .panel { width: 100%; }
+  .panel[data-card="true"] { width: calc(50% - .375rem); }
+  .panel[data-card="true"] .content { height: 100%; }
+}
+/* Phones: sections render stacked row lists and grow with the page instead of scrolling inside a fixed-height card. */
+@media (max-width: 767px) { .content { height: auto; } }
 @media (pointer: coarse) { .edge[data-edge="n"], .edge[data-edge="s"] { height: 12px; } .edge[data-edge="e"], .edge[data-edge="w"] { width: 12px; } }
 
 .guide { position: absolute; pointer-events: none; z-index: 45; background: #a78bfa; }

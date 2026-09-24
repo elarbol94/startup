@@ -1,13 +1,17 @@
 export const sectionIds = ["tasks", "deadlines", "news", "calendar", "documents", "presentations", "projects", "recentlyOpened"] as const;
-export const cardIds = ["openTasks", "upcomingDeadlines", "overdue", "nextDeadline", "eventsToday", "documentsCount", "presentationsCount", "projectsCount", "unreadNews"] as const;
+// "nextDeadline" was merged into "upcomingDeadlines" (count + next deadline as secondary line);
+// parseLayout maps stored "nextDeadline" entries onto the merged tile (see legacyCardIds).
+export const cardIds = ["openTasks", "overdue", "upcomingDeadlines", "eventsToday", "documentsCount", "presentationsCount", "projectsCount", "unreadNews"] as const;
 export type SectionId = typeof sectionIds[number];
 export type CardId = typeof cardIds[number];
 export type WidgetId = SectionId | CardId;
 export const widgetIds: readonly WidgetId[] = [...cardIds, ...sectionIds];
 export const isCard = (id: WidgetId): id is CardId => (cardIds as readonly string[]).includes(id);
 export type LayoutItem = { id: WidgetId; width: number; height: number; visible: boolean };
+/** Retired card ids and the card that replaced them. */
+const legacyCardIds = new Map<unknown, CardId>([["nextDeadline", "upcomingDeadlines"]]);
 export const defaultLayout: LayoutItem[] = [
-  ...cardIds.map((id, index) => ({ id, width: 3, height: 140, visible: index < 4 })),
+  ...cardIds.map((id, index) => ({ id, width: 3, height: 120, visible: index < 4 })),
   { id: "tasks", width: 12, height: 400, visible: true },
   { id: "deadlines", width: 8, height: 400, visible: true },
   { id: "news", width: 4, height: 400, visible: true },
@@ -22,8 +26,18 @@ export function parseLayout(raw: string | null): LayoutItem[] {
     if (!value || ![1, 2].includes(value.version) || !Array.isArray(value.items)) return defaultLayout;
     const seen = new Set<string>();
     const result: LayoutItem[] = [];
-    for (const item of value.items) {
-      if (!item || !widgetIds.includes(item.id) || seen.has(item.id)) continue;
+    const merged = new Set<string>();
+    for (const entry of value.items) {
+      const legacyTarget = entry ? legacyCardIds.get(entry.id) : undefined;
+      const item = legacyTarget ? { ...entry, id: legacyTarget } : entry;
+      if (!item || !widgetIds.includes(item.id)) continue;
+      if (seen.has(item.id)) {
+        // Merged cards: the replacement stays visible if either of the old tiles was shown.
+        const existing = result.find(other => other.id === item.id);
+        if (existing && (legacyTarget || merged.has(item.id)) && item.visible === true) existing.visible = true;
+        continue;
+      }
+      if (legacyTarget) merged.add(item.id);
       seen.add(item.id);
       const fallback = defaultLayout.find(entry => entry.id === item.id)!;
       result.push({ id: item.id, ...clampSize(item.id, Number.isFinite(item.width) ? item.width : fallback.width, Number.isFinite(item.height) ? item.height : fallback.height), visible: typeof item.visible === "boolean" ? item.visible : fallback.visible });

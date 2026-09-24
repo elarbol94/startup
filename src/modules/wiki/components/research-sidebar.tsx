@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Bell, BookOpen, FileText, FolderTree, House, Inbox, LibraryBig, Plus, Presentation, Search, Star, Trash2, X } from "lucide-react";
+import { Bell, BookOpen, FileText, FolderTree, House, Inbox, LibraryBig, PanelLeftClose, PanelLeftOpen, Plus, Presentation, Search, Star, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { createQuickNote, searchResearch } from "../research-actions";
 import { SearchSnippet } from "./search-snippet";
-import { useWikiNavigation } from "./wiki-navigation";
+import { useWikiLocalSetting, useWikiNavigation } from "./wiki-navigation";
 
 type SearchResults = Awaited<ReturnType<typeof searchResearch>>;
 
@@ -81,7 +81,23 @@ function NavItem({
     </Link>
   );
 
-  return link;
+  if (!compact) return link;
+  // Icon-only rail: the label lives in a tooltip so the icons stay learnable.
+  return (
+    <Tooltip>
+      <TooltipTrigger render={link} />
+      <TooltipContent side="right">{badge ? `${label} (${badge})` : label}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function NavGroup({ label, compact, children, first = false }: { label: string; compact: boolean; children: React.ReactNode; first?: boolean }) {
+  return (
+    <div role="group" aria-label={label} className={cn("flex flex-col gap-0.5", !first && "mt-3", !first && compact && "border-t pt-3")}>
+      {!compact && <p className="mb-0.5 px-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>}
+      {children}
+    </div>
+  );
 }
 
 export function ResearchSidebar({
@@ -90,15 +106,21 @@ export function ResearchSidebar({
   counts: { inbox: number; sources: number; unread: number; trash: number };
 }) {
   const t = useTranslations("wiki");
-  const { openSearch } = useWikiNavigation();
+  const { openSearch, userId } = useWikiNavigation();
   const locale = useLocale();
   const router = useRouter();
   const { isFocused } = useFocusMode();
-  const [expanded, setExpanded] = useState(false);
+  // The labelled panel is the default; collapsing to the icon rail is remembered per
+  // user in this browser. While collapsed, hovering/focusing expands it as an overlay
+  // without shifting the page content.
+  const [collapsedRaw, saveCollapsed] = useWikiLocalSetting(`wiki-rail-collapsed:${userId}`);
+  const collapsed = collapsedRaw === "true";
+  const [peeking, setPeeking] = useState(false);
+  const expanded = !collapsed || peeking;
   useEffect(() => {
-    document.documentElement.style.setProperty("--research-rail-width", expanded ? "16rem" : "3.5rem");
+    document.documentElement.style.setProperty("--research-rail-width", isFocused ? "0px" : collapsed ? "3.5rem" : "13rem");
     return () => { document.documentElement.style.removeProperty("--research-rail-width"); };
-  }, [expanded]);
+  }, [collapsed, isFocused]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const creatingRef = useRef(false);
@@ -333,7 +355,7 @@ export function ResearchSidebar({
                       aria-label={t("searchEverything")}
                       className="grid size-9 place-items-center rounded-md border border-transparent text-muted-foreground outline-none transition-colors hover:border-border hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500"
                       onClick={() => {
-                        setExpanded(true);
+                        setPeeking(true);
                         requestAnimationFrame(() => desktopSearchRef.current?.focus());
                       }}
                     />
@@ -349,21 +371,39 @@ export function ResearchSidebar({
           <nav
             id={navigationId}
             aria-label={t("researchNavigationLabel")}
-            className={cn("flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto", compact ? "p-2" : "p-3")}
+            className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", compact ? "p-2" : "p-3")}
           >
             <NavItem href="/wiki" icon={House} label={t("start")} compact={compact} onNavigate={onNavigate} />
-            <NavItem href="/wiki/pages" icon={FileText} label={t("documents")} compact={compact} onNavigate={onNavigate} />
-            <NavItem href="/wiki/sources" icon={LibraryBig} label={t("sources")} badge={counts.sources} compact={compact} onNavigate={onNavigate} />
-            <NavItem href="/wiki/presentations" icon={Presentation} label={t("presentations.title")} compact={compact} onNavigate={onNavigate} />
-            <NavItem href="/wiki/categories" icon={FolderTree} label={t("categories.title")} compact={compact} onNavigate={onNavigate} />
-            <div className="mt-2 border-t pt-2">
-              {!compact && <p className="mb-1 px-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{t("more")}</p>}
+            <NavGroup label={t("workspace.libraries")} compact={compact}>
+              <NavItem href="/wiki/pages" icon={FileText} label={t("documents")} compact={compact} onNavigate={onNavigate} />
+              <NavItem href="/wiki/sources" icon={LibraryBig} label={t("sources")} badge={counts.sources} compact={compact} onNavigate={onNavigate} />
+              <NavItem href="/wiki/presentations" icon={Presentation} label={t("presentations.title")} compact={compact} onNavigate={onNavigate} />
+              <NavItem href="/wiki/categories" icon={FolderTree} label={t("categories.title")} compact={compact} onNavigate={onNavigate} />
+            </NavGroup>
+            <NavGroup label={t("workspace.personal")} compact={compact}>
               <NavItem href="/wiki/inbox" icon={Inbox} label={t("inbox")} badge={counts.inbox} compact={compact} onNavigate={onNavigate} />
               <NavItem href="/wiki/favorites" icon={Star} label={t("favorites")} compact={compact} onNavigate={onNavigate} />
               <NavItem href="/wiki/notifications" icon={Bell} label={t("notifications")} badge={counts.unread} compact={compact} onNavigate={onNavigate} />
               <NavItem href="/wiki/trash" icon={Trash2} label={t("trash")} badge={counts.trash} compact={compact} onNavigate={onNavigate} />
-            </div>
+            </NavGroup>
           </nav>
+          {!sheet && (
+            <div className={cn("shrink-0 border-t", compact ? "flex justify-center p-2" : "p-3")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size={compact ? "icon-sm" : "sm"}
+                className={cn("text-muted-foreground", !compact && "w-full justify-start")}
+                aria-pressed={!collapsed}
+                aria-label={collapsed ? t("workspace.pinRail") : t("workspace.collapseRail")}
+                title={collapsed ? t("workspace.pinRail") : t("workspace.collapseRail")}
+                onClick={() => { saveCollapsed(!collapsed); setPeeking(false); }}
+              >
+                {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
+                {!compact && <span>{collapsed ? t("workspace.pinRail") : t("workspace.collapseRail")}</span>}
+              </Button>
+            </div>
+          )}
         </div>
       </TooltipProvider>
     );
@@ -421,13 +461,14 @@ export function ResearchSidebar({
         data-expanded={expanded}
         className={cn(
           "research-rail-transition fixed inset-y-0 left-[var(--app-rail-width,3.5rem)] z-30 hidden h-dvh shrink-0 flex-col border-r bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex",
-          expanded ? "w-64" : "w-14",
+          expanded ? "w-52" : "w-14",
+          collapsed && peeking && "shadow-xl",
         )}
-        onMouseEnter={() => setExpanded(true)}
-        onMouseLeave={() => setExpanded(false)}
-        onFocusCapture={() => setExpanded(true)}
+        onMouseEnter={() => { if (collapsed) setPeeking(true); }}
+        onMouseLeave={() => setPeeking(false)}
+        onFocusCapture={() => { if (collapsed) setPeeking(true); }}
         onBlur={(event) => {
-          if (!event.currentTarget.contains(event.relatedTarget)) setExpanded(false);
+          if (!event.currentTarget.contains(event.relatedTarget)) setPeeking(false);
         }}
       >
         {sidebarContent({

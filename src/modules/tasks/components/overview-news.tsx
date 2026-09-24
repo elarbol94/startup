@@ -23,7 +23,7 @@ export function OverviewNews({ items }: { items: ReturnType<typeof listNotificat
   ]);
   const filteredRows = rows.filter(row => matchesOverviewFilters(filters.values, { search: row.title, actor: row.actorId, type: row.type, status: row.readAt ? "read" : "unread", date: localDateInZone(row.createdAt, timezone) }));
   const table = useOverviewTable("news", filteredRows, [
-    { id: "title", label: t("titleColumn"), width: 230, value: item => item.title, render: item => <ItemDetails title={item.title} description={[`${item.actorName} ${wiki(`notificationTypes.${item.type}`)} ${item.title}`, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || "—"}
+    { id: "title", label: t("titleColumn"), width: 230, wrap: true, value: item => item.title, render: item => <ItemDetails title={item.title} description={[`${item.actorName} ${wiki(`notificationTypes.${item.type}`)} ${item.title}`, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || "—"}
       href={item.taskTitle && item.taskId ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task") : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null}
       fields={[{ label: t("actorColumn"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: t("dateColumn"), value: format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" }) }]}
       className="block w-full rounded font-medium"><span className={`block truncate ${item.readAt ? "" : "text-indigo-600 dark:text-indigo-300"}`}>{item.title}</span></ItemDetails> },
@@ -32,5 +32,15 @@ export function OverviewNews({ items }: { items: ReturnType<typeof listNotificat
     { id: "date", label: t("dateColumn"), width: 180, value: item => item.createdAt.getTime(), render: item => <span className="text-xs text-muted-foreground">{format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}</span> },
     { id: "status", label: t("statusColumn"), width: 110, value: item => item.readAt ? 1 : 0, render: item => item.readAt ? t("read") : t("unread") },
   ]);
-  return <section className="flex h-full min-h-0 flex-col bg-card"><header className="flex flex-wrap items-center gap-3 border-b px-4 py-4"><Bell className="size-4 text-muted-foreground" /><h2 className="flex-1 text-sm font-semibold">{t("news")}</h2><OverviewColumnPicker table={table} /><OverviewFilters filters={filters} /></header><OverviewTable table={table} label={t("news")} empty={wiki("noNotifications")} /></section>;
+  const titleColumn = table.columns.find(column => column.id === "title")!;
+  // Phone layout (< md): title wraps, then who/what/when on one line.
+  const mobileRow = (item: typeof filteredRows[number]) => <div className="space-y-1">
+    <div className="text-sm [&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">{titleColumn.render!(item)}</div>
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+      <UserIdentity userId={item.actorId} name={item.actorName} compact />
+      <span>{wiki(`notificationTypes.${item.type}`)}</span>
+      <span>{format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}</span>
+    </div>
+  </div>;
+  return <section className="flex h-full min-h-0 flex-col bg-card"><header className="flex flex-wrap items-center gap-3 border-b px-4 py-4"><Bell className="size-4 text-muted-foreground" /><h2 className="flex-1 text-sm font-semibold">{t("news")}</h2><OverviewColumnPicker table={table} /><OverviewFilters filters={filters} /></header><OverviewTable table={table} label={t("news")} mobileRow={mobileRow} empty={wiki("noNotifications")} /></section>;
 }

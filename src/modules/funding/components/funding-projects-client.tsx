@@ -7,6 +7,7 @@ import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { formatCents } from "@/lib/money";
 import type { FundingProjectListRow } from "@/modules/funding/queries";
 import { FundingProjectDialog } from "./project-dialog";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,18 +45,19 @@ export function FundingProjectsClient({
 
   return (
     <div className="grid gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-        </div>
-        <Button size="sm" onClick={() => setDialogOpen(true)}>
-          <Plus className="size-4" />
-          {t("newProject")}
-        </Button>
-      </div>
+      <PageHeader
+        className="mb-0"
+        title={t("title")}
+        description={t("subtitle")}
+        actions={
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="size-4" />
+            {t("newProject")}
+          </Button>
+        }
+      />
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
         <SummaryCard label={t("summary.totalCost")} value={formatCents(totals.costs, locale)} />
         <SummaryCard label={t("summary.requested")} value={formatCents(totals.requested, locale)} />
         <SummaryCard label={t("summary.approved")} value={formatCents(totals.approved, locale)} />
@@ -128,7 +130,7 @@ export function FundingProjectsClient({
                     <MoneyCell value={project.approvedFundingCents} locale={locale} />
                     <MoneyCell value={project.requiredOwnFundsCents} locale={locale} />
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon-sm" render={<Link href={`/accounting/funding-projects/${project.id}`} aria-label={t("openProject")} />}>
+                      <Button variant="ghost" size="icon-sm" nativeButton={false} render={<Link href={`/accounting/funding-projects/${project.id}`} aria-label={t("openProject")} />}>
                         <ArrowRight className="size-4" />
                       </Button>
                     </TableCell>
@@ -149,10 +151,10 @@ export function FundingProjectsClient({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="gap-2 py-4">
+    <Card className="min-w-0 gap-2 py-4 first:col-span-2 sm:first:col-span-1">
       <CardContent className="px-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-        <p className="mt-1 text-xl font-semibold tabular-nums">{value}</p>
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+        <p className="mt-1 truncate text-lg font-semibold tabular-nums sm:text-xl">{value}</p>
       </CardContent>
     </Card>
   );

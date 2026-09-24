@@ -1,5 +1,4 @@
 "use client";
-import { UserAttribution } from "@/components/user-identity";
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
@@ -23,6 +22,8 @@ import type {
 } from "@/modules/accounting/queries";
 import type { categories as categoriesTable } from "@/modules/accounting/schema";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
+import { cn } from "@/lib/utils";
 import {
   Select,
   SelectContent,
@@ -47,19 +48,38 @@ type Category = typeof categoriesTable.$inferSelect;
 const CHART_WIDTH = 720;
 const CHART_HEIGHT = 190;
 const CHART_X_PADDING = 18;
-const CHART_Y_PADDING = 24;
+const CHART_Y_PADDING = 14;
+const TICK_TARGET = 4;
+
+/** Rounds a raw axis step up to 1, 2, 2.5 or 5 × 10^n for readable tick labels. */
+function niceStep(raw: number) {
+  if (!Number.isFinite(raw) || raw <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(raw));
+  const fraction = raw / power;
+  const nice = fraction <= 1 ? 1 : fraction <= 2 ? 2 : fraction <= 2.5 ? 2.5 : fraction <= 5 ? 5 : 10;
+  return nice * power;
+}
+
+/** Month labels are built in UTC so server and browser render the same text. */
+function monthDate(year: number, month: number) {
+  return new Date(Date.UTC(year, month - 1, 1));
+}
 
 function CashflowChart({
   months,
   year,
+  throughMonth,
 }: {
   months: MonthlySummary[];
   year: number;
+  /** Last month (1–12) to plot; later months of the current year are not drawn. 0 = none. */
+  throughMonth: number;
 }) {
   const t = useTranslations("accountingOverview");
   const format = useFormatter();
 
   const chart = useMemo(() => {
+    // Display-only: cumulative balance in cents, converted to euros for the axis.
     const balances = months.reduce<number[]>((values, month) => {
       const previous = values.at(-1) ?? 0;
       return [
@@ -67,24 +87,32 @@ function CashflowChart({
         previous + month.incomeGross - month.expenseGross,
       ];
     }, []);
-    const min = Math.min(0, ...balances);
-    const max = Math.max(0, ...balances);
-    const range = max - min || 1;
-    const isFlat = max === min;
+    const shown = balances
+      .map((value, index) => ({ value: value / 100, month: months[index].month }))
+      .filter((point) => point.month <= throughMonth);
+    const rawMin = Math.min(0, ...shown.map((point) => point.value));
+    const rawMax = Math.max(0, ...shown.map((point) => point.value));
+    const step = niceStep((rawMax - rawMin) / TICK_TARGET || 1);
+    const min = Math.floor(rawMin / step) * step;
+    const max = Math.max(Math.ceil(rawMax / step) * step, min + step);
+    const range = max - min;
     const plotHeight = CHART_HEIGHT - CHART_Y_PADDING * 2;
     const plotWidth = CHART_WIDTH - CHART_X_PADDING * 2;
     const toY = (value: number) =>
-      isFlat
-        ? CHART_HEIGHT / 2
-        : CHART_Y_PADDING + ((max - value) / range) * plotHeight;
-    const points = balances.map((value, index) => ({
-      value,
-      x: CHART_X_PADDING + (index * plotWidth) / 11,
-      y: toY(value),
+      CHART_Y_PADDING + ((max - value) / range) * plotHeight;
+    const ticks: number[] = [];
+    for (let value = max; value >= min - step / 2; value -= step) {
+      ticks.push(Math.abs(value) < step / 2 ? 0 : value);
+    }
+    const points = shown.map((point) => ({
+      ...point,
+      x: CHART_X_PADDING + ((point.month - 1) * plotWidth) / 11,
+      y: toY(point.value),
     }));
 
     return {
-      baseline: toY(0),
+      zeroY: min < 0 && max > 0 ? toY(0) : null,
+      ticks: ticks.map((value) => ({ value, y: toY(value) })),
       points,
       path: points
         .map((point, index) =>
@@ -92,7 +120,19 @@ function CashflowChart({
         )
         .join(" "),
     };
-  }, [months]);
+  }, [months, throughMonth]);
+
+  function compactEuro(value: number) {
+    const abs = Math.abs(value);
+    const sign = value < 0 ? "\u2212" : "";
+    if (abs >= 1_000_000) {
+      return `${sign}${format.number(abs / 1_000_000, { maximumFractionDigits: 1 })} Mio`;
+    }
+    if (abs >= 1_000) {
+      return `${sign}${format.number(abs / 1_000, { maximumFractionDigits: 1 })} k`;
+    }
+    return `${sign}${format.number(abs, { maximumFractionDigits: 0 })}`;
+  }
 
   return (
     <div>
@@ -106,71 +146,91 @@ function CashflowChart({
           </p>
         </div>
         <div className="flex items-center gap-2 text-xs font-medium text-[#61706b] dark:text-muted-foreground">
-          <span className="size-2 rounded-full bg-[#315c73]" />
-          {t("runningBalance")}
+          <span className="size-2 rounded-full bg-[#315c73] dark:bg-sky-400" />
+          {t("runningBalance")} (€)
         </div>
       </div>
 
-      <div className="relative">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2">
+        <div aria-hidden="true" className="relative col-start-1 row-start-1 h-48 min-w-9">
+          {chart.ticks.map((tick) => (
+            <span
+              key={tick.value}
+              className="absolute right-0 -translate-y-1/2 text-[10px] whitespace-nowrap tabular-nums text-[#87938f] dark:text-muted-foreground sm:text-[11px]"
+              style={{ top: `${(tick.y / CHART_HEIGHT) * 100}%` }}
+            >
+              {compactEuro(tick.value)}
+            </span>
+          ))}
+        </div>
         <svg
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
-          className="h-48 w-full overflow-visible"
+          className="col-start-2 row-start-1 h-48 w-full overflow-visible text-[#315c73] dark:text-sky-400"
           preserveAspectRatio="none"
           role="img"
           aria-label={t("chartLabel", { year })}
         >
-          {[0.25, 0.5, 0.75].map((position) => (
+          {chart.ticks.map((tick) => (
             <line
-              key={position}
-              x1={CHART_X_PADDING}
-              x2={CHART_WIDTH - CHART_X_PADDING}
-              y1={CHART_Y_PADDING + position * (CHART_HEIGHT - CHART_Y_PADDING * 2)}
-              y2={CHART_Y_PADDING + position * (CHART_HEIGHT - CHART_Y_PADDING * 2)}
-              stroke="#e1e7e3"
+              key={tick.value}
+              x1={0}
+              x2={CHART_WIDTH}
+              y1={tick.y}
+              y2={tick.y}
+              className="stroke-[#e1e7e3] dark:stroke-border"
               strokeWidth="1"
               vectorEffect="non-scaling-stroke"
               strokeDasharray="3 5"
             />
           ))}
-          <line
-            x1={CHART_X_PADDING}
-            x2={CHART_WIDTH - CHART_X_PADDING}
-            y1={chart.baseline}
-            y2={chart.baseline}
-            stroke="#b9c5c0"
-            strokeWidth="1"
-            vectorEffect="non-scaling-stroke"
-          />
+          {chart.zeroY !== null && (
+            <line
+              x1={0}
+              x2={CHART_WIDTH}
+              y1={chart.zeroY}
+              y2={chart.zeroY}
+              className="stroke-[#9eada7] dark:stroke-muted-foreground"
+              strokeWidth="1"
+              vectorEffect="non-scaling-stroke"
+            />
+          )}
           <path
             d={chart.path}
             fill="none"
-            stroke="#315c73"
+            stroke="currentColor"
             strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
             vectorEffect="non-scaling-stroke"
           />
-          {chart.points.map((point, index) => (
-            <circle
-              key={months[index].month}
-              cx={point.x}
-              cy={point.y}
-              r="3.5"
-              fill="#f9fbf9"
-              stroke="#315c73"
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
+        </svg>
+        {/* Point markers live in HTML so they stay round despite the stretched SVG. */}
+        <div aria-hidden="true" className="pointer-events-none relative col-start-2 row-start-1 h-48">
+          {chart.points.map((point) => (
+            <span
+              key={point.month}
+              className="absolute size-2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[#315c73] bg-white dark:border-sky-400 dark:bg-card"
+              style={{
+                left: `${(point.x / CHART_WIDTH) * 100}%`,
+                top: `${(point.y / CHART_HEIGHT) * 100}%`,
+              }}
             />
           ))}
-        </svg>
-        <div className="grid grid-cols-12 gap-1 border-t border-[#e3e8e5] dark:border-border pt-3">
+        </div>
+        <div className="relative col-start-2 row-start-2 mt-2 h-5 border-t border-[#e3e8e5] dark:border-border pt-1">
           {months.map((month) => (
             <span
               key={month.month}
-              className="text-center text-[10px] font-semibold tracking-[0.06em] text-[#87938f] dark:text-muted-foreground uppercase sm:text-[11px]"
+              className={`absolute -translate-x-1/2 text-[10px] font-semibold tracking-[0.06em] uppercase sm:text-[11px] ${
+                month.month <= throughMonth
+                  ? "text-[#87938f] dark:text-muted-foreground"
+                  : "text-[#b7c0bc] dark:text-muted-foreground/50"
+              }`}
+              style={{ left: `${((CHART_X_PADDING + ((month.month - 1) * (CHART_WIDTH - CHART_X_PADDING * 2)) / 11) / CHART_WIDTH) * 100}%` }}
             >
-              {format.dateTime(new Date(year, month.month - 1, 1), {
+              {format.dateTime(monthDate(year, month.month), {
                 month: "narrow",
+                timeZone: "UTC",
               })}
             </span>
           ))}
@@ -187,11 +247,12 @@ function CashflowChart({
           </tr>
         </thead>
         <tbody>
-          {months.map((month) => (
+          {months.filter((month) => month.month <= throughMonth).map((month) => (
             <tr key={month.month}>
               <td>
-                {format.dateTime(new Date(year, month.month - 1, 1), {
+                {format.dateTime(monthDate(year, month.month), {
                   month: "long",
+                  timeZone: "UTC",
                 })}
               </td>
               <td>{month.incomeGross}</td>
@@ -212,6 +273,7 @@ export function AccountingOverview({
   categories,
   years,
   year,
+  throughMonth,
   openEntryOnLoad,
   canManagePersonnel,
   taxSettings,
@@ -227,6 +289,8 @@ export function AccountingOverview({
   categories: Category[];
   years: number[];
   year: number;
+  /** Last month of `year` with actuals (12 for past years, current month for this year). */
+  throughMonth: number;
   openEntryOnLoad: boolean;
   canManagePersonnel: boolean;
   taxSettings: { kleinunternehmer: boolean; defaultVatRate: number };
@@ -299,140 +363,98 @@ export function AccountingOverview({
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
-      <section className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <p className="mb-2 text-xs font-semibold tracking-[0.14em] text-[#71807a] dark:text-muted-foreground uppercase">
-            {tOverview("period", { year })}
-          </p>
-          <h1 className="text-3xl font-semibold tracking-[-0.04em] text-[#15342c] dark:text-foreground sm:text-[2.35rem] sm:leading-tight">
-            {tOverview("title")}
-          </h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-[#65736e] dark:text-muted-foreground sm:text-base">
-            {tOverview("description")}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={String(year)} onValueChange={changeYear}>
-            <SelectTrigger
-              className="h-9 min-w-28 border-[#d4ddd8] dark:border-border bg-white dark:bg-card text-[#29463e] dark:text-foreground shadow-xs"
-              aria-label={t("year")}
+      <PageHeader
+        className="mb-0"
+        title={tOverview("title", { year })}
+        description={tOverview("description")}
+        actions={
+          <>
+            <Select value={String(year)} onValueChange={changeYear}>
+              <SelectTrigger className="h-9 min-w-28" aria-label={t("year")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {years.map((item) => (
+                  <SelectItem key={item} value={String(item)}>
+                    {item}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              className="h-9"
+              onClick={() => {
+                setDialogEntry(null);
+                setDialogOpen(true);
+              }}
             >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {years.map((item) => (
-                <SelectItem key={item} value={String(item)}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            className="h-9 bg-[#173c32] px-3.5 text-white hover:bg-[#245345]"
-            onClick={() => {
-              setDialogEntry(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="size-4" />
-            {t("newEntry")}
-          </Button>
-        </div>
-      </section>
+              <Plus className="size-4" />
+              {t("newEntry")}
+            </Button>
+          </>
+        }
+      />
 
       <section
         aria-label={tOverview("keyFigures")}
-        className="grid overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:grid-cols-2 xl:grid-cols-4"
+        className="grid grid-cols-2 overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] xl:grid-cols-4"
       >
         {metrics.map((metric, index) => {
           const Icon = metric.icon;
           return (
             <article
               key={metric.label}
-              className={`relative min-w-0 p-5 sm:p-6 ${
-                index > 0 ? "border-t border-[#e3e8e5] dark:border-border sm:border-t-0 sm:border-l" : ""
-              } ${index === 2 ? "sm:border-l-0 xl:border-l" : ""}`}
+              className={cn(
+                "relative min-w-0 p-3.5 sm:p-6",
+                index % 2 === 1 && "border-l border-[#e3e8e5] dark:border-border",
+                index >= 2 && "border-t border-[#e3e8e5] dark:border-border xl:border-t-0",
+                index === 2 && "xl:border-l",
+              )}
             >
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <p className="text-xs font-semibold tracking-[0.08em] text-[#73817c] dark:text-muted-foreground uppercase">
+              <div className="mb-2 flex items-start justify-between gap-2 sm:mb-5">
+                <p className="text-[11px] font-semibold tracking-[0.06em] text-[#73817c] dark:text-muted-foreground uppercase sm:text-xs sm:tracking-[0.08em]">
                   {metric.label}
                 </p>
-                <Icon className="size-4 text-[#8b9793] dark:text-muted-foreground" />
+                <Icon className="hidden size-4 shrink-0 text-[#8b9793] dark:text-muted-foreground sm:block" />
               </div>
-              <p className={`text-2xl font-semibold tracking-[-0.035em] tabular-nums ${metric.tone}`}>
+              <p className={`text-base font-semibold tracking-[-0.02em] tabular-nums break-words sm:text-2xl sm:tracking-[-0.035em] ${metric.tone}`}>
                 {formatCents(metric.value, locale)}
               </p>
-              <p className="mt-1.5 text-xs text-[#88938f] dark:text-muted-foreground">{metric.detail}</p>
+              <p className="mt-1 text-[11px] leading-snug text-[#88938f] dark:text-muted-foreground sm:mt-1.5 sm:text-xs">{metric.detail}</p>
             </article>
           );
         })}
       </section>
 
-      <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.85fr)]">
-        <section className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-5 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-6">
-          <CashflowChart months={months} year={year} />
-        </section>
-
-        <aside className="overflow-hidden rounded-2xl bg-[#173c32] text-white shadow-[0_12px_30px_rgba(23,60,50,0.12)]">
-          <div className="p-6 sm:p-7">
-            <div className="flex items-center justify-between gap-4">
-              <span className="flex size-10 items-center justify-center rounded-xl bg-white/10 ring-1 ring-white/10">
-                <BookOpenText className="size-5 text-[#b9d5ca]" />
-              </span>
-              <span className="rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-semibold tracking-[0.08em] text-[#c8d9d2] uppercase">
-                {tOverview("ledgerBadge")}
-              </span>
-            </div>
-            <h2 className="mt-8 text-xl font-semibold tracking-[-0.025em]">
-              {tOverview("ledgerTitle")}
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#bfd0c9]">
-              {tOverview("ledgerDescription")}
-            </p>
-            <div className="mt-7 flex items-end justify-between border-t border-white/15 pt-5">
-              <div>
-                <p className="text-xs text-[#9fb7ae]">{tOverview("bookingCount")}</p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums">{totals.bookingCount}</p>
-              </div>
-              <Button
-                variant="outline"
-                nativeButton={false}
-                render={<Link href={`/accounting/bookings?year=${year}`} />}
-                className="border-white/20 bg-white/8 text-white hover:bg-white/14 hover:text-white"
-              >
-                {tOverview("openLedger")}
-                <ArrowRight className="size-4" />
-              </Button>
-            </div>
-          </div>
-          <div className="h-1.5 bg-[#c08133]" />
-        </aside>
-      </div>
+      <section className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-6">
+        <CashflowChart months={months} year={year} throughMonth={throughMonth} />
+      </section>
 
       <section className="overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)]">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#e3e8e5] dark:border-border px-5 py-4 sm:px-6">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b border-[#e3e8e5] dark:border-border px-4 py-3.5 sm:px-6 sm:py-4">
+          <div className="min-w-0">
             <h2 className="text-base font-semibold tracking-[-0.015em] text-[#17342d] dark:text-foreground">
               {tOverview("recentTitle")}
             </h2>
-            <p className="mt-0.5 text-sm text-[#7a8782] dark:text-muted-foreground">
-              {tOverview("recentDescription")}
+            <p className="mt-0.5 flex items-center gap-1.5 text-sm text-[#7a8782] dark:text-muted-foreground">
+              <BookOpenText className="size-3.5 shrink-0" aria-hidden="true" />
+              {tOverview("bookingCount", { count: totals.bookingCount })}
             </p>
           </div>
           <Button
-            variant="ghost"
+            variant="outline"
+            size="sm"
             nativeButton={false}
             render={<Link href={`/accounting/bookings?year=${year}`} />}
-            className="text-[#315c73] dark:text-foreground hover:bg-[#edf2f0] dark:hover:bg-accent hover:text-[#234758] dark:hover:text-foreground"
           >
-            {tOverview("showAll")}
+            {tOverview("openLedger")}
             <ArrowRight className="size-4" />
           </Button>
         </div>
         <Table>
           <TableHeader className="bg-[#f8faf8] dark:bg-muted">
             <TableRow className="border-[#e3e8e5] dark:border-border hover:bg-transparent">
-              <TableHead className="h-9 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pl-6">
+              <TableHead className="h-9 pl-4 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pl-6">
                 {t("date")}
               </TableHead>
               <TableHead className="h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
@@ -441,7 +463,7 @@ export function AccountingOverview({
               <TableHead className="hidden h-9 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase md:table-cell">
                 {t("category")}
               </TableHead>
-              <TableHead className="h-9 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pr-6">
+              <TableHead className="h-9 pr-4 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pr-6">
                 {t("gross")}
               </TableHead>
             </TableRow>
@@ -478,19 +500,19 @@ export function AccountingOverview({
                     setDialogOpen(true);
                   }}
                 >
-                  <TableCell className="pl-5 text-[#68756f] dark:text-muted-foreground sm:pl-6">
-                    {format.dateTime(new Date(entry.date), {
+                  <TableCell className="w-16 pl-4 align-top text-[#68756f] dark:text-muted-foreground sm:w-24 sm:pl-6 sm:align-middle">
+                    {format.dateTime(new Date(`${entry.date}T00:00:00Z`), {
                       day: "2-digit",
                       month: "short",
+                      timeZone: "UTC",
                     })}
                   </TableCell>
-                  <TableCell className="max-w-80">
-                    <span className="flex items-center gap-2">
-                      <span className="min-w-0">
-                        <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
+                  <TableCell className="whitespace-normal">
+                    <span className="flex min-w-0 items-start gap-2">
+                      <span className="min-w-0 flex-1">
+                        <span className="line-clamp-2 font-medium break-words text-[#213c35] dark:text-foreground">
                           {entry.description}
                         </span>
-                        <UserAttribution userId={entry.createdBy} relation="createdBy" />
                         {entry.counterparty && (
                           <span className="block truncate text-xs text-[#84908c] dark:text-muted-foreground">
                             {entry.counterparty}
@@ -498,7 +520,7 @@ export function AccountingOverview({
                         )}
                       </span>
                       {entry.attachmentCount > 0 && (
-                        <Paperclip className="size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
+                        <Paperclip className="mt-1 size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
                       )}
                     </span>
                   </TableCell>
@@ -512,7 +534,7 @@ export function AccountingOverview({
                     </span>
                   </TableCell>
                   <TableCell
-                    className={`pr-5 text-right font-semibold tabular-nums sm:pr-6 ${
+                    className={`pr-4 text-right align-top font-semibold tabular-nums sm:pr-6 sm:align-middle ${
                       entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"
                     }`}
                   >

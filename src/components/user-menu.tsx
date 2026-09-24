@@ -3,11 +3,12 @@
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { Check, Globe, LogOut } from "lucide-react";
+import { Bug, Check, Globe, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { setLocale } from "@/i18n/actions";
 import { locales, type Locale } from "@/i18n/config";
 import { UserIdentity } from "@/components/user-identity";
+import { useBugReporter } from "@/modules/projects/bugs/report-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,11 +22,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export function UserMenu({ name, email, compact = false }: { name: string; email: string; compact?: boolean }) {
+export function UserMenu({
+  name,
+  email,
+  compact = false,
+  onNavigate,
+}: {
+  name: string;
+  email: string;
+  compact?: boolean;
+  /** Called before an item opens an overlay (e.g. to close the phone drawer). */
+  onNavigate?: () => void;
+}) {
   const t = useTranslations("nav");
   const tLang = useTranslations("settings.language");
   const locale = useLocale();
   const tCommon = useTranslations("common");
+  const tBugs = useTranslations("bugReports");
+  const openBugReporter = useBugReporter();
   const [loggingOut, setLoggingOut] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -80,6 +94,15 @@ export function UserMenu({ name, email, compact = false }: { name: string; email
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem
+          onClick={() => {
+            onNavigate?.();
+            openBugReporter();
+          }}
+        >
+          <Bug className="mr-2 size-4" />
+          {tBugs("report")}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>
           <LogOut className="mr-2 size-4" />

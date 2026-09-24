@@ -11,6 +11,7 @@ import {
   type CustomerInput,
 } from "@/modules/accounting/invoice-actions";
 import type { customers as customersTable } from "@/modules/accounting/schema";
+import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -89,18 +90,24 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <Button size="sm" className="self-start" onClick={() => openDialog(null)}>
-        <Plus className="size-4" />
-        {t("newCustomer")}
-      </Button>
+      <PageHeader
+        className="mb-0"
+        title={t("customers")}
+        actions={
+          <Button onClick={() => openDialog(null)}>
+            <Plus className="size-4" />
+            {t("newCustomer")}
+          </Button>
+        }
+      />
 
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>{t("customerName")}</TableHead>
-              <TableHead>{t("customerUid")}</TableHead>
-              <TableHead>{t("customerEmail")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t("customerUid")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t("customerEmail")}</TableHead>
               <TableHead className="w-20" />
             </TableRow>
           </TableHeader>
@@ -117,9 +124,16 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
             )}
             {customers.map((customer) => (
               <TableRow key={customer.id}>
-                <TableCell className="font-medium">{customer.name}</TableCell>
-                <TableCell>{customer.uid}</TableCell>
-                <TableCell>{customer.email}</TableCell>
+                <TableCell className="max-w-0 font-medium whitespace-normal sm:max-w-none">
+                  <span className="break-words">{customer.name}</span>
+                  {customer.uid || customer.email ? (
+                    <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground sm:hidden">
+                      {[customer.uid, customer.email].filter(Boolean).join(" · ")}
+                    </span>
+                  ) : null}
+                </TableCell>
+                <TableCell className="hidden sm:table-cell">{customer.uid}</TableCell>
+                <TableCell className="hidden sm:table-cell">{customer.email}</TableCell>
                 <TableCell>
                   <div className="flex justify-end gap-1">
                     <Button

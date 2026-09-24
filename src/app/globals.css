@@ -1286,3 +1286,15 @@
     flex-shrink: 0;
   }
 }
+
+/* Horizontally scrollable tab/filter bars: fade the edge so users can tell
+   more items are available off-screen (mainly on phones). */
+@utility scroll-fade-x {
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  mask-image: linear-gradient(to right, transparent 0, #000 12px, #000 calc(100% - 28px), transparent 100%);
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

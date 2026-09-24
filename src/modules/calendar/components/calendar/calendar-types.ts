@@ -1,5 +1,10 @@
 // Client-side state shapes for the calendar page (filters, drafts, import state).
 // Used by calendar-client.tsx and the pieces in this folder.
+import type { CalendarView } from "../../types";
+
+export const CALENDAR_VIEWS = ["week", "month", "agenda", "team"] as const satisfies readonly CalendarView[];
+// Remembers the view a person picked on a phone so the agenda default doesn't override it.
+export const MOBILE_VIEW_STORAGE_KEY = "calendar:mobile-view";
 
 export type FilterState = {
   sources: string[];

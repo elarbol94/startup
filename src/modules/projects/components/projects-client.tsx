@@ -38,10 +38,13 @@ export function ProjectsClient({
   projects,
   members = [],
   predecessorOptions = [],
+  hideCreateButton = false,
 }: {
   projects: Project[];
   members?: ProjectMember[];
   predecessorOptions?: ProjectPredecessorOption[];
+  /** Hide the inline "new project" button when the host page already offers one. */
+  hideCreateButton?: boolean;
 }) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");
@@ -88,10 +91,12 @@ export function ProjectsClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <Button size="sm" className="self-start" onClick={() => setDialog({ kind: "create" })}>
-        <Plus className="size-4" />
-        {t("newProject")}
-      </Button>
+      {!hideCreateButton && (
+        <Button size="sm" className="self-start" onClick={() => setDialog({ kind: "create" })}>
+          <Plus className="size-4" />
+          {t("newProject")}
+        </Button>
+      )}
 
       {active.length === 0 && (
         <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
@@ -99,18 +104,21 @@ export function ProjectsClient({
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {active.map((project) => (
-          <Card key={project.id} className="relative transition-shadow hover:shadow-md">
+          <Card key={project.id} className="relative min-w-0 transition-shadow hover:shadow-md">
             <CardHeader>
               <div className="flex items-start justify-between gap-2">
                 <Link
                   href={`/projects/${project.id}`}
-                  className="flex min-w-0 items-center gap-2"
+                  className="grid min-w-0 flex-1 gap-1"
                 >
-                  <span
-                    className="inline-block size-3 shrink-0 rounded-full"
-                    style={{ backgroundColor: project.color }}
-                  />
-                  <CardTitle className="truncate">{project.name}</CardTitle><UserAttribution userId={project.managerId} relation="managedBy" />
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span
+                      className="inline-block size-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: project.color }}
+                    />
+                    <CardTitle className="truncate" title={project.name}>{project.name}</CardTitle>
+                  </span>
+                  <UserAttribution userId={project.managerId} relation="managedBy" />
                 </Link>
                 <DropdownMenu>
                   <DropdownMenuTrigger
@@ -166,7 +174,7 @@ export function ProjectsClient({
       {archived.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-medium text-muted-foreground">
-            {t("archived")}
+            {t("archivedHeading")}
           </h2>
           <div className="flex flex-col divide-y rounded-md border">
             {archived.map((project) => (
@@ -175,10 +183,10 @@ export function ProjectsClient({
                   className="inline-block size-2.5 rounded-full opacity-50"
                   style={{ backgroundColor: project.color }}
                 />
-                <span className="flex-1 text-sm text-muted-foreground">
+                <span className="min-w-0 flex-1 text-sm text-muted-foreground">
                   {project.name}<br /><UserAttribution userId={project.managerId} relation="managedBy" />
                 </span>
-                <Badge variant="secondary">{t("archived")}</Badge>
+                <Badge variant="secondary" className="max-sm:hidden">{t("archived")}</Badge>
                 <Button
                   variant="ghost"
                   size="icon-xs"

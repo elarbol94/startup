@@ -11,6 +11,18 @@ describe("personal overview layout", () => {
     expect(migrated.find(item => item.id === "calendar")?.visible).toBe(false);
     expect(migrated.filter(item => cardIds.includes(item.id as typeof cardIds[number]) && item.visible)).toHaveLength(4);
   });
+  it("maps the retired next-deadline card onto the merged upcoming-deadlines card", () => {
+    const renamed = parseLayout(JSON.stringify({ version: 2, items: [{ id: "nextDeadline", width: 4, height: 150, visible: true }] }));
+    expect(renamed[0]).toEqual({ id: "upcomingDeadlines", width: 4, height: 150, visible: true });
+    expect(renamed.filter(item => item.id === "upcomingDeadlines")).toHaveLength(1);
+    expect(renamed.some(item => (item.id as string) === "nextDeadline")).toBe(false);
+    const hiddenUpcoming = parseLayout(JSON.stringify({ version: 2, items: [{ id: "upcomingDeadlines", width: 3, height: 140, visible: false }, { id: "nextDeadline", width: 3, height: 140, visible: true }] }));
+    expect(hiddenUpcoming.find(item => item.id === "upcomingDeadlines")).toEqual({ id: "upcomingDeadlines", width: 3, height: 140, visible: true });
+    const hiddenNext = parseLayout(JSON.stringify({ version: 2, items: [{ id: "nextDeadline", width: 3, height: 140, visible: false }, { id: "upcomingDeadlines", width: 3, height: 140, visible: true }] }));
+    expect(hiddenNext.find(item => item.id === "upcomingDeadlines")?.visible).toBe(true);
+    const bothHidden = parseLayout(JSON.stringify({ version: 2, items: [{ id: "upcomingDeadlines", visible: false }, { id: "nextDeadline", visible: false }] }));
+    expect(bothHidden.find(item => item.id === "upcomingDeadlines")?.visible).toBe(false);
+  });
   it("deduplicates, restores unknown/missing widgets and clamps dimensions", () => {
     const result = parseLayout(JSON.stringify({ version: 2, items: [{ id: "news", width: 500, height: -8, visible: false }, { id: "news" }, { id: "unknown" }, null] }));
     expect(result).toHaveLength(widgetIds.length);
