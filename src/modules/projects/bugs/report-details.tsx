@@ -18,6 +18,11 @@ export function BugReportDetails({ taskId, showDescription }: { taskId: string; 
   return <section className="space-y-2 rounded-md border bg-muted/25 p-3 text-sm">
     <h3 className="font-medium">{t("reportNumber", { number: report.number })}</h3>
     <p className="text-xs text-muted-foreground">{report.reporter} · {format.dateTime(new Date(report.createdAt), { dateStyle: "medium", timeStyle: "short" })}</p>
+    {report.agentWorkedAt && <div className="rounded border bg-background p-2 text-xs">
+      <p className="font-medium">{t("agentWorked", { date: format.dateTime(new Date(report.agentWorkedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>
+      {report.agentBranch && <p className="break-all text-muted-foreground">{t("agentBranch")}: <code>{report.agentBranch}</code></p>}
+      {report.agentNote && <p className="mt-1 whitespace-pre-wrap break-words">{report.agentNote}</p>}
+    </div>}
     {showDescription && <p className="whitespace-pre-wrap break-words">{report.description}</p>}
     <details className="text-xs"><summary className="cursor-pointer">{t("included")}</summary><dl className="mt-2 space-y-1 break-all"><dt>{t("page")}</dt><dd>{report.pagePath}</dd><dt>{t("version")}</dt><dd>{report.buildVersion}</dd><dt>{t("browser")}</dt><dd>{report.browser}</dd></dl></details>
     <div className="grid grid-cols-3 gap-2">{report.screenshots.filter(file => ["image/png", "image/jpeg", "image/webp"].includes(file.mimeType)).map(file => <a key={file.id} href={`/api/files/${file.id}`} target="_blank" rel="noreferrer" className="min-w-0 rounded border p-1">

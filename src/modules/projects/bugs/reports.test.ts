@@ -26,6 +26,7 @@ import { attachments, projects, projectColumns, tasks, user } from "@/db/schema"
 import { bugReports } from "./schema";
 import { getBugReportContext, getBugReportDetails, submitBugReport } from "./actions";
 import { saveBugScreenshot } from "./uploads";
+import { exportBugReports, markBugReports } from "./agent-triage";
 import { requireUserOrThrow } from "@/lib/auth";
 
 const input = () => ({ submissionId: randomUUID(), title: "Broken save", happened: "Button does nothing", steps: "Click save", expected: "Saved", pagePath: "/projects/p?secret=test#section", browser: "Test browser", locale: "en" as const });
@@ -82,5 +83,23 @@ describe("bug reporting", () => {
     expect(db.select().from(attachments).all()).toHaveLength(5);
     expect(db.select().from(bugReports).all()).toHaveLength(1);
     expect((await getBugReportDetails(report.taskId))?.screenshots).toHaveLength(5);
+  });
+  it("exports open reports for agents and tags worked reports without moving them", async () => {
+    const [open, done] = [await create(), await create()];
+    await saveBugScreenshot(png(), open.taskId, "reporter", randomUUID());
+    const fixed = db.select().from(projectColumns).where(eq(projectColumns.isCompleted, true)).get()!;
+    db.update(tasks).set({ columnId: fixed.id }).where(eq(tasks.id, done.taskId)).run();
+    const [exported, ...rest] = exportBugReports(sqlite, { uploadsPath: "/uploads" });
+    expect(rest).toHaveLength(0);
+    expect(exported).toMatchObject({ number: open.number, taskId: open.taskId, title: "Broken save", column: "New", pagePath: "/projects/p", reporter: "Reporter", agentWorkedAt: null });
+    expect(exported.screenshots).toEqual([expect.objectContaining({ fileName: "screen.png", mimeType: "image/png", path: expect.stringMatching(/^\/uploads\//) })]);
+    const columnBefore = db.select({ columnId: tasks.columnId }).from(tasks).where(eq(tasks.id, open.taskId)).get();
+    expect(markBugReports(sqlite, [open.number], { branch: "fix/bugs-save", note: "Fixed the save handler", now: new Date("2026-09-24T12:00:00Z") })).toBe(1);
+    expect(db.select({ columnId: tasks.columnId }).from(tasks).where(eq(tasks.id, open.taskId)).get()).toEqual(columnBefore);
+    expect(exportBugReports(sqlite, { uploadsPath: "/uploads" })).toHaveLength(0);
+    expect(exportBugReports(sqlite, { uploadsPath: "/uploads", includeTagged: true })[0]).toMatchObject({ agentWorkedAt: "2026-09-24T12:00:00.000Z", agentBranch: "fix/bugs-save", agentNote: "Fixed the save handler" });
+    expect(await getBugReportDetails(open.taskId)).toMatchObject({ agentBranch: "fix/bugs-save" });
+    expect(() => markBugReports(sqlite, [open.number, 9999], { branch: "x" })).toThrow("Unknown report numbers: 9999");
+    expect(() => markBugReports(sqlite, [open.number], { branch: " " })).toThrow("--branch");
   });
 });

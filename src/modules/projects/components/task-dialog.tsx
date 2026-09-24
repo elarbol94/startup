@@ -68,6 +68,8 @@ export type BoardTaskDto = {
   constraintDate?: string | null;
   priority: "low" | "medium" | "high";
   sortOrder: number;
+  /** Bug reports only: when a coding agent last worked on it. */
+  agentWorkedAt?: Date | null;
 };
 
 const DEPENDENCY_TYPE_KEYS = {

@@ -13,6 +13,11 @@ export const bugReports = sqliteTable("bug_reports", {
   pagePath: text("page_path").notNull(),
   buildVersion: text("build_version").notNull(),
   browser: text("browser").notNull(),
+  // Set by `npm run bugs -- mark` once a coding agent has worked on the report.
+  // Only tags the report; the task keeps its board column.
+  agentWorkedAt: integer("agent_worked_at", { mode: "timestamp_ms" }),
+  agentBranch: text("agent_branch"),
+  agentNote: text("agent_note"),
 });
 export const bugReportUploads = sqliteTable("bug_report_uploads", {
   attachmentId: text("attachment_id").primaryKey().references(() => attachments.id, { onDelete: "cascade" }),

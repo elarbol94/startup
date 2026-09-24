@@ -35,7 +35,8 @@
     "data:classify-municipality-pdfs": "tsx scripts/classify-municipality-pdfs.ts",
     "e2e": "playwright test",
     "perf:budget": "node scripts/check-performance-budget.mjs",
-    "wiki:backfill-embeddings": "tsx scripts/backfill-embeddings.ts"
+    "wiki:backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
+    "bugs": "tsx scripts/bug-reports.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

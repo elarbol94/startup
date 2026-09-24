@@ -63,7 +63,7 @@ export async function submitBugReport(input: z.input<typeof inputSchema>) {
 
 export async function getBugReportDetails(taskId: string) {
   await requireUserOrThrow();
-  const report = db.select({ number: bugReports.number, description: tasks.description, pagePath: bugReports.pagePath, buildVersion: bugReports.buildVersion, browser: bugReports.browser, createdAt: tasks.createdAt, reporter: user.name })
+  const report = db.select({ number: bugReports.number, description: tasks.description, pagePath: bugReports.pagePath, buildVersion: bugReports.buildVersion, browser: bugReports.browser, createdAt: tasks.createdAt, reporter: user.name, agentWorkedAt: bugReports.agentWorkedAt, agentBranch: bugReports.agentBranch, agentNote: bugReports.agentNote })
     .from(bugReports).innerJoin(tasks, eq(tasks.id, bugReports.taskId)).innerJoin(user, eq(user.id, tasks.createdBy)).where(eq(bugReports.taskId, taskId)).get();
   return report ? { ...report, screenshots: listAttachmentsFor("task", taskId).map(file => ({ id: file.id, name: file.fileName, mimeType: file.mimeType })) } : null;
 }

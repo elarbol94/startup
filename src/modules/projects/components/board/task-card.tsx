@@ -6,6 +6,7 @@ import { UserIdentity } from "@/components/user-identity";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   AlertTriangle,
+  Bot,
   CalendarDays,
   ChevronDown,
   ChevronRight,
@@ -190,6 +191,12 @@ export function TaskCard({
                 : "priorityMedium",
           )}
         </Badge>
+        {task.agentWorkedAt && (
+          <Badge variant="outline" className="gap-1 text-muted-foreground" title={t("agentWorkedHint")}>
+            <Bot className="size-3" />
+            {t("agentWorked")}
+          </Badge>
+        )}
         {task.dueDate && (
           <span
             className={`flex items-center gap-1 text-xs ${

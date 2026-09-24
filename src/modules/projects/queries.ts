@@ -3,6 +3,7 @@ import { assignedTo, unassignedTask, taskAssigneeFields } from "./assignees";
 import { and, asc, desc, eq, gte, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  bugReports,
   projectColumns,
   projects,
   taskContexts,
@@ -72,8 +73,10 @@ export function getBoard(projectId: string) {
       constraintDate: tasks.constraintDate,
       priority: tasks.priority,
       sortOrder: tasks.sortOrder,
+      agentWorkedAt: bugReports.agentWorkedAt,
     })
     .from(tasks)
+    .leftJoin(bugReports, eq(bugReports.taskId, tasks.id))
     .where(eq(tasks.projectId, projectId))
     .orderBy(asc(tasks.sortOrder), asc(tasks.createdAt), asc(tasks.id))
     .all();

@@ -18,7 +18,8 @@
     "detailsFailed": "Could not load report details. Close and reopen the task to retry.",
     "uploadFailed": "Your report is saved, but some screenshots failed. Retry to upload only the missing screenshots.",
     "invalidFiles": "Choose up to 5 PNG, JPEG or WebP screenshots, each no larger than 10 MB.",
-    "archived": "The Bugs project is archived. Ask an administrator to reopen it. Your draft is kept."
+    "archived": "The Bugs project is archived. Ask an administrator to reopen it. Your draft is kept.",
+    "agentWorked": "A coding agent worked on this on {date}", "agentBranch": "Branch"
   },
   "appWorkspace": {
     "tabs": "Open tabs",
@@ -1856,7 +1857,9 @@
     "taskActions": "Actions for {name}",
     "openDetails": "Open details",
     "dragImpact": "Shift {days, plural, one {# calendar day} other {# calendar days}} · {tasks, plural, =1 {1 task moves} other {# tasks move}} · {containers, plural, =0 {no containers expand} =1 {1 container expands} other {# containers expand}}",
-    "limitedByChildren": "Limited by child schedule"
+    "limitedByChildren": "Limited by child schedule",
+    "agentWorked": "Agent worked",
+    "agentWorkedHint": "A coding agent has worked on this bug report. Open it to see the branch."
   },
   "fundingProjects": {
     "title": "Funding projects",
