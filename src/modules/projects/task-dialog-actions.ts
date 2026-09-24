@@ -12,7 +12,8 @@ import {
 } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
 import { taskAncestors, taskDescendants } from "@/modules/projects/schedule";
-import { upsertTask, upsertTaskDependency, type TaskInput } from "./actions";
+import { upsertTask, type TaskInput } from "./task-actions";
+import { upsertTaskDependency } from "./dependency-actions";
 import {
   TaskMoveError,
   deleteTaskLiftingChildren,

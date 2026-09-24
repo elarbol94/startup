@@ -18,7 +18,9 @@ vi.mock("@/db", async () => {
 
 import { db, sqlite } from "@/db";
 import { projectColumns, projects, taskAssignees, tasks, user, wikiNotifications } from "@/db/schema";
-import { upsertTask, upsertContextualTask, upsertContextualDeadline } from "./actions";
+import { upsertTask } from "./task-actions";
+import { upsertContextualTask } from "./contextual-task-actions";
+import { upsertContextualDeadline } from "./deadline-actions";
 import { getBoard, getPersonalWorkSummary, getPortfolioSchedule, listDeadlineOverview, listMyTasks, listTaskOverview, listTasksForContext } from "./queries";
 import { listCalendarWorkspace } from "@/modules/calendar/queries";
 

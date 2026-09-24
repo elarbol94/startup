@@ -8,10 +8,8 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, GitBranch, Loader2, Plus, Trash2 } from "lucide-react";
-import {
-  deleteTask,
-  deleteTaskDependency,
-} from "@/modules/projects/actions";
+import { deleteTask } from "@/modules/projects/task-actions";
+import { deleteTaskDependency } from "@/modules/projects/dependency-actions";
 import {
   addTaskDependencyFromDialog,
   deleteProjectTaskDependency,

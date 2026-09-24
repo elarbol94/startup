@@ -21,7 +21,7 @@ import {
   getContextualTaskOptions,
   getContextualTaskForEdit,
   upsertContextualTask,
-} from "@/modules/projects/actions";
+} from "@/modules/projects/contextual-task-actions";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,

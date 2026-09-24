@@ -16,7 +16,8 @@ vi.mock("@/db", async () => {
 
 import { db, sqlite } from "@/db";
 import { projects, projectColumns, tasks, taskDependencies, user } from "@/db/schema";
-import { reparentTask, reorderProject } from "./actions";
+import { reorderProject } from "./actions";
+import { reparentTask } from "./task-actions";
 import { getPortfolioSchedule } from "./queries";
 beforeEach(() => {
  sqlite.exec("DELETE FROM task_dependencies; DELETE FROM tasks; DELETE FROM project_columns; DELETE FROM projects;");

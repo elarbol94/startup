@@ -16,7 +16,8 @@ vi.mock("@/db", async () => {
 import { db, sqlite } from "@/db";
 import { user } from "@/db/schema";
 import { calendarEventAttendees, calendarEvents, calendarReminders, calendars } from "./schema";
-import { claimDueCalendarReminders, upsertCalendarEvent } from "./actions";
+import { claimDueCalendarReminders } from "./reminder-actions";
+import { upsertCalendarEvent } from "./actions";
 
 beforeAll(() => {
   const now = new Date();

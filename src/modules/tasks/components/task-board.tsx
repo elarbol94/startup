@@ -6,7 +6,10 @@ import { useFormatter, useTranslations } from "next-intl";
 import { DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
-import { moveDashboardTask, upsertContextualTask } from "@/modules/projects/actions";
+import {
+  moveDashboardTask,
+  upsertContextualTask,
+} from "@/modules/projects/contextual-task-actions";
 import { UserIdentity } from "@/components/user-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

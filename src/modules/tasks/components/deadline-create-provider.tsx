@@ -16,10 +16,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { CalendarClock, CalendarDays, Check, Clock3, Loader2, Save, X } from "lucide-react";
-import {
-  getContextualTaskOptions,
-  upsertContextualDeadline,
-} from "@/modules/projects/actions";
+import { getContextualTaskOptions } from "@/modules/projects/contextual-task-actions";
+import { upsertContextualDeadline } from "@/modules/projects/deadline-actions";
 import { getContextualDeadlineForEdit } from "@/modules/projects/deadline-actions";
 import { Button } from "@/components/ui/button";
 import {

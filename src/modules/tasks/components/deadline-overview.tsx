@@ -16,7 +16,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { setTaskStatus } from "@/modules/projects/actions";
+import { setTaskStatus } from "@/modules/projects/task-actions";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

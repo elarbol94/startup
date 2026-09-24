@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { getContextualProjectSchedule } from "@/modules/projects/actions";
+import { getContextualProjectSchedule } from "@/modules/projects/contextual-task-actions";
 import type { PortfolioSchedule, PortfolioTask } from "@/modules/projects/queries";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";

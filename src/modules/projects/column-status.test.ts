@@ -21,15 +21,10 @@ vi.mock("@/db", async () => {
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
 import { contextLinks, projectColumns, projectDependencies, projects, taskDependencies, tasks, user } from "@/db/schema";
-import {
-  deleteColumn,
-  deleteTask,
-  deleteTaskDependency,
-  moveDashboardTask,
-  moveTask,
-  setTaskStatus,
-  upsertColumn,
-} from "./actions";
+import { deleteColumn, moveTask, upsertColumn } from "./board-actions";
+import { deleteTask, setTaskStatus } from "./task-actions";
+import { moveDashboardTask } from "./contextual-task-actions";
+import { deleteTaskDependency } from "./dependency-actions";
 import { deleteProjectSideRows } from "./cleanup";
 import { pickColumnDeletionTarget } from "./column-rules";
 

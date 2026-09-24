@@ -1,189 +1,62 @@
-/* eslint-disable @next/next/no-img-element -- Authenticated PDF thumbnails and annotation crops are served by private routes. */
 "use client";
-import { UserIdentity } from "@/components/user-identity";
-import { PersonSelect } from "@/components/person-select";
-
+// PDF reader page. Its hooks, panels, dialogs and helpers live in ./pdf-reader/.
 import { useCallback, useDeferredValue, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
 import {
-  ArrowLeft, ArrowUp, Bookmark, CalendarClock, CaseSensitive, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, Copy,
-  ClipboardPlus, Download, ExternalLink, FileSearch, FileText, Highlighter, Keyboard, ListTree, Loader2, Menu, MessageCircle,
-  Minus, MoreHorizontal, Pencil, Plus, Printer, RotateCw, Search, Trash2, X, Link2, Eraser, PanelLeftClose,
-  SquareDashedMousePointer, WholeWord,
+  ArrowLeft, Bookmark, CalendarClock, Check, ChevronDown, ChevronLeft, ChevronRight,
+  ClipboardPlus, Download, ExternalLink, FileSearch, Highlighter, Keyboard, ListTree, Loader2, MessageCircle,
+  Minus, MoreHorizontal, Plus, Printer, RotateCw, X, Link2, Eraser,
+  SquareDashedMousePointer,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator,
   DropdownMenuShortcut, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { FocusModeToggle, useFocusMode } from "@/components/focus-mode";
-import {
-  createPdfAnnotation, createPdfAnnotationComment, deletePdfAnnotation,
-  restorePdfAnnotation, updatePdfAnnotation, updatePdfAnnotationComment, deletePdfAnnotationComment,
-} from "../pdf-actions";
-import { readPdfSelection, rotatePdfRect, activePdfOutlineIndex, visiblePdfOutlineIndices, type PdfOutlineItem, type PdfTextSelection } from "../lib/pdf-selection";
+import { createPdfAnnotation, deletePdfAnnotation } from "../pdf-actions";
+import { readPdfSelection, rotatePdfRect, type PdfTextSelection } from "../lib/pdf-selection";
 import { rememberSourcePassage } from "../lib/source-passage";
 import type { PdfRect } from "../lib/pdf-evidence";
-import { canonicalTaskHref } from "@/modules/context/routes";
 import {
-  calculateFitScale, findSearchOccurrences, formatPdfCitation,
-  normalizePdfSearchText, parsePdfReaderPreferences, PDF_READER_PREFERENCES_KEY, resolveInitialPage, type FitMode,
-  type NavigatorTab, type PdfReaderPreferences,
+  calculateFitScale, findSearchOccurrences,
+  normalizePdfSearchText, type FitMode,
+  type NavigatorTab,
 } from "../lib/pdf-reader-utils";
 import {
-  DEFAULT_PDF_SHORTCUT_BINDINGS, isReservedPdfShortcut, normalizePdfShortcut, PDF_SHORTCUT_ACTIONS, PDF_SHORTCUT_GROUPS,
-  shortcutConflicts, type PdfShortcutAction, type PdfShortcutBindings,
+  DEFAULT_PDF_SHORTCUT_BINDINGS, normalizePdfShortcut, PDF_SHORTCUT_ACTIONS,
+  type PdfShortcutAction, type PdfShortcutBindings,
 } from "../lib/pdf-shortcuts";
 import { displayShortcut } from "../lib/shortcut-display";
 import styles from "./pdf-reader.module.css";
 import {
-  USER_MARK_COLORS,
-  initialsForName,
   userMarkColorStyle,
   type UserMarkColor,
 } from "@/lib/user-mark-colors";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
-import { isDeadlineOverdue, localDateValue } from "@/modules/tasks/deadline-utils";
 import type { ContextDeadlineMarker, ContextTaskMarker } from "@/modules/tasks/types";
-
-type ReaderPage = {
-  pageNumber: number; width: number; height: number; text: string;
-  textLayerJson: string; extractionMethod: "native" | "ocr" | "empty"; hasThumbnail: boolean;
-};
-type ReaderAnnotation = {
-  id: string; pageNumber: number; kind: "text" | "region" | "bookmark";
-  selectedText: string; note: string; label: string; geometryJson: string;
-  hasPreview: boolean; createdBy: string; createdByName: string; createdByMarkColor: UserMarkColor; createdAt: string; updatedAt: string;
-  comments: Array<{ id: string; body: string; createdBy: string; createdByName: string; createdByMarkColor: UserMarkColor; createdAt: string }>;
-};
-type PendingAnnotation = {
-  kind: "text" | "region" | "bookmark"; geometry: PdfRect[]; selectedText: string;
-  previewDataUrl?: string; pageNumber: number;
-};
-type SelectionAnchor = {
-  pageNumber: number;
-  x: number;
-  y: number;
-  side: "left" | "right";
-};
-type CommentPanelState = { mode: "closed" } | { mode: "list" } | { mode: "thread"; annotationId: string };
-type PdfTaskAnchor = { pageNumber?: number; rects?: PdfRect[]; quote?: string };
-
-const COMMENT_PANEL_WIDTH_KEY = "wiki:pdf-comment-panel-width";
-const LAST_PAGE_KEY_PREFIX = "wiki:pdf-last-page:";
-
-function taskAnchor(task: ContextTaskMarker): PdfTaskAnchor {
-  try {
-    return JSON.parse(task.anchorJson) as PdfTaskAnchor;
-  } catch {
-    return {};
-  }
-}
-
-function taskAnchorPage(tasks: ContextTaskMarker[], taskId?: string) {
-  if (!taskId) return null;
-  const task = tasks.find((candidate) => candidate.id === taskId);
-  if (!task) return null;
-  const page = taskAnchor(task).pageNumber;
-  return typeof page === "number" && Number.isInteger(page) && page > 0 ? page : null;
-}
-
-function deadlineAnchor(deadline: ContextDeadlineMarker): PdfTaskAnchor {
-  try {
-    return JSON.parse(deadline.anchorJson) as PdfTaskAnchor;
-  } catch {
-    return {};
-  }
-}
-
-function deadlineAnchorPage(deadlines: ContextDeadlineMarker[], deadlineId?: string) {
-  if (!deadlineId) return null;
-  const deadline = deadlines.find((candidate) => candidate.id === deadlineId);
-  if (!deadline) return null;
-  const page = deadlineAnchor(deadline).pageNumber;
-  return typeof page === "number" && Number.isInteger(page) && page > 0 ? page : null;
-}
-
-function NoteMeta({ name, timestamp, markColor, userId }: { name: string; timestamp: string; markColor: UserMarkColor; userId: string }) {
-  return <span className="mt-1.5 inline-flex items-center gap-1.5 text-[10px] text-muted-foreground" style={userMarkColorStyle(markColor, userId)}><Avatar size="sm" className="size-4 border" style={{ borderColor: "var(--user-mark-solid)" }}><AvatarFallback className="text-[8px]" style={{ color: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)" }}>{initialsForName(name)}</AvatarFallback></Avatar><span>{name}</span><Clock3 className="size-3" /><time>{timestamp}</time></span>;
-}
-
-function isPdfRenderCancellation(reason: unknown) {
-  return reason instanceof Error && reason.name === "RenderingCancelledException";
-}
-
-function searchRangeInTextLayer(
-  layer: HTMLDivElement,
-  query: string,
-  caseSensitive: boolean,
-  wholeWord: boolean,
-  occurrenceIndex: number,
-) {
-  const nodes: Text[] = [];
-  const walker = document.createTreeWalker(layer, NodeFilter.SHOW_TEXT);
-  while (walker.nextNode()) {
-    if (walker.currentNode.textContent) nodes.push(walker.currentNode as Text);
-  }
-  const offsets: Array<{ node: Text; start: number; end: number }> = [];
-  let text = "";
-  for (const node of nodes) {
-    const start = text.length;
-    text += node.data;
-    offsets.push({ node, start, end: text.length });
-  }
-  const occurrence = findSearchOccurrences(
-    [{ pageNumber: Number(layer.parentElement?.dataset.pageNumber) || 1, text }],
-    { query, caseSensitive, wholeWord },
-  )[occurrenceIndex];
-  if (!occurrence) return null;
-  const startNode = offsets.find((item) => occurrence.start >= item.start && occurrence.start < item.end);
-  const endNode = offsets.find((item) => occurrence.end > item.start && occurrence.end <= item.end);
-  if (!startNode || !endNode) return null;
-  const range = document.createRange();
-  range.setStart(startNode.node, occurrence.start - startNode.start);
-  range.setEnd(endNode.node, occurrence.end - endNode.start);
-  return range;
-}
-
-async function renderReaderTextLayer(pdfPage: PDFPageProxy, metadata: ReaderPage | undefined, layer: HTMLDivElement, viewport: ReturnType<PDFPageProxy["getViewport"]>, pdfjs: typeof import("pdfjs-dist")) {
-  const textContent = await pdfPage.getTextContent();
-  layer.replaceChildren();
-  if (textContent.items.some((item) => "str" in item && item.str.trim())) {
-    await new pdfjs.TextLayer({ textContentSource: textContent, container: layer, viewport }).render();
-    return;
-  }
-  if (metadata?.extractionMethod !== "ocr") return;
-  let words: Array<{ text: string; x: number; y: number; width: number; height: number }> = [];
-  try { words = JSON.parse(metadata.textLayerJson) as typeof words; } catch { return; }
-  const measurement = document.createElement("canvas").getContext("2d");
-  const quarterTurn = viewport.rotation % 180 !== 0;
-  const pageWidth = quarterTurn ? viewport.height : viewport.width;
-  const pageHeight = quarterTurn ? viewport.width : viewport.height;
-  for (const word of words) {
-    if (!word.text || word.width <= 0 || word.height <= 0) continue;
-    const span = document.createElement("span"); span.textContent = `${word.text} `;
-    const rect = rotatePdfRect(word, viewport.rotation);
-    const fontSize = word.height * pageHeight;
-    if (measurement) measurement.font = `${fontSize}px sans-serif`;
-    const textWidth = measurement?.measureText(word.text).width || word.width * pageWidth;
-    const x = rect.x + ([90, 180].includes(viewport.rotation) ? rect.width : 0);
-    const y = rect.y + ([180, 270].includes(viewport.rotation) ? rect.height : 0);
-    Object.assign(span.style, { left: `${x * 100}%`, top: `${y * 100}%`, fontFamily: "sans-serif", fontSize: `${fontSize}px`, transform: `rotate(${viewport.rotation}deg) scaleX(${word.width * pageWidth / textWidth})` });
-    layer.appendChild(span);
-  }
-}
-
+import { annotationRects, regionPoint } from "./pdf-reader/pdf-annotation-geometry";
+import { PdfAnnotationNoteDialog } from "./pdf-reader/pdf-annotation-note-dialog";
+import { PdfCommentPanel, type PdfCommentPanelProps } from "./pdf-reader/pdf-comment-panel";
+import { pdfContextMarkersForPage, type PdfContextMarkerContext } from "./pdf-reader/pdf-context-markers";
+import { createPdfContextRequests } from "./pdf-reader/pdf-context-requests";
+import { deadlineAnchorPage, taskAnchorPage } from "./pdf-reader/pdf-marker-anchors";
+import { PdfNavigatorPanel } from "./pdf-reader/pdf-navigator-panel";
+import type { CommentPanelState, PendingAnnotation, ReaderAnnotation, ReaderPage, SelectionAnchor } from "./pdf-reader/pdf-reader-types";
+import { PdfShortcutsDialog } from "./pdf-reader/pdf-shortcuts-dialog";
+import { usePdfAnnotationThreads } from "./pdf-reader/use-pdf-annotation-threads";
+import { usePdfOutline } from "./pdf-reader/use-pdf-outline";
+import { usePdfReaderPreferences } from "./pdf-reader/use-pdf-reader-preferences";
+import { usePdfRendering } from "./pdf-reader/use-pdf-rendering";
+import { usePdfScrollTracking } from "./pdf-reader/use-pdf-scroll-tracking";
+import { usePdfSearchHighlights } from "./pdf-reader/use-pdf-search-highlights";
+import { usePdfFitScale, usePdfWheelZoom } from "./pdf-reader/use-pdf-zoom";
 export function PdfReader({
   sourceId, sourceTitle, attachmentId, documentId, fileName, pages, initialAnnotations,
   initialPage, initialAnnotationId, initialTaskId, contextTasks, initialDeadlineId, contextDeadlines, user,
@@ -205,8 +78,6 @@ export function PdfReader({
   const shortcutActionLabel = (action: PdfShortcutAction) => t(`pdfShortcuts.actions.${action}`);
   const shortcutKeys = { ctrl: t("shortcuts.keys.ctrl"), delete: t("shortcuts.keys.delete") };
   const showShortcut = (binding: string) => displayShortcut(binding, shortcutKeys);
-  const [sendToPageFor, setSendToPageFor] = useState<string | null>(null);
-  const [pageFilter, setPageFilter] = useState("");
   const pdfLoadFailedMessage = t("pdfLoadFailed");
   const { isFocused, toggleFocused } = useFocusMode();
   const [showThumbnails, setShowThumbnails] = useState(true);
@@ -214,31 +85,21 @@ export function PdfReader({
   const [navigatorTab, setNavigatorTab] = useState<NavigatorTab>("pages");
   const [commentPanel, setCommentPanel] = useState<CommentPanelState>(() => initialAnnotationId ? { mode: "thread", annotationId: initialAnnotationId } : isFocused ? { mode: "closed" } : { mode: "list" });
   const [commentPanelWidth, setCommentPanelWidth] = useState(304);
-  const [compactViewport, setCompactViewport] = useState(false);
   const [commentSearch, setCommentSearch] = useState("");
   const [currentPageCommentsOnly, setCurrentPageCommentsOnly] = useState(false);
   const previousFocused = useRef(isFocused);
-  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
-  const pdfjsRef = useRef<typeof import("pdfjs-dist") | null>(null);
   const [pageNumber, setPageNumber] = useState(() => {
     const anchoredPage = deadlineAnchorPage(contextDeadlines, initialDeadlineId) ?? taskAnchorPage(contextTasks, initialTaskId);
     return Math.min(Math.max(anchoredPage ?? initialPage, 1), Math.max(1, pages.length));
   });
   const [scale, setScale] = useState(1.25); const [rotation, setRotation] = useState(0);
   const [fitMode, setFitMode] = useState<FitMode>("custom");
-  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
   const [shortcuts, setShortcuts] = useState<PdfShortcutBindings>(DEFAULT_PDF_SHORTCUT_BINDINGS);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-  const [recordingShortcut, setRecordingShortcut] = useState<PdfShortcutAction | null>(null);
-  const [shortcutError, setShortcutError] = useState("");
-  const [outline, setOutline] = useState<PdfOutlineItem[]>([]);
-  const [outlinePosition, setOutlinePosition] = useState({ page: initialPage, y: 0 });
   const [collapsedOutline, setCollapsedOutline] = useState<Set<number>>(() => new Set());
-  const [outlineLoaded, setOutlineLoaded] = useState(false);
   const [activeSearchIndex, setActiveSearchIndex] = useState(-1);
   const [caseSensitiveSearch, setCaseSensitiveSearch] = useState(false);
   const [wholeWordSearch, setWholeWordSearch] = useState(false);
-  const [textLayerVersion, setTextLayerVersion] = useState(0);
   const [continuousRenderPages, setContinuousRenderPages] = useState<number[]>([pageNumber]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const readerRef = useRef<HTMLDivElement>(null);
@@ -246,20 +107,8 @@ export function PdfReader({
   const [annotationKindFilter, setAnnotationKindFilter] = useState("all");
   const [annotationColorFilter, setAnnotationColorFilter] = useState("all");
   const [annotationAuthorFilter, setAnnotationAuthorFilter] = useState("all");
-  const [editingAnnotation, setEditingAnnotation] = useState(false);
-  const [annotationEditDraft, setAnnotationEditDraft] = useState({ label: "", note: "" });
-  const scaleRef = useRef(1.25);
-  const zoomFrameRef = useRef<number | null>(null);
-  const pendingZoomRef = useRef<{ deltaY: number; cursorX: number; cursorY: number; viewport: HTMLDivElement } | null>(null);
-  const zoomAnchorRef = useRef<{ cursorX: number; cursorY: number; shell: HTMLDivElement | null; x: number; y: number } | null>(null);
-  const zoomGestureTimeoutRef = useRef<number | null>(null);
-  const zoomCommitTimeoutRef = useRef<number | null>(null);
-  const zoomScaleRef = useRef(1.25);
-  const zoomCommitPendingRef = useRef(false);
-  const zoomContentRef = useRef<HTMLDivElement>(null);
-  const zoomLabelRef = useRef<HTMLButtonElement>(null);
   const [viewMode, setViewMode] = useState<"continuous" | "single" | "double">("continuous");
-  const [rendering, setRendering] = useState(true); const [error, setError] = useState("");
+  const [rendering, setRendering] = useState(true);
   const [annotations, setAnnotations] = useState(initialAnnotations);
   // Reserve enough centered gutter for the furthest visible marker: annotation
   // (34px), task (68px), or deadline (100px), plus two pixels per side.
@@ -271,11 +120,13 @@ export function PdfReader({
         ? 72
         : 32;
   const [activeAnnotationId, setActiveAnnotationId] = useState(initialAnnotationId ?? "");
-  const [replyByAnnotation, setReplyByAnnotation] = useState<Record<string, string>>({});
-  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
-  const [commentPending, setCommentPending] = useState(false);
-  const commentBusy = useRef(false);
-  const [commentDraftById, setCommentDraftById] = useState<Record<string, string>>({});
+  const {
+    sendToPageFor, setSendToPageFor, pageFilter, setPageFilter, editingAnnotation, setEditingAnnotation,
+    annotationEditDraft, setAnnotationEditDraft, replyByAnnotation, setReplyByAnnotation, editingCommentId,
+    setEditingCommentId, commentPending, commentDraftById, setCommentDraftById, submitReply, saveEditedReply,
+    removeReply, beginEditingReply, sendAnnotationToPage, copyAnnotationCitation, beginEditingAnnotation,
+    saveAnnotationEdits, removeAnnotation,
+  } = usePdfAnnotationThreads({ setAnnotations, t, router, sourceTitle, showCommentList });
   const [selection, setSelection] = useState<(PdfTextSelection & { parts: PdfTextSelection[] }) | null>(null);
   const selectionBusy = useRef(false);
   const [selectionSaving, setSelectionSaving] = useState(false);
@@ -286,12 +137,10 @@ export function PdfReader({
   const [selectionAnchorPosition, setSelectionAnchorPosition] = useState<{ left: number; top: number; side: SelectionAnchor["side"] } | null>(null);
   const [pendingAnnotation, setPendingAnnotation] = useState<PendingAnnotation | null>(null);
   const [annotationNote, setAnnotationNote] = useState("");
-  const [annotationSaving, setAnnotationSaving] = useState(false);
   const [annotationAnchor, setAnnotationAnchor] = useState<{ left: number; top: number } | null>(null);
   const [regionMode, setRegionMode] = useState(false); const [region, setRegion] = useState<PdfRect | null>(null);
   const regionStart = useRef<{ x: number; y: number } | null>(null);
   const restoreContinuousPage = useRef<number | null>(null);
-  const initialContinuousScroll = useRef(true);
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
 
@@ -368,85 +217,18 @@ export function PdfReader({
       .map((occurrence, offset) => ({ occurrence, originalIndex: (activeSearchIndex + offset) % searchOccurrences.length }));
   }, [activeSearchIndex, searchOccurrences]);
   const canvasRef = useRef<HTMLCanvasElement>(null); const textLayerRef = useRef<HTMLDivElement>(null);
-  const pageShellRef = useRef<HTMLDivElement>(null); const secondaryPageShellRef = useRef<HTMLDivElement>(null); const secondaryCanvasRef = useRef<HTMLCanvasElement>(null); const secondaryTextLayerRef = useRef<HTMLDivElement>(null); const continuousCanvasRefs = useRef(new Map<number, HTMLCanvasElement>()); const continuousTextLayerRefs = useRef(new Map<number, HTMLDivElement>()); const continuousPageRefs = useRef(new Map<number, HTMLDivElement>()); const continuousRenderTasksRef = useRef(new Map<number, { cancel: () => void; promise: Promise<unknown> }>()); const continuousLoadingPagesRef = useRef(new Set<number>()); const continuousRenderedPagesRef = useRef(new Set<number>()); const continuousRenderGenerationRef = useRef(0); const continuousActivePageRef = useRef(pageNumber); const viewportRef = useRef<HTMLDivElement>(null);
+  const pageShellRef = useRef<HTMLDivElement>(null); const secondaryPageShellRef = useRef<HTMLDivElement>(null); const secondaryCanvasRef = useRef<HTMLCanvasElement>(null); const secondaryTextLayerRef = useRef<HTMLDivElement>(null); const continuousCanvasRefs = useRef(new Map<number, HTMLCanvasElement>()); const continuousTextLayerRefs = useRef(new Map<number, HTMLDivElement>()); const continuousPageRefs = useRef(new Map<number, HTMLDivElement>()); const continuousActivePageRef = useRef(pageNumber); const viewportRef = useRef<HTMLDivElement>(null);
   const currentPage = pages.find((page) => page.pageNumber === pageNumber);
-  const thumbnailResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const commentPanelResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const commentPanelWidthRef = useRef(304);
 
   const reducedMotion = useRef(false);
 
   useEffect(() => { continuousActivePageRef.current = pageNumber; }, [pageNumber]);
 
-  useEffect(() => {
-    const media = window.matchMedia("(max-width: 767px)");
-    const updateCompactViewport = () => setCompactViewport(media.matches);
-    const frame = window.requestAnimationFrame(() => {
-      const preferences = parsePdfReaderPreferences(window.localStorage.getItem(PDF_READER_PREFERENCES_KEY) ?? window.localStorage.getItem("wiki:pdf-reader-preferences:v2") ?? window.localStorage.getItem("wiki:pdf-reader-preferences:v1"));
-      const legacyCommentWidth = Number(window.localStorage.getItem(COMMENT_PANEL_WIDTH_KEY));
-      const nextCommentWidth = Number.isFinite(legacyCommentWidth)
-        ? Math.min(420, Math.max(260, legacyCommentWidth))
-        : preferences.commentPanelWidth;
-      commentPanelWidthRef.current = nextCommentWidth;
-      setCommentPanelWidth(nextCommentWidth);
-      setThumbnailWidth(preferences.navigatorWidth);
-      // Focus mode starts with an uncluttered canvas, but the navigator can be
-      // explicitly opened again from the toolbar (including its outline tab).
-      setShowThumbnails(isFocused ? false : preferences.navigatorVisible);
-      setNavigatorTab(preferences.navigatorTab);
-      setViewMode(preferences.viewMode);
-      setFitMode(preferences.fitMode);
-      setScale(preferences.scale);
-      setRotation(preferences.rotation);
-      setShortcuts(preferences.shortcuts);
-      reducedMotion.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (!hasExplicitPage) {
-        const storedPage = Number(window.localStorage.getItem(LAST_PAGE_KEY_PREFIX + documentId));
-        setPageNumber(resolveInitialPage({ storedPage, pageCount: pages.length }));
-      }
-      setPreferencesLoaded(true);
-      updateCompactViewport();
-    });
-    media.addEventListener("change", updateCompactViewport);
-    return () => { window.cancelAnimationFrame(frame); media.removeEventListener("change", updateCompactViewport); };
-  }, [documentId, hasExplicitPage, isFocused, pages.length]);
-
-  useEffect(() => {
-    if (!preferencesLoaded) return;
-    const preferences: PdfReaderPreferences = {
-       version: 3, viewMode, fitMode, scale, rotation,
-      navigatorTab, navigatorVisible: showThumbnails, navigatorWidth: thumbnailWidth,
-      commentPanelWidth,
-      shortcuts,
-    };
-    window.localStorage.setItem(PDF_READER_PREFERENCES_KEY, JSON.stringify(preferences));
-  }, [commentPanelWidth, fitMode, navigatorTab, preferencesLoaded, rotation, scale, shortcuts, showThumbnails, thumbnailWidth, viewMode]);
-
-  useEffect(() => {
-    if (!preferencesLoaded) return;
-    window.localStorage.setItem(LAST_PAGE_KEY_PREFIX + documentId, String(pageNumber));
-  }, [documentId, pageNumber, preferencesLoaded]);
-
-  useEffect(() => {
-    const resize = (event: PointerEvent) => {
-      const thumbnailStart = thumbnailResizeRef.current;
-      if (thumbnailStart) setThumbnailWidth(Math.min(240, Math.max(104, thumbnailStart.startWidth + event.clientX - thumbnailStart.startX)));
-      const commentStart = commentPanelResizeRef.current;
-      if (commentStart) {
-        const nextWidth = Math.min(420, Math.max(260, commentStart.startWidth + commentStart.startX - event.clientX));
-        commentPanelWidthRef.current = nextWidth;
-        setCommentPanelWidth(nextWidth);
-      }
-    };
-    const stop = () => {
-      thumbnailResizeRef.current = null;
-      if (commentPanelResizeRef.current) window.localStorage.setItem(COMMENT_PANEL_WIDTH_KEY, String(commentPanelWidthRef.current));
-      commentPanelResizeRef.current = null;
-    };
-    window.addEventListener("pointermove", resize);
-    window.addEventListener("pointerup", stop);
-    return () => { window.removeEventListener("pointermove", resize); window.removeEventListener("pointerup", stop); };
-  }, []);
+  const { compactViewport, thumbnailResizeRef, commentPanelResizeRef } = usePdfReaderPreferences({
+    documentId, hasExplicitPage, isFocused, pages, pageNumber, viewMode, fitMode, scale, rotation, navigatorTab,
+    showThumbnails, thumbnailWidth, commentPanelWidth, shortcuts, reducedMotion, setCommentPanelWidth, setThumbnailWidth,
+    setShowThumbnails, setNavigatorTab, setViewMode, setFitMode, setScale, setRotation, setShortcuts, setPageNumber,
+  });
 
   useEffect(() => {
     if (previousFocused.current === isFocused) return;
@@ -455,20 +237,9 @@ export function PdfReader({
     setCommentPanel(isFocused ? { mode: "closed" } : { mode: "list" });
   }, [isFocused]);
 
-  useEffect(() => {
-    scaleRef.current = scale;
-    zoomScaleRef.current = scale;
-    if (zoomCommitPendingRef.current) {
-      zoomContentRef.current?.style.removeProperty("zoom");
-      zoomCommitPendingRef.current = false;
-    }
-  }, [scale]);
-
-  useEffect(() => () => {
-    if (zoomFrameRef.current !== null) window.cancelAnimationFrame(zoomFrameRef.current);
-    if (zoomGestureTimeoutRef.current !== null) window.clearTimeout(zoomGestureTimeoutRef.current);
-    if (zoomCommitTimeoutRef.current !== null) window.clearTimeout(zoomCommitTimeoutRef.current);
-  }, []);
+  const { zoomContentRef, zoomLabelRef, handleViewportWheel } = usePdfWheelZoom({
+    scale, setScale, setFitMode, viewportRef, pageShellRef,
+  });
 
   useEffect(() => {
     if (!selectionAnchor) return;
@@ -501,319 +272,24 @@ export function PdfReader({
     };
   }, [selectionAnchor, viewMode, scale, rotation, pageNumber]);
 
-  useEffect(() => {
-    let cancelled = false; let task: ReturnType<typeof import("pdfjs-dist")["getDocument"]> | undefined;
-    void import("pdfjs-dist").then((pdfjs) => {
-      if (cancelled) return;
-      pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
-      pdfjsRef.current = pdfjs;
-      task = pdfjs.getDocument({ url: `/api/files/${attachmentId}`, disableAutoFetch: false, disableRange: false, disableStream: false });
-      return task.promise;
-    }).then((document) => { if (!cancelled && document) setPdf(document); })
-      .catch((reason) => { if (!cancelled) setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); });
-    return () => { cancelled = true; void task?.destroy(); };
-  }, [attachmentId, pdfLoadFailedMessage]);
+  const { pdf, error, textLayerVersion } = usePdfRendering({
+    attachmentId, pdfLoadFailedMessage, pages, currentPage, pageNumber, viewMode, scale, rotation, continuousRenderPages,
+    searchOccurrences, activeSearchIndex, selection, selectionDragging, setRendering, setSelection, setRegion, canvasRef,
+    textLayerRef, pageShellRef, secondaryCanvasRef, secondaryTextLayerRef, secondaryPageShellRef, continuousCanvasRefs,
+    continuousTextLayerRefs, continuousPageRefs, continuousActivePageRef,
+  });
 
-  useEffect(() => {
-    if (viewMode === "continuous" || !pdf || !pdfjsRef.current || !canvasRef.current || !textLayerRef.current || !pageShellRef.current) return;
-    let cancelled = false; let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
-    setRendering(true); setSelection(null); setRegion(null);
-    void Promise.resolve().then(() => pdf.getPage(pageNumber)).then(async (pdfPage) => {
-      if (cancelled) return;
-      const viewport = pdfPage.getViewport({ scale, rotation });
-      const canvas = canvasRef.current!; const context = canvas.getContext("2d", { alpha: false });
-      if (!context) throw new Error("Canvas is unavailable");
-      const outputScale = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(viewport.width * outputScale); canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = `${viewport.width}px`; canvas.style.height = `${viewport.height}px`;
-      const shell = pageShellRef.current!; shell.style.width = `${viewport.width}px`; shell.style.height = `${viewport.height}px`;
-      shell.style.setProperty("--total-scale-factor", String(viewport.scale));
-      renderTask = pdfPage.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
-      await renderTask.promise;
-      if (cancelled) return;
-      await renderReaderTextLayer(pdfPage, currentPage, textLayerRef.current!, viewport, pdfjsRef.current!);
-      setTextLayerVersion((value) => value + 1);
-      setRendering(false);
-      }).catch((reason) => { if (!cancelled && !isPdfRenderCancellation(reason)) { setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); setRendering(false); } });
-    return () => { cancelled = true; renderTask?.cancel(); };
-  }, [currentPage, pageNumber, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
+  const { outline, outlineLoaded } = usePdfOutline({ pdf, t });
 
-
-  useEffect(() => {
-    if (!pdf || !pdfjsRef.current || viewMode !== "double" || !secondaryCanvasRef.current || !secondaryTextLayerRef.current || !secondaryPageShellRef.current || pageNumber >= pages.length) return;
-    let cancelled = false; let renderTask: { cancel: () => void; promise: Promise<unknown> } | null = null;
-    void Promise.resolve().then(() => pdf.getPage(pageNumber + 1)).then((pdfPage) => {
-      if (cancelled || !secondaryCanvasRef.current || !secondaryTextLayerRef.current || !secondaryPageShellRef.current || !pdfjsRef.current) return;
-      const viewport = pdfPage.getViewport({ scale, rotation });
-      const canvas = secondaryCanvasRef.current; const context = canvas.getContext("2d", { alpha: false });
-      if (!context) return;
-      const outputScale = window.devicePixelRatio || 1;
-      canvas.width = Math.floor(viewport.width * outputScale); canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
-      secondaryPageShellRef.current.style.width = viewport.width + "px"; secondaryPageShellRef.current.style.height = viewport.height + "px";
-      secondaryPageShellRef.current.style.setProperty("--total-scale-factor", String(viewport.scale));
-      renderTask = pdfPage.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
-      void renderTask.promise.then(async () => {
-        if (cancelled || !secondaryTextLayerRef.current || !pdfjsRef.current) return;
-        await renderReaderTextLayer(pdfPage, pages.find((item) => item.pageNumber === pageNumber + 1), secondaryTextLayerRef.current, viewport, pdfjsRef.current);
-        setTextLayerVersion((value) => value + 1);
-      }).catch((reason) => { if (!cancelled && !isPdfRenderCancellation(reason)) setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); });
-    });
-    return () => { cancelled = true; renderTask?.cancel(); };
-  }, [pageNumber, pages, pdf, pdfLoadFailedMessage, rotation, scale, viewMode]);
-
-  useEffect(() => {
-    const generation = ++continuousRenderGenerationRef.current;
-    const renderTasks = continuousRenderTasksRef.current;
-    const loadingPages = continuousLoadingPagesRef.current;
-    const renderedPages = continuousRenderedPagesRef.current;
-    return () => {
-      if (continuousRenderGenerationRef.current !== generation) return;
-      continuousRenderGenerationRef.current += 1;
-      renderTasks.forEach((task) => task.cancel());
-      renderTasks.clear();
-      loadingPages.clear();
-      renderedPages.clear();
-    };
-  }, [pdf, rotation, scale, viewMode]);
-
-  useEffect(() => {
-    if (!pdf || viewMode !== "continuous") return;
-    const generation = continuousRenderGenerationRef.current;
-    const desiredPages = new Set(continuousRenderPages);
-    const activeSearchPage = searchOccurrences[activeSearchIndex]?.pageNumber;
-    if (activeSearchPage) desiredPages.add(activeSearchPage);
-    desiredPages.add(pageNumber);
-    for (const page of pages) {
-      const canvas = continuousCanvasRefs.current.get(page.pageNumber);
-      if (!canvas) continue;
-      const shell = continuousPageRefs.current.get(page.pageNumber);
-      const rotated = rotation % 180 !== 0;
-      const displayWidth = (rotated ? page.height : page.width) * scale;
-      const displayHeight = (rotated ? page.width : page.height) * scale;
-      canvas.style.width = displayWidth + "px";
-      canvas.style.height = displayHeight + "px";
-      if (shell) {
-        shell.style.width = displayWidth + "px";
-        shell.style.height = displayHeight + "px";
-        shell.style.setProperty("--total-scale-factor", String(scale));
-      }
-    }
-    for (const part of selection?.parts ?? []) desiredPages.add(part.pageNumber);
-    if (selectionDragging.current) for (const retained of continuousRenderedPagesRef.current) desiredPages.add(retained);
-    for (const [renderedPage, task] of continuousRenderTasksRef.current) {
-      if (!desiredPages.has(renderedPage)) {
-        task.cancel();
-        continuousRenderTasksRef.current.delete(renderedPage);
-      }
-    }
-    for (const renderedPage of continuousRenderedPagesRef.current) {
-      if (desiredPages.has(renderedPage)) continue;
-      const canvas = continuousCanvasRefs.current.get(renderedPage);
-      if (canvas) { canvas.width = 0; canvas.height = 0; }
-      continuousTextLayerRefs.current.get(renderedPage)?.replaceChildren();
-      continuousRenderedPagesRef.current.delete(renderedPage);
-    }
-    for (const page of pages) {
-      if (!desiredPages.has(page.pageNumber) || continuousRenderedPagesRef.current.has(page.pageNumber) || continuousLoadingPagesRef.current.has(page.pageNumber)) continue;
-      const canvas = continuousCanvasRefs.current.get(page.pageNumber);
-      if (!canvas) continue;
-      continuousLoadingPagesRef.current.add(page.pageNumber);
-      void Promise.resolve().then(() => pdf.getPage(page.pageNumber)).then((pdfPage) => {
-        if (continuousRenderGenerationRef.current !== generation || (!desiredPages.has(page.pageNumber) && page.pageNumber !== continuousActivePageRef.current)) return;
-        const viewport = pdfPage.getViewport({ scale, rotation });
-        const context = canvas.getContext("2d", { alpha: false });
-        if (!context) return;
-        const outputScale = window.devicePixelRatio || 1;
-        canvas.width = Math.floor(viewport.width * outputScale); canvas.height = Math.floor(viewport.height * outputScale);
-        canvas.style.width = viewport.width + "px"; canvas.style.height = viewport.height + "px";
-        const shell = continuousPageRefs.current.get(page.pageNumber);
-        if (shell) { shell.style.width = viewport.width + "px"; shell.style.height = viewport.height + "px"; shell.style.setProperty("--total-scale-factor", String(viewport.scale)); }
-        const renderTask = pdfPage.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
-        continuousRenderTasksRef.current.set(page.pageNumber, renderTask);
-        return renderTask.promise.then(async () => {
-          const layer = continuousTextLayerRefs.current.get(page.pageNumber);
-          if (continuousRenderGenerationRef.current !== generation || !layer || !pdfjsRef.current) return;
-          await renderReaderTextLayer(pdfPage, page, layer, viewport, pdfjsRef.current);
-          if (continuousRenderGenerationRef.current === generation) {
-            continuousRenderedPagesRef.current.add(page.pageNumber);
-            setTextLayerVersion((value) => value + 1);
-          }
-        }).finally(() => { if (continuousRenderTasksRef.current.get(page.pageNumber) === renderTask) continuousRenderTasksRef.current.delete(page.pageNumber); });
-      }).catch((reason) => { if (continuousRenderGenerationRef.current === generation && !isPdfRenderCancellation(reason)) setError(reason instanceof Error ? reason.message : pdfLoadFailedMessage); }).finally(() => { continuousLoadingPagesRef.current.delete(page.pageNumber); });
-    }
-  }, [activeSearchIndex, continuousRenderPages, pageNumber, pages, pdf, pdfLoadFailedMessage, rotation, scale, searchOccurrences, viewMode, selection]);
-
-  useEffect(() => {
-    if (!pdf || outlineLoaded) return;
-    const activePdf = pdf;
-    let cancelled = false;
-    void activePdf.getOutline().then(async (items) => {
-      const flattened: PdfOutlineItem[] = [];
-      async function visit(entries: Awaited<ReturnType<PDFDocumentProxy["getOutline"]>>, depth: number) {
-        for (const item of entries ?? []) {
-          let page: number | undefined;
-          let y = 0;
-          try {
-            const destination = typeof item.dest === "string" ? await activePdf.getDestination(item.dest) : item.dest;
-            if (destination?.[0] !== undefined) {
-              page = typeof destination[0] === "number" ? destination[0] + 1 : await activePdf.getPageIndex(destination[0]) + 1;
-              const target = await activePdf.getPage(page);
-              const view = target.getViewport({ scale: 1 });
-              const top = destination[1]?.name === "XYZ" ? destination[3] : ["FitH", "FitBH"].includes(destination[1]?.name) ? destination[2] : null;
-              if (typeof top === "number") y = Math.max(0, Math.min(1, view.convertToViewportPoint(0, top)[1] / view.height));
-            }
-          } catch { /* malformed outline destinations stay visible without a page */ }
-          flattened.push({ title: item.title || t("untitled"), pageNumber: page, depth, y });
-          await visit(item.items, depth + 1);
-        }
-      }
-      await visit(items, 0);
-      if (!cancelled) { setOutline(flattened); setOutlineLoaded(true); }
-    }).catch(() => { if (!cancelled) setOutlineLoaded(true); });
-    return () => { cancelled = true; };
-  }, [outlineLoaded, pdf, t]);
-
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      if (!query.trim()) { setActiveSearchIndex(-1); return; }
-      setActiveSearchIndex((value) => value >= 0 && value < searchOccurrences.length ? value : searchOccurrences.length ? 0 : -1);
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [query, searchOccurrences.length]);
-
-  useEffect(() => {
-    const layers = [textLayerRef.current, secondaryTextLayerRef.current, ...continuousTextLayerRefs.current.values()].filter((layer): layer is HTMLDivElement => Boolean(layer));
-    const clearOverlays = () => layers.forEach((layer) => layer.parentElement?.querySelector("[data-pdf-search-overlay]")?.replaceChildren());
-    clearOverlays();
-    if (!query.trim() || searchPending) return;
-    let activeMarker: HTMLDivElement | null = null;
-    for (const layer of layers) {
-      const layerPage = Number(layer.parentElement?.dataset.pageNumber) || pageNumber;
-      const shell = layer.parentElement;
-      const overlay = shell?.querySelector<HTMLDivElement>("[data-pdf-search-overlay]");
-      if (!shell || !overlay) continue;
-      const shellBounds = shell.getBoundingClientRect();
-      const pageOccurrences = searchOccurrences.filter((occurrence) => occurrence.pageNumber === layerPage);
-      for (const occurrence of pageOccurrences) {
-        const range = searchRangeInTextLayer(layer, query, caseSensitiveSearch, wholeWordSearch, occurrence.pageOccurrenceIndex);
-        if (!range) continue;
-        const active = searchOccurrences[activeSearchIndex]?.id === occurrence.id;
-        for (const rect of Array.from(range.getClientRects()).filter((item) => item.width > 0 && item.height > 0)) {
-          const marker = document.createElement("div");
-          marker.dataset.pdfSearchMatch = occurrence.id;
-          if (active) marker.dataset.pdfSearchActive = "true";
-          marker.className = active ? `${styles.searchMatch} ${styles.searchMatchActive}` : styles.searchMatch;
-          Object.assign(marker.style, {
-            left: `${rect.left - shellBounds.left}px`,
-            top: `${rect.top - shellBounds.top}px`,
-            width: `${rect.width}px`,
-            height: `${rect.height}px`,
-          });
-          overlay.appendChild(marker);
-          if (active && !activeMarker) activeMarker = marker;
-        }
-      }
-    }
-    if (activeMarker) {
-      const marker = activeMarker;
-      window.requestAnimationFrame(() => marker.scrollIntoView({
-        behavior: reducedMotion.current ? "auto" : "smooth",
-        block: "center",
-        inline: "center",
-      }));
-    }
-    return clearOverlays;
-  }, [activeSearchIndex, caseSensitiveSearch, pageNumber, query, searchOccurrences, searchPending, textLayerVersion, viewMode, wholeWordSearch]);
-
-  useEffect(() => {
-    if (!showThumbnails || navigatorTab !== "search") return;
-    let secondFrame: number | null = null;
-    const frame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        searchInputRef.current?.scrollIntoView({ block: "start", inline: "nearest", behavior: "auto" });
-      });
-    });
-    return () => {
-      window.cancelAnimationFrame(frame);
-      if (secondFrame !== null) window.cancelAnimationFrame(secondFrame);
-    };
-  }, [navigatorTab, showThumbnails]);
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    let frame = 0;
-    const update = () => {
-      frame = 0;
-      const bounds = viewport.getBoundingClientRect();
-      const readingLine = bounds.top + Math.min(120, bounds.height * 0.25);
-      const shells = Array.from(viewport.querySelectorAll<HTMLElement>("[data-page-number]"));
-      const shell = shells.find((item) => item.getBoundingClientRect().bottom > readingLine) ?? shells.at(-1);
-      if (!shell) return;
-      const pageBounds = shell.getBoundingClientRect();
-      const next = { page: Number(shell.dataset.pageNumber), y: Math.max(0, Math.min(1, (readingLine - pageBounds.top) / pageBounds.height)) };
-      setOutlinePosition((previous) => previous.page === next.page && Math.abs(previous.y - next.y) < 0.002 ? previous : next);
-    };
-    const schedule = () => { if (!frame) frame = requestAnimationFrame(update); };
-    viewport.addEventListener("scroll", schedule, { passive: true });
-    const observer = new ResizeObserver(schedule); observer.observe(viewport);
-    schedule();
-    return () => { viewport.removeEventListener("scroll", schedule); observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [viewMode, pageNumber, scale, rotation, textLayerVersion]);
-
-  useEffect(() => {
-    if (viewMode !== "continuous" || !viewportRef.current) return;
-    const viewport = viewportRef.current;
-    let frame: number | null = null;
-    const updateVisiblePage = () => {
-      frame = null;
-      const viewportBounds = viewport.getBoundingClientRect();
-      const viewportCenter = viewportBounds.top + viewportBounds.height / 2;
-      const measuredPages = [...continuousPageRefs.current.entries()]
-        .map(([number, element]) => ({ number, bounds: element.getBoundingClientRect() }));
-      const overscan = viewportBounds.height;
-      const nextRenderPages = measuredPages
-        .filter(({ bounds }) => bounds.bottom >= viewportBounds.top - overscan && bounds.top <= viewportBounds.bottom + overscan)
-        .map(({ number }) => number);
-      setContinuousRenderPages((current) => current.length === nextRenderPages.length && current.every((value, index) => value === nextRenderPages[index]) ? current : nextRenderPages);
-      const visible = measuredPages
-        .filter(({ bounds }) => bounds.bottom >= viewportBounds.top && bounds.top <= viewportBounds.bottom)
-        .sort((a, b) => {
-          const distance = (bounds: DOMRect) => Math.max(bounds.top - viewportCenter, 0, viewportCenter - bounds.bottom);
-          return distance(a.bounds) - distance(b.bounds);
-        })[0];
-      const nextPage = visible?.number;
-      if (restoreContinuousPage.current !== null) {
-        if (nextPage !== restoreContinuousPage.current) return;
-        restoreContinuousPage.current = null;
-      }
-      if (!nextPage || nextPage === pageNumber) return;
-      setPageNumber(nextPage);
-      router.replace("/wiki/sources/" + sourceId + "/read/" + documentId + "?page=" + nextPage, { scroll: false });
-    };
-    const scheduleVisiblePageUpdate = () => {
-      if (frame === null) frame = window.requestAnimationFrame(updateVisiblePage);
-    };
-    viewport.addEventListener("scroll", scheduleVisiblePageUpdate, { passive: true });
-    scheduleVisiblePageUpdate();
-    return () => {
-      viewport.removeEventListener("scroll", scheduleVisiblePageUpdate);
-      if (frame !== null) window.cancelAnimationFrame(frame);
-    };
-  }, [documentId, pageNumber, router, sourceId, viewMode]);
-
-  useEffect(() => {
-    if (viewMode !== "continuous") return;
-    const targetPage = restoreContinuousPage.current;
-    if (targetPage === null && !initialContinuousScroll.current) return;
-    const pageToScrollTo = targetPage ?? pageNumber;
-    const timer = window.setTimeout(() => {
-      continuousPageRefs.current.get(pageToScrollTo)?.scrollIntoView({ behavior: "auto", block: "start" });
-      restoreContinuousPage.current = null;
-      initialContinuousScroll.current = false;
-    }, 80);
-    return () => window.clearTimeout(timer);
-  }, [pageNumber, viewMode]);
+  usePdfSearchHighlights({
+    query, searchPending, searchOccurrences, activeSearchIndex, setActiveSearchIndex, caseSensitiveSearch, wholeWordSearch,
+    pageNumber, viewMode, textLayerVersion, showThumbnails, navigatorTab, reducedMotion, searchInputRef, textLayerRef,
+    secondaryTextLayerRef, continuousTextLayerRefs,
+  });
+  const { outlinePosition } = usePdfScrollTracking({
+    initialPage, sourceId, documentId, router, pageNumber, setPageNumber, viewMode, scale, rotation, textLayerVersion,
+    viewportRef, continuousPageRefs, restoreContinuousPage, setContinuousRenderPages,
+  });
 
   function changeViewMode(nextMode: "continuous" | "single" | "double") {
     if (nextMode === "continuous" && viewMode !== "continuous") restoreContinuousPage.current = pageNumber;
@@ -848,53 +324,10 @@ export function PdfReader({
     return `${label} · ${showShortcut(shortcuts[action])}`;
   }
 
-  function requestPdfTask() {
-    const selected = selection;
-    const selectedRegion = region;
-    const taskPage = selected?.pageNumber ?? pageNumber;
-    const rects = selected?.rects ?? (selectedRegion ? [selectedRegion] : []);
-    const quote = selected?.text.trim() ?? "";
-    openTaskCreator({
-      initialTitle: quote,
-      origin: {
-        type: "pdf",
-        entityId: documentId,
-        route: `/wiki/sources/${sourceId}/read/${documentId}?page=${taskPage}`,
-        label: `${sourceTitle} · ${t("pageNumber", { page: taskPage })}`,
-        anchor: { pageNumber: taskPage, quote, rects },
-      },
-      onCreated: () => {
-        setSelection(null);
-        setRegion(null);
-        setSelectionAnchor(null);
-        router.refresh();
-      },
-    });
-  }
-
-  function requestPdfDeadline() {
-    const selected = selection;
-    const selectedRegion = region;
-    const deadlinePage = selected?.pageNumber ?? pageNumber;
-    const rects = selected?.rects ?? (selectedRegion ? [selectedRegion] : []);
-    const quote = selected?.text.trim() ?? "";
-    openDeadlineCreator({
-      initialTitle: quote,
-      origin: {
-        type: "pdf",
-        entityId: documentId,
-        route: `/wiki/sources/${sourceId}/read/${documentId}?page=${deadlinePage}`,
-        label: `${sourceTitle} · ${t("pageNumber", { page: deadlinePage })}`,
-        anchor: { pageNumber: deadlinePage, quote, rects },
-      },
-      onCreated: () => {
-        setSelection(null);
-        setRegion(null);
-        setSelectionAnchor(null);
-        router.refresh();
-      },
-    });
-  }
+  const { requestPdfTask, requestPdfDeadline } = createPdfContextRequests({
+    selection, region, pageNumber, documentId, sourceId, sourceTitle, t, openTaskCreator, openDeadlineCreator,
+    setSelection, setRegion, setSelectionAnchor, router,
+  });
 
   function runPdfShortcut(action: PdfShortcutAction) {
     switch (action) {
@@ -958,21 +391,6 @@ export function PdfReader({
     event.stopPropagation();
     runPdfShortcut(action);
     return true;
-  }
-
-  function captureShortcut(action: PdfShortcutAction, event: React.KeyboardEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    const shortcut = event.key === "Tab" && (action === "previousMatch" || action === "nextMatch")
-      ? `${event.shiftKey ? "Shift+" : ""}Tab`
-      : normalizePdfShortcut(event);
-    if (!shortcut) { setShortcutError(t("shortcutRequiresCtrl")); return; }
-    if (isReservedPdfShortcut(shortcut)) { setShortcutError(t("shortcutReserved")); return; }
-    const conflict = shortcutConflicts(shortcuts, action, shortcut);
-    if (conflict) { setShortcutError(t("shortcutConflict", { action: shortcutActionLabel(conflict) })); return; }
-    setShortcuts((current) => ({ ...current, [action]: shortcut }));
-    setRecordingShortcut(null);
-    setShortcutError("");
   }
 
   const handleWindowKeyDown = useEffectEvent((event: KeyboardEvent) => {
@@ -1119,50 +537,6 @@ export function PdfReader({
     return crop.toDataURL("image/png");
   }
 
-  async function submitReply(annotationId: string) {
-    const body = replyByAnnotation[annotationId]?.trim(); if (!body) return;
-    if (commentBusy.current) return;
-    commentBusy.current = true; setCommentPending(true);
-    try {
-      const comment = await createPdfAnnotationComment({ annotationId, body });
-      setAnnotations((items) => items.map((annotation) => annotation.id === annotationId ? { ...annotation, comments: [...annotation.comments, comment] } : annotation));
-      setReplyByAnnotation((items) => ({ ...items, [annotationId]: "" }));
-    } catch { toast.error(t("commentFailed")); }
-    finally { commentBusy.current = false; setCommentPending(false); }
-  }
-
-  async function saveEditedReply(annotationId: string, commentId: string) {
-    const body = commentDraftById[commentId]?.trim(); if (!body) return;
-    if (commentBusy.current) return;
-    commentBusy.current = true; setCommentPending(true);
-    try {
-      const updated = await updatePdfAnnotationComment({ id: commentId, body });
-      setAnnotations((items) => items.map((annotation) => annotation.id === annotationId ? {
-        ...annotation,
-        comments: annotation.comments.map((comment) => comment.id === commentId ? { ...comment, body: updated.body } : comment),
-      } : annotation));
-      setEditingCommentId(null);
-      setCommentDraftById((items) => { const next = { ...items }; delete next[commentId]; return next; });
-    } catch { toast.error(t("commentFailed")); }
-    finally { commentBusy.current = false; setCommentPending(false); }
-  }
-
-  async function removeReply(annotationId: string, commentId: string) {
-    if (commentBusy.current || !window.confirm(t("deleteReplyConfirm"))) return;
-    commentBusy.current = true; setCommentPending(true);
-    try {
-      await deletePdfAnnotationComment(commentId);
-      setAnnotations((items) => items.map((annotation) => annotation.id === annotationId
-        ? { ...annotation, comments: annotation.comments.filter((comment) => comment.id !== commentId) } : annotation));
-    } catch { toast.error(t("commentFailed")); }
-    finally { commentBusy.current = false; setCommentPending(false); }
-  }
-
-  function beginEditingReply(comment: ReaderAnnotation["comments"][number]) {
-    setCommentDraftById((items) => ({ ...items, [comment.id]: comment.body }));
-    setEditingCommentId(comment.id);
-  }
-
   function openAnnotation(annotation: ReaderAnnotation, navigateToPage = false, target?: HTMLElement) {
     setActiveAnnotationId(annotation.id);
     setCommentPanel({ mode: "thread", annotationId: annotation.id });
@@ -1185,10 +559,6 @@ export function PdfReader({
     setCommentPanel({ mode: "closed" });
     setActiveAnnotationId("");
     router.replace(readerUrl(pageNumber), { scroll: false });
-  }
-
-  function annotationRects(annotation: ReaderAnnotation) {
-    try { return JSON.parse(annotation.geometryJson) as PdfRect[]; } catch { return []; }
   }
 
   function displayAnnotationRects(annotation: ReaderAnnotation) {
@@ -1217,11 +587,6 @@ export function PdfReader({
       Math.min(existingRect.x + existingRect.width, rect.x + rect.width) > Math.max(existingRect.x, rect.x) &&
       Math.min(existingRect.y + existingRect.height, rect.y + rect.height) > Math.max(existingRect.y, rect.y),
     )));
-  }
-
-  function regionPoint(event: React.PointerEvent<HTMLDivElement>) {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    return { x: Math.min(1, Math.max(0, (event.clientX - bounds.left) / bounds.width)), y: Math.min(1, Math.max(0, (event.clientY - bounds.top) / bounds.height)) };
   }
 
   async function applyFitMode(mode: FitMode) {
@@ -1263,110 +628,7 @@ export function PdfReader({
     }), 0);
   }
 
-  const handleViewportWheel = useCallback((event: WheelEvent) => {
-    const activeAnchor = zoomAnchorRef.current;
-    if (!event.ctrlKey) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (zoomGestureTimeoutRef.current !== null) window.clearTimeout(zoomGestureTimeoutRef.current);
-    zoomGestureTimeoutRef.current = window.setTimeout(() => {
-      zoomAnchorRef.current = null;
-      zoomGestureTimeoutRef.current = null;
-    }, 500);
-    const viewport = viewportRef.current;
-    const content = zoomContentRef.current;
-    if (!viewport || !content) return;
-    const bounds = viewport.getBoundingClientRect();
-    const eventElement = event.target instanceof Element ? event.target : null;
-    const shell = (eventElement?.closest("[data-page-number]") as HTMLDivElement | null) ?? pageShellRef.current;
-    const shellBounds = shell?.getBoundingClientRect();
-    const anchor = activeAnchor ?? {
-      cursorX: event.clientX - bounds.left,
-      cursorY: event.clientY - bounds.top,
-      shell,
-      x: shellBounds ? (event.clientX - shellBounds.left) / shellBounds.width : 0.5,
-      y: shellBounds ? (event.clientY - shellBounds.top) / shellBounds.height : 0.5,
-    };
-    zoomAnchorRef.current = anchor;
-    const deltaY = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? event.deltaY * 16 : event.deltaMode === WheelEvent.DOM_DELTA_PAGE ? event.deltaY * bounds.height : event.deltaY;
-    const pending = pendingZoomRef.current;
-    pendingZoomRef.current = {
-      deltaY: (pending?.deltaY ?? 0) + deltaY,
-      cursorX: anchor.cursorX,
-      cursorY: anchor.cursorY,
-      viewport,
-    };
-    if (zoomFrameRef.current !== null) return;
-    zoomFrameRef.current = window.requestAnimationFrame(() => {
-      zoomFrameRef.current = null;
-      const nextPending = pendingZoomRef.current;
-      pendingZoomRef.current = null;
-      if (!nextPending) return;
-      const previousVisualScale = zoomScaleRef.current;
-      const nextScale = Math.min(3, Math.max(0.5, previousVisualScale * Math.exp(-nextPending.deltaY * 0.0035)));
-      if (Math.abs(nextScale - previousVisualScale) < 0.001) return;
-      const contentX = nextPending.viewport.scrollLeft + nextPending.cursorX;
-      const contentY = nextPending.viewport.scrollTop + nextPending.cursorY;
-      zoomScaleRef.current = nextScale;
-      content.style.setProperty("zoom", String(nextScale / scaleRef.current));
-      if (zoomLabelRef.current) zoomLabelRef.current.textContent = Math.round(nextScale * 100) + "%";
-      if (anchor.shell?.isConnected) {
-        const viewportBounds = nextPending.viewport.getBoundingClientRect();
-        const anchorBounds = anchor.shell.getBoundingClientRect();
-        nextPending.viewport.scrollLeft += anchorBounds.left + anchor.x * anchorBounds.width - (viewportBounds.left + anchor.cursorX);
-        nextPending.viewport.scrollTop += anchorBounds.top + anchor.y * anchorBounds.height - (viewportBounds.top + anchor.cursorY);
-      } else {
-        const ratio = nextScale / previousVisualScale;
-        nextPending.viewport.scrollLeft = contentX * ratio - nextPending.cursorX;
-        nextPending.viewport.scrollTop = contentY * ratio - nextPending.cursorY;
-      }
-      if (zoomCommitTimeoutRef.current !== null) window.clearTimeout(zoomCommitTimeoutRef.current);
-      zoomCommitTimeoutRef.current = window.setTimeout(() => {
-        zoomCommitTimeoutRef.current = null;
-        const finalScale = zoomScaleRef.current;
-        if (Math.abs(finalScale - scaleRef.current) < 0.001) {
-          content.style.removeProperty("zoom");
-          return;
-        }
-        zoomCommitPendingRef.current = true;
-        setFitMode("custom");
-        setScale(finalScale);
-      }, 120);
-    });
-  }, []);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport) return;
-    viewport.addEventListener("wheel", handleViewportWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", handleViewportWheel);
-  }, [handleViewportWheel]);
-
-  useEffect(() => {
-    const viewport = viewportRef.current;
-    if (!viewport || fitMode === "custom") return;
-    let frame: number | null = null;
-    const recalculate = () => {
-      if (frame !== null) window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        if (!pdf || !viewportRef.current) return;
-        void Promise.resolve().then(() => pdf.getPage(pageNumber)).then((pdfPage) => {
-          if (!viewportRef.current) return;
-          const base = pdfPage.getViewport({ scale: 1, rotation });
-          const nextScale = calculateFitScale({
-            mode: fitMode, pageWidth: base.width, pageHeight: base.height,
-            viewportWidth: viewportRef.current.clientWidth, viewportHeight: viewportRef.current.clientHeight,
-            padding: fitPadding,
-          });
-          if (nextScale !== null) setScale(nextScale);
-        }).catch(() => {});
-      });
-    };
-    const observer = new ResizeObserver(recalculate);
-    observer.observe(viewport);
-    recalculate();
-    return () => { observer.disconnect(); if (frame !== null) window.cancelAnimationFrame(frame); };
-  }, [fitMode, fitPadding, pageNumber, pdf, rotation]);
+  usePdfFitScale({ viewportRef, handleViewportWheel, fitMode, fitPadding, pageNumber, pdf, rotation, setScale });
 
   function selectionActionsStyle(anchor: { left: number; top: number; side: "left" | "right" }) {
     const width = 152; const height = 42; const gap = 8;
@@ -1378,36 +640,6 @@ export function PdfReader({
     const placeAbove = anchor.top - gap - height >= 16;
     const top = placeAbove ? anchor.top - gap : anchor.top + gap;
     return { left, top, transform: placeAbove ? "translateY(-100%)" : "translateY(0)" };
-  }
-
-  function annotationPopupStyle(anchor: { left: number; top: number }) {
-    const width = 384; const height = 260; const gap = 24;
-    const placeRight = anchor.left + gap + width <= window.innerWidth - 16;
-    const left = placeRight ? anchor.left + gap : Math.max(16, anchor.left - width - gap);
-    const placeAbove = anchor.top - gap - height >= 16;
-    const top = placeAbove ? anchor.top - gap : Math.min(window.innerHeight - 16, anchor.top + gap);
-    return { left, top, transform: placeAbove ? "translateY(-100%)" : "translateY(0)" };
-  }
-
-  async function submitPendingAnnotation() {
-    if (!pendingAnnotation || annotationSaving) return;
-    const annotation = pendingAnnotation;
-    setAnnotationSaving(true);
-    try {
-      await saveAnnotation(
-        annotation.kind,
-        annotation.geometry,
-        annotation.selectedText,
-        annotation.previewDataUrl,
-        annotation.pageNumber,
-        annotationNote,
-      );
-      setPendingAnnotation(null);
-    } catch {
-      toast.error(t("annotationSaveFailed"));
-    } finally {
-      setAnnotationSaving(false);
-    }
   }
 
   // ponytail: one stored width for all three tabs; the text tabs just get a wider floor.
@@ -1434,180 +666,27 @@ export function PdfReader({
     window.requestAnimationFrame(() => searchInputRef.current?.focus());
   }
 
-  function taskColor(task: ContextTaskMarker) {
-    if (task.status === "done") return "#059669";
-    if (task.priority === "high") return "#dc2626";
-    if (task.priority === "low") return "#64748b";
-    return "#4f46e5";
-  }
-
-  function taskHighlightsForPage(targetPage: number) {
-    return contextTasks.flatMap((task) => {
-      if (task.id !== hoveredTaskId) return [];
-      const anchor = taskAnchor(task);
-      if (anchor.pageNumber !== targetPage || !anchor.rects?.length) return [];
-      const color = taskColor(task);
-      return anchor.rects.map((rect, index) => <div
-        key={`${task.id}-task-highlight-${index}`}
-        data-task-highlight={task.id}
-        className="absolute rounded-sm transition-opacity duration-150"
-        style={{
-          left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`,
-          backgroundColor: `color-mix(in srgb, ${color} 28%, transparent)`,
-          outline: `2px solid color-mix(in srgb, ${color} 70%, transparent)`,
-        }}
-      />);
-    });
-  }
-
-  function deadlineMarkersForPage(targetPage: number) {
-    const highlights = contextDeadlines.flatMap((deadline) => {
-      if (deadline.id !== hoveredDeadlineId) return [];
-      const anchor = deadlineAnchor(deadline);
-      if (anchor.pageNumber !== targetPage || !anchor.rects?.length) return [];
-      return anchor.rects.map((rect, index) => <div
-        key={`${deadline.id}-deadline-highlight-${index}`}
-        data-deadline-highlight={deadline.id}
-        className="absolute rounded-sm transition-opacity duration-150"
-        style={{
-          left: `${rect.x * 100}%`, top: `${rect.y * 100}%`, width: `${rect.width * 100}%`, height: `${rect.height * 100}%`,
-          backgroundColor: "color-mix(in srgb, #d97706 28%, transparent)",
-          outline: "2px solid color-mix(in srgb, #d97706 70%, transparent)",
-        }}
-      />);
-    });
-    const markers = contextDeadlines.flatMap((deadline) => {
-      const anchor = deadlineAnchor(deadline);
-      if ((anchor.pageNumber ?? 1) !== targetPage) return [];
-      const rects = anchor.rects ?? [];
-      const top = rects.length ? Math.min(...rects.map((rect) => rect.y)) : 0.035;
-      const overdue = isDeadlineOverdue(deadline, renderedAt);
-      const color = deadline.status === "done" ? "#059669" : overdue ? "#dc2626" : "#d97706";
-      const active = initialDeadlineId === deadline.id;
-      const localDate = localDateValue(deadline.deadlineDate);
-      const deadlineLabel = deadline.deadlineAt
-        ? format.dateTime(new Date(deadline.deadlineAt), { dateStyle: "medium", timeStyle: "short" })
-        : `${localDate ? format.dateTime(localDate, { dateStyle: "medium" }) : deadline.deadlineDate} · ${tDeadlines("allDay")}`;
-      return [<button
-        type="button"
-        key={`${deadline.id}-deadline-marker`}
-        data-deadline-marker={deadline.id}
-        title={`${deadline.title} · ${deadlineLabel} · ${deadline.assigneeName || tDeadlines("unassigned")}`}
-        aria-label={`${tDeadlines("markerLabel")}: ${deadline.title}`}
-        className="pointer-events-auto absolute grid size-7 place-items-center rounded-full border-2 bg-background shadow-sm transition-transform hover:scale-105"
-        style={{
-          left: "calc(100% + 72px)",
-          top: `${top * 100}%`,
-          transform: "translateY(-50%)",
-          borderColor: color,
-          color,
-          boxShadow: active ? `0 0 0 4px color-mix(in srgb, ${color} 25%, transparent)` : undefined,
-        }}
-        onMouseEnter={() => setHoveredDeadlineId(deadline.id)}
-        onMouseLeave={() => setHoveredDeadlineId((current) => current === deadline.id ? null : current)}
-        onFocus={() => setHoveredDeadlineId(deadline.id)}
-        onBlur={() => setHoveredDeadlineId((current) => current === deadline.id ? null : current)}
-        onClick={() => openDeadlineCreator({
-          deadline: {
-            id: deadline.id,
-            title: deadline.title,
-            description: deadline.description,
-            assigneeId: deadline.assigneeId,
-            deadlineDate: deadline.deadlineDate,
-            deadlineAt: deadline.deadlineAt,
-            status: deadline.status,
-          },
-          origin: {
-            type: "pdf",
-            entityId: documentId,
-            route: deadline.route,
-            label: deadline.label,
-            anchor,
-          },
-        })}
-      ><CalendarClock className="size-3.5" />{deadline.assigneeId && <span className="absolute -right-1 -bottom-2"><UserIdentity userId={deadline.assigneeId} name={deadline.assigneeName} compact avatarOnly /></span>}</button>];
-    });
-    return [...highlights, ...markers];
-  }
+  const contextMarkerContext: PdfContextMarkerContext = {
+    contextTasks, contextDeadlines, hoveredTaskId, setHoveredTaskId, hoveredDeadlineId, setHoveredDeadlineId, initialTaskId,
+    initialDeadlineId, renderedAt, documentId, format, tTasks, tDeadlines, openDeadlineCreator, router,
+  };
 
   function taskMarkersForPage(targetPage: number) {
-    return [
-      ...taskHighlightsForPage(targetPage),
-      ...deadlineMarkersForPage(targetPage),
-      ...contextTasks.flatMap((task) => {
-      const anchor = taskAnchor(task);
-      if ((anchor.pageNumber ?? 1) !== targetPage) return [];
-      const rects = anchor.rects ?? [];
-      const top = rects.length
-        ? Math.min(...rects.map((rect) => rect.y))
-        : 0.035;
-      const active = initialTaskId === task.id;
-      const color = taskColor(task);
-      return [<button
-        type="button"
-        key={`${task.id}-task-marker`}
-        data-task-marker={task.id}
-        title={`${task.title} · ${task.assigneeName || tTasks("unassigned")}`}
-        aria-label={`${tTasks("markerLabel")}: ${task.title}`}
-        className="pointer-events-auto absolute grid size-7 place-items-center rounded-full border-2 bg-background shadow-sm transition-transform hover:scale-105"
-        style={{
-          left: "calc(100% + 40px)",
-          top: `${top * 100}%`,
-          transform: "translateY(-50%)",
-          borderColor: color,
-          color,
-          boxShadow: active ? `0 0 0 4px color-mix(in srgb, ${color} 25%, transparent)` : undefined,
-        }}
-        onMouseEnter={() => setHoveredTaskId(task.id)}
-        onMouseLeave={() => setHoveredTaskId((current) => current === task.id ? null : current)}
-        onFocus={() => setHoveredTaskId(task.id)}
-        onBlur={() => setHoveredTaskId((current) => current === task.id ? null : current)}
-        onClick={() => router.push(canonicalTaskHref(task.id, task.projectId))}
-      ><ClipboardPlus className="size-3.5" /><span className="absolute -bottom-2 left-0 flex">{task.assignees.map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}</span></button>];
-      }),
-    ];
+    return pdfContextMarkersForPage(targetPage, contextMarkerContext);
   }
 
-  const activeOutlineIndex = activePdfOutlineIndex(outline, outlinePosition.page, outlinePosition.y);
-  const visibleOutline = visiblePdfOutlineIndices(outline, collapsedOutline);
-  const visibleActiveOutline = visibleOutline.includes(activeOutlineIndex) ? activeOutlineIndex : visibleOutline.filter((index) => index < activeOutlineIndex && outline[index].depth < outline[activeOutlineIndex]?.depth).at(-1);
-
-  const thumbnailTools = <div className="flex h-full min-h-0 flex-col">
-    <Button type="button" variant="ghost" size="icon-sm" className="self-end" aria-label={t("hideNavigator")} title={t("hideNavigator")} onClick={() => setShowThumbnails(false)}><PanelLeftClose className="size-4" /></Button>
-    <div className="grid grid-cols-3 gap-1 border-b p-2" role="tablist" aria-label={t("documentNavigator")}>
-      {([
-        ["pages", Menu, t("pages"), "navigatorPages"],
-        ["search", Search, t("search"), "navigatorSearch"],
-        ["outline", ListTree, t("outline"), "outline"],
-      ] as const).map(([tab, Icon, label, action]) => <button key={tab} type="button" role="tab" aria-selected={navigatorTab === tab} title={shortcutTitle(action, label)} className={`grid h-8 place-items-center rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${navigatorTab === tab ? "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300" : "text-muted-foreground hover:bg-muted"}`} onClick={() => setNavigatorTab(tab)}><Icon className="size-4" /><span className="sr-only">{label}</span></button>)}
-    </div>
-    <div className="min-h-0 flex-1 overflow-y-auto p-2">
-      {navigatorTab === "pages" && <div className="space-y-2">{pages.map((page) => <button type="button" aria-label={t("pageNumber", { page: page.pageNumber })} aria-current={page.pageNumber === pageNumber ? "page" : undefined} key={page.pageNumber} className={`w-full rounded border p-1 ${page.pageNumber === pageNumber ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" : "bg-muted/20"}`} onClick={() => updateUrl(page.pageNumber)}><img src={"/api/wiki/pdf-documents/" + documentId + "/pages/" + page.pageNumber + "/thumbnail"} alt="" className="mx-auto h-auto max-h-36 w-full object-contain" loading="lazy" /><span className="mt-1 block text-[10px]">{page.pageNumber}</span></button>)}</div>}
-      {navigatorTab === "search" && <div>
-        <div className="relative"><Search className="absolute left-2 top-2.5 size-3.5 text-muted-foreground" /><Input ref={searchInputRef} value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={(event) => { const shortcut = event.key === "Tab" ? `${event.shiftKey ? "Shift+" : ""}Tab` : normalizePdfShortcut(event); const action = shortcut && (["previousMatch", "nextMatch"] as const).find((candidate) => shortcuts[candidate] === shortcut); if (action && searchOccurrences.length) { event.preventDefault(); navigateSearch(action === "previousMatch" ? -1 : 1); return; } if (event.key === "Enter" && searchOccurrences.length) { event.preventDefault(); navigateSearch(event.shiftKey ? -1 : 1); } }} className="h-8 pl-7 pr-7 text-xs" placeholder={t("searchInPdf")} />{query && <button type="button" aria-label={t("clearSearch")} className="absolute right-2 top-2 text-muted-foreground hover:text-foreground" onClick={() => setQuery("")}><X className="size-4" /></button>}</div>
-        <div className="my-2 flex items-center justify-between gap-1">
-          <span aria-live="polite" className="text-[10px] text-muted-foreground">{searchPending ? t("searchingPdf") : query && searchOccurrences.length ? t("searchPosition", { current: Math.max(1, activeSearchIndex + 1), total: searchOccurrences.length }) : query ? t("searchMatches", { count: 0 }) : t("searchHint")}</span>
-          <span className="flex">
-            <Button type="button" variant={caseSensitiveSearch ? "secondary" : "ghost"} size="icon-xs" aria-label={t("caseSensitive")} title={shortcutTitle("caseSensitive", t("caseSensitive"))} aria-pressed={caseSensitiveSearch} onClick={() => { setCaseSensitiveSearch((value) => !value); setActiveSearchIndex(-1); }}><CaseSensitive /></Button>
-            <Button type="button" variant={wholeWordSearch ? "secondary" : "ghost"} size="icon-xs" aria-label={t("wholeWord")} title={shortcutTitle("wholeWord", t("wholeWord"))} aria-pressed={wholeWordSearch} onClick={() => { setWholeWordSearch((value) => !value); setActiveSearchIndex(-1); }}><WholeWord /></Button>
-            <Button type="button" variant="ghost" size="icon-xs" disabled={!searchOccurrences.length} aria-label={t("previousMatch")} title={shortcutTitle("previousMatch", t("previousMatch"))} onClick={() => navigateSearch(-1)}><ChevronLeft /></Button>
-            <Button type="button" variant="ghost" size="icon-xs" disabled={!searchOccurrences.length} aria-label={t("nextMatch")} title={shortcutTitle("nextMatch", t("nextMatch"))} onClick={() => navigateSearch(1)}><ChevronRight /></Button>
-          </span>
-        </div>
-        {!hasSearchableText && <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{t("pdfHasNoSearchableText")}</p>}
-        {hasSearchableText && query && !searchPending && !searchOccurrences.length && <p className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">{t("noPdfSearchResults")}</p>}
-        <div className="space-y-1">{visibleSearchOccurrences.map(({ occurrence, originalIndex }) => <button ref={(element) => { if (element) searchResultRefs.current.set(originalIndex, element); else searchResultRefs.current.delete(originalIndex); }} key={occurrence.id} type="button" className={`block w-full rounded border p-2 text-left text-xs ${originalIndex === activeSearchIndex ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30" : "hover:bg-accent"}`} onClick={() => selectSearchOccurrence(originalIndex)}><strong>{t("pageNumber", { page: occurrence.pageNumber })}</strong><span className="mt-1 line-clamp-3 block break-words text-muted-foreground">{occurrence.contextBefore}<mark className="rounded-sm bg-yellow-200 px-0.5 text-foreground dark:bg-yellow-700/60">{occurrence.matchedText}</mark>{occurrence.contextAfter}</span></button>)}</div>
-      </div>}
-      {navigatorTab === "outline" && <div className="space-y-0.5">{!outlineLoaded && <p className="p-3 text-xs text-muted-foreground">{t("loading")}</p>}{outlineLoaded && !outline.length && <p className="p-3 text-xs text-muted-foreground">{t("noOutline")}</p>}{visibleOutline.map((index) => {
-        const item = outline[index];
-        const children = outline[index + 1]?.depth > item.depth;
-        return <div key={index} className="flex items-start" style={{ paddingLeft: `${Math.min(item.depth, 5) * 12}px` }}>
-          {children ? <button type="button" className="mt-1 grid size-6 shrink-0 place-items-center rounded hover:bg-accent" aria-expanded={!collapsedOutline.has(index)} aria-label={t(collapsedOutline.has(index) ? "expandOutlineSection" : "collapseOutlineSection", { title: item.title })} onClick={() => setCollapsedOutline((previous) => { const next = new Set(previous); if (next.has(index)) next.delete(index); else next.add(index); return next; })}>{collapsedOutline.has(index) ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}</button> : <span className="w-6 shrink-0" />}
-          <button type="button" data-testid="pdf-outline-item" disabled={!item.pageNumber} aria-current={visibleActiveOutline === index ? "location" : undefined} className={`min-w-0 flex-1 rounded px-1 py-1.5 text-left text-xs hover:bg-accent disabled:opacity-60 ${visibleActiveOutline === index ? "bg-accent font-bold" : "font-normal"}`} onClick={() => item.pageNumber && updateUrl(item.pageNumber)}><span className="line-clamp-2 block break-words">{item.title}</span>{item.pageNumber && <span className="text-[10px] text-muted-foreground">{t("pageNumber", { page: item.pageNumber })}</span>}</button>
-        </div>;
-      })}</div>}
-    </div>
-  </div>;
+  const thumbnailTools = <PdfNavigatorPanel
+    t={t} navigatorTab={navigatorTab} setNavigatorTab={setNavigatorTab} setShowThumbnails={setShowThumbnails}
+    shortcutTitle={shortcutTitle} shortcuts={shortcuts} pages={pages} pageNumber={pageNumber} documentId={documentId}
+    updateUrl={updateUrl} searchInputRef={searchInputRef} query={query} setQuery={setQuery} searchPending={searchPending}
+    searchOccurrences={searchOccurrences} visibleSearchOccurrences={visibleSearchOccurrences}
+    hasSearchableText={hasSearchableText} activeSearchIndex={activeSearchIndex} setActiveSearchIndex={setActiveSearchIndex}
+    caseSensitiveSearch={caseSensitiveSearch} setCaseSensitiveSearch={setCaseSensitiveSearch}
+    wholeWordSearch={wholeWordSearch} setWholeWordSearch={setWholeWordSearch} navigateSearch={navigateSearch}
+    selectSearchOccurrence={selectSearchOccurrence} searchResultRefs={searchResultRefs} outline={outline}
+    outlineLoaded={outlineLoaded} outlinePosition={outlinePosition} collapsedOutline={collapsedOutline}
+    setCollapsedOutline={setCollapsedOutline}
+  />;
 
   const commentThreads = annotations;
   const normalizedCommentSearch = commentSearch.trim().toLocaleLowerCase();
@@ -1629,60 +708,19 @@ export function PdfReader({
     if (next) openAnnotation(next, true);
   }
 
-  /**
-   * Hands an annotation to a wiki page: the editor reads insertEvidence from the URL,
-   * inserts the evidence block with its citation, and strips the parameter.
-   */
-  function sendAnnotationToPage(annotation: ReaderAnnotation, slug: string) {
-    setSendToPageFor(null);
-    setPageFilter("");
-    router.push(`/wiki/pages/${encodeURIComponent(slug)}?insertEvidence=${encodeURIComponent(annotation.id)}`);
-  }
-
-  async function copyAnnotationCitation(annotation: ReaderAnnotation) {
-    await navigator.clipboard.writeText(formatPdfCitation(sourceTitle, annotation.pageNumber, annotation.selectedText || annotation.note));
-    toast.success(t("citationCopied"));
-  }
-
-  function beginEditingAnnotation(annotation: ReaderAnnotation) {
-    setAnnotationEditDraft({ label: annotation.label, note: annotation.note });
-    setEditingAnnotation(true);
-  }
-
-  async function saveAnnotationEdits(annotation: ReaderAnnotation) {
-    await updatePdfAnnotation({ id: annotation.id, ...annotationEditDraft });
-    setAnnotations((items) => items.map((item) => item.id === annotation.id ? { ...item, ...annotationEditDraft, updatedAt: new Date().toISOString() } : item));
-    setEditingAnnotation(false);
-    toast.success(t("annotationUpdated"));
-  }
-
-  async function removeAnnotation(annotation: ReaderAnnotation) {
-    await deletePdfAnnotation(annotation.id);
-    setAnnotations((items) => items.filter((item) => item.id !== annotation.id));
-    showCommentList();
-    toast(t("annotationDeleted"), {
-      action: {
-        label: t("undo"),
-        onClick: () => { void restorePdfAnnotation(annotation.id); setAnnotations((items) => [...items, annotation].sort((left, right) => left.pageNumber - right.pageNumber)); },
-      },
-    });
-  }
+  const commentPanelProps: PdfCommentPanelProps = {
+    t, tMarkColor, format, user, sourceTitle, wikiPages, commentPanel, selectedAnnotation, activeAnnotationId, commentThreads,
+    filteredCommentThreads, annotationAuthors, commentSearch, setCommentSearch, annotationKindFilter, setAnnotationKindFilter,
+    annotationColorFilter, setAnnotationColorFilter, annotationAuthorFilter, setAnnotationAuthorFilter, currentPageCommentsOnly,
+    setCurrentPageCommentsOnly, editingAnnotation, setEditingAnnotation, annotationEditDraft, setAnnotationEditDraft,
+    editingCommentId, setEditingCommentId, commentPending, commentDraftById, setCommentDraftById, replyByAnnotation,
+    setReplyByAnnotation, sendToPageFor, setSendToPageFor, pageFilter, setPageFilter, showCommentList, closeCommentPanel,
+    moveAnnotation, openAnnotation, readerUrl, saveAnnotationEdits, beginEditingAnnotation, removeAnnotation,
+    copyAnnotationCitation, sendAnnotationToPage, submitReply, saveEditedReply, removeReply, beginEditingReply,
+  };
 
   function renderCommentPanel() {
-    if (commentPanel.mode === "thread" && selectedAnnotation) return <div data-testid="pdf-annotation-thread" className="flex h-full min-h-0 flex-col">
-      <header className="flex items-center gap-1 border-b p-2"><Button type="button" variant="ghost" size="icon-sm" aria-label={t("backToComments")} onClick={showCommentList}><ArrowLeft className="size-4" /></Button><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{selectedAnnotation.label || t(`annotationKinds.${selectedAnnotation.kind}`)}</p><p className="text-[11px] text-muted-foreground">{t("pageNumber", { page: selectedAnnotation.pageNumber })}</p></div><Button type="button" variant="ghost" size="icon-xs" aria-label={t("previousAnnotation")} onClick={() => moveAnnotation(-1)}><ChevronLeft /></Button><Button type="button" variant="ghost" size="icon-xs" aria-label={t("nextAnnotation")} onClick={() => moveAnnotation(1)}><ChevronRight /></Button><Button type="button" variant="ghost" size="icon-sm" aria-label={t("cancel")} onClick={closeCommentPanel}><X className="size-4" /></Button></header>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        <button type="button" className="mb-3 w-full rounded-lg border bg-muted/30 p-2 text-left text-xs hover:bg-muted/60" onClick={() => openAnnotation(selectedAnnotation, true)}><span className="font-medium">{t("pageNumber", { page: selectedAnnotation.pageNumber })}</span><span className="mt-1 line-clamp-3 block text-muted-foreground">{selectedAnnotation.selectedText || selectedAnnotation.label || t(`annotationKinds.${selectedAnnotation.kind}`)}</span></button>
-        {editingAnnotation ? <div className="space-y-2 rounded-lg border p-2.5"><Input value={annotationEditDraft.label} onChange={(event) => setAnnotationEditDraft((value) => ({ ...value, label: event.target.value }))} placeholder={t("annotationLabel")} /><Textarea value={annotationEditDraft.note} onChange={(event) => setAnnotationEditDraft((value) => ({ ...value, note: event.target.value }))} placeholder={t("note")} /><div className="flex justify-end gap-1"><Button size="xs" variant="ghost" onClick={() => setEditingAnnotation(false)}>{t("cancel")}</Button><Button size="xs" onClick={() => void saveAnnotationEdits(selectedAnnotation)}>{t("saveAnnotation")}</Button></div></div> : selectedAnnotation.note && <div className="rounded-lg border p-2.5" style={{ ...userMarkColorStyle(selectedAnnotation.createdByMarkColor, selectedAnnotation.createdBy), borderColor: "var(--user-mark-solid)" }}><NoteMeta userId={selectedAnnotation.createdBy} name={selectedAnnotation.createdByName} markColor={selectedAnnotation.createdByMarkColor} timestamp={format.dateTime(new Date(selectedAnnotation.createdAt), { dateStyle: "medium", timeStyle: "short" })} /><p className="mt-1 whitespace-pre-wrap text-[13px] leading-5">{selectedAnnotation.note}</p></div>}
-        {selectedAnnotation.comments.length > 0 && <div className="mt-3 space-y-2">{selectedAnnotation.comments.map((comment) => {
-          const editing = editingCommentId === comment.id; const canEdit = comment.createdBy === user.id || user.role === "admin";
-          return <div key={comment.id} className="group rounded-lg border p-2.5" style={{ ...userMarkColorStyle(comment.createdByMarkColor, comment.createdBy), borderLeftColor: "var(--user-mark-solid)", borderLeftWidth: 2 }}><NoteMeta userId={comment.createdBy} name={comment.createdByName} markColor={comment.createdByMarkColor} timestamp={format.dateTime(new Date(comment.createdAt), { dateStyle: "medium", timeStyle: "short" })} />{editing ? <div className="relative mt-1"><Textarea disabled={commentPending} maxLength={10000} aria-label={t("editReply")} autoFocus rows={1} className="max-h-28 min-h-9 resize-none rounded-lg border-border/70 bg-transparent py-1.5 pr-8 text-[13px] shadow-none focus-visible:ring-1" value={commentDraftById[comment.id] ?? ""} onChange={(event) => setCommentDraftById((items) => ({ ...items, [comment.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void saveEditedReply(selectedAnnotation.id, comment.id); } if (event.key === "Escape") { event.preventDefault(); setEditingCommentId(null); } }} /><Button type="button" variant="ghost" size="icon-xs" aria-label={t("sendReply")} className="absolute bottom-1 right-1 rounded-full" disabled={commentPending || !commentDraftById[comment.id]?.trim()} onClick={() => void saveEditedReply(selectedAnnotation.id, comment.id)}><ArrowUp className="size-3.5" /></Button></div> : <div className="mt-1 flex items-end gap-1.5"><p className="min-w-0 flex-1 whitespace-pre-wrap text-[13px] leading-5 text-foreground/85">{comment.body}</p>{canEdit && <><Button disabled={commentPending} type="button" variant="ghost" size="icon-xs" aria-label={t("editReply")} className="shrink-0 rounded-full text-muted-foreground " onClick={() => beginEditingReply(comment)}><Pencil className="size-3" /></Button><Button type="button" variant="ghost" size="icon-xs" disabled={commentPending} aria-label={t("deleteReply")} onClick={() => void removeReply(selectedAnnotation.id, comment.id)}><Trash2 className="size-3 text-destructive" /></Button></>}</div>}</div>;
-        })}</div>}
-      </div>
-      <div className="shrink-0 border-t p-2.5"><div className="relative"><Textarea disabled={commentPending} maxLength={10000} aria-label={t("replyToAnnotation")} data-testid="pdf-annotation-reply" rows={1} className="max-h-28 min-h-10 w-full resize-none rounded-xl border-border/70 bg-muted/20 px-3 py-2 pr-10 text-sm shadow-none transition-[background-color,border-color] focus-visible:bg-background focus-visible:ring-1" value={replyByAnnotation[selectedAnnotation.id] ?? ""} onChange={(event) => setReplyByAnnotation((items) => ({ ...items, [selectedAnnotation.id]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void submitReply(selectedAnnotation.id); } }} placeholder={t("replyToAnnotation")} /><Button type="button" variant="ghost" size="icon-sm" aria-label={t("sendReply")} className="absolute bottom-1 right-1 rounded-full text-muted-foreground enabled:text-foreground enabled:hover:bg-foreground/5" disabled={commentPending || !replyByAnnotation[selectedAnnotation.id]?.trim()} onClick={() => void submitReply(selectedAnnotation.id)}><ArrowUp className="size-4" /></Button></div><div className="mt-1 flex flex-wrap gap-1"><Button type="button" size="xs" variant="ghost" onClick={() => void copyAnnotationCitation(selectedAnnotation)}><Copy />{t("copyCitation")}</Button>{selectedAnnotation.kind === "text" && <Button type="button" size="xs" variant="ghost" onClick={() => { try { rememberSourcePassage({ href: readerUrl(selectedAnnotation.pageNumber, selectedAnnotation.id), title: sourceTitle, quote: selectedAnnotation.selectedText }); toast.success(t("sourcePassageReady"), { duration: 10000 }); } catch { toast.error(t("sourcePassageFailed")); } }}><Link2 />{t("prepareSourcePassage")}</Button>}{wikiPages.length > 0 && <Popover open={sendToPageFor === selectedAnnotation.id} onOpenChange={(value) => { setSendToPageFor(value ? selectedAnnotation.id : null); setPageFilter(""); }}><PopoverTrigger render={<Button type="button" size="xs" variant="ghost" />}><FileText />{t("sendToPage")}</PopoverTrigger><PopoverContent className="w-72 p-2"><Input autoFocus value={pageFilter} onChange={(event) => setPageFilter(event.target.value)} placeholder={t("findPage")} className="h-8" /><div className="mt-2 max-h-64 overflow-y-auto">{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).slice(0, 50).map((item) => (<button key={item.id} type="button" className="block w-full truncate rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => sendAnnotationToPage(selectedAnnotation, item.slug)}>{item.title}</button>))}{wikiPages.filter((item) => item.title.toLocaleLowerCase().includes(pageFilter.trim().toLocaleLowerCase())).length === 0 && <p className="p-2 text-sm text-muted-foreground">{t("noSearchResults")}</p>}</div></PopoverContent></Popover>}{(selectedAnnotation.createdBy === user.id || user.role === "admin") && <><Button type="button" size="xs" variant="ghost" onClick={() => beginEditingAnnotation(selectedAnnotation)}><Pencil />{t("edit")}</Button><Button type="button" size="xs" variant="ghost" onClick={() => void removeAnnotation(selectedAnnotation)}><Trash2 />{t("delete")}</Button></>}</div></div>
-    </div>;
-
-    return <div data-testid="pdf-comment-list" className="flex h-full min-h-0 flex-col"><header className="flex items-center gap-2 border-b p-3"><MessageCircle className="size-4 text-indigo-600" /><h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{t("comments")}</h2><span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">{commentThreads.length}</span><Button type="button" variant="ghost" size="icon-sm" aria-label={t("cancel")} onClick={closeCommentPanel}><X className="size-4" /></Button></header><div className="space-y-2 border-b p-2"><div className="relative"><Search className="absolute left-2 top-2.5 size-3.5 text-muted-foreground" /><Input value={commentSearch} onChange={(event) => setCommentSearch(event.target.value)} className="h-8 pl-7 text-xs" placeholder={t("searchComments")} /></div><div className="grid grid-cols-3 gap-1"><select aria-label={t("filterKind")} value={annotationKindFilter} onChange={(event) => setAnnotationKindFilter(event.target.value)} className="h-7 min-w-0 rounded border bg-background px-1 text-[10px]"><option value="all">{t("allKinds")}</option>{(["text", "region", "bookmark"] as const).map((kind) => <option key={kind} value={kind}>{t(`annotationKinds.${kind}`)}</option>)}</select><select aria-label={t("filterColor")} value={annotationColorFilter} onChange={(event) => setAnnotationColorFilter(event.target.value)} className="h-7 min-w-0 rounded border bg-background px-1 text-[10px]"><option value="all">{t("allColors")}</option>{USER_MARK_COLORS.map((item) => <option key={item.key} value={item.key}>{tMarkColor(item.key)}</option>)}</select><PersonSelect label={t("filterAuthor")} value={annotationAuthorFilter === "all" ? "" : annotationAuthorFilter} onValueChange={value => setAnnotationAuthorFilter(value || "all")} emptyLabel={t("allAuthors")} options={annotationAuthors.map(([id, name]) => ({ value: id, userId: id, name }))} /></div><Button type="button" size="xs" variant={currentPageCommentsOnly ? "secondary" : "ghost"} onClick={() => setCurrentPageCommentsOnly((value) => !value)}>{currentPageCommentsOnly ? t("currentPageComments") : t("allComments")}</Button></div><div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-2">{filteredCommentThreads.map((annotation) => <button type="button" key={annotation.id} className="w-full rounded-lg border p-2.5 text-left text-xs transition-colors hover:bg-accent" style={{ ...userMarkColorStyle(annotation.createdByMarkColor, annotation.createdBy), borderColor: activeAnnotationId === annotation.id ? "var(--user-mark-solid)" : undefined, backgroundColor: activeAnnotationId === annotation.id ? "var(--user-mark-highlight)" : undefined }} onClick={() => openAnnotation(annotation, true)}><span className="flex items-center justify-between gap-2 font-medium"><span className="truncate">{annotation.label || t(`annotationKinds.${annotation.kind}`)}</span><span className="shrink-0 text-[10px] text-muted-foreground">{t("pageNumber", { page: annotation.pageNumber })}</span></span><span className="mt-1 line-clamp-2 block text-muted-foreground">{annotation.note || annotation.selectedText || t(`annotationKinds.${annotation.kind}`)}</span><span className="mt-2 flex items-center justify-between gap-2 text-[10px] text-muted-foreground"><span className="truncate" style={{ color: "var(--user-mark-solid)" }}>{annotation.createdByName}</span><span className="shrink-0">{annotation.comments.length} · <MessageCircle className="inline size-3" /></span></span></button>)}{filteredCommentThreads.length === 0 && <p className="p-4 text-center text-xs text-muted-foreground">{t("noMatchingComments")}</p>}</div></div>;
+    return <PdfCommentPanel {...commentPanelProps} />;
   }
 
   // Focus mode hides side panels initially; it must not prevent users from
@@ -1731,7 +769,7 @@ export function PdfReader({
     <Sheet open={compactViewport && commentsVisible} onOpenChange={(open) => { if (!open) closeCommentPanel(); }}>
       <SheetContent side="bottom" showCloseButton={false} className="max-h-[min(76dvh,36rem)] rounded-t-2xl p-0"><div data-testid="pdf-annotation-mobile-sheet" className="min-h-0 flex-1">{renderCommentPanel()}</div></SheetContent>
     </Sheet>
-    <Dialog open={shortcutsOpen} onOpenChange={(open) => { setShortcutsOpen(open); if (!open) { setRecordingShortcut(null); setShortcutError(""); } }}><DialogContent className="max-h-[min(80dvh,44rem)] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>{t("keyboardShortcuts")}</DialogTitle></DialogHeader><p className="text-sm text-muted-foreground">{t("shortcutDialogHint")}</p>{shortcutError && <p role="alert" className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">{shortcutError}</p>}<div className="space-y-4">{PDF_SHORTCUT_GROUPS.map((group) => <section key={group.label} className="overflow-hidden rounded-lg border"><h3 className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold">{t(`pdfShortcuts.groups.${group.label}`)}</h3><div className="divide-y">{group.actions.map((action) => <div key={action} className="flex items-center justify-between gap-3 p-2"><span className="min-w-0 truncate text-sm">{shortcutActionLabel(action)}</span><div className="flex shrink-0 items-center gap-1"><Button type="button" variant={recordingShortcut === action ? "secondary" : "outline"} size="sm" className="font-mono text-xs" onClick={() => { setRecordingShortcut(action); setShortcutError(""); }} onKeyDown={(event) => { if (recordingShortcut === action) captureShortcut(action, event); }}>{recordingShortcut === action ? t("shortcutRecording") : showShortcut(shortcuts[action])}</Button><Button type="button" variant="ghost" size="xs" disabled={shortcuts[action] === DEFAULT_PDF_SHORTCUT_BINDINGS[action]} aria-label={t("resetShortcut", { action: shortcutActionLabel(action) })} onClick={() => { setShortcuts((current) => ({ ...current, [action]: DEFAULT_PDF_SHORTCUT_BINDINGS[action] })); setRecordingShortcut(null); setShortcutError(""); }}>{t("resetShortcut")}</Button></div></div>)}</div></section>)}</div><DialogFooter><Button type="button" variant="outline" onClick={() => { setShortcuts(DEFAULT_PDF_SHORTCUT_BINDINGS); setRecordingShortcut(null); setShortcutError(""); }}>{t("resetShortcuts")}</Button><Button type="button" onClick={() => setShortcutsOpen(false)}>{t("done")}</Button></DialogFooter></DialogContent></Dialog>
-    <Dialog open={Boolean(pendingAnnotation)} onOpenChange={(open) => { if (!open && !annotationSaving) { setPendingAnnotation(null); setAnnotationAnchor(null); } }}><DialogContent style={annotationAnchor ? annotationPopupStyle(annotationAnchor) : undefined}><DialogHeader><DialogTitle>{t("annotationNotePrompt")}</DialogTitle></DialogHeader><Textarea autoFocus disabled={annotationSaving} value={annotationNote} onChange={(event) => setAnnotationNote(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) { event.preventDefault(); void submitPendingAnnotation(); } }} rows={4} /><DialogFooter><Button variant="outline" disabled={annotationSaving} onClick={() => setPendingAnnotation(null)}>{t("cancel")}</Button><Button disabled={annotationSaving} onClick={() => void submitPendingAnnotation()}>{annotationSaving ? <><Loader2 className="animate-spin" />{t("saving")}</> : t("saveAnnotation")}</Button></DialogFooter></DialogContent></Dialog>
+    <PdfShortcutsDialog t={t} shortcutsOpen={shortcutsOpen} setShortcutsOpen={setShortcutsOpen} shortcuts={shortcuts} setShortcuts={setShortcuts} showShortcut={showShortcut} shortcutActionLabel={shortcutActionLabel} />
+    <PdfAnnotationNoteDialog t={t} pendingAnnotation={pendingAnnotation} setPendingAnnotation={setPendingAnnotation} annotationAnchor={annotationAnchor} setAnnotationAnchor={setAnnotationAnchor} annotationNote={annotationNote} setAnnotationNote={setAnnotationNote} saveAnnotation={saveAnnotation} />
   </div>;
 }

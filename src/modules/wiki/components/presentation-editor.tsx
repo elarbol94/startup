@@ -1,19 +1,15 @@
 "use client";
 import { PresentationContent } from "./presentation-content";
 import { growPresentationText } from "../lib/presentation-layout";
-import { snapRotation } from "../lib/presentation-smart-guides";
 import { UserIdentity } from "@/components/user-identity";
 import { clientUUID } from "@/lib/client-uuid";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
-import { createDoubleShiftDetector } from "../lib/command-search";
 import { PresentationActionMenu, PresentationShortcutHelp } from "./presentation-action-menu";
-import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection, serializeSelection, parsePresentationClipboard, pastePresentationObjects, ungroupSteps, reorderSelection } from "../lib/presentation-interactions";
+import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection, reorderSelection } from "../lib/presentation-interactions";
 import { PresentationShape } from "./presentation-shape";
-import { groupPresentationElements, ungroupPresentationElements, presentationIconNames, type PresentationShapeKind } from "../lib/presentation";
-import { PresentationRichText } from "./presentation-rich-text";
-import type { Editor as TiptapEditor } from "@tiptap/core";
+import { presentationIconNames, type PresentationShapeKind } from "../lib/presentation";
 
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
@@ -28,8 +24,8 @@ import { PresentationBridge } from "../collaboration/presentation-bridge";
 import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
 import { presentationJSON, decode, REMOTE } from "../collaboration/codec";
 import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
-import { copyPresentationFormat, pastePresentationFormat, type PresentationFormat } from "../lib/presentation-format";
-import { arrangePresentation, layoutRoots, presentationAlignments, presentationTextFits } from "../lib/presentation-layout";
+import type { PresentationFormat } from "../lib/presentation-format";
+import { arrangePresentation, layoutRoots, presentationAlignments } from "../lib/presentation-layout";
 import { subsectionBaseline } from "../lib/presentation-subsections";
 import { applyStructureProposal } from "../lib/presentation-structure";
 import { PresentationSubsectionUpdates } from "./presentation-subsection-updates";
@@ -39,24 +35,19 @@ import { readLinkedPosition, rememberLinkedPosition } from "../lib/linked-naviga
 import { useFormatter, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import { Background, SelectionMode, Controls, MiniMap, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange, type MiniMapNodeProps } from "@xyflow/react";
-import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { ArrowDownToLine, ArrowUpToLine, Check, Copy, FileDown, GripVertical, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Plus, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Target, Trash2, TriangleAlert, Type, Undo2, X } from "lucide-react";
+import { Background, SelectionMode, Controls, MiniMap, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
+import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { Check, Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { WorkspacePanel } from "./workspace-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { cn } from "@/lib/utils";
 import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
-import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, parseSecondsInput, moveStep, presentationCameraEasings, presentationFrameShapes, presentationShapeKinds, reorderElement, retargetStep, rotateElements, scaleElements, stepLabel, stepTarget, unionBounds, type PresentationBounds, type PresentationCameraEasing, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide, snapBounds } from "../lib/presentation";
+import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, moveStep, presentationShapeKinds, rotateElements, scaleElements, unionBounds, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
 import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
@@ -64,14 +55,24 @@ import { PresentationSelectionTools } from "./presentation-selection-tools";
 import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import { presentationValuesEqual } from "../lib/presentation-merge";
+import type { SaveState } from "./presentation-editor/presentation-editor-utils";
+import { DraftInput } from "./presentation-editor/draft-fields";
+import { PresentationMiniMapNode, SnapGuides } from "./presentation-editor/canvas-decorations";
+import { SelectionOverlay } from "./presentation-editor/selection-overlay";
+import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
+import { PresentationAppearanceInspector } from "./presentation-editor/presentation-appearance-inspector";
+import { PresentationPlaybackSettings } from "./presentation-editor/presentation-playback-settings";
+import { startDuplicateDrag } from "./presentation-editor/presentation-duplicate-drag";
+import { usePresentationCommandPalette } from "./presentation-editor/use-presentation-command-palette";
+import { usePresentationAutosave } from "./presentation-editor/use-presentation-autosave";
+import { usePresentationGestureBoundaries } from "./presentation-editor/use-presentation-gesture-boundaries";
+import { usePresentationSelectionEdits } from "./presentation-editor/use-presentation-selection-edits";
+import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
+import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
-const AUTOSAVE_DELAY = 1_200;
 const CAMERA_DURATION = 700;
-const MAX_IMAGE_SIDE = 480;
-/** Well inside the server's lease timeout, so a live editor never looks abandoned. */
-type SaveState = "idle" | "unsaved" | "saving" | "saved" | "error";
 
 async function requestEditLease(id: string, sessionId: string, action: "acquire" | "takeover" | "heartbeat" | "release"): Promise<{ editable?: boolean; holderName?: string }> {
   const response = await fetch(`/api/wiki/presentations/${id}/lease`, {
@@ -80,334 +81,6 @@ async function requestEditLease(id: string, sessionId: string, action: "acquire"
   });
   if (!response.ok) throw new Error("Edit lease request failed");
   return response.json();
-}
-
-function StepRow({
-  step,
-  index,
-  active,
-  label,
-  missing,
-  readOnly,
-  onSelect,
-  onRemove,
-  removeLabel,
-  reorderLabel,
-}: {
-  step: PresentationStep;
-  index: number;
-  active: boolean;
-  label: string;
-  missing: boolean;
-  readOnly: boolean;
-  onSelect: () => void;
-  onRemove: () => void;
-  removeLabel: string;
-  reorderLabel: string;
-}) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: step.id, disabled: readOnly });
-  return (
-    <li
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.6 : 1 }}
-      className={cn(
-        "flex items-center gap-1 rounded-md border bg-card px-1.5 py-1.5 text-sm",
-        active && "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40",
-      )}
-    >
-      <button
-        type="button"
-        disabled={readOnly}
-        className="cursor-grab touch-none rounded p-0.5 text-muted-foreground disabled:cursor-default disabled:opacity-40"
-        {...attributes}
-        {...listeners}
-        aria-label={reorderLabel}
-      >
-        <GripVertical className="size-4" />
-      </button>
-      <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
-      <button
-        type="button"
-        onClick={onSelect}
-        className={cn("min-w-0 flex-1 truncate text-left", missing && "text-destructive")}
-        title={label}
-        aria-current={active ? "step" : undefined}
-      >
-        {label}
-      </button>
-      <Button type="button" variant="ghost" size="icon-sm" disabled={readOnly} aria-label={removeLabel} onClick={onRemove}>
-        <X className="size-3.5" />
-      </Button>
-    </li>
-  );
-}
-
-/**
- * Every panel field holds a draft. It shows exactly what the author typed until the field
- * is left -- or Enter is pressed on a single-line one -- and resyncs whenever the value on
- * the canvas changes underneath it, which is what makes undo and redo visible in the panel.
- * `normalise` turns a finished draft into the value that is actually stored, so a number
- * field is clamped once instead of on every keystroke ("0.4" stays "0.4" while it is being
- * typed), and returning the current value from it is how an unusable entry reverts. Only a
- * value that really differs is committed: tabbing through the panel must not fill the undo
- * stack or mark the canvas unsaved.
- */
-function useDraft(value: string, onCommit: (next: string) => void, normalise: (raw: string) => string = (raw) => raw) {
-  const [draft, setDraft] = useState(value);
-  // Adjusting the draft while rendering rather than in an effect: React re-runs this
-  // component before touching the DOM, so an undo never flashes the stale text.
-  const [synced, setSynced] = useState(value);
-  if (synced !== value) {
-    setSynced(value);
-    setDraft(value);
-  }
-  return {
-    draft,
-    setDraft,
-    commit: () => {
-      const next = normalise(draft);
-      setDraft(next);
-      if (next !== value) onCommit(next);
-    },
-  };
-}
-
-type DraftFieldProps = {
-  value: string;
-  onCommit: (next: string) => void;
-};
-
-function DraftInput({
-  value,
-  onCommit,
-  normalise,
-  ...props
-}: DraftFieldProps & { normalise?: (raw: string) => string } & Omit<
-    React.ComponentProps<typeof Input>,
-    "value" | "onChange" | "onBlur" | "onKeyDown"
-  >) {
-  const field = useDraft(value, onCommit, normalise);
-  return (
-    <Input
-      {...props}
-      value={field.draft}
-      onChange={(event) => field.setDraft(event.currentTarget.value)}
-      onBlur={field.commit}
-      // Enter commits only here: in a textarea it is part of the text.
-      onKeyDown={(event) => {
-        if (event.key !== "Enter") return;
-        event.preventDefault();
-        field.commit();
-      }}
-    />
-  );
-}
-
-function DraftTextarea({
-  value,
-  onCommit,
-  ...props
-}: DraftFieldProps & Omit<React.ComponentProps<typeof Textarea>, "value" | "onChange" | "onBlur">) {
-  const field = useDraft(value, onCommit);
-  return (
-    <Textarea
-      {...props}
-      value={field.draft}
-      onChange={(event) => field.setDraft(event.currentTarget.value)}
-      onBlur={field.commit}
-    />
-  );
-}
-
-/** The schema's own bounds, so a duration field clamps to what the server will accept. */
-const STEP_DURATION_RANGE = { min: 500, max: 120_000 };
-const CAMERA_TRANSITION_RANGE = { min: 100, max: 5_000 };
-/** Durations are seconds on screen and milliseconds in the document. */
-const secondsText = (ms: number) => String(ms / 1000);
-const msFromSecondsText = (seconds: string) => Math.round(Number(seconds) * 1000);
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-/** The plain number fields read like the duration ones: the entry clamped into range, or
- * null when nothing usable was typed and the stored value should simply stay. */
-const parseNumberInput = (raw: string, min: number, max: number): number | null => {
-  const value = Number(raw.trim());
-  return raw.trim() && Number.isFinite(value) ? clamp(value, min, max) : null;
-};
-
-/** Alignment lines are drawn in canvas coordinates, so they stay glued to the elements
- * they describe while the author pans and zooms. */
-function SnapGuides({ guides }: { guides: SnapGuide[] }) {
-  const { zoom } = useViewport();
-  if (!guides.length) return null;
-  return (
-    <ViewportPortal>
-      {guides.map((guide) => (
-        <div
-          key={`${guide.kind ?? "align"}-${guide.axis}-${guide.position}-${guide.start}`}
-          data-testid={guide.kind === "distance" ? "presentation-distance-guide" : "presentation-snap-guide"}
-          className="pointer-events-none absolute"
-          style={
-            guide.axis === "x"
-              ? { left: guide.position, top: guide.start, width: 1 / zoom, height: guide.end - guide.start, zIndex: 1900, background: guide.kind === "distance" ? "#6366f1" : `repeating-linear-gradient(to bottom, #f43f5e 0 ${4 / zoom}px, transparent ${4 / zoom}px ${7 / zoom}px)` }
-              : { left: guide.start, top: guide.position, height: 1 / zoom, width: guide.end - guide.start, zIndex: 1900, background: guide.kind === "distance" ? "#6366f1" : `repeating-linear-gradient(to right, #f43f5e 0 ${4 / zoom}px, transparent ${4 / zoom}px ${7 / zoom}px)` }
-          }
-        >{guide.kind === "distance" && <>
-          <span className="absolute bg-indigo-500" style={guide.axis === "y" ? { width: 1 / zoom, height: 8 / zoom, top: -4 / zoom } : { height: 1 / zoom, width: 8 / zoom, left: -4 / zoom }} />
-          <span className="absolute bg-indigo-500" style={guide.axis === "y" ? { width: 1 / zoom, height: 8 / zoom, top: -4 / zoom, right: 0 } : { height: 1 / zoom, width: 8 / zoom, left: -4 / zoom, bottom: 0 }} />
-          <span className="absolute rounded bg-background px-1 text-indigo-600" style={{ fontSize: 11 / zoom, left: guide.axis === "y" ? "50%" : 5 / zoom, top: guide.axis === "y" ? 3 / zoom : "50%" }}>{Math.round(guide.distance ?? 0)}</span>
-        </>}</div>
-      ))}
-    </ViewportPortal>
-  );
-}
-
-function PresentationMiniMapNode(props: MiniMapNodeProps) {
-  const { getNode } = useReactFlow<PresentationNode>();
-  const element = getNode(props.id)?.data.element;
-  return <rect data-testid="presentation-minimap-object" x={props.x} y={props.y} width={props.width} height={props.height}
-    fill={element?.type === "frame" ? "none" : props.selected ? "#6366f1" : "#818cf8"}
-    stroke={props.selected ? "#6366f1" : "#64748b"} strokeWidth={props.selected ? 2 : 1} vectorEffect="non-scaling-stroke"
-    transform={element?.rotation ? `rotate(${element.rotation} ${props.x + props.width / 2} ${props.y + props.height / 2})` : undefined} />;
-}
-
-/** A gesture never scales the selection away to nothing. */
-const MIN_SCALE = 0.02;
-/** Handle size and the rotate handle's stand-off, both in screen pixels. */
-const HANDLE_SIZE = 12;
-const ROTATE_OFFSET = 28;
-
-/**
- * One overlay handles turning a
- * selection and scaling several elements as one. It is drawn around the union of the
- * selection, so a single element gets a rotation handle and a group gets both.
- */
-function SelectionOverlay({
-  bounds,
-  scalable,
-  rotation,
-  referenceAngles,
-  rotateLabel,
-  scaleLabel,
-  onRotate,
-  onScale,
-  onGestureStart,
-  onGestureEnd,
-}: {
-  onGestureStart: () => void;
-  onGestureEnd: () => void;
-  bounds: PresentationBounds;
-  scalable: boolean;
-  rotation: number;
-  referenceAngles: number[];
-  rotateLabel: string;
-  scaleLabel: string;
-  onRotate: (deltaDegrees: number, center: { x: number; y: number }) => void;
-  onScale: (scaleX: number, scaleY: number, origin: { x: number; y: number }) => void;
-}) {
-  const { zoom } = useViewport();
-  const reactFlow = useReactFlow();
-  const screen = (value: number) => value / zoom;
-  const cleanupGesture = useRef<(() => void) | null>(null);
-  useEffect(() => () => cleanupGesture.current?.(), []);
-
-  const beginGesture = (event: React.PointerEvent<HTMLButtonElement>, kind: "rotate" | "scale") => {
-    event.preventDefault();
-    event.stopPropagation();
-    cleanupGesture.current?.();
-    onGestureStart();
-    const handle = event.currentTarget;
-    handle.closest<HTMLElement>("[data-presentation-canvas]")?.focus();
-    handle.setPointerCapture(event.pointerId);
-    // The anchor is frozen at gesture start: the union bounds shift as the selection turns,
-    // and chasing them mid-drag would make the element run away from the pointer.
-    const center = { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
-    const origin = { x: bounds.x, y: bounds.y };
-    const size = { width: bounds.width, height: bounds.height };
-    const start = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    let lastAngle = Math.atan2(start.y - center.y, start.x - center.x);
-    let rawRotation = rotation, appliedRotation = rotation;
-    let lastScaleX = 1;
-    let lastScaleY = 1;
-
-    const move = (moveEvent: PointerEvent) => {
-      if (moveEvent.pointerId !== event.pointerId) return;
-      const point = reactFlow.screenToFlowPosition({ x: moveEvent.clientX, y: moveEvent.clientY });
-      if (kind === "rotate") {
-        const angle = Math.atan2(point.y - center.y, point.x - center.x);
-        let delta = (angle - lastAngle) * 180 / Math.PI;
-        if (delta > 180) delta -= 360; if (delta < -180) delta += 360;
-        rawRotation += delta;
-        // Pointer rotation uses whole-degree steps; numeric controls retain fractional angles.
-        const snapped = Math.round(snapRotation(rawRotation, referenceAngles, moveEvent.shiftKey, moveEvent.altKey));
-        onRotate(snapped - appliedRotation, center);
-        appliedRotation = snapped;
-        lastAngle = angle;
-        return;
-      }
-      const scaleX = Math.max((point.x - origin.x) / size.width, MIN_SCALE);
-      // Shift keeps the proportions, which is the only way to scale a picture safely.
-      const scaleY = moveEvent.shiftKey ? scaleX : Math.max((point.y - origin.y) / size.height, MIN_SCALE);
-      onScale(scaleX / lastScaleX, scaleY / lastScaleY, origin);
-      lastScaleX = scaleX;
-      lastScaleY = scaleY;
-    };
-    const end = () => {
-      handle.removeEventListener("pointermove", move);
-      handle.removeEventListener("pointerup", end);
-      handle.removeEventListener("pointercancel", end);
-      handle.removeEventListener("lostpointercapture", end);
-      window.removeEventListener("blur", end);
-      window.removeEventListener("presentation-cancel-gesture", end);
-      cleanupGesture.current = null;
-      if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId);
-      onGestureEnd();
-    };
-    cleanupGesture.current = end;
-    handle.addEventListener("pointermove", move);
-    handle.addEventListener("pointerup", end);
-    handle.addEventListener("pointercancel", end);
-    handle.addEventListener("lostpointercapture", end);
-    window.addEventListener("blur", end);
-    window.addEventListener("presentation-cancel-gesture", end);
-  };
-
-  const handleStyle = { width: screen(HANDLE_SIZE), height: screen(HANDLE_SIZE), borderWidth: screen(1) };
-
-  return (
-    <ViewportPortal>
-      <div
-        className="pointer-events-none absolute"
-        style={{ left: bounds.x, top: bounds.y, width: bounds.width, height: bounds.height, zIndex: 2100 }}
-      >
-        {scalable && (
-          <div
-            className="absolute inset-0 border-dashed border-indigo-500"
-            style={{ borderWidth: screen(1) }}
-          />
-        )}
-        <div className="absolute bg-indigo-500" style={{ left: bounds.width / 2, top: -screen(ROTATE_OFFSET), width: screen(1), height: screen(ROTATE_OFFSET) }} />
-        <button
-          type="button"
-          data-testid="presentation-rotate-handle"
-          onClick={event => event.stopPropagation()}
-          aria-label={rotateLabel}
-          title={rotateLabel}
-          className="nodrag nopan pointer-events-auto touch-none absolute -translate-x-1/2 -translate-y-1/2 cursor-grab rounded-full border-white bg-indigo-500 active:cursor-grabbing"
-          style={{ ...handleStyle, width: screen(20), height: screen(20), left: bounds.width / 2, top: -screen(ROTATE_OFFSET) }}
-          onPointerDown={(event) => { if (event.button === 0) beginGesture(event, "rotate"); }}
-        ><RotateCw className="h-full w-full p-px text-white" /></button>
-        {scalable && (
-          <button
-            type="button"
-            aria-label={scaleLabel}
-            title={scaleLabel}
-            className="nodrag nopan pointer-events-auto absolute -translate-x-1/2 -translate-y-1/2 cursor-nwse-resize rounded-xs border-white bg-indigo-500"
-            style={{ ...handleStyle, left: bounds.width, top: bounds.height }}
-            onPointerDown={(event) => beginGesture(event, "scale")}
-          />
-        )}
-      </div>
-    </ViewportPortal>
-  );
 }
 
 function Editor({
@@ -450,52 +123,7 @@ function Editor({
   }, []);
   useEffect(() => () => dragCancel.current?.(), []);
   const commandRoot = useRef<HTMLDivElement>(null);
-  const commandFocus = useRef<HTMLElement | null>(null);
-  const commandRange = useRef<Range | null>(null);
-  const commandTextSelection = useRef<{ editor: TiptapEditor; from: number; to: number } | null>(null);
-  const [commandsOpen, setCommandsOpen] = useState(false);
-  const openCommands = () => {
-    commandFocus.current = document.activeElement as HTMLElement | null;
-    const selection = window.getSelection();
-    commandRange.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-    const richEditor = (commandFocus.current as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor;
-    commandTextSelection.current = richEditor && !richEditor.isDestroyed
-      ? { editor: richEditor, from: richEditor.state.selection.from, to: richEditor.state.selection.to }
-      : null;
-    setCommandsOpen(true);
-  };
-  const openCommandsFromKeyboard = useEffectEvent(openCommands);
-  const restoreCommandFocus = () => {
-    const target = commandFocus.current;
-    const textSelection = commandTextSelection.current;
-    if (textSelection && !textSelection.editor.isDestroyed && target?.isConnected) {
-      // Restore the editor model as well as browser focus. A DOM Range alone can
-      // be overwritten by ProseMirror's selection on the next keystroke.
-      textSelection.editor.commands.setTextSelection({ from: textSelection.from, to: textSelection.to });
-      textSelection.editor.view.focus();
-      return;
-    }
-    (target?.isConnected ? target : commandRoot.current)?.focus({ preventScroll: true });
-    const range = commandRange.current;
-    if (range?.startContainer.isConnected && commandRoot.current?.contains(range.startContainer)) {
-      const selection = window.getSelection(); selection?.removeAllRanges(); selection?.addRange(range);
-    }
-  };
-  useEffect(() => {
-    const detector = createDoubleShiftDetector();
-    const handle = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement;
-      if (event.defaultPrevented || !commandRoot.current?.contains(target) || target.closest?.('input, textarea, select, [role=dialog], [role=menu], [data-shortcut-recorder]') || document.querySelector('[aria-modal="true"]')) { detector.reset(); return; }
-      if (detector.handle(event, performance.now())) { event.preventDefault(); openCommandsFromKeyboard(); }
-    };
-    window.addEventListener("keydown", handle, true); window.addEventListener("keyup", handle, true);
-    const interruptions = ["blur", "pointerdown", "focusin", "compositionstart", "visibilitychange"] as const;
-    for (const type of interruptions) window.addEventListener(type, detector.reset, true);
-    return () => {
-      window.removeEventListener("keydown", handle, true); window.removeEventListener("keyup", handle, true);
-      for (const type of interruptions) window.removeEventListener(type, detector.reset, true);
-    };
-  }, []);
+  const { commandsOpen, setCommandsOpen, openCommands, restoreCommandFocus } = usePresentationCommandPalette(commandRoot);
 
   const [formatClipboard, setFormatClipboard] = useState<PresentationFormat | null>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -600,91 +228,9 @@ function Editor({
     [dispatch],
   );
 
-  /** Writes one canvas and reports whether it reached the database. Writes queue behind
-   * each other so a flush during a save cannot race the older canvas back over the newer. */
-  const persist = useCallback(() => {
-    const write = async () => {
-      if (!collaboration) return true;
-      const saved = await collaboration.flush();
-      setStatus(saved ? "saved" : "error");
-      return saved;
-    };
-    const next = write(); inFlight.current = next; return next;
-  }, [collaboration]);
-
-  /** Writes whatever is on the canvas right now, waiting for a save already in flight.
-   * Used by every exit that would otherwise drop the pending debounce on the floor. Leaving
-   * mid-save with nothing further edited can repeat that same write once, which is a wasted
-   * request rather than a wrong one. */
-  const flush = useCallback(async () => {
-    // Commit the field that still has focus before taking the save snapshot.
-    flushSync(() => {
-      if (document.activeElement instanceof HTMLElement && document.activeElement.matches("input, textarea, select, [contenteditable=true]")) document.activeElement.blur();
-    });
-    await inFlight.current?.catch(() => false);
-    const current = latest.current;
-    if (!current.canvas.dirty) return collaboration ? collaboration.flush() : true;
-    if (current.readOnly) return false;
-    return persist();
-  }, [persist, collaboration]);
-
-  // Debounced autosave: every edit marks the canvas unsaved, and the last edit of a
-  // burst is the one that writes.
-  useEffect(() => {
-    if (!canvas.dirty || canvas.failed || readOnly || restoring || status === "saving") return;
-    const timer = setTimeout(() => { if (!paused.current) void persist(); }, AUTOSAVE_DELAY);
-    return () => clearTimeout(timer);
-  }, [canvas, status, persist, readOnly, restoring]);
-
-  // Re-pointed after every commit, so the exits above see the canvas as it is now.
-  useEffect(() => {
-    latest.current = { canvas, readOnly };
+  const { flush } = usePresentationAutosave({
+    collaboration, canvas, readOnly, restoring, status, setStatus, paused, latest, inFlight, lastPersisted, selectedIds, canEdit, presentation, rawDispatch,
   });
-
-  // Browser back can hide the route's Activity boundary without a link click. The fixed
-  // endpoint remains usable after navigation. Use the same queue and saved bookkeeping
-  // so returning to a preserved editor does not retry an already-saved canvas.
-  useEffect(() => () => {
-    const saveOnExit = async () => {
-      await inFlight.current;
-      const current = latest.current;
-      if (paused.current || current.readOnly || !current.canvas.dirty || current.canvas === lastPersisted.current) return;
-      await persist();
-    };
-    void saveOnExit().catch(() => undefined);
-  }, [persist]);
-
-  useEffect(() => {
-    if (!collaboration) return;
-    const update = () => {
-      setStatus(collaboration.status === "saved" ? "saved" : collaboration.status === "saving" ? "saving" : "error");
-    };
-    const unsubscribe = collaboration.subscribe(update);
-    return unsubscribe;
-  }, [collaboration]);
-  useEffect(() => { collaboration?.setPresence({ selectedIds }); }, [collaboration, selectedIds]);
-  // Viewers continue using the redacted read API: shared state contains speaker notes.
-  useEffect(() => {
-    if (canEdit) return;
-    const timer = setInterval(() => {
-      void fetch(`/api/wiki/presentations/${presentation.id}`, { cache: "no-store" }).then(async response => {
-        if (response.ok) rawDispatch({ type: "reset", snapshot: await response.json() });
-      }).catch(() => undefined);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [canEdit, presentation.id]);
-
-  useEffect(() => {
-    const warn = (event: BeforeUnloadEvent) => {
-      const draft = document.activeElement;
-      const editing = draft instanceof HTMLInputElement || draft instanceof HTMLTextAreaElement;
-      if (!latest.current.canvas.dirty && status !== "saving" && !editing) return;
-      event.preventDefault();
-      event.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [canvas.dirty, status]);
 
   const updateElement = useCallback(
     (id: string, update: (element: PresentationElement) => PresentationElement) => {
@@ -720,31 +266,7 @@ function Editor({
     [updateElement],
   );
 
-  const startGesture = useCallback(() => dispatch({ type: "gesture-start" }), [dispatch]);
-  const endGesture = useCallback(() => dispatch({ type: "gesture-end" }), [dispatch]);
-  useEffect(() => {
-    // A release/cancellation need not include geometry. Run after the canvas
-    // library's final pointer/mouse update, including releases outside the canvas.
-    let frame = 0;
-    const finish = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(endGesture);
-    };
-    const hide = () => { if (document.hidden) endGesture(); };
-    window.addEventListener("pointerup", finish, true);
-    window.addEventListener("mouseup", finish, true);
-    window.addEventListener("pointercancel", finish, true);
-    window.addEventListener("blur", endGesture);
-    document.addEventListener("visibilitychange", hide);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener("pointerup", finish, true);
-      window.removeEventListener("mouseup", finish, true);
-      window.removeEventListener("pointercancel", finish, true);
-      window.removeEventListener("blur", endGesture);
-      document.removeEventListener("visibilitychange", hide);
-    };
-  }, [endGesture]);
+  const { startGesture, endGesture } = usePresentationGestureBoundaries(dispatch);
 
   const onEndpointChange = useCallback((next: PresentationElement) => {
     dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => e.id === next.id && !isPresentationElementLocked(current, e.id) ? { ...e, x: next.x, y: next.y, width: next.width, rotation: next.rotation } : e) });
@@ -888,146 +410,13 @@ function Editor({
     focusTarget.focus({ preventScroll: true });
   };
 
-  /** Deleting takes the steps that pointed at the gone elements with it. */
-  const deleteSelection = useCallback(
-    (ids: string[]) => {
-      if (!ids.length) return;
-      const removed = presentationDescendants(elements, new Set(ids.filter((id) => !isPresentationElementLocked(elements, id))));
-      // One action, so deleting an element and the stops that pointed at it is one undo.
-      dispatch({
-        type: "edit",
-        at: Date.now(),
-        separate: true,
-        elements: (current) => current.filter((element) => !removed.has(element.id)),
-        steps: (current) => {
-          const next = current.filter((step) => !removed.has(step.elementId));
-          return next.length === current.length ? current : next;
-        },
-      });
-      setSelectedIds((current) => current.filter((id) => !removed.has(id)));
-    },
-    [elements, dispatch],
-  );
+  const { deleteSelection, duplicateSelection, reorderSelected, copyObjectFormat, pasteObjectFormat } = usePresentationSelectionEdits({
+    elements, dispatch, disabled, t, commitElements, selection, formatClipboard, setFormatClipboard, setSelectedIds,
+  });
 
-  const duplicateSelection = useCallback(
-    (ids: string[]) => {
-      if (disabled || !mutableSelection(elements, ids)) return;
-      const roots = new Set(selectionRoots(elements, ids).map(element => element.id));
-      const included = presentationDescendants(elements, roots);
-      if (elements.length + included.size > 500) { toast.error(t("presentations.elementLimit")); return; }
-      // Ids are minted here rather than inside the update, which has to stay pure.
-      const copies = new Map([...included].map((id) => [id, createId()]));
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => duplicatePresentationTree(current, roots, copies) });
-      setSelectedIds([...roots].map((id) => copies.get(id)!));
-    },
-    [disabled, dispatch, elements, t],
-  );
-
-  const reorderSelected = useCallback(
-    (id: string, to: "front" | "back") => {
-      commitElements((current) => reorderElement(current, id, to));
-    },
-    [commitElements],
-  );
-
-  const copyObjectFormat = useCallback(() => {
-    if (selection.length !== 1) { toast.info(t("presentations.format.selectSource")); return; }
-    setFormatClipboard(copyPresentationFormat(selection[0]));
-    toast.success(t("presentations.format.copied"));
-  }, [selection, t]);
-  const pasteObjectFormat = useCallback(() => {
-    if (disabled) return;
-    const format = formatClipboard;
-    if (!format) { toast.info(t("presentations.format.empty")); return; }
-    const compatible = selection.filter(e => e.type === format.type && !isPresentationElementLocked(elements, e.id));
-    if (!compatible.length) { toast.info(t("presentations.format.selectTarget")); return; }
-    const ids = new Set(compatible.map(e => e.id));
-    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => pastePresentationFormat(current, ids, format) });
-    toast.success(t("presentations.format.pasted", { count: compatible.length }));
-  }, [disabled, dispatch, elements, selection, t, formatClipboard]);
-
-  const addText = useCallback(() => {
-    const { x, y } = viewportCenter();
-    addElement({
-      id: createId(), type: "text", x: x - 160, y: y - 30, width: 320, height: 60, rotation: 0,
-      content: { text: t("presentations.newTextPlaceholder"), fontSize: 32, bold: false, color: "", align: "left" },
-    });
-  }, [addElement, t, viewportCenter]);
-
-  const addFrame = useCallback(() => {
-    const { x, y } = viewportCenter();
-    addElement({
-      id: createId(), type: "frame", x: x - 320, y: y - 200, width: 640, height: 400, rotation: 0,
-      content: { label: "", shape: "rect", color: "" },
-    });
-  }, [addElement, viewportCenter]);
-
-  const addShape = useCallback((shape: PresentationShapeKind = "rect") => {
-    const { x, y } = viewportCenter();
-    addElement({
-      id: createId(), type: "shape", x: x - 140, y: y - 90, width: 280, height: 180, rotation: 0,
-      content: { shape, fill: "", stroke: "", strokeWidth: 2, opacity: 1 },
-    });
-  }, [addElement, viewportCenter]);
-
-  const addStudioElement = (type: "chart" | "icon", choice?: string) => {
-    const { x, y } = viewportCenter();
-    const base = { id: createId(), x: x - 240, y: y - 150, width: 480, height: 300, rotation: 0 };
-    if (type === "chart") addElement({ ...base, type, content: { title: studio("chartTitle"), kind: (choice ?? "bar") as "bar" | "line" | "pie", data: [{ label: "A", value: 20 }, { label: "B", value: 40 }, { label: "C", value: 30 }] } });
-    else addElement({ ...base, width: 120, height: 120, type, content: { name: (choice ?? "target") as typeof presentationIconNames[number], color: "#6366f1" } });
-  };
-
-  const uploadMedia = async (file: File) => {
-    if (disabled || uploading) return;
-    setUploading(true);
-    try {
-      const body = new FormData(); body.append("file", file); body.append("entityType", "wikiPresentation"); body.append("entityId", presentation.id);
-      const response = await fetch("/api/files", { method: "POST", body });
-      const payload = await response.json();
-      if (!response.ok || !payload.id) throw new Error("Upload failed");
-      const { x, y } = viewportCenter();
-      addElement({ id: createId(), type: file.type.startsWith("video/") ? "video" : "audio", x: x - 240, y: y - 135, width: 480, height: file.type.startsWith("video/") ? 270 : 80, rotation: 0, content: { attachmentId: payload.id, title: file.name } });
-    } catch { toast.error(studio("uploadFailed")); } finally { setUploading(false); }
-  };
-
-  const uploadImage = useCallback(
-    async (file: File) => {
-      setUploading(true);
-      try {
-        // Natural proportions up front, so the picture is not stretched into a default box.
-        const objectUrl = URL.createObjectURL(file);
-        const size = await new Promise<{ width: number; height: number }>((resolve) => {
-          const image = new Image();
-          image.onload = () => resolve({ width: image.naturalWidth, height: image.naturalHeight });
-          image.onerror = () => resolve({ width: MAX_IMAGE_SIDE, height: MAX_IMAGE_SIDE });
-          image.src = objectUrl;
-        });
-        URL.revokeObjectURL(objectUrl);
-
-        const body = new FormData();
-        body.append("file", file);
-        body.append("entityType", "wikiPresentation");
-        body.append("entityId", presentation.id);
-        const response = await fetch("/api/files", { method: "POST", body });
-        const payload = (await response.json()) as { id?: string; error?: string };
-        if (!response.ok || !payload.id) throw new Error(payload.error ?? "upload failed");
-
-        const scale = MAX_IMAGE_SIDE / Math.max(size.width, size.height, 1);
-        const { x, y } = viewportCenter();
-        const width = Math.max(40, Math.round(size.width * scale));
-        const height = Math.max(40, Math.round(size.height * scale));
-        addElement({
-          id: createId(), type: "image", x: x - width / 2, y: y - height / 2, width, height, rotation: 0,
-          content: { attachmentId: payload.id, alt: file.name },
-        });
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("presentations.uploadFailed"));
-      } finally {
-        setUploading(false);
-      }
-    },
-    [addElement, presentation.id, t, viewportCenter],
-  );
+  const { addText, addFrame, addShape, addStudioElement, uploadMedia, uploadImage } = usePresentationInsertion({
+    addElement, viewportCenter, t, studio, presentation, disabled, uploading, setUploading,
+  });
 
   const pendingFly = useRef(0);
   useEffect(() => () => cancelAnimationFrame(pendingFly.current), []);
@@ -1220,100 +609,10 @@ function Editor({
             onAsset={(attachmentId, alt) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "image", x, y, width: 360, height: 240, rotation: 0, content: { attachmentId, alt } }); }}
             onIcon={(name) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "icon", x, y, width: 100, height: 100, rotation: 0, content: { name, color: "#6366f1" } }); }} />
 );
-  const pathPanel = (<>
-          <p className="mt-1 text-xs text-muted-foreground">{t("presentations.pathDescription")}</p>
-          <Button type="button" variant="outline" size="sm" className="mt-2 w-full" disabled={!selected || disabled || steps.length >= 500} onClick={addStep}>
-            <Plus className="size-3.5" />{t("presentations.addStep")}
-          </Button>
-          {steps.length === 0 ? (
-            <p className="mt-3 rounded-md border border-dashed p-3 text-xs text-muted-foreground">{t("presentations.noSteps")}</p>
-          ) : (
-            <DndContext id={`presentation-path-${presentation.id}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onStepDragEnd}>
-              <SortableContext items={steps.map((step) => step.id)} strategy={verticalListSortingStrategy}>
-                <ol className="mt-3 space-y-1.5">
-                  {steps.map((step, index) => {
-                    const target = stepTarget(step, elements);
-                    return (
-                      <StepRow
-                        key={step.id}
-                        step={step}
-                        index={index}
-                        active={activeStepId === step.id}
-                        missing={!target}
-                        readOnly={readOnly}
-                        label={`${step.action && step.action !== "camera" ? `${studio(step.action)}: ` : ""}${target ? stepLabel(target, index) : t("presentations.missingStep")}`}
-                        removeLabel={t("presentations.removeStep")}
-                        reorderLabel={t("presentations.reorderStep", { number: index + 1 })}
-                        onSelect={() => {
-                          setActiveStepId(step.id);
-                          if (target) {
-                            setSelectedIds([target.id]);
-                            flyTo(target);
-                          }
-                        }}
-                        onRemove={() => commitSteps((current) => current.filter((entry) => entry.id !== step.id))}
-                      />
-                    );
-                  })}
-                </ol>
-              </SortableContext>
-            </DndContext>
-          )}
-
-          {activeStep && (
-            <section className="mt-3 border-t pt-3">
-              {selected && selected.id !== activeStep.elementId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mb-3 w-full"
-                  disabled={readOnly}
-                  onClick={() => commitSteps((current) => retargetStep(current, activeStep.id, selected.id))}
-                >
-                  <Target className="size-3.5" />
-                  {t("presentations.retargetStep")}
-                </Button>
-              )}
-              <label className="block text-xs text-muted-foreground">
-                {t("presentations.stepDuration")}
-                <DraftInput
-                  type="number"
-                  min={0.5}
-                  max={120}
-                  step={0.5}
-                  className="mt-1 h-8"
-                  placeholder={secondsText(settings.defaultStepDurationMs)}
-                  value={activeStep.durationMs != null ? secondsText(activeStep.durationMs) : ""}
-                  // An empty field is not a bad entry here: it hands the step back to the default.
-                  normalise={(raw) => {
-                    const ms = raw.trim() ? (parseSecondsInput(raw, STEP_DURATION_RANGE) ?? activeStep.durationMs) : undefined;
-                    return ms == null ? "" : secondsText(ms);
-                  }}
-                  onCommit={(next) => updateStepDuration(activeStep.id, next ? msFromSecondsText(next) : undefined)}
-                />
-              </label>
-              <p className="mt-1 text-[11px] text-muted-foreground">{t("presentations.stepDurationHint")}</p>
-              <h2 className="mt-3 text-xs font-semibold tracking-wide uppercase">{t("presentations.speakerNotes")}</h2>
-              <Textarea
-                key={activeStep.id}
-                aria-label={t("presentations.speakerNotes")}
-                value={activeStep.notes ?? ""}
-                maxLength={5_000}
-                rows={4}
-                className="mt-2"
-                placeholder={t("presentations.speakerNotesPlaceholder")}
-                onChange={(event) => updateStepNotes(activeStep.id, event.target.value)}
-                onKeyDown={(event) => {
-                  if (collaboration && (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {
-                    event.preventDefault(); dispatch({ type: event.shiftKey ? "redo" : "undo" });
-                  }
-                }}
-              />
-            </section>
-          )}
-
-</>);
+  const pathPanel = (<PresentationPathPanel presentation={presentation} steps={steps} elements={elements} selected={selected}
+    activeStep={activeStep} activeStepId={activeStepId} setActiveStepId={setActiveStepId} setSelectedIds={setSelectedIds} flyTo={flyTo}
+    commitSteps={commitSteps} addStep={addStep} disabled={disabled} readOnly={readOnly} sensors={sensors} onStepDragEnd={onStepDragEnd}
+    settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch} />);
   const openHistory = useCallback(async () => {
     if (await flush()) { router.refresh(); setWorkspaceDialog("history"); }
   }, [flush, router]);
@@ -1339,123 +638,19 @@ function Editor({
     { id: "history", label: t("presentations.history"), execute: openHistory, group: commandText },
     { id: "playback", label: t("presentations.playbackSettings"), execute: () => setWorkspaceDialog("playback"), group: commandText },
   ];
-  const duplicateDrag = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (disabled || event.button !== 0 || !(event.ctrlKey || event.metaKey || (isMac && event.altKey)) || (event.target as HTMLElement).closest("input, textarea, [contenteditable=true], button, .nodrag")) return;
-    const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node");
-    if (!node?.dataset.id) return;
-    const ancestor = presentationAncestors(elements, node.dataset.id).findLast(e => e.type === "frame" && e.content.isGroup);
-    const targetId = ancestor?.id ?? node.dataset.id;
-    const roots = selectionRoots(elements, selectedIds.includes(targetId) ? selectedIds : [targetId]);
-    if (!mutableSelection(elements, roots.map(e => e.id))) return;
-    event.preventDefault(); event.stopPropagation();
-    const included = presentationDescendants(elements, new Set(roots.map(e => e.id)));
-    if (elements.length + included.size > 500) { toast.error(t("presentations.elementLimit")); return; }
-    const idMap = new Map([...included].map(id => [id, createId()]));
-    const source = elements.filter(e => included.has(e.id));
-    const copied = duplicatePresentationTree(elements, new Set(roots.map(e => e.id)), idMap).filter(e => [...idMap.values()].includes(e.id));
-    const first = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    let preview = copied, moved = false;
-    const move = (moveEvent: PointerEvent) => {
-      const point = reactFlow.screenToFlowPosition({ x: moveEvent.clientX, y: moveEvent.clientY });
-      let dx = point.x - first.x, dy = point.y - first.y;
-      if (!moved && Math.hypot(dx, dy) * reactFlow.getZoom() < 3) return;
-      moved = true;
-      if (moveEvent.shiftKey) { if (Math.abs(dx) >= Math.abs(dy)) dy = 0; else dx = 0; }
-      preview = copied.map(copy => { const original = source.find(e => idMap.get(e.id) === copy.id)!; return { ...copy, x: original.x + dx, y: original.y + dy }; });
-      const movingBox = unionBounds(preview.filter(e => roots.some(root => idMap.get(root.id) === e.id)))!;
-      const targets = elements.filter(e => !(e.type === "shape" && e.content.connection)).map(presentationCameraBounds);
-      const snapped = snapBounds(movingBox, movingBox, targets, (moveEvent.altKey && !isMac) || moveEvent.shiftKey ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), false);
-      preview = preview.map(e => ({ ...e, x: e.x + snapped.bounds.x - movingBox.x, y: e.y + snapped.bounds.y - movingBox.y }));
-      setPreviewGuides(snapped.guides);
-      setDragPreview(preview);
-    };
-    const clear = () => { window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", finish); window.removeEventListener("pointercancel", cancel); window.removeEventListener("blur", cancel); setDragPreview(null); setPreviewGuides([]); dragCancel.current = null; };
-    const cancel = () => clear();
-    const finish = () => {
-      clear();
-      if (!moved) { setSelectedIds(event.ctrlKey || event.metaKey ? (selectedIds.includes(targetId) ? selectedIds.filter(id => id !== targetId) : [...selectedIds, targetId]) : [targetId]); return; }
-      try {
-        dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => {
-          if (current.length + preview.length > 500 || source.some(e => !current.some(now => now.id === e.id) || isPresentationElementLocked(current, e.id))) throw new Error("Selection changed");
-          return [...current, ...preview];
-        } });
-        setSelectedIds(roots.map(e => idMap.get(e.id)!));
-      } catch { toast.error(t("presentations.commands.unavailable")); }
-    };
-    dragCancel.current = cancel;
-    window.addEventListener("pointermove", move); window.addEventListener("pointerup", finish); window.addEventListener("pointercancel", cancel); window.addEventListener("blur", cancel);
-  };
+  const duplicateDrag = (event: React.PointerEvent<HTMLDivElement>) => startDuplicateDrag(event, {
+    disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel, setSelectedIds, dispatch,
+  });
   const selectedRoots = selectionRoots(elements, selectedIds);
   const canMutate = !disabled && mutableSelection(elements, selectedIds);
   function interact(key: string) { return t(`presentations.interactions.${key}`); }
   const modifier = isMac ? "⌘" : "Ctrl";
   const shortcutLabels: Record<string, string> = { copy: `${modifier}+C`, cut: `${modifier}+X`, paste: `${modifier}+V`, duplicateSelection: `${modifier}+D`, selectAll: `${modifier}+A`, group: `${modifier}+G`, ungroup: `${modifier}+Shift+G`, undo: `${modifier}+Z`, redo: `${modifier}+Shift+Z`, save: `${modifier}+S`, deleteSelection: "Delete", editText: "Enter", front: `${modifier}+Shift+]`, back: `${modifier}+Shift+[`, forward: `${modifier}+]`, backward: `${modifier}+[`, copyFormat: `${modifier}+Shift+C`, pasteFormat: `${modifier}+Shift+V` };
   const executeCommand = (id: string) => { const command = commands.find(c => c.id === id); if (command && !command.disabledReason) command.execute(); };
-  const copySelection = useCallback(async (cut = false) => {
-    if (!selection.length || (cut && !canMutate)) return;
-    try {
-      const raw = serializeSelection(elements, selectedIds);
-      await navigator.clipboard.writeText(raw);
-      if (cut && !latest.current.readOnly && mutableSelection(latest.current.canvas.elements, selectedIds)) deleteSelection(selectedIds);
-    } catch { toast.error(t("presentations.interactions.clipboardError")); }
-  }, [selection, canMutate, elements, selectedIds, deleteSelection, t]);
-  const pasteSelection = useCallback(async () => {
-    if (disabled) return;
-    const point = contextPosition ? reactFlow.screenToFlowPosition(contextPosition) : viewportCenter();
-    try {
-      const copied = parsePresentationClipboard(await navigator.clipboard.readText());
-      if (!copied.length || elements.length + copied.length > 500) throw new Error("Element limit");
-      const attachmentIds = [...new Set(copied.flatMap(e => "attachmentId" in e.content ? [e.content.attachmentId] : []))];
-      const currentAttachments = new Set(elements.flatMap(e => "attachmentId" in e.content ? [e.content.attachmentId] : []));
-      const media = await Promise.all(attachmentIds.map(async id => {
-        const response = await fetch(`/api/files/${encodeURIComponent(id)}`);
-        if (!response.ok) throw new Error("Attachment unavailable");
-        const blob = await response.blob();
-        if (blob.size > 50 * 1024 * 1024) throw new Error("Attachment too large");
-        return { id, blob };
-      }));
-      const replacements = new Map<string, string>();
-      for (const { id, blob } of media) {
-        if (currentAttachments.has(id)) continue;
-        const body = new FormData(); body.append("file", blob, `pasted.${({ "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg", "video/mp4": "mp4", "video/webm": "webm", "audio/mpeg": "mp3", "audio/mp4": "m4a", "audio/ogg": "ogg", "audio/wav": "wav" } as Record<string, string>)[blob.type] ?? "bin"}`); body.append("entityType", "wikiPresentation"); body.append("entityId", presentation.id);
-        const response = await fetch("/api/files", { method: "POST", body });
-        if (!response.ok) throw new Error("Media copy failed");
-        const uploaded = await response.json(); if (typeof uploaded.id !== "string") throw new Error("Invalid upload");
-        replacements.set(id, uploaded.id);
-      }
-      for (const element of copied) if ("attachmentId" in element.content) element.content.attachmentId = replacements.get(element.content.attachmentId) ?? element.content.attachmentId;
-      if (latest.current.readOnly) throw new Error("Editing unavailable");
-      const newIds = copied.map(() => createId());
-      const rootIds = copied.flatMap((e, index) => !e.parentId ? [newIds[index]] : []);
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => {
-        let index = 0;
-        return pastePresentationObjects(copied, current, point, () => newIds[index++]).elements;
-      } });
-      setSelectedIds(rootIds);
-    } catch { toast.error(t("presentations.interactions.clipboardError")); }
-  }, [disabled, contextPosition, reactFlow, viewportCenter, elements, presentation.id, dispatch, t]);
-  const groupSelection = useCallback(() => {
-    if (!canMutate || selectedRoots.length < 2 || elements.length >= 500) return;
-    const id = createId();
-    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => groupPresentationElements(current, new Set(selectedRoots.map(e => e.id)), id) });
-    setSelectedIds([id]);
-  }, [canMutate, selectedRoots, elements.length, dispatch]);
-  const ungroupSelection = useCallback(() => {
-    if (!canMutate) return;
-    const groups = new Set(selectedRoots.filter(e => e.type === "frame" && e.content.isGroup).map(e => e.id));
-    const nextSteps = ungroupSteps(steps, elements, groups, createId);
-    if (nextSteps.length > 500) { toast.error(t("presentations.elementLimit")); return; }
-    dispatch({ type: "edit", at: Date.now(), separate: true,
-      elements: current => [...groups].reduce((next, id) => ungroupPresentationElements(next, id), current), steps: () => nextSteps });
-    setSelectedIds(elements.filter(e => e.parentId && groups.has(e.parentId)).map(e => e.id));
-  }, [canMutate, selectedRoots, steps, elements, dispatch, t]);
-  const editText = useCallback(() => {
-    if (selected?.type !== "text" || !canMutate) return;
-    canvasRef.current?.querySelector<HTMLElement>(`[data-presentation-text="${window.CSS.escape(selected.id)}"]`)?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  }, [selected, canMutate]);
-  const setSelectionLocked = useCallback((locked: boolean) => {
-    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => selectedIds.includes(e.id) ? { ...e, locked } : e) });
-  }, [dispatch, selectedIds]);
+  const { copySelection, pasteSelection, groupSelection, ungroupSelection, editText, setSelectionLocked } = usePresentationSelectionCommands({
+    selection, selected, selectedIds, selectedRoots, canMutate, elements, steps, disabled, contextPosition, reactFlow, viewportCenter,
+    presentation, dispatch, setSelectedIds, deleteSelection, latest, canvasRef, t,
+  });
   const commands: EditorSearchCommand[] = [
     ...baseCommands,
     { id: "copy", label: interact("copy"), execute: () => { void copySelection(); }, group: commandText, disabledReason: (selection.length > 0) ? undefined : unavailable },
@@ -1793,245 +988,9 @@ function Editor({
           )}
 
           {selected && (
-            <details id="presentation-tool-appearance" name="presentation-inspector" open className="my-3 scroll-mt-4 rounded-lg border p-3">
-              <summary className="mb-3 cursor-pointer text-sm font-semibold">{t("presentations.selectionTools.appearance")}</summary>
-              <fieldset disabled={disabled || selectedLocked} className="min-w-0">
-              <div className="flex items-center justify-between gap-1">
-                <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">{t(`presentations.elementTypes.${selected.type}`)}</h2>
-                <div className="flex shrink-0 items-center">
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.bringToFront")} onClick={() => reorderSelected(selected.id, "front")}>
-                    <ArrowUpToLine className="size-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.sendToBack")} onClick={() => reorderSelected(selected.id, "back")}>
-                    <ArrowDownToLine className="size-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.duplicateElement")} onClick={() => duplicateSelection([selected.id])}>
-                    <Copy className="size-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.deleteElement")} onClick={() => deleteSelection([selected.id])}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-2">
-                {!(selected.type === "shape" && (selected.content.shape === "arrow" || selected.content.shape === "doubleArrow" || selected.content.shape === "line")) && colorField(t("presentations.elementBackground"), selected.background ?? "", (color) =>
-                  updateElement(selected.id, (element) => ({ ...element, background: color })),
-                )}
-              </div>
-
-              {selected.type === "text" && (
-                <div className="mt-3 space-y-3">
-                  {collaboration ? <PresentationRichText key={selected.id} elementId={selected.id}
-                    content={selected.content} onChange={content => onRichTextChange(selected.id, content)} disabled={disabled || selectedLocked}
-                    inline autoFocus={false} label={t("presentations.textContent")} /> : (
-                  <DraftTextarea
-                    key={selected.id}
-                    aria-label={t("presentations.textContent")}
-                    value={selected.content.text}
-                    maxLength={5_000}
-                    rows={4}
-                    onCommit={(text) => onTextChange(selected.id, text)}
-                  />
-                  )}
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={Boolean(selected.content.autoFit)} onCheckedChange={(checked) => updateElement(selected.id, element => element.type === "text" ? { ...element, content: { ...element.content, autoFit: checked ? { minFontSize: Math.min(12, element.content.fontSize), maxFontSize: element.content.fontSize } : undefined } } : element)} />
-                    {t("presentations.layout.autoFit")}
-                  </label>
-                  {selected.content.autoFit && <p className="text-xs text-muted-foreground">{t("presentations.layout.autoFitHint")}</p>}
-                  {selected.content.autoFit && !presentationTextFits(selected) && <p role="status" className="text-xs text-amber-700">{t("presentations.layout.overcrowded")}</p>}
-                  <label className="block text-xs text-muted-foreground">{t("presentations.layout.padding")}
-                    <DraftInput type="number" min={0} max={100} value={String(selected.content.padding ?? 0)} normalise={raw => String(parseNumberInput(raw, 0, 100) ?? 0)} onCommit={next => updateElement(selected.id, element => element.type === "text" ? { ...element, content: { ...element.content, padding: Number(next) } } : element)} />
-                  </label>
-                  <label className="block text-xs text-muted-foreground">
-                    {t("presentations.fontSize")}
-                    <DraftInput
-                      type="number"
-                      min={8}
-                      max={400}
-                      className="mt-1 h-8"
-                      key={`${selected.id}-size`}
-                      value={String(selected.content.autoFit?.maxFontSize ?? selected.content.fontSize)}
-                      normalise={(raw) => String(Math.round(parseNumberInput(raw, 8, 400) ?? selected.content.fontSize))}
-                      onCommit={(next) =>
-                        updateElement(selected.id, (element) =>
-                          element.type === "text" ? { ...element, content: { ...element.content, fontSize: Number(next), autoFit: element.content.autoFit ? { minFontSize: Math.min(element.content.autoFit.minFontSize, Number(next)), maxFontSize: Number(next) } : undefined } } : element,
-                        )
-                      }
-                    />
-                  </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    <Button
-                      type="button"
-                      variant={selected.content.bold ? "default" : "outline"}
-                      size="sm"
-                      onClick={() =>
-                        updateElement(selected.id, (element) =>
-                          element.type === "text" ? { ...element, content: { ...element.content, bold: !element.content.bold } } : element,
-                        )
-                      }
-                    >
-                      {t("presentations.bold")}
-                    </Button>
-                    {(["left", "center", "right"] as const).map((align) => (
-                      <Button
-                        key={align}
-                        type="button"
-                        variant={selected.content.align === align ? "default" : "outline"}
-                        size="sm"
-                        onClick={() =>
-                          updateElement(selected.id, (element) =>
-                            element.type === "text" ? { ...element, content: { ...element.content, align } } : element,
-                          )
-                        }
-                      >
-                        {t(`presentations.align.${align}`)}
-                      </Button>
-                    ))}
-                  </div>
-                  {colorSwatches(selected.content.color, (color) =>
-                    updateElement(selected.id, (element) =>
-                      element.type === "text" ? { ...element, content: { ...element.content, color } } : element,
-                    ),
-                  )}
-                </div>
-              )}
-
-              {selected.type === "shape" && selected.content.connection && <div className="mt-3 space-y-2">
-                <p className="text-xs text-muted-foreground">{t("presentations.layout.connectedHint")}</p>
-                <Button size="sm" variant="outline" onClick={() => updateElement(selected.id, element => element.type === "shape" ? { ...element, content: { ...element.content, connection: undefined } } : element)}>{t("presentations.layout.detach")}</Button>
-              </div>}
-              {selected.type === "image" && (
-                <label className="mt-3 block text-xs text-muted-foreground">
-                  {t("presentations.altText")}
-                  <DraftInput
-                    key={selected.id}
-                    className="mt-1 h-8"
-                    value={selected.content.alt}
-                    maxLength={500}
-                    onCommit={(alt) =>
-                      updateElement(selected.id, (element) =>
-                        element.type === "image" ? { ...element, content: { ...element.content, alt } } : element,
-                      )
-                    }
-                  />
-                </label>
-              )}
-
-              {selected.type === "frame" && (
-                <div className="mt-3 space-y-3">
-                  <label className="block text-xs text-muted-foreground">
-                    {t("presentations.frameLabel")}
-                    <DraftInput
-                      key={selected.id}
-                      className="mt-1 h-8"
-                      value={selected.content.label}
-                      data-linked-heading-title=""
-                      maxLength={200}
-                      onCommit={(label) =>
-                        updateElement(selected.id, (element) =>
-                          element.type === "frame" ? { ...element, content: { ...element.content, label } } : element,
-                        )
-                      }
-                    />
-                  </label>
-                  <div className="flex gap-1.5">
-                    {presentationFrameShapes.map((shape) => (
-                      <Button
-                        key={shape}
-                        type="button"
-                        variant={selected.content.shape === shape ? "default" : "outline"}
-                        size="sm"
-                        onClick={() =>
-                          updateElement(selected.id, (element) =>
-                            element.type === "frame" ? { ...element, content: { ...element.content, shape } } : element,
-                          )
-                        }
-                      >
-                        {t(`presentations.frameShapes.${shape}`)}
-                      </Button>
-                    ))}
-                  </div>
-                  {colorSwatches(selected.content.color, (color) =>
-                    updateElement(selected.id, (element) =>
-                      element.type === "frame" ? { ...element, content: { ...element.content, color } } : element,
-                    ),
-                  )}
-                </div>
-              )}
-
-              {selected.type === "shape" && <div className="mt-3 space-y-2">
-                {selected.content.shape === "roundedRect" && <label className="block text-xs">{interact("cornerRadius")}<DraftInput type="number" min={0} max={1000} value={String(selected.content.cornerRadius ?? 20)} normalise={raw => String(Math.max(0, Math.min(1000, Number(raw) || 0)))} onCommit={value => updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, cornerRadius: Number(value) } } : e)} /></label>}
-                <label className="block text-xs">{interact("dashPattern")}<select className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={selected.content.dash ?? "solid"} onChange={event => { const dash = event.target.value as "solid" | "dash" | "dot"; updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, dash } } : e); }}>{["solid", "dash", "dot"].map(value => <option key={value} value={value}>{interact(value)}</option>)}</select></label>
-                {isLinearShape(selected) && <>{(["startHead", "endHead"] as const).map(field => <label key={field} className="block text-xs">{interact(field)}<select className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={selected.content[field] ?? (field === "startHead" ? selected.content.shape === "doubleArrow" ? "triangle" : "none" : selected.content.shape === "line" ? "none" : "triangle")} onChange={event => { const value = event.target.value as "none" | "triangle" | "open"; updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, [field]: value } } : e); }}>{["none", "triangle", "open"].map(value => <option key={value} value={value}>{interact(value)}</option>)}</select></label>)}<label className="block text-xs">{interact("headSize")}<DraftInput type="number" min={1} max={1000} value={String(selected.content.headSize ?? Math.max(10, selected.content.strokeWidth * 3))} normalise={raw => String(Math.max(1, Math.min(1000, Number(raw) || 1)))} onCommit={value => updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, headSize: Number(value) } } : e)} /></label></>}
-              </div>}
-              {selected.type === "shape" && (
-                <div className="mt-3 space-y-3">
-                  <div className="flex flex-wrap gap-1.5">
-                    {presentationShapeKinds.filter(shape => !selected.content.connection || shape === "arrow" || shape === "doubleArrow" || shape === "line").map((shape) => (
-                      <Button
-                        key={shape}
-                        type="button"
-                        variant={selected.content.shape === shape ? "default" : "outline"}
-                        size="sm"
-                        onClick={() =>
-                          updateElement(selected.id, (element) =>
-                            element.type === "shape" ? { ...element, content: { ...element.content, shape } } : element,
-                          )
-                        }
-                      >
-                        {t(`presentations.shapeKinds.${shape}`)}
-                      </Button>
-                    ))}
-                  </div>
-                  {!isLinearShape(selected) && colorField(t("presentations.fill"), selected.content.fill, (fill) =>
-                    updateElement(selected.id, (element) =>
-                      element.type === "shape" ? { ...element, content: { ...element.content, fill } } : element,
-                    ),
-                  )}
-                  {colorField(t("presentations.stroke"), selected.content.stroke, (stroke) =>
-                    updateElement(selected.id, (element) =>
-                      element.type === "shape" ? { ...element, content: { ...element.content, stroke } } : element,
-                    ),
-                  )}
-                  <label className="block text-xs text-muted-foreground">
-                    {t("presentations.strokeWidth")}
-                    <DraftInput
-                      type="number"
-                      min={0}
-                      max={200}
-                      className="mt-1 h-8"
-                      key={`${selected.id}-stroke-width`}
-                      value={String(selected.content.strokeWidth)}
-                      normalise={(raw) => String(parseNumberInput(raw, 0, 200) ?? selected.content.strokeWidth)}
-                      onCommit={(next) =>
-                        updateElement(selected.id, (element) =>
-                          element.type === "shape" ? { ...element, content: { ...element.content, strokeWidth: Number(next) } } : element,
-                        )
-                      }
-                    />
-                  </label>
-                  <label className="block text-xs text-muted-foreground">
-                    {t("presentations.opacity")}
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      className="mt-1 w-full"
-                      value={selected.content.opacity}
-                      onChange={(event) => {
-                        const opacity = Number(event.target.value);
-                        updateElement(selected.id, (element) =>
-                          element.type === "shape" ? { ...element, content: { ...element.content, opacity } } : element,
-                        );
-                      }}
-                    />
-                  </label>
-                </div>
-              )}
-              </fieldset>
-            </details>
+            <PresentationAppearanceInspector selected={selected} disabled={disabled} selectedLocked={selectedLocked} collaboration={collaboration}
+              updateElement={updateElement} reorderSelected={reorderSelected} duplicateSelection={duplicateSelection} deleteSelection={deleteSelection}
+              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} />
           )}
 
           <PresentationStudioInspector elements={elements} selectedIds={selectedIds} activeStep={activeStep}
@@ -2107,51 +1066,7 @@ function Editor({
             )}
           </section>
 </fieldset>}
-          {workspaceDialog === "playback" && <>            <fieldset disabled={disabled} className="space-y-3">
-            <label className="block text-xs text-muted-foreground">
-              {t("presentations.defaultStepDuration")}
-              <DraftInput
-                type="number"
-                min={0.5}
-                max={120}
-                step={0.5}
-                className="mt-1 h-8"
-                value={secondsText(settings.defaultStepDurationMs)}
-                normalise={(raw) => secondsText(parseSecondsInput(raw, STEP_DURATION_RANGE) ?? settings.defaultStepDurationMs)}
-                onCommit={(next) => updateSettings({ defaultStepDurationMs: msFromSecondsText(next) })}
-              />
-            </label>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Checkbox checked={settings.loop} onCheckedChange={(checked) => updateSettings({ loop: checked === true })} />
-              {t("presentations.loopPlayback")}
-            </label>
-            <label className="block text-xs text-muted-foreground">
-              {t("presentations.cameraTransition")}
-              <DraftInput
-                type="number"
-                min={0.1}
-                max={5}
-                step={0.1}
-                className="mt-1 h-8"
-                value={secondsText(settings.cameraTransitionMs)}
-                normalise={(raw) => secondsText(parseSecondsInput(raw, CAMERA_TRANSITION_RANGE) ?? settings.cameraTransitionMs)}
-                onCommit={(next) => updateSettings({ cameraTransitionMs: msFromSecondsText(next) })}
-              />
-            </label>
-            <label className="block text-xs text-muted-foreground">
-              {t("presentations.cameraEasing")}
-              <select
-                className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm outline-none dark:bg-input/30"
-                value={settings.cameraEasing}
-                onChange={(event) => updateSettings({ cameraEasing: event.target.value as PresentationCameraEasing })}
-              >
-                {presentationCameraEasings.map((easing) => (
-                  <option key={easing} value={easing}>{t(`presentations.easings.${easing}`)}</option>
-                ))}
-              </select>
-            </label>
-            </fieldset>
-</>}
+          {workspaceDialog === "playback" && <PresentationPlaybackSettings disabled={disabled} settings={settings} updateSettings={updateSettings} />}
         </DialogContent>
       </Dialog>
     </div>

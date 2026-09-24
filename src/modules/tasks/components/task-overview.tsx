@@ -21,7 +21,7 @@ import {
   SlidersHorizontal,
   X,
 } from "lucide-react";
-import { moveDashboardTask } from "@/modules/projects/actions";
+import { moveDashboardTask } from "@/modules/projects/contextual-task-actions";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";

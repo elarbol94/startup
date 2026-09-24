@@ -44,6 +44,12 @@ SQLite database. Stop the normal development server before running it.
   VAT/invoice invariants, and gapless per-year invoice numbering.
 - Use `src/lib/files.ts` and the existing file API for attachments; do not create
   another upload store or bypass its validation.
+- Keep source files small enough to read in one pass: aim for under ~500 lines
+  and split files that pass ~700. Large client components keep a thin entry file
+  and put pieces in a sibling folder named after the feature (for example
+  `projects/components/portfolio/`): `*-types.ts`, `*-utils.ts`, `use-*.ts`
+  hooks and sub-components. Server actions are grouped into sibling
+  `<topic>-actions.ts` files; never re-export from a `"use server"` file.
 
 ## Important operational constraints
 

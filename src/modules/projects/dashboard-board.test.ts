@@ -23,7 +23,8 @@ vi.mock("@/db", async () => {
 import { db, sqlite } from "@/db";
 import { projectColumns, projects, tasks, user } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
-import { moveDashboardTask, moveTask, upsertColumn, upsertContextualTask } from "./actions";
+import { moveTask, upsertColumn } from "./board-actions";
+import { moveDashboardTask, upsertContextualTask } from "./contextual-task-actions";
 import { listTaskOverview } from "./queries";
 
 const row = (id: string) => db.select().from(tasks).where(eq(tasks.id, id)).get()!;

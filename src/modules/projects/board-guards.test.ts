@@ -16,7 +16,8 @@ vi.mock("@/db", async () => {
 
 import { db, sqlite } from "@/db";
 import { projectColumns, projects, tasks, user } from "@/db/schema";
-import { deleteColumn, moveTask, upsertColumn, upsertTask } from "./actions";
+import { deleteColumn, moveTask, upsertColumn } from "./board-actions";
+import { upsertTask } from "./task-actions";
 import { moveColumn } from "./column-actions";
 import { ProjectArchivedError, assertProjectEditable } from "./guards";
 

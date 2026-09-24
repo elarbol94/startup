@@ -24,14 +24,13 @@ import {
   tasks,
   user,
 } from "@/db/schema";
+import { reparentTask } from "./task-actions";
+import { deleteTaskDependency, upsertTaskDependency } from "./dependency-actions";
+import { applyPortfolioScheduleChange } from "./schedule-change-actions";
 import {
-  applyPortfolioScheduleChange,
-  deleteTaskDependency,
   reapplyPortfolioScheduleChange,
-  reparentTask,
   revertPortfolioScheduleChange,
-  upsertTaskDependency,
-} from "./actions";
+} from "./schedule-history-actions";
 import { deleteTaskKeepChildren } from "./delete-actions";
 
 function task(id: string) {

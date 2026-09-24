@@ -6,7 +6,7 @@ import { clientUUID } from "@/lib/client-uuid";
 
 import { CommentHighlights } from "./comment-highlight-extension";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useReducer, useRef, useState, type ReactNode, type SetStateAction, type CSSProperties, type RefObject } from "react";
+import { useCallback, useEffect, useEffectEvent, useReducer, useRef, useState, type SetStateAction } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -15,706 +15,93 @@ import { CollaborationContext, CollaborationStatus, useCollaboration, useCollabo
 import { documentJSON, patchMap, LOCAL } from "../collaboration/codec";
 import { collaborationCursors } from "../collaboration/cursors";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import { BubbleMenu } from "@tiptap/react/menus";
-import { Mark, Node, mergeAttributes } from "@tiptap/core";
 import { NodeSelection } from "@tiptap/pm/state";
-import { closeHistory } from "@tiptap/pm/history";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
-import { AlignCenter, AlignLeft, AlignRight, Bold, BookMarked, CalendarClock, Check, ClipboardCheck, CloudOff, Code, Columns2, FileText, Heading1, Heading2, Heading3, Highlighter, ImagePlus, Italic, Keyboard, Layers3, Link2, List, ListOrdered, ListTree, ListTodo, MessageSquareText, Minus, MoreHorizontal, Paperclip, Pilcrow, Quote, Redo2, RotateCcw, Rows3, ScissorsLineDashed, Search, Settings2, Strikethrough, Trash2, Underline as UnderlineIcon, Undo2, Workflow } from "lucide-react";
+import { Bold, BookMarked, CalendarClock, Check, ClipboardCheck, CloudOff, Code, FileText, Heading3, Highlighter, ImagePlus, Italic, Keyboard, Layers3, Link2, List, ListOrdered, ListTree, ListTodo, MessageSquareText, Minus, MoreHorizontal, Paperclip, Pilcrow, Quote, Redo2, RotateCcw, ScissorsLineDashed, Search, Settings2, Strikethrough, Underline as UnderlineIcon, Undo2 } from "lucide-react";
 import { useDocumentWorkspace } from "./document-workspace";
 import { WorkspacePanel } from "./workspace-panel";
 import { addComment } from "../research-actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import type { SlashCommandDefinition } from "./slash-command-menu";
-import { CommentRail, type CommentRailHandle, type CommentThread } from "./comment-rail";
+import { DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut } from "@/components/ui/dropdown-menu";
+import { CommentRail, type CommentRailHandle } from "./comment-rail";
 import { CommentAnchorOverlay } from "./comment-anchor-overlay";
 import { DocumentPresentationLinks } from "./document-presentation-links";
 import { useEditorNavigation } from "./use-editor-navigation";
 import { HeadingIdentity } from "./heading-identity";
 
-import { CollapsibleHeading, HeadingListItem, headingVisibilityChanged } from "./collapsible-heading";
+import { CollapsibleHeading, HeadingListItem } from "./collapsible-heading";
 import { MarkdownDocumentExtensions, MarkdownShortcutMarks } from "./markdown-shortcut-extension";
 import { flushSync } from "react-dom";
-import { proposalTable, proposalSectionSnippet } from "../lib/proposal";
 import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
 import { createDoubleShiftDetector, recentEditorCommands, rememberEditorCommand } from "../lib/command-search";
 import { WikiShortcutsDialog } from "./wiki-shortcuts-dialog";
 import { EditorLinkPopover, EditorOutlineSheet, EditorSearchPanel, type OutlineItem } from "./editor-tools";
-import { mergeCommentThreadIds, normalizeImageRect, type CommentAnchor } from "../lib/comment-anchors";
+import type { CommentAnchor } from "../lib/comment-anchors";
 import { EditorSearchExtension } from "../lib/editor-search";
-import { collectSpellcheckParagraphs, createSpellcheckExtension, getSpellcheckIssues, replaceAllSpellcheckOccurrences, setSpellcheckIssues, type ProofingLanguage, type SpellcheckIssue, type SpellcheckResponseMatch } from "../lib/spellcheck";
-import { disableMyWikiProofingRule, ignoreMyWikiProofingIssue, updateMyWikiProofingPicky } from "../wiki-preference-actions";
-import { createSpellcheckController } from "../lib/spellcheck-controller";
+import { createSpellcheckExtension, type ProofingLanguage } from "../lib/spellcheck";
 import { WikiProofingMenu, WikiProofingSuggestions, type OpenProofingIssue } from "./wiki-proofing";
-import type { WikiProofingPrefsV1 } from "../lib/wiki-proofing-prefs";
 import { sanitizePastedHtml } from "../lib/paste-html";
 import { calculateWritingStats, type WritingStats } from "../lib/editor-writing";
 import { readEditorStorage, removeEditorStorage, writeEditorStorage } from "../lib/editor-draft";
 import { exportSavedDocument } from "../lib/editor-export";
-import { userMarkColorStyle, userIdentityColor, type UserMarkColor } from "@/lib/user-mark-colors";
 import { MermaidDiagram, MERMAID_PLACEHOLDER } from "./mermaid-extension";
 import { SuggestionDelete, SuggestionInsert, SuggestionMode } from "./suggestion-extension";
 import { acceptSuggestions, countSuggestions, rejectSuggestions } from "../lib/suggestions";
-import { DocumentExtensions, getDocumentPaginationBreaks, samePaginationBreaks, setDocumentNumberingConfig, setDocumentPaginationBreaks } from "./document-extension";
-import { computeDocumentPagination, type PaginationItem, type PaginationSplit } from "../lib/document-pagination";
+import { DocumentExtensions, setDocumentNumberingConfig } from "./document-extension";
 import { DocumentLayoutPanel } from "./document-layout-panel";
-import { WikiTypographyDialog, type WikiEditorPreferences } from "./wiki-typography-dialog";
+import { WikiTypographyDialog } from "./wiki-typography-dialog";
 import { collectDocumentPreflightIssues, localizeDocumentSettings, normalizeDocumentSettings, parseDocumentSettings, serializeDocumentSettings, type DocumentPreflightIssue, type DocumentSettingsV1 } from "../lib/document-settings";
-import { figureMime, hasFigureList, isFigure, stripFigureNumber } from "../lib/figure";
+import { hasFigureList, isFigure, stripFigureNumber } from "../lib/figure";
 import { CommentableImage, FigureIdentity, figureRepairs } from "./figure-extension";
-import { FigureUploads, addUpload, removeUpload, uploadPosition } from "./figure-upload";
+import { FigureUploads } from "./figure-upload";
 import { FigureList, FigureListEntry, FigureListSync } from "./figure-list";
-import { FigureLibraryContext, figureAssetAttributes, useFigureLibrary } from "./figure-library";
+import { FigureLibraryContext, useFigureLibrary } from "./figure-library";
 import { FigureTextDrop } from "./figure-drop";
 import { FigurePanel } from "./figure-panel";
 import { FigurePicker } from "./figure-picker";
 import { FigureReferencePicker } from "./figure-reference-picker";
-import type { FigureAssetDto } from "../lib/figure-types";
-import { normalizeWikiTypography, wikiTypographyCssVariables, type WikiTypographySettingsV1, type WikiTypographyTemplate } from "../lib/wiki-typography";
-import type { StoredDocumentTemplate } from "../document-queries";
-import { addMarkdownTableColumn, addMarkdownTableRow, deleteMarkdownTableColumn, deleteMarkdownTableRow, setMarkdownTableCellAlignment, toggleMarkdownTableHeader } from "../lib/document-table";
-import { DEFAULT_WIKI_SHORTCUT_BINDINGS, normalizeWikiShortcut, parseWikiShortcutBindings, WIKI_SHORTCUT_ACTIONS, type WikiShortcutAction } from "../lib/wiki-shortcuts";
+import { normalizeWikiTypography } from "../lib/wiki-typography";
+import { normalizeWikiShortcut, WIKI_SHORTCUT_ACTIONS, type WikiShortcutAction } from "../lib/wiki-shortcuts";
 import { displayShortcut } from "../lib/shortcut-display";
-import { resolveTaskOrigin } from "../lib/task-origin";
-import { applyEditorLink } from "../lib/editor-link";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
-import { localDateValue } from "@/modules/tasks/deadline-utils";
-import type { ContextDeadlineMarker, ContextTaskMarker } from "@/modules/tasks/types";
-import { formatBibliography, formatIeeeCitation, formatInlineCitation, isNumericCitationStyle, type CitationSource, type CitationStyle } from "../lib/citations";
-import { NewSourceDialog } from "./new-source-dialog";
+import { formatBibliography } from "../lib/citations";
 import { SvgGraphicsPanel } from "./svg-graphics-panel";
-import type { ProposalWorkspaceData } from "../lib/proposal";
+import type { CitationTarget, FigureCaption, SourceRef, TableCaption, WikiEditorProps } from "./wiki-editor/wiki-editor-types";
+import { Citation, CommentMark, DeadlineReference, Highlight, PdfEvidence, TaskReference } from "./wiki-editor/wiki-editor-extensions";
+import { addThreadMark, backfillCommentNodeIds, isInlineImageFile, normalizeCitationLabels, normalizeInlineImageFile } from "./wiki-editor/wiki-editor-document-ops";
+import { LEGACY_TIPTAP_SHORTCUTS, WIKI_SHORTCUTS_KEY, loadEditorPreferences, loadWikiShortcutBindings } from "./wiki-editor/wiki-editor-preferences";
+import { DOCUMENT_ZOOM_KEY, loadDocumentZoom } from "./wiki-editor/document-zoom";
+import { documentCanvasLayout } from "./wiki-editor/document-canvas-layout";
+import { ToolbarButton, ToolbarGroup, ToolbarMenu } from "./wiki-editor/wiki-editor-toolbar-controls";
+import { ImageRegionSelector } from "./wiki-editor/image-region-selector";
+import { CitationPicker, EvidencePicker, PageLinkPicker } from "./wiki-editor/wiki-editor-pickers";
+import { WikiEditorBubbleMenus } from "./wiki-editor/wiki-editor-bubble-menus";
+import { DocumentBackMatter, DocumentFrontMatter } from "./wiki-editor/wiki-document-pages";
+import { buildSlashCommands, buildWikiEditorCommands, runWikiEditorAction } from "./wiki-editor/wiki-editor-commands";
+import { createFigureHandlers } from "./wiki-editor/wiki-editor-figure-handlers";
+import { createWikiProofingHandlers } from "./wiki-editor/wiki-editor-proofing";
+import { useWikiProofingChecks } from "./wiki-editor/use-wiki-proofing-checks";
+import { useDocumentPagination } from "./wiki-editor/use-document-pagination";
+import { useDocumentZoomGestures } from "./wiki-editor/use-document-zoom-gestures";
+import { useContextReferenceSync } from "./wiki-editor/use-context-reference-sync";
+import { useEvidenceInsertion } from "./wiki-editor/use-evidence-insertion";
+import { useReferenceFocus } from "./wiki-editor/use-reference-focus";
+import { useHighlightAuthorColors } from "./wiki-editor/use-highlight-author-colors";
+import { useWikiEditorHandle } from "./wiki-editor/use-wiki-editor-handle";
 
-type PageRef = { id: string; title: string; slug: string };
-type SourceRef = CitationSource;
-type WikiEditorPageActions = { addAttachment: () => void; linkSupportingSource: () => void };
-export type WikiEditorHandle = {
-  flushSave: () => Promise<boolean>;
-  insertGraphic: (asset: { attachmentId: string; fileName: string; contentUrl: string; caption?: string | null }) => void;
-};
-type FigureCaption = { nodeId: string; caption: string };
-type TableCaption = { tableId: string; caption: string };
-type CitationTarget = { sourceId: string; documentId?: string; annotationId?: string; locator?: string };
-function proofingIssueKey(issue: SpellcheckIssue) {
-  return `${issue.ruleId}\u0000${issue.from}\u0000${issue.to}\u0000${issue.message}`;
-}
+export type { WikiEditorHandle } from "./wiki-editor/wiki-editor-types";
 
-const WIKI_SHORTCUTS_KEY = "wiki:editor-shortcuts:v1";
-const DOCUMENT_ZOOM_KEY = "wiki:document-zoom:v1";
-const DOCUMENT_ZOOM_MIN = 70;
-const DOCUMENT_ZOOM_MAX = 200;
 // Typing bursts arrive faster than a frame. Both the page measurement and the
 // content snapshot wait out the burst instead of running per keystroke.
-const PAGINATION_TYPING_DELAY = 120;
 const CONTENT_SYNC_DELAY = 200;
-// Line geometry is only measured for blocks that actually reach a page edge, and
-// each such block moves the flow, so a couple of rounds settle the whole page.
-const PAGINATION_MEASURE_ROUNDS = 3;
-
-// Measures the line boxes of a text block and maps each line start back to a
-// document position, so a paragraph or code block can break between its lines.
-function measureTextLines(editor: Editor, element: HTMLElement, natural: (value: number) => number) {
-  const range = document.createRange();
-  const rectAt = (text: Text, offset: number) => {
-    if (offset < 0 || offset >= text.length) return null;
-    range.setStart(text, offset);
-    range.setEnd(text, offset + 1);
-    const rect = range.getBoundingClientRect();
-    return rect.height > 0 ? rect : null;
-  };
-  const splits: PaginationSplit[] = [];
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    const text = node as Text;
-    if (!text.length || text.parentElement?.closest("[contenteditable=\"false\"]")) continue;
-    let offset = 0;
-    while (offset < text.length) {
-      const rect = rectAt(text, offset);
-      if (!rect) {
-        offset += 1;
-        continue;
-      }
-      const top = natural(rect.top);
-      const previous = splits[splits.length - 1];
-      // A line box can span several text nodes when marks interrupt it.
-      if (previous && Math.abs(previous.top - top) < 1) previous.bottom = Math.max(previous.bottom, natural(rect.bottom));
-      else splits.push({ position: editor.view.posAtDOM(text, offset), top, bottom: natural(rect.bottom) });
-      // Probing every character is too slow on a paragraph that fills a page, so
-      // the end of the line box is found by bisection instead.
-      let low = offset + 1;
-      let high = text.length;
-      while (low < high) {
-        const middle = Math.ceil((low + high) / 2);
-        const probe = rectAt(text, middle - 1);
-        if (probe && Math.abs(probe.top - rect.top) < 1) low = middle;
-        else high = middle - 1;
-      }
-      offset = Math.max(low, offset + 1);
-    }
-  }
-  return splits;
-}
-
-// ponytail: split tables between rows without repeating the header row on the
-// following page; the export renderers own that, this is the on-screen preview.
-function measureTableRows(editor: Editor, table: HTMLElement, natural: (value: number) => number) {
-  const rows = table.querySelectorAll<HTMLTableRowElement>(":scope > tr, :scope > tbody > tr");
-  return Array.from(rows, (row) => {
-    const rect = row.getBoundingClientRect();
-    return { position: Math.max(0, editor.view.posAtDOM(row, 0) - 1), top: natural(rect.top), bottom: natural(rect.bottom) };
-  });
-}
-
-function loadDocumentZoom() {
-  if (typeof window === "undefined") return 100;
-  // Without this guard an absent entry parses as 0 and clamps to the minimum,
-  // so a first visit opened the document at 70 % instead of 100 %.
-  const stored = Number(readEditorStorage(DOCUMENT_ZOOM_KEY) ?? Number.NaN);
-  return Number.isFinite(stored) && stored > 0 ? Math.min(DOCUMENT_ZOOM_MAX, Math.max(DOCUMENT_ZOOM_MIN, stored)) : 100;
-}
-
-function scrollableAncestor(element: Element | null, axis: "x" | "y") {
-  for (let node = element?.parentElement ?? null; node; node = node.parentElement) {
-    const style = getComputedStyle(node);
-    if (!/^(auto|scroll|overlay)$/.test(axis === "y" ? style.overflowY : style.overflowX)) continue;
-    const scrollable = axis === "y" ? node.scrollHeight - node.clientHeight : node.scrollWidth - node.clientWidth;
-    if (scrollable > 1) return node;
-  }
-  return null;
-}
-
-// Zooming keeps the point under the cursor in place: whatever the mouse pointed
-// at before the wheel notch is scrolled back under the pointer afterwards.
-function keepZoomAnchorInPlace(surface: HTMLElement, deltaX: number, deltaY: number) {
-  let restX = deltaX;
-  let restY = deltaY;
-  const horizontal = scrollableAncestor(surface, "x");
-  if (horizontal && restX) {
-    const before = horizontal.scrollLeft;
-    horizontal.scrollLeft = before + restX;
-    restX -= horizontal.scrollLeft - before;
-  }
-  const vertical = scrollableAncestor(surface, "y");
-  if (vertical && restY) {
-    const before = vertical.scrollTop;
-    vertical.scrollTop = before + restY;
-    restY -= vertical.scrollTop - before;
-  }
-  if (Math.abs(restX) > 0.5 || Math.abs(restY) > 0.5) {
-    window.scrollBy({ left: restX, top: restY, behavior: "instant" });
-  }
-}
-// These are TipTap's built-in editing combinations. Capture them as well when
-// a user has moved the corresponding action, otherwise TipTap would still run
-// the old command after the custom shortcut handler intentionally ignores it.
-const LEGACY_TIPTAP_SHORTCUTS = new Set([
-  "Ctrl+B", "Ctrl+I", "Ctrl+U", "Ctrl+Shift+S", "Ctrl+E",
-  "Ctrl+Alt+1", "Ctrl+Alt+2", "Ctrl+Alt+3", "Ctrl+Shift+7", "Ctrl+Shift+8", "Ctrl+Shift+9",
-]);
-type WikiEditorProps = {
-  details: ReactNode;
-  focused?: boolean;
-  pageId: string;
-  pageTitle: string;
-  pageSlug: string;
-  pageVersion: number;
-  pageContentVersion: number;
-  initialContent: string;
-  initialProofingLanguage: ProofingLanguage;
-  initialProofingPrefs: WikiProofingPrefsV1;
-  initialDocumentMode: boolean;
-  initialDocumentSettings: string;
-  documentTemplates: StoredDocumentTemplate[];
-  allPages: PageRef[];
-  sources: SourceRef[];
-  users: Array<{ id: string; name: string; markColor: UserMarkColor }>;
-  citationLocale: string;
-  citationStyle: CitationStyle;
-  insertEvidenceId?: string;
-  comments: CommentThread[];
-  currentUserId: string;
-  contextTasks: ContextTaskMarker[];
-  contextDeadlines: ContextDeadlineMarker[];
-  proposalData: ProposalWorkspaceData;
-  focusTaskId?: string;
-  focusDeadlineId?: string;
-  pageActions: WikiEditorPageActions;
-  actionsRef?: RefObject<WikiEditorHandle | null>;
-  initialTypography: WikiTypographySettingsV1;
-  editableTypography: WikiTypographySettingsV1;
-  typographyTemplates: WikiTypographyTemplate[];
-  isPrimaryAuthor: boolean;
-};
-
-function loadEditorPreferences(): WikiEditorPreferences {
-  if (typeof window === "undefined") return { statusVisible: true, minimalToolbar: false, typewriterMode: false };
-  try {
-    const stored = JSON.parse(readEditorStorage("wiki-editor-preferences") ?? "{}") as Partial<WikiEditorPreferences>;
-    return { statusVisible: stored.statusVisible ?? true, minimalToolbar: stored.minimalToolbar ?? false, typewriterMode: stored.typewriterMode ?? false };
-  } catch {
-    return { statusVisible: true, minimalToolbar: false, typewriterMode: false };
-  }
-}
-
-function loadWikiShortcutBindings() {
-  if (typeof window === "undefined") return { ...DEFAULT_WIKI_SHORTCUT_BINDINGS };
-  try {
-    return parseWikiShortcutBindings(JSON.parse(readEditorStorage(WIKI_SHORTCUTS_KEY) ?? "null"));
-  } catch {
-    return { ...DEFAULT_WIKI_SHORTCUT_BINDINGS };
-  }
-}
-
-const Citation = Node.create({
-  name: "citation", group: "inline", inline: true, atom: true,
-  addAttributes() { return { items: { default: [] }, label: { default: "" } }; },
-  parseHTML() { return [{ tag: "span[data-citation]" }]; },
-  renderHTML({ HTMLAttributes }) { return ["span", mergeAttributes(HTMLAttributes, { "data-citation": "", class: "wiki-citation" }), HTMLAttributes.label || "(citation)"]; },
-});
-
-function citationNumberForSource(editor: Editor, sourceId: string) {
-  const order = new Map<string, number>();
-  editor.state.doc.descendants((node) => {
-    if (node.type.name !== "citation" || !Array.isArray(node.attrs.items)) return;
-    for (const item of node.attrs.items as Array<{ sourceId?: unknown }>) {
-      if (typeof item.sourceId === "string" && !order.has(item.sourceId)) order.set(item.sourceId, order.size + 1);
-    }
-  });
-  return order.get(sourceId) ?? order.size + 1;
-}
-
-function normalizeCitationLabels(
-  editor: Editor,
-  sources: CitationSource[],
-  style: CitationStyle,
-  locale: string,
-) {
-  const order = new Map<string, number>();
-  const updates: Array<{ position: number; attrs: Record<string, unknown> }> = [];
-  editor.state.doc.descendants((node, position) => {
-    if (node.type.name !== "citation" || !Array.isArray(node.attrs.items)) return;
-    const labels: string[] = [];
-    for (const item of node.attrs.items as Array<{ sourceId?: unknown; locator?: unknown }>) {
-      if (typeof item.sourceId !== "string") continue;
-      if (!order.has(item.sourceId)) order.set(item.sourceId, order.size + 1);
-      const locator = typeof item.locator === "string" ? item.locator : undefined;
-      if (isNumericCitationStyle(style)) {
-        labels.push(formatIeeeCitation(order.get(item.sourceId)!, locator));
-        continue;
-      }
-      const source = sources.find((candidate) => candidate.id === item.sourceId);
-      labels.push(source
-        ? formatInlineCitation(source, locator, locale, order.get(item.sourceId)!, style)
-        : formatIeeeCitation(order.get(item.sourceId)!, locator));
-    }
-    const label = labels.join(", ");
-    if (label && node.attrs.label !== label) updates.push({ position, attrs: { ...node.attrs, label } });
-  });
-  if (!updates.length) return false;
-  const transaction = editor.state.tr;
-  for (const update of updates) transaction.setNodeMarkup(update.position, undefined, update.attrs);
-  editor.view.dispatch(transaction);
-  return true;
-}
-
-const PdfEvidence = Node.create({
-  name: "pdfEvidence", group: "block", atom: true, selectable: true,
-  addAttributes() { return { nodeId: { default: "" }, annotationId: { default: "" }, sourceId: { default: "" }, documentId: { default: "" }, pageNumber: { default: 1 }, kind: { default: "text" }, quote: { default: "" }, label: { default: "" }, sourceTitle: { default: "" }, previewUrl: { default: "" } }; },
-  parseHTML() { return [{ tag: "aside[data-pdf-evidence]" }, { tag: "figure[data-pdf-evidence]" }]; },
-  renderHTML({ HTMLAttributes }) {
-    const text = HTMLAttributes.quote || HTMLAttributes.label || HTMLAttributes.sourceTitle || "PDF evidence";
-    const attributes = mergeAttributes(HTMLAttributes, { "data-pdf-evidence": HTMLAttributes.annotationId, "data-comment-node-id": HTMLAttributes.nodeId, class: "wiki-commentable-media my-4 rounded-lg border-l-4 border-indigo-400 bg-indigo-50/60 p-4 text-sm dark:bg-indigo-950/20" });
-    if (HTMLAttributes.kind === "region" && HTMLAttributes.previewUrl) return ["figure", attributes, ["img", { src: HTMLAttributes.previewUrl, alt: text, class: "max-h-96 rounded object-contain" }], ["figcaption", { class: "mt-2 text-xs text-muted-foreground" }, text]];
-    return ["aside", attributes, text];
-  },
-});
-
-function referencePeople(value: unknown, fallback: string): import("@tiptap/pm/model").DOMOutputSpec[] {
-  const people = Array.isArray(value) ? value.filter((person): person is { id: string; name: string } =>
-    person !== null && typeof person === "object" && typeof person.id === "string" && typeof person.name === "string") : [];
-  if (!people.length) return fallback ? [["small", {}, fallback]] : [];
-  return people.map(person => ["span", {
-    "data-user-id": person.id,
-    style: `display:inline-flex;align-items:center;border-left:3px solid ${userIdentityColor(person.id)};background:${userIdentityColor(person.id, "highlight")};padding:1px 5px;margin-right:4px;border-radius:3px`,
-  }, person.name]);
-}
-
-const TaskReference = Node.create({
-  name: "taskReference",
-  group: "block",
-  atom: true,
-  selectable: true,
-  addAttributes() {
-    return {
-      taskId: { default: "" },
-      title: { default: "" },
-      status: { default: "open" },
-      priority: { default: "medium" },
-      assigneeName: { default: "" },
-      assignees: { default: [], rendered: false },
-    };
-  },
-  parseHTML() { return [{ tag: "aside[data-task-reference]" }]; },
-  renderHTML({ node, HTMLAttributes }) {
-    const done = HTMLAttributes.status === "done";
-    return ["aside", mergeAttributes(HTMLAttributes, {
-      "data-task-reference": HTMLAttributes.taskId,
-      "data-status": HTMLAttributes.status,
-      "data-priority": HTMLAttributes.priority,
-      class: "wiki-task-reference",
-    }),
-      ["span", { class: "wiki-task-reference-check" }, done ? "✓" : ""],
-      ["span", { class: "wiki-task-reference-body" },
-        ["strong", {}, HTMLAttributes.title || "Aufgabe"],
-        ["small", {}, HTMLAttributes.priority || ""],
-        ...referencePeople(node.attrs.assignees, HTMLAttributes.assigneeName),
-      ],
-    ];
-  },
-});
-
-const DeadlineReference = Node.create({
-  name: "deadlineReference",
-  group: "block",
-  atom: true,
-  selectable: true,
-  addAttributes() {
-    return {
-      deadlineId: { default: "" },
-      title: { default: "" },
-      description: { default: "" },
-      status: { default: "open" },
-      assigneeName: { default: "" },
-      assignees: { default: [], rendered: false },
-      deadlineAt: { default: "" },
-    };
-  },
-  parseHTML() { return [{ tag: "aside[data-deadline-reference]" }]; },
-  renderHTML({ node, HTMLAttributes }) {
-    const done = HTMLAttributes.status === "done";
-    return ["aside", mergeAttributes(HTMLAttributes, {
-      "data-deadline-reference": HTMLAttributes.deadlineId,
-      "data-status": HTMLAttributes.status,
-      class: "wiki-deadline-reference",
-    }),
-      ["span", { class: "wiki-deadline-reference-icon" }, done ? "✓" : "◷"],
-      ["span", { class: "wiki-deadline-reference-body" },
-        ["strong", {}, HTMLAttributes.title || "Deadline"],
-        ["small", {}, HTMLAttributes.deadlineAt || ""],
-        ...referencePeople(node.attrs.assignees, HTMLAttributes.assigneeName),
-      ],
-    ];
-  },
-});
-
-const CommentMark = Mark.create({
-  name: "comment", inclusive: false,
-  addAttributes() {
-    return {
-      threadId: { default: null, parseHTML: (element) => element.getAttribute("data-comment-thread") },
-      threadIds: {
-        default: [],
-        parseHTML: (element) => {
-          const ids = (element.getAttribute("data-comment-threads") ?? "").split(/\s+/).filter(Boolean);
-          const legacy = element.getAttribute("data-comment-thread");
-          if (legacy && !ids.includes(legacy)) ids.unshift(legacy);
-          return ids;
-        },
-      },
-    };
-  },
-  parseHTML() { return [{ tag: "mark[data-comment-thread]" }, { tag: "mark[data-comment-threads]" }]; },
-  renderHTML({ HTMLAttributes }) {
-    const ids = mergeCommentThreadIds(HTMLAttributes, "");
-    const normalized = ids.filter(Boolean);
-    return ["mark", { "data-comment-thread": normalized[0], "data-comment-threads": normalized.join(" "), class: "wiki-comment-anchor" }, 0];
-  },
-});
-
-const Highlight = Mark.create({
-  name: "highlight",
-  addAttributes() {
-    return {
-      createdBy: {
-        default: null,
-        parseHTML: (element) => element.getAttribute("data-highlight-author"),
-        renderHTML: (attributes) => attributes.createdBy ? { "data-highlight-author": attributes.createdBy } : {},
-      },
-    };
-  },
-  parseHTML() { return [{ tag: "mark:not([data-comment-thread])" }]; },
-  renderHTML({ HTMLAttributes }) { return ["mark", mergeAttributes(HTMLAttributes, { class: "wiki-highlight" }), 0]; },
-});
-
-function ToolbarButton({ active, onClick, title, shortcut, children }: { active?: boolean; onClick: () => void; title: string; shortcut?: string; children: React.ReactNode }) {
-  return <Tooltip>
-    <TooltipTrigger render={<Button type="button" variant={active ? "secondary" : "ghost"} size="icon-sm" aria-label={title} aria-pressed={active} onMouseDown={(event) => event.preventDefault()} onClick={onClick} />}>{children}</TooltipTrigger>
-    <TooltipContent>{title}{shortcut && <kbd className="ml-1 rounded bg-background/15 px-1 py-0.5 font-mono">{shortcut}</kbd>}</TooltipContent>
-  </Tooltip>;
-}
-
-function ToolbarMenu({ label, icon, children, onPointerDown }: { label: string; icon: React.ReactNode; children: React.ReactNode; onPointerDown?: () => void }) {
-  return <DropdownMenu>
-    <DropdownMenuTrigger render={<Button type="button" variant="ghost" size="sm" className="gap-1 px-2" aria-label={label} onFocus={onPointerDown} onPointerDown={onPointerDown} />}>{icon}<span className="text-xs">{label}</span></DropdownMenuTrigger>
-    <DropdownMenuContent className="w-56">{children}</DropdownMenuContent>
-  </DropdownMenu>;
-}
-
-function ToolbarGroup({ label, children }: { label: string; children: React.ReactNode }) {
-  return <div role="group" aria-label={label} className="flex items-center gap-0.5 border-r border-border/60 pr-2 last:border-0">
-    {children}
-  </div>;
-}
-
-function addThreadMark(editor: Editor, range: { from: number; to: number }, threadId: string) {
-  const markType = editor.state.schema.marks.comment;
-  if (!markType) return;
-  const transaction = editor.state.tr;
-  editor.state.doc.nodesBetween(range.from, range.to, (node, position) => {
-    if (!node.isText) return;
-    const from = Math.max(range.from, position);
-    const to = Math.min(range.to, position + node.nodeSize);
-    if (from >= to) return;
-    const existing = node.marks.find((mark) => mark.type === markType);
-    const threadIds = mergeCommentThreadIds(existing?.attrs ?? {}, threadId);
-    transaction.removeMark(from, to, markType);
-    transaction.addMark(from, to, markType.create({ threadId: null, threadIds }));
-  });
-  editor.view.dispatch(transaction);
-}
-
-function backfillCommentNodeIds(editor: Editor) {
-  let transaction = editor.state.tr;
-  editor.state.doc.descendants((node, position) => {
-    if ((node.type.name === "pdfEvidence" || node.type.name === "commentableImage") && !node.attrs.nodeId) {
-      transaction = transaction.setNodeMarkup(position, undefined, { ...node.attrs, nodeId: crypto.randomUUID() });
-    }
-  });
-  if (transaction.docChanged) editor.view.dispatch(transaction);
-}
-
-type UploadedAttachment = { id: string; fileName: string; mimeType: string };
-type ExistingImageAttachment = UploadedAttachment & { src?: string };
-const INLINE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
-
-function isInlineImageFile(file: File) {
-  return INLINE_IMAGE_TYPES.has(file.type) || Boolean(figureMime(file.name));
-}
-
-function normalizeInlineImageFile(file: File) {
-  return !file.type && file.name.toLocaleLowerCase().endsWith(".svg")
-    ? new File([file], file.name, { type: "image/svg+xml", lastModified: file.lastModified })
-    : file;
-}
-
-function imageNodeAttrs(attachment: UploadedAttachment) {
-  const label = attachment.fileName.replace(/\.[^.]+$/, "");
-  return {
-    nodeId: crypto.randomUUID(),
-    attachmentId: attachment.id,
-    src: `/api/files/${attachment.id}`,
-    alt: label,
-    caption: "",
-    numbered: true,
-    includeInFigureIndex: true,
-    widthPercent: 100,
-    alignment: "center",
-    cropX: 50,
-    cropY: 50,
-  };
-}
-
-function ImageRegionSelector({ rootRef, nodeId, label, onSelect, onCancel }: {
-  rootRef: React.RefObject<HTMLDivElement | null>;
-  nodeId: string;
-  label: string;
-  onSelect: (anchor: CommentAnchor) => void;
-  onCancel: () => void;
-}) {
-  const t = useTranslations("wiki");
-  const common = useTranslations("common");
-  const [bounds, setBounds] = useState<DOMRect | null>(null);
-  const [drag, setDrag] = useState<{ startX: number; startY: number; endX: number; endY: number } | null>(null);
-
-  useEffect(() => {
-    const measure = () => {
-      const container = [...(rootRef.current?.querySelectorAll<HTMLElement>("[data-comment-node-id]") ?? [])]
-        .find((element) => element.dataset.commentNodeId === nodeId);
-      setBounds((container?.querySelector("img") ?? container)?.getBoundingClientRect() ?? null);
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    window.addEventListener("scroll", measure, true);
-    return () => {
-      window.removeEventListener("resize", measure);
-      window.removeEventListener("scroll", measure, true);
-    };
-  }, [nodeId, rootRef]);
-
-  if (!bounds) return null;
-  const preview = drag ? normalizeImageRect(drag, bounds) : null;
-  return <div
-    data-testid="image-region-selector"
-    className="fixed z-50 cursor-crosshair touch-none bg-amber-300/10 ring-2 ring-amber-500"
-    style={{ left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height }}
-    onPointerDown={(event) => {
-      event.currentTarget.setPointerCapture(event.pointerId);
-      setDrag({ startX: event.clientX - bounds.left, startY: event.clientY - bounds.top, endX: event.clientX - bounds.left, endY: event.clientY - bounds.top });
-    }}
-    onPointerMove={(event) => setDrag((value) => value ? { ...value, endX: event.clientX - bounds.left, endY: event.clientY - bounds.top } : null)}
-    onPointerUp={(event) => {
-      if (!drag) return;
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      const rect = normalizeImageRect({ ...drag, endX: event.clientX - bounds.left, endY: event.clientY - bounds.top }, bounds);
-      if (rect.width * bounds.width >= 12 && rect.height * bounds.height >= 12) onSelect({ type: "image", nodeId, mode: "region", rect, label });
-      else setDrag(null);
-    }}
-    onKeyDown={(event) => { if (event.key === "Escape") onCancel(); }}
-    role="application"
-    tabIndex={0}
-    aria-label={t("selectImageRegion")}
-  >
-    <button type="button" aria-label={common("cancel")} title={common("cancel")} className="absolute top-2 right-2 rounded bg-background/95 px-2 py-1 text-xs shadow" onPointerDown={(event) => event.stopPropagation()} onClick={onCancel}>×</button>
-    {preview && <div className="absolute border-2 border-amber-600 bg-amber-300/30" style={{ left: `${preview.x * 100}%`, top: `${preview.y * 100}%`, width: `${preview.width * 100}%`, height: `${preview.height * 100}%` }} />}
-  </div>;
-}
-
-function PageLinkPicker({ editor, pages, open, onOpenChange }: { editor: Editor; pages: PageRef[]; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const t = useTranslations("wiki"); const [query, setQuery] = useState("");
-  return <Popover open={open} onOpenChange={onOpenChange}><PopoverTrigger render={<Button type="button" variant="ghost" size="icon-sm" title={t("linkPage")} aria-label={t("linkPage")} />}><Link2 className="size-4" /></PopoverTrigger><PopoverContent finalFocus={() => editor.isDestroyed ? false : editor.view.dom} className="w-72 p-2"><Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("filterPages")} className="mb-2 h-8" /><div className="max-h-60 overflow-y-auto">{pages.filter((page) => page.title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map((page) => <button key={page.id} type="button" className="block w-full rounded px-2 py-1.5 text-left text-sm hover:bg-accent" onClick={() => { const href = `/wiki/pages/${page.slug}`; applyEditorLink(editor, href, page.title); onOpenChange(false); }}>{page.title}</button>)}</div></PopoverContent></Popover>;
-}
-
-function CitationPicker({ editor, sources, locale, pageSlug, open, onOpenChange }: { editor: Editor; sources: SourceRef[]; locale: string; pageSlug: string; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const t = useTranslations("wiki"); const [query, setQuery] = useState(""); const [locator, setLocator] = useState("");
-  function preview(source: SourceRef) { return formatInlineCitation(source, locator, locale, citationNumberForSource(editor, source.id)); }
-  function insert(source: SourceRef) { const label = preview(source); editor.chain().focus().insertContent({ type: "citation", attrs: { items: [{ sourceId: source.id, locator: locator || undefined, locatorType: "page" }], label } }).run(); onOpenChange(false); setLocator(""); setQuery(""); }
-  const filtered = sources.filter((source) => `${source.title} ${source.contributors.map((person) => `${person.given} ${person.family} ${person.literal}`).join(" ")}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  return <Popover open={open} onOpenChange={onOpenChange}><PopoverTrigger render={<Button type="button" variant="ghost" size="sm" className="gap-1.5 px-2 text-xs" title={t("citeSource")} aria-label={t("citeSource")} />}><BookMarked className="size-4" /><span className="hidden 2xl:inline">{t("citeSource")}</span></PopoverTrigger><PopoverContent className="w-96 p-2"><div className="grid grid-cols-[1fr_5rem] gap-2"><Input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("findSource")} className="h-8" /><Input value={locator} onChange={(event) => setLocator(event.target.value)} placeholder={t("pageShort")} className="h-8" /></div><div className="mt-2 max-h-64 overflow-y-auto">{filtered.map((source) => <button key={source.id} type="button" className="block w-full rounded px-2 py-2 text-left hover:bg-accent" onClick={() => insert(source)}><span className="block text-sm font-medium">{source.title}</span><span className="text-xs text-muted-foreground">{preview(source)}</span></button>)}</div><div className="mt-2 flex items-center justify-between border-t pt-2"><span className="text-[11px] text-muted-foreground">IEEE</span><NewSourceDialog compactButton redirectTo={`/wiki/pages/${pageSlug}`} /></div></PopoverContent></Popover>;
-}
-
-type EvidenceRef = {
-  id: string;
-  sourceId: string;
-  documentId: string;
-  pageNumber: number;
-  kind: string;
-  selectedText: string;
-  note: string;
-  label: string;
-  sourceTitle: string;
-};
-
-function EvidencePicker({ editor, pageId, locale, open, onOpenChange }: { editor: Editor; pageId: string; locale: string; open: boolean; onOpenChange: (open: boolean) => void }) {
-  const t = useTranslations("wiki");
-  const [query, setQuery] = useState("");
-  const [items, setItems] = useState<EvidenceRef[]>([]);
-  const [loading, setLoading] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const searchRequest = useRef(0);
-
-  async function load(search = "") {
-    const request = ++searchRequest.current;
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/wiki/evidence?targetType=wikiPage&targetId=${encodeURIComponent(pageId)}&q=${encodeURIComponent(search)}`);
-      if (response.ok) {
-        const body = await response.json() as { available: EvidenceRef[] };
-        // A slower earlier request must not overwrite a newer result.
-        if (searchRequest.current === request) setItems(body.available);
-      }
-    } finally {
-      if (searchRequest.current === request) setLoading(false);
-    }
-  }
-
-  /** Debounced like every other search in the module, instead of waiting for a button. */
-  function updateQuery(value: string) {
-    setQuery(value);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
-      timer.current = null;
-      void load(value);
-    }, 220);
-  }
-
-  function searchNow() {
-    if (timer.current) { clearTimeout(timer.current); timer.current = null; }
-    void load(query);
-  }
-
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
-
-  function insert(item: EvidenceRef) {
-    editor.chain().focus().insertContent(evidenceInsertContent(item, locale)).run();
-    onOpenChange(false);
-    setQuery("");
-  }
-
-  return (
-    <Popover open={open} onOpenChange={(value) => { onOpenChange(value); if (value) void load(); }}>
-      <PopoverTrigger render={<Button type="button" variant="ghost" size="icon-sm" title={t("insertPdfEvidence")} aria-label={t("insertPdfEvidence")} />}>
-        <Highlighter className="size-4 text-indigo-600" />
-      </PopoverTrigger>
-      <PopoverContent className="w-96 p-2">
-        <div className="flex gap-2">
-          <Input autoFocus value={query} onChange={(event) => updateQuery(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); searchNow(); } }} placeholder={t("findEvidence")} className="h-8" />
-        </div>
-        <div className="mt-2 max-h-72 overflow-y-auto">
-          {loading ? <p className="p-3 text-sm text-muted-foreground">{t("loading")}</p> : items.length === 0 ? <p className="p-3 text-sm text-muted-foreground">{t("noEvidenceAvailable")}</p> : items.map((item) => (
-            <button key={item.id} type="button" className="block w-full rounded px-2 py-2 text-left hover:bg-accent" onClick={() => insert(item)}>
-              <span className="block text-sm font-medium">{item.label || item.sourceTitle} · {t("pageNumber", { page: item.pageNumber })}</span>
-              {item.selectedText && <span className="mt-1 line-clamp-3 block text-xs italic text-muted-foreground">“{item.selectedText}”</span>}
-            </button>
-          ))}
-        </div>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-/** The evidence block plus its citation, shared by the picker and the reader hand-off. */
-function evidenceInsertContent(item: EvidenceRef, locale: string) {
-    const pageLabel = locale.startsWith("de") ? "S." : "p.";
-    return [
-      {
-        type: "pdfEvidence",
-        attrs: {
-          nodeId: crypto.randomUUID(),
-          annotationId: item.id,
-          sourceId: item.sourceId,
-          documentId: item.documentId,
-          pageNumber: item.pageNumber,
-          kind: item.kind,
-          quote: item.selectedText,
-          label: item.label || item.note,
-          sourceTitle: item.sourceTitle,
-          previewUrl: item.kind === "region" ? "/api/wiki/pdf-annotations/" + item.id + "/preview" : "",
-        },
-      },
-      {
-        type: "paragraph",
-        content: [{
-          type: "citation",
-          attrs: {
-            items: [{ sourceId: item.sourceId, documentId: item.documentId, annotationId: item.id, locator: String(item.pageNumber), locatorType: "page" }],
-            label: `(${item.sourceTitle}, ${pageLabel} ${item.pageNumber})`,
-          },
-        }],
-      },
-    ];
-}
 
 export function WikiEditor(props: WikiEditorProps) {
   const collaboration = useCollaboration("page", props.pageId);
@@ -1061,42 +448,10 @@ function CollaborativeWikiEditor({
     });
   }
 
-  const group = (name: "text" | "lists" | "blocks" | "wiki") => t("slash.groups." + name);
-  const slash = (id: string, groupName: "text" | "lists" | "blocks" | "wiki", icon: SlashCommandDefinition["icon"], execute: SlashCommandDefinition["execute"]): SlashCommandDefinition => ({ id, group: groupName, groupLabel: group(groupName), icon, execute, label: t("slash.commands." + id + ".label"), description: t("slash.commands." + id + ".description"), keywords: t.raw("slash.commands." + id + ".keywords") as string[] });
-  const slashCommands: SlashCommandDefinition[] = [
-    slash("paragraph", "text", AlignLeft, (editor) => editor.chain().focus().setParagraph().run()),
-    slash("heading1", "text", Heading1, (editor) => editor.chain().focus().setHeading({ level: 1 }).run()),
-    slash("heading2", "text", Heading2, (editor) => editor.chain().focus().setHeading({ level: 2 }).run()),
-    slash("heading3", "text", Heading3, (editor) => editor.chain().focus().setHeading({ level: 3 }).run()),
-    slash("bulletList", "lists", List, (editor) => editor.chain().focus().toggleBulletList().run()),
-    slash("orderedList", "lists", ListOrdered, (editor) => editor.chain().focus().toggleOrderedList().run()),
-    slash("taskList", "lists", ListTodo, (editor) => editor.chain().focus().toggleTaskList().run()),
-    slash("blockquote", "blocks", Quote, (editor) => editor.chain().focus().toggleBlockquote().run()),
-    slash("codeBlock", "blocks", Code, (editor) => editor.chain().focus().toggleCodeBlock().run()),
-    slash("horizontalRule", "blocks", Minus, (editor) => editor.chain().focus().setHorizontalRule().run()),
-    slash("pageBreak", "blocks", ScissorsLineDashed, (editor) => editor.chain().focus().insertContent({ type: "pageBreak" }).run()),
-    slash("tableOfContents", "blocks", ListTree, (editor) => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()),
-    slash("twoColumns", "blocks", Columns2, (editor) => editor.chain().focus().insertContent({ type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()),
-    slash("pageLink", "wiki", Link2, () => setPageLinkOpen(true)),
-    slash("todo", "wiki", ClipboardCheck, (editor) => requestWikiTask(editor)),
-    slash("deadline", "wiki", CalendarClock, (editor) => requestWikiDeadline(editor)),
-    slash("externalLink", "wiki", Link2, () => setLinkEditorRequest((value) => value + 1)),
-    slash("citation", "wiki", BookMarked, () => setCitationOpen(true)),
-    slash("pdfEvidence", "wiki", Highlighter, () => setEvidenceOpen(true)),
-    slash("inlineImage", "wiki", ImagePlus, () => openInlineImagePicker()),
-    slash("mermaidDiagram", "wiki", Workflow, (editor) => {
-      editor.chain().focus().insertContent({ type: "mermaidDiagram", attrs: { code: MERMAID_PLACEHOLDER, svg: "" } }).run();
-    }),
-    slash("attachment", "wiki", Paperclip, () => pageActions.addAttachment()),
-    slash("supportingSource", "wiki", BookMarked, () => pageActions.linkSupportingSource()),
-    slash("pageComment", "wiki", MessageSquareText, () => {
-      setCommentsVisible(true);
-      setCommentFocusRequest((value) => value + 1);
-    }),
-    // The document layout panel's Content tab already has a target picker covering
-    // headings, figures, tables and annexes — open it rather than duplicating it here.
-    slash("crossReference", "wiki", Link2, () => { rememberToolbarSelection(); setFigureReferenceOpen(true); }),
-  ];
+  const slashCommands = buildSlashCommands({
+    t, pageActions, setPageLinkOpen, setLinkEditorRequest, setCitationOpen, setEvidenceOpen, setCommentsVisible,
+    setCommentFocusRequest, setFigureReferenceOpen, requestWikiTask, requestWikiDeadline, openInlineImagePicker, rememberToolbarSelection,
+  });
 
   const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, CommentHighlights, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
       const source = liveEditor.current?.state.doc.textBetween(issue.from, issue.to) ?? "";
@@ -1170,25 +525,7 @@ function CollaborativeWikiEditor({
     },
   });
 
-  useEffect(() => {
-    if (!editor) return;
-    const applyColors = () => {
-      const root = editorRootRef.current;
-      if (!root) return;
-      root.querySelectorAll<HTMLElement>("mark.wiki-highlight").forEach((mark) => {
-        const author = users.find((person) => person.id === mark.dataset.highlightAuthor);
-        if (!author) return;
-        const style = userMarkColorStyle(author.markColor, author.id);
-        for (const [property, value] of Object.entries(style)) mark.style.setProperty(property, String(value));
-      });
-    };
-    const frame = requestAnimationFrame(applyColors);
-    editor.on("update", applyColors);
-    return () => {
-      cancelAnimationFrame(frame);
-      editor.off("update", applyColors);
-    };
-  }, [currentUserId, editor, users]);
+  useHighlightAuthorColors({ editor, editorRootRef, users, currentUserId });
 
   useEffect(() => {
     const update = () => {
@@ -1234,285 +571,12 @@ function CollaborativeWikiEditor({
     if (maxSaveTimer.current) clearTimeout(maxSaveTimer.current);
     if (contentSyncTimer.current) clearTimeout(contentSyncTimer.current);
   }, [editor]);
-  useEffect(() => {
-    const controller = new AbortController();
-    void fetch(`/api/wiki/proofing-dictionary?language=${encodeURIComponent(proofingLanguage)}`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(8_000)]) })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("Dictionary unavailable");
-        return response.json() as Promise<{ words: string[] }>;
-      })
-      .then(({ words }) => {
-        if (controller.signal.aborted) return;
-        if (!Array.isArray(words) || words.some((word) => typeof word !== "string")) throw new Error("Invalid dictionary");
-        setProofingDictionary(words);
-        setProofingDictionaryLoaded(true);
-      })
-      .catch(() => {
-        if (controller.signal.aborted) return;
-        setProofingDictionary([]);
-        setProofingDictionaryLoaded(true);
-      });
-    return () => controller.abort();
-  }, [proofingLanguage]);
-
-  useEffect(() => {
-    if (!editor) return;
-    const count = () => setProofingCount(getSpellcheckIssues(editor).length);
-    editor.on("transaction", count);
-    return () => { editor.off("transaction", count); };
-  }, [editor]);
-  useEffect(() => {
-    if (!editor) return;
-    editor.view.dom.lang = proofingLanguage;
-    setSpellcheckIssues(editor, []);
-    if (!proofingDictionaryLoaded) return;
-    const dictionary = new Set(proofingDictionary.map((word) => word.normalize("NFKC").toLocaleLowerCase(proofingLanguage)));
-    let proofingDoc = editor.state.doc;
-    let proofingParagraphs = collectSpellcheckParagraphs(proofingDoc);
-    const checker = createSpellcheckController({
-      snapshot: () => {
-        if (proofingDoc !== editor.state.doc) {
-          proofingDoc = editor.state.doc;
-          proofingParagraphs = collectSpellcheckParagraphs(proofingDoc);
-        }
-        return { paragraphs: proofingParagraphs, cursor: editor.state.selection.from, issues: getSpellcheckIssues(editor) };
-      },
-      language: proofingLanguage,
-      composing: () => editor.view.composing,
-      request: async (batch, signal) => {
-        const response = await fetch("/api/wiki/spellcheck", {
-          method: "POST", headers: { "Content-Type": "application/json" }, signal,
-          body: JSON.stringify({ paragraphs: batch.items.map((item) => item.text), language: proofingLanguage, picky: proofingPicky }),
-        });
-        if (!response.ok) throw new Error("Spellcheck unavailable");
-        const payload = await response.json() as { matches: SpellcheckResponseMatch[] };
-        if (!Array.isArray(payload.matches)) throw new Error("Invalid spellcheck response");
-        return payload.matches;
-      },
-      publish: (issues) => {
-        const filtered = issues.filter((issue) => !ignoredProofingIssues.current.has(proofingIssueKey(issue)) && !disabledProofingRuleIds.current.has(issue.ruleId)
-          && (issue.kind !== "spelling" || !dictionary.has(editor.state.doc.textBetween(issue.from, issue.to).normalize("NFKC").toLocaleLowerCase(proofingLanguage))));
-        const previous = getSpellcheckIssues(editor);
-        if (previous.length === filtered.length && previous.every((issue, index) => {
-          const next = filtered[index];
-          return issue.from === next.from && issue.to === next.to && issue.kind === next.kind && issue.ruleId === next.ruleId
-            && issue.pending === next.pending && issue.message === next.message && issue.category === next.category && issue.replacements === next.replacements;
-        })) return;
-        setSpellcheckIssues(editor, filtered);
-        setSpellcheckIssue((selected) => {
-          if (!selected) return null;
-          const issue = filtered.find((item) => item.from === selected.issue.from && item.to === selected.issue.to && item.ruleId === selected.issue.ruleId);
-          return issue ? { ...selected, issue } : null;
-        });
-      },
-      status: setProofingStatus,
-      timing: (timing) => {
-        // Local, bounded diagnostics: no text, page identifiers or telemetry.
-        for (const [phase, duration] of [["queue", timing.queueMs], ["request", timing.requestMs], ["apply", timing.applyMs]] as const) {
-          const name = `wiki-proofing.${phase}`;
-          performance.clearMeasures(name);
-          performance.measure(name, { start: Math.max(0, performance.now() - duration), duration, detail: timing });
-        }
-      },
-    });
-    const update = () => { setSpellcheckIssue(null); checker.schedule(); };
-    editor.on("update", update);
-    window.addEventListener("online", checker.retry);
-    proofingRetry.current = checker.retry;
-    checker.start();
-    return () => {
-      checker.dispose();
-      editor.off("update", update);
-      window.removeEventListener("online", checker.retry);
-      proofingRetry.current = () => {};
-    };
-  }, [editor, pageId, proofingDictionary, proofingDictionaryLoaded, proofingLanguage, proofingPicky]);
-  useEffect(() => {
-    if (!editor) return;
-    if (!documentMode) {
-      setDocumentPaginationBreaks(editor, []);
-      return;
-    }
-
-    let disposed = false;
-    let frame = 0;
-    let typingTimer: ReturnType<typeof setTimeout> | null = null;
-    const paginate = () => {
-      frame = 0;
-      if (disposed || editor.isDestroyed) return;
-      const canvas = editorRootRef.current?.querySelector<HTMLElement>(".wiki-document-canvas");
-      const proseMirror = editor.view.dom;
-      if (!canvas || !proseMirror.isConnected || canvas.offsetWidth <= 0 || proseMirror.getBoundingClientRect().width <= 0) return;
-      // Dispatching into a running composition drops dead keys and IME candidates.
-      // The update that ends the composition schedules the next run.
-      if (editor.view.composing) return;
-      observeLayout();
-
-      // The spacers are removed, measured against and restored within this single
-      // frame, so no paint ever shows the collapsed page stack.
-      const previousBreaks = getDocumentPaginationBreaks(editor);
-      if (previousBreaks.length) setDocumentPaginationBreaks(editor, []);
-
-      const portraitWidthMm = documentSettings.page.size === "A4" ? 210 : 215.9;
-      const portraitHeightMm = documentSettings.page.size === "A4" ? 297 : 279.4;
-      const paperWidthMm = documentSettings.page.orientation === "portrait" ? portraitWidthMm : portraitHeightMm;
-      const paperHeightMm = documentSettings.page.orientation === "portrait" ? portraitHeightMm : portraitWidthMm;
-      const zoomFactor = documentZoom / 100;
-      const pixelsPerMm = canvas.offsetWidth / paperWidthMm;
-      const pageHeight = paperHeightMm * pixelsPerMm;
-      const pageGap = 12 * pixelsPerMm;
-      const marginTop = documentSettings.page.marginsMm.top * pixelsPerMm;
-      const marginBottom = documentSettings.page.marginsMm.bottom * pixelsPerMm;
-      const usableHeight = pageHeight - marginTop - marginBottom;
-      // Page arithmetic is relative to the body; the cover has its own page stack.
-      const canvasTop = proseMirror.getBoundingClientRect().top;
-      const natural = (value: number) => (value - canvasTop) / zoomFactor;
-
-      const elements: HTMLElement[] = [];
-      const items: PaginationItem[] = [];
-      const collectPaginationElements = (element: HTMLElement, inheritedBreak = false) => {
-        if (element.classList.contains("wiki-document-auto-page-break") || element.closest(".wiki-collapsed-section")) return;
-        // React node views have a wrapper with zero height around a floated figure.
-        // Measure the artwork and attached caption, while retaining the wrapper's document position.
-        const media = element.matches(".node-commentableImage, .node-mermaidDiagram") ? element.querySelector<HTMLElement>("figure[data-figure-view]") : null;
-        const rect = (media || element).getBoundingClientRect();
-        const elementHeight = rect.height / zoomFactor;
-        const canSplit = element.matches("ul, ol, li, blockquote, section[data-document-columns], nav[data-figure-list]");
-        const breakBefore = inheritedBreak || element.dataset.pageBreakBefore === "true";
-        if (canSplit && elementHeight > usableHeight && element.children.length > 0) {
-          for (const [index, child] of (Array.from(element.children) as HTMLElement[]).entries()) collectPaginationElements(child, index === 0 && breakBefore);
-          return;
-        }
-        const isTable = element.matches("table");
-        elements.push(element);
-        items.push({
-          position: Math.max(0, editor.view.posAtDOM(element, 0) - 1),
-          top: natural(rect.top),
-          bottom: natural(rect.bottom),
-          kind: element.tagName === "LI" ? "listItem" : "block",
-          splitKind: isTable ? "tableRow" : "inline",
-          splittable: !element.matches(".wiki-figure-list-row") && (isTable || element.matches("p, pre, li, blockquote")),
-          pageBreak: element.hasAttribute("data-document-page-break"),
-          breakBefore,
-          heading: /^H[1-6]$/.test(element.tagName),
-          keepWithNext: element.hasAttribute("data-keep-with-next"),
-          keepTogether: Boolean(media) || element.hasAttribute("data-keep-together"),
-        });
-      };
-      for (const element of Array.from(proseMirror.children) as HTMLElement[]) collectPaginationElements(element);
-
-      const geometry = { pageHeight, pageGap, marginTop, marginBottom };
-      let plan = computeDocumentPagination(items, geometry);
-      // Line geometry is expensive, so it is only measured for the blocks the
-      // plan reports as reaching a page edge, and the plan is then redone.
-      for (let round = 0; round < PAGINATION_MEASURE_ROUNDS && plan.measure.length; round += 1) {
-        let measured = false;
-        for (const index of plan.measure) {
-          const element = elements[index];
-          if (items[index].splits || !element) continue;
-          try {
-            items[index] = {
-              ...items[index],
-              splits: element.matches("table")
-                ? measureTableRows(editor, element, natural)
-                : measureTextLines(editor, element, natural),
-            };
-          } catch {
-            items[index] = { ...items[index], splits: [] };
-          }
-          measured = true;
-        }
-        if (!measured) break;
-        plan = computeDocumentPagination(items, geometry);
-      }
-
-      // Re-dispatching an unchanged set would rebuild every spacer widget for nothing.
-      if (samePaginationBreaks(previousBreaks, plan.breaks)) {
-        if (previousBreaks.length) setDocumentPaginationBreaks(editor, previousBreaks);
-      } else {
-        setDocumentPaginationBreaks(editor, plan.breaks);
-      }
-      setDocumentPageCount(plan.pageCount);
-    };
-
-    const schedule = (delay = 0) => {
-      if (disposed || editor.isDestroyed) return;
-      if (typingTimer) clearTimeout(typingTimer);
-      typingTimer = null;
-      cancelAnimationFrame(frame);
-      if (!delay) {
-        frame = requestAnimationFrame(paginate);
-        return;
-      }
-      typingTimer = setTimeout(() => {
-        typingTimer = null;
-        frame = requestAnimationFrame(paginate);
-      }, delay);
-    };
-    // Re-measuring every block on each keystroke forces a full reflow and makes
-    // typing lag; the mapped spacers stay put until the burst settles.
-    const scheduleAfterTyping = () => schedule(PAGINATION_TYPING_DELAY);
-    const scheduleAfterReveal = ({ transaction }: { transaction: import("@tiptap/pm/state").Transaction }) => {
-      if (headingVisibilityChanged(transaction)) schedule();
-      else if (transaction.docChanged) scheduleAfterTyping();
-    };
-    // Observe the actual mounted layout, including late React node views. Root
-    // height catches first-open reflow; child sizes also catch changes within the
-    // paper's minimum height. ResizeObserver compares final sizes, so removing
-    // and restoring identical spacers in one frame does not create a loop.
-    const observed = new Set<Element>();
-    const mediaResizeObserver = new ResizeObserver(() => {
-      if (!typingTimer) schedule();
-    });
-    const observeLayout = () => {
-      const canvas = editorRootRef.current?.querySelector<HTMLElement>(".wiki-document-canvas");
-      const targets = new Set<Element>([
-        ...(canvas ? [canvas] : []),
-        editor.view.dom,
-        ...Array.from(editor.view.dom.children).filter(element => !element.classList.contains("wiki-document-auto-page-break")),
-        ...editor.view.dom.querySelectorAll("img, figure, table"),
-      ]);
-      for (const element of observed) {
-        if (!targets.has(element)) {
-          mediaResizeObserver.unobserve(element);
-          observed.delete(element);
-        }
-      }
-      for (const element of targets) {
-        if (!observed.has(element)) {
-          observed.add(element);
-          mediaResizeObserver.observe(element);
-        }
-      }
-    };
-    observeLayout();
-    const scheduleAfterMediaLoad = (event: Event) => {
-      if (event.target instanceof HTMLImageElement) schedule();
-    };
-    const scheduleFromEvent = () => schedule();
-    editor.view.dom.addEventListener("load", scheduleAfterMediaLoad, true);
-    editor.view.dom.addEventListener("compositionend", scheduleAfterTyping);
-    document.fonts?.addEventListener("loadingdone", scheduleFromEvent);
-    void document.fonts?.ready.then(() => {
-      if (!disposed) schedule();
-    });
-    editor.on("transaction", scheduleAfterReveal);
-    window.addEventListener("resize", scheduleFromEvent);
-    // EditorContent and React node views must finish mounting before measuring.
-    schedule();
-    return () => {
-      disposed = true;
-      cancelAnimationFrame(frame);
-      if (typingTimer) clearTimeout(typingTimer);
-      mediaResizeObserver.disconnect();
-      document.fonts?.removeEventListener("loadingdone", scheduleFromEvent);
-      editor.view.dom.removeEventListener("load", scheduleAfterMediaLoad, true);
-      editor.view.dom.removeEventListener("compositionend", scheduleAfterTyping);
-      editor.off("transaction", scheduleAfterReveal);
-      window.removeEventListener("resize", scheduleFromEvent);
-      setDocumentPaginationBreaks(editor, []);
-    };
-  }, [documentMode, documentSettings.page, documentZoom, editor, typography]);
+  useWikiProofingChecks({
+    editor, pageId, proofingLanguage, proofingPicky, proofingDictionary, proofingDictionaryLoaded,
+    setProofingDictionary, setProofingDictionaryLoaded, setProofingCount, setSpellcheckIssue, setProofingStatus,
+    ignoredProofingIssues, disabledProofingRuleIds, proofingRetry,
+  });
+  useDocumentPagination({ editor, documentMode, documentSettings, documentZoom, typography, editorRootRef, setDocumentPageCount });
   useEffect(() => { void pageVersion; }, [pageVersion]);
   useEffect(() => { if (commentFocusRequest > 0) commentRailRef.current?.focusGeneralComment(); }, [commentFocusRequest]);
   useEffect(() => {
@@ -1542,69 +606,7 @@ function CollaborativeWikiEditor({
       pageNumberStart: documentSettings.footer.pageNumberStart,
     });
   }, [citationLocale, documentSettings.figures.enabled, documentSettings.tables.enabled, documentSettings.footer.pageNumberStart, editor, t]);
-  useLayoutEffect(() => {
-    const anchor = zoomAnchor.current;
-    appliedZoom.current = documentZoom;
-    zoomAnchor.current = null;
-    const surface = editorRootRef.current?.querySelector<HTMLElement>(".wiki-editor-surface");
-    if (!anchor || !surface) return;
-    // Runs before paint, so the correction is part of the same frame as the zoom.
-    const rect = surface.getBoundingClientRect();
-    const scale = documentZoom / 100;
-    keepZoomAnchorInPlace(
-      surface,
-      rect.left + anchor.contentX * scale - anchor.clientX,
-      rect.top + anchor.contentY * scale - anchor.clientY,
-    );
-  }, [documentZoom]);
-  useEffect(() => {
-    const workspace = editorRootRef.current;
-    if (!workspace) return;
-    let controlPressed = false;
-
-    const zoomEditor = (event: WheelEvent) => {
-      const target = event.target;
-      const activeElement = document.activeElement;
-      const belongsToEditor = target instanceof globalThis.Node && workspace.contains(target);
-      const editorFocused = activeElement instanceof globalThis.Node && workspace.contains(activeElement);
-      if ((!event.ctrlKey && !event.metaKey && !controlPressed) || (!belongsToEditor && !editorFocused)) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const direction = event.deltaY < 0 ? 1 : -1;
-      const intensity = Math.max(1, Math.min(4, Math.round(Math.abs(event.deltaY) / 25)));
-      captureZoomAnchorRef.current(event.clientX, event.clientY);
-      setDocumentZoom((value) => Math.min(DOCUMENT_ZOOM_MAX, Math.max(DOCUMENT_ZOOM_MIN, value + direction * intensity * 2)));
-    };
-    const trackControlKey = (event: KeyboardEvent) => {
-      if (event.key === "Control" || event.key === "Meta") controlPressed = event.type === "keydown";
-      if (event.type !== "keydown" || (!event.ctrlKey && !event.metaKey)) return;
-      if (event.key === "+" || event.key === "=") {
-        event.preventDefault();
-        captureZoomAnchorRef.current(window.innerWidth / 2, window.innerHeight / 2);
-        setDocumentZoom((value) => Math.min(DOCUMENT_ZOOM_MAX, value + 10));
-      } else if (event.key === "-") {
-        event.preventDefault();
-        captureZoomAnchorRef.current(window.innerWidth / 2, window.innerHeight / 2);
-        setDocumentZoom((value) => Math.max(DOCUMENT_ZOOM_MIN, value - 10));
-      } else if (event.key === "0") {
-        event.preventDefault();
-        captureZoomAnchorRef.current(window.innerWidth / 2, window.innerHeight / 2);
-        setDocumentZoom(100);
-      }
-    };
-    const releaseControlKey = () => { controlPressed = false; };
-
-    window.addEventListener("wheel", zoomEditor, { capture: true, passive: false });
-    window.addEventListener("keydown", trackControlKey, true);
-    window.addEventListener("keyup", trackControlKey, true);
-    window.addEventListener("blur", releaseControlKey);
-    return () => {
-      window.removeEventListener("wheel", zoomEditor, true);
-      window.removeEventListener("keydown", trackControlKey, true);
-      window.removeEventListener("keyup", trackControlKey, true);
-      window.removeEventListener("blur", releaseControlKey);
-    };
-  }, [editor]);
+  useDocumentZoomGestures({ editor, editorRootRef, documentZoom, setDocumentZoom, appliedZoom, zoomAnchor, captureZoomAnchorRef });
   useEffect(() => { writeEditorStorage(WIKI_SHORTCUTS_KEY, JSON.stringify(wikiShortcuts)); }, [wikiShortcuts]);
   useEffect(() => {
     const online = () => { if (pendingSave.current) void persistContentRef.current(pendingSave.current); };
@@ -1614,61 +616,11 @@ function CollaborativeWikiEditor({
     return () => { window.removeEventListener("online", online); window.removeEventListener("offline", offline); };
   }, []);
   function executeEditorAction(action: WikiShortcutAction) {
-    if (!editor) return;
-      const run = (command: () => boolean) => command();
-      switch (action) {
-        case "undo": run(() => editor.chain().focus().undo().run()); break;
-        case "redo": run(() => editor.chain().focus().redo().run()); break;
-        case "bold": run(() => editor.chain().focus().toggleBold().run()); break;
-        case "italic": run(() => editor.chain().focus().toggleItalic().run()); break;
-        case "underline": run(() => editor.chain().focus().toggleUnderline().run()); break;
-        case "highlight": run(() => editor.chain().focus().toggleMark("highlight", { createdBy: currentUserId }).run()); break;
-        case "strike": run(() => editor.chain().focus().toggleStrike().run()); break;
-        case "inlineCode": run(() => editor.chain().focus().toggleCode().run()); break;
-        case "heading1": run(() => editor.chain().focus().toggleHeading({ level: 1 }).run()); break;
-        case "heading2": run(() => editor.chain().focus().toggleHeading({ level: 2 }).run()); break;
-        case "heading3": run(() => editor.chain().focus().toggleHeading({ level: 3 }).run()); break;
-        case "bulletList": run(() => editor.chain().focus().toggleBulletList().run()); break;
-        case "orderedList": run(() => editor.chain().focus().toggleOrderedList().run()); break;
-        case "taskList": run(() => editor.chain().focus().toggleTaskList().run()); break;
-        case "blockquote": run(() => editor.chain().focus().toggleBlockquote().run()); break;
-        case "codeBlock": run(() => editor.chain().focus().toggleCodeBlock().run()); break;
-        case "horizontalRule": run(() => editor.chain().focus().setHorizontalRule().run()); break;
-        case "pageBreak": run(() => editor.chain().focus().insertContent({ type: "pageBreak" }).run()); break;
-        case "tableOfContents": run(() => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()); break;
-        case "twoColumns": run(() => editor.chain().focus().insertContent({ type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()); break;
-        case "search": changeSearchOpen(true); break;
-        case "outline": setOutlineOpen(true); break;
-        case "inlineComment": prepareComment(); break;
-        case "toggleComments": setCommentsVisible((value) => !value); break;
-        case "documentMode": changeDocumentMode(!documentMode); break;
-        case "typography": setTypographyOpen(true); break;
-        case "shortcuts": setShortcutsOpen(true); break;
-        case "image": openInlineImagePicker(); break;
-        case "pageLink": setPageLinkOpen(true); break;
-        case "externalLink": setLinkEditorRequest((value) => value + 1); break;
-        case "citation": setCitationOpen(true); break;
-        case "pdfEvidence": setEvidenceOpen(true); break;
-        case "attachment": pageActions.addAttachment(); break;
-        case "supportingSource": pageActions.linkSupportingSource(); break;
-        case "imageHighlight": run(() => editor.chain().focus().toggleMark("highlight", { createdBy: currentUserId }).run()); break;
-        case "imageComment": prepareImageComment("whole"); break;
-        case "imageRegion": prepareImageComment("region"); break;
-        case "imageWidth50": run(() => editor.chain().focus().updateAttributes("commentableImage", { widthPercent: 50 }).run()); break;
-        case "imageWidth75": run(() => editor.chain().focus().updateAttributes("commentableImage", { widthPercent: 75 }).run()); break;
-        case "imageWidth100": run(() => editor.chain().focus().updateAttributes("commentableImage", { widthPercent: 100 }).run()); break;
-        case "imageAlignLeft": run(() => editor.chain().focus().updateAttributes("commentableImage", { alignment: "left" }).run()); break;
-        case "imageAlignCenter": run(() => editor.chain().focus().updateAttributes("commentableImage", { alignment: "center" }).run()); break;
-        case "imageAlignRight": run(() => editor.chain().focus().updateAttributes("commentableImage", { alignment: "right" }).run()); break;
-        case "tableAddRow": addMarkdownTableRow(editor); break;
-        case "tableAddColumn": addMarkdownTableColumn(editor); break;
-        case "tableHeader": toggleMarkdownTableHeader(editor); break;
-        case "tableAlignLeft": setMarkdownTableCellAlignment(editor, "left"); break;
-        case "tableAlignCenter": setMarkdownTableCellAlignment(editor, "center"); break;
-        case "tableAlignRight": setMarkdownTableCellAlignment(editor, "right"); break;
-        case "tableDeleteRow": deleteMarkdownTableRow(editor); break;
-        case "tableDeleteColumn": deleteMarkdownTableColumn(editor); break;
-      }
+    runWikiEditorAction(action, {
+      editor, t, currentUserId, documentMode, pageActions, changeSearchOpen, setOutlineOpen, prepareComment, setCommentsVisible,
+      changeDocumentMode, setTypographyOpen, setShortcutsOpen, openInlineImagePicker, setPageLinkOpen, setLinkEditorRequest,
+      setCitationOpen, setEvidenceOpen, prepareImageComment,
+    });
   }
   const handleWikiShortcut = useEffectEvent((event: KeyboardEvent) => {
       if (!editor || event.defaultPrevented || event.isComposing) return;
@@ -1687,65 +639,8 @@ function CollaborativeWikiEditor({
       executeEditorAction(action);
   });
 
-  useEffect(() => {
-    if (!editor) return;
-    const byId = new Map(contextTasks.map((task) => [task.id, task]));
-    const transaction = editor.state.tr;
-    let changed = false;
-    editor.state.doc.descendants((node, position) => {
-      if (node.type.name !== "taskReference") return;
-      const task = byId.get(String(node.attrs.taskId));
-      if (!task) return;
-      const nextAttrs = {
-        ...node.attrs,
-        title: task.title,
-        status: task.status,
-        priority: task.priority,
-        assigneeName: task.assigneeName ?? "",
-        assignees: task.assignees,
-      };
-      if (JSON.stringify(nextAttrs) !== JSON.stringify(node.attrs)) {
-        transaction.setNodeMarkup(position, undefined, nextAttrs);
-        changed = true;
-      }
-    });
-    if (changed) editor.view.dispatch(transaction);
-  }, [contextTasks, editor]);
+  useContextReferenceSync({ editor, contextTasks, contextDeadlines, format });
 
-  useEffect(() => {
-    if (!editor) return;
-    const byId = new Map(contextDeadlines.map((deadline) => [deadline.id, deadline]));
-    const transaction = editor.state.tr;
-    let changed = false;
-    editor.state.doc.descendants((node, position) => {
-      if (node.type.name !== "deadlineReference") return;
-      const deadline = byId.get(String(node.attrs.deadlineId));
-      if (!deadline) return;
-      const localDate = localDateValue(deadline.deadlineDate);
-      const dateLabel = localDate
-        ? format.dateTime(localDate, { dateStyle: "medium" })
-        : deadline.deadlineDate;
-      const timeLabel = deadline.deadlineAt
-        ? format.dateTime(new Date(deadline.deadlineAt), { timeStyle: "short" })
-        : "";
-      const nextAttrs = {
-        ...node.attrs,
-        title: deadline.title,
-        description: deadline.description,
-        status: deadline.status,
-        assigneeName: deadline.assigneeName ?? "",
-        assignees: deadline.assigneeId ? [{ id: deadline.assigneeId, name: deadline.assigneeName ?? "" }] : [],
-        deadlineAt: [dateLabel, timeLabel].filter(Boolean).join(", "),
-      };
-      if (JSON.stringify(nextAttrs) !== JSON.stringify(node.attrs)) {
-        transaction.setNodeMarkup(position, undefined, nextAttrs);
-        changed = true;
-      }
-    });
-    if (changed) editor.view.dispatch(transaction);
-  }, [contextDeadlines, editor, format]);
-
-  const insertedEvidence = useRef<string | null>(null);
   useEffect(() => {
     if (!editor) return;
     // The mode is read through a closure in the plugin, so updating the option is
@@ -1755,63 +650,9 @@ function CollaborativeWikiEditor({
       .forEach((extension) => { extension.options.enabled = suggesting; extension.options.author = currentUserId; });
   }, [currentUserId, editor, suggesting]);
 
-  useEffect(() => {
-    if (!editor || !insertEvidenceId) return;
-    // Inserting is a mutation, not a focus like the effects below, so it must happen
-    // exactly once: the ref guards a re-render and the URL is stripped immediately so
-    // a reload cannot repeat it.
-    if (insertedEvidence.current === insertEvidenceId) return;
-    insertedEvidence.current = insertEvidenceId;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("insertEvidence");
-    router.replace(url.pathname + url.search, { scroll: false });
-    void (async () => {
-      try {
-        const response = await fetch(`/api/wiki/evidence?annotationId=${encodeURIComponent(insertEvidenceId)}`);
-        if (!response.ok) throw new Error(t("evidenceInsertFailed"));
-        const { annotation } = await response.json() as { annotation: EvidenceRef };
-        editor.chain().focus("end").insertContent(evidenceInsertContent(annotation, citationLocale)).run();
-        toast.success(t("evidenceInserted", { source: annotation.sourceTitle }));
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : t("evidenceInsertFailed"));
-      }
-    })();
-  }, [citationLocale, editor, insertEvidenceId, router, t]);
+  useEvidenceInsertion({ editor, insertEvidenceId, citationLocale, router, t });
 
-  useEffect(() => {
-    if (!editor || !focusTaskId) return;
-    const timeout = window.setTimeout(() => {
-      const marker = editorRootRef.current?.querySelector<HTMLElement>(
-        `[data-task-reference="${CSS.escape(focusTaskId)}"]`,
-      );
-      if (marker) {
-        marker.scrollIntoView({ behavior: "smooth", block: "center" });
-        marker.focus({ preventScroll: true });
-      } else {
-        const task = contextTasks.find((candidate) => candidate.id === focusTaskId);
-        const range = task ? resolveTaskOrigin(editor.state.doc, task.anchorJson) : null;
-        if (range) editor.chain().setTextSelection(range).scrollIntoView().run();
-        else toast.info(tTasks("sourceFallback"));
-      }
-    }, 80);
-    return () => window.clearTimeout(timeout);
-  }, [editor, focusTaskId, contextTasks, tTasks]);
-
-  useEffect(() => {
-    if (!editor || !focusDeadlineId) return;
-    const timeout = window.setTimeout(() => {
-      const marker = editorRootRef.current?.querySelector<HTMLElement>(
-        `[data-deadline-reference="${CSS.escape(focusDeadlineId)}"]`,
-      );
-      if (marker) {
-        marker.scrollIntoView({ behavior: "smooth", block: "center" });
-        marker.focus({ preventScroll: true });
-      } else {
-        toast.info(tDeadlines("sourceFallback"));
-      }
-    }, 80);
-    return () => window.clearTimeout(timeout);
-  }, [editor, focusDeadlineId, tDeadlines]);
+  useReferenceFocus({ editor, focusTaskId, focusDeadlineId, contextTasks, tTasks, tDeadlines, editorRootRef });
   useEffect(() => {
     if (!editor) return;
     const shortcut = (event: KeyboardEvent) => handleWikiShortcut(event);
@@ -1853,31 +694,7 @@ function CollaborativeWikiEditor({
     });
     if (changed) editor.view.dispatch(transaction);
   }, [editor]);
-  // Lets the sidebar graphics section drop a graphic in at the cursor. The
-  // editor owns the document, so it exposes the action rather than the reverse.
-  useEffect(() => {
-    if (!actionsRef || !editor) return;
-    actionsRef.current = {
-      flushSave: () => flushSaveRef.current(),
-      insertGraphic: ({ attachmentId, fileName, contentUrl, caption }) => {
-        // Insert *after* the selection rather than into it: a freshly inserted
-        // graphic stays selected as a node, and inserting into that selection
-        // would replace the graphic that was just dropped in.
-        const at = editor.state.selection.to;
-        editor.chain().insertContentAt(at, {
-          type: "commentableImage",
-          // The rendered URL, not /api/files, so document typography applies immediately.
-          attrs: {
-            ...imageNodeAttrs({ id: attachmentId, fileName, mimeType: "image/svg+xml" }),
-            src: contentUrl,
-            // The sidecar's ready-made Bildunterschrift wins over the filename.
-            ...(caption ? { caption } : {}),
-          },
-        }).focus().run();
-      },
-    };
-    return () => { actionsRef.current = null; };
-  }, [actionsRef, editor]);
+  useWikiEditorHandle({ actionsRef, editor, flushSaveRef });
   if (!editor) return <div className="min-h-[28rem]" />;
   const activeEditor = editor;
   function rememberToolbarSelection() {
@@ -1965,39 +782,9 @@ function CollaborativeWikiEditor({
     const suffix = query.size ? `?${query.toString()}` : "";
     return `/wiki/sources/${source.id}/read/${documentId}${suffix}`;
   }
-  const paperWidth = documentSettings.page.size === "A4" ? 210 : 215.9;
-  const paperHeight = documentSettings.page.size === "A4" ? 297 : 279.4;
-  const orientedPaperHeight = documentSettings.page.orientation === "portrait" ? paperHeight : paperWidth;
-  const coverPageCount = documentSettings.cover.enabled ? 1 : 0;
-  const bibliographyPageCount = bibliographyVisible ? 1 : 0;
-  const figurePageCount = figureIndexVisible ? 1 : 0;
-  const visibleDocumentPages = coverPageCount + documentPageCount + bibliographyPageCount + figurePageCount;
-  const pageStackPosition = (index: number) => index * (orientedPaperHeight + 12);
-  const resolveDocumentText = (value: string) => value.replace(/\{([^}]+)\}/g, (_, key: string) => key === "title" ? pageTitle : documentSettings.variables[key] ?? `{${key}}`);
-  const documentCanvasStyle = {
-    ...wikiTypographyCssVariables(typography),
-    "--document-paper-width": `${documentSettings.page.orientation === "portrait" ? paperWidth : paperHeight}mm`,
-    "--figure-available-height": `${orientedPaperHeight - documentSettings.page.marginsMm.top - documentSettings.page.marginsMm.bottom - 18}mm`,
-    "--document-paper-height": `${documentSettings.page.orientation === "portrait" ? paperHeight : paperWidth}mm`,
-    "--document-margin-top": `${documentSettings.page.marginsMm.top}mm`,
-    "--document-margin-right": `${documentSettings.page.marginsMm.right}mm`,
-    "--document-margin-bottom": `${documentSettings.page.marginsMm.bottom}mm`,
-    "--document-margin-left": `${documentSettings.page.marginsMm.left}mm`,
-    "--document-page-gap": "12mm",
-    "--document-content-pages": String(documentPageCount),
-    "--document-page-count": String(visibleDocumentPages),
-    "--document-content-stack-height": `${documentPageCount * (documentSettings.page.orientation === "portrait" ? paperHeight : paperWidth) + Math.max(0, documentPageCount - 1) * 12}mm`,
-    "--document-content-offset": `${coverPageCount ? orientedPaperHeight + 12 : 0}mm`,
-    "--document-bibliography-top": `${pageStackPosition(coverPageCount + documentPageCount)}mm`,
-    "--document-figure-index-top": `${pageStackPosition(coverPageCount + documentPageCount + bibliographyPageCount)}mm`,
-    "--document-table-index-top": pageStackPosition(coverPageCount + documentPageCount + bibliographyPageCount + figurePageCount) + "mm",
-    "--document-stack-height": `${visibleDocumentPages * orientedPaperHeight + Math.max(0, visibleDocumentPages - 1) * 12}mm`,
-    zoom: documentZoom / 100,
-  } as CSSProperties;
-  const editorTypographyStyle = {
-    ...wikiTypographyCssVariables(typography),
-    zoom: documentZoom / 100,
-  } as CSSProperties;
+  const { coverPageCount, visibleDocumentPages, pageStackPosition, resolveDocumentText, documentCanvasStyle, editorTypographyStyle } = documentCanvasLayout({
+    documentSettings, documentPageCount, bibliographyVisible, figureIndexVisible, typography, documentZoom, pageTitle,
+  });
   function openCommentComposer(anchor: CommentAnchor) {
     setPendingAnchor(anchor);
     requestAnimationFrame(() => setCommentOpen(true));
@@ -2022,98 +809,14 @@ function CollaborativeWikiEditor({
     if (mode === "region") setRegionTarget(image);
     else openCommentComposer({ type: "image", ...image, mode: "whole" });
   }
-  async function insertInlineImage(file: File) {
-    await insertFigureFiles([file], toolbarSelection.current?.from ?? activeEditor.state.selection.from, figureTargetId);
-  }
-  async function insertFigureFiles(files: File[], position: number, targetId = "") {
-    if (!activeEditor.isEditable) return;
-    const controller = new AbortController(); uploadControllers.current.add(controller);
-    const id = crypto.randomUUID();
-    const cancel = () => { controller.abort(); removeUpload(activeEditor, id); };
-    addUpload(activeEditor, position, { id, label: t("figures.uploading"), cancelLabel: t("figures.cancel"), cancel });
-    setImageUploading(true); setImageError(""); setInlineImagePickerOpen(false);
-    try {
-      for (const file of files) {
-        if (!isInlineImageFile(file)) throw new Error(t("inlineImageUnsupported"));
-        const form = new FormData(); form.set("file", file);
-        const response = await figureLibrary.request(form, "POST", controller.signal);
-        if (controller.signal.aborted || activeEditor.isDestroyed || !activeEditor.isEditable || conflictBlocked.current) break;
-        const asset = response.assets.find((item) => item.id === response.result?.id);
-        const at = uploadPosition(activeEditor, id);
-        if (!asset || at === undefined) break;
-        removeUpload(activeEditor, id);
-        const attrs = { ...imageNodeAttrs({ id: asset.attachmentId, fileName: asset.fileName, mimeType: asset.mimeType }), ...figureAssetAttributes(asset) };
-        let replaced = false;
-        if (targetId) activeEditor.state.doc.descendants((node, pos) => { if (node.attrs.nodeId === targetId && node.type.name === "commentableImage") { activeEditor.view.dispatch(activeEditor.state.tr.setNodeMarkup(pos, undefined, { ...node.attrs, assetId: asset.id, attachmentId: asset.attachmentId, src: asset.src })); replaced = true; } });
-        if (!targetId) {
-          activeEditor.chain().insertContentAt(at, { type: "commentableImage", attrs }).run();
-          let nextPosition = at + 1;
-          activeEditor.state.doc.descendants((node, pos) => { if (node.attrs.nodeId === attrs.nodeId) nextPosition = pos + node.nodeSize; });
-          addUpload(activeEditor, nextPosition, { id, label: t("figures.uploading"), cancelLabel: t("figures.cancel"), cancel });
-        } else if (!replaced) break;
-      }
-    } catch (error) { if (!controller.signal.aborted) setImageError(error instanceof Error && t.has(`figures.${error.message}`) ? t(`figures.${error.message}` as "figures.invalidFile") : t("uploadFailed")); }
-    finally { removeUpload(activeEditor, id); if (!activeEditor.isDestroyed) activeEditor.view.dispatch(closeHistory(activeEditor.state.tr)); uploadControllers.current.delete(controller); setImageUploading(uploadControllers.current.size > 0); }
-  }
-  function insertFigureAsset(asset: FigureAssetDto) {
-    if (figureTargetId) {
-      activeEditor.state.doc.descendants((node, position) => {
-        if (node.attrs.nodeId === figureTargetId && node.type.name === "commentableImage") activeEditor.view.dispatch(activeEditor.state.tr.setNodeMarkup(position, undefined, { ...node.attrs, assetId: asset.id, attachmentId: asset.attachmentId, src: asset.src }));
-      });
-    } else toolbarChain().insertContent({ type: "commentableImage", attrs: { ...imageNodeAttrs({ id: asset.attachmentId, fileName: asset.fileName, mimeType: asset.mimeType }), ...figureAssetAttributes(asset) } }).run();
-  }
-  async function editFigureArtwork(nodeId: string) {
-    const node = (() => { let found: typeof activeEditor.state.doc | undefined; activeEditor.state.doc.descendants((item) => { if (item.attrs.nodeId === nodeId) found = item; }); return found; })();
-    const asset = figureLibrary.manifest.assets.find((item) => item.id === node?.attrs.assetId);
-    if (!asset || !activeEditor.isEditable) return;
-    try {
-      const { result: copy } = await figureLibrary.request({ action: "editableCopy", assetId: asset.id, expectedVersion: asset.version });
-      if (!copy?.attachmentId || !activeEditor.isEditable || conflictBlocked.current) return;
-      activeEditor.state.doc.descendants((item, position) => {
-        if (item.attrs.nodeId === nodeId && item.attrs.assetId === asset.id) activeEditor.view.dispatch(activeEditor.state.tr.setNodeMarkup(position, undefined, { ...item.attrs, assetId: "", attachmentId: copy.attachmentId, src: copy.contentUrl }));
-      });
-      setPreferredSvgId(copy.id); setGraphicsOpen(true);
-    } catch { setImageError(t("figures.sourceUnavailable")); }
-  }
-  function insertFigureList() {
-    let existing: number | undefined;
-    activeEditor.state.doc.descendants((node, pos) => { if (node.type.name === "figureList") existing = pos; });
-    if (existing !== undefined) { (activeEditor.view.nodeDOM(existing) as HTMLElement | null)?.scrollIntoView({ block: "center" }); return; }
-    activeEditor.chain().focus().insertContentAt(toolbarSelection.current?.to ?? activeEditor.state.selection.to, { type: "figureList", attrs: { title: t("figures.list") } }).run();
-    changeDocumentSettings({ ...documentSettings, figures: { ...documentSettings.figures, enabled: false } });
-  }
-
-  /**
-   * Selects a just-inserted image so the caption dialog, which acts on the current
-   * NodeSelection, targets it.
-   */
-  function selectImageNode(nodeId: string) {
-    let position = -1;
-    activeEditor.state.doc.descendants((node, pos) => {
-      if (position >= 0) return false;
-      if (node.type.name === "commentableImage" && node.attrs.nodeId === nodeId) position = pos;
-      return undefined;
-    });
-    if (position < 0) return false;
-    activeEditor.chain().focus().setNodeSelection(position).run();
-    return true;
-  }
-
-  /**
-   * Inserts an image and asks for its caption straight away. The caption otherwise
-   * defaults to the file name, which is almost never what belongs under a figure.
-   */
-  function insertImageWithCaption(attachment: UploadedAttachment) {
-    const attrs = imageNodeAttrs(attachment);
-    toolbarChain().insertContent({ type: "commentableImage", attrs }).run();
-    setInlineImagePickerOpen(false);
-    selectImageNode(String(attrs.nodeId));
-  }
-
-  function insertExistingImage(attachment: ExistingImageAttachment) {
-    if (figureTargetId) {
-      activeEditor.state.doc.descendants((node, position) => { if (node.attrs.nodeId === figureTargetId) activeEditor.view.dispatch(activeEditor.state.tr.setNodeMarkup(position, undefined, { ...node.attrs, assetId: "", attachmentId: attachment.id, src: attachment.src || `/api/files/${attachment.id}` })); });
-    } else insertImageWithCaption(attachment);
+  const figureHandlers = createFigureHandlers({
+    activeEditor, t, figureLibrary, uploadControllers, conflictBlocked, toolbarSelection, figureTargetId, documentSettings,
+    setImageUploading, setImageError, setInlineImagePickerOpen, setPreferredSvgId, setGraphicsOpen, toolbarChain, changeDocumentSettings,
+  });
+  const { insertInlineImage, insertFigureAsset, editFigureArtwork, insertFigureList, insertExistingImage } = figureHandlers;
+  // A hoisted declaration, because the paste/drop handlers passed to useEditor refer to it.
+  function insertFigureFiles(files: File[], position: number, targetId = "") {
+    return figureHandlers.insertFigureFiles(files, position, targetId);
   }
   async function submitComment() {
     if (!pendingAnchor || !commentBody.trim() || commentSubmittingRef.current) return;
@@ -2150,117 +853,14 @@ function CollaborativeWikiEditor({
     await persistContent(currentSnapshot().contentJson);
   }
 
-  async function changeProofingLanguage(next: ProofingLanguage) {
-    if (proofingSaving || next === proofingLanguage) return;
-    const previous = proofingLanguage;
-    setProofingSaving(true);
-    setProofingDictionaryLoaded(false);
-    setProofingDictionary([]);
-    setProofingLanguage(next);
-    setSpellcheckIssue(null);
-    try {
-      const response = await fetch("/api/wiki/pages/" + encodeURIComponent(pageId) + "/proofing-language", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language: next }),
-        keepalive: true,
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok) throw new Error("Proofing language save failed");
-    } catch {
-      setProofingDictionaryLoaded(false);
-      setProofingDictionary([]);
-      setProofingLanguage(previous);
-      toast.error(t("editor.proofing.saveFailed"));
-    } finally {
-      setProofingSaving(false);
-    }
-  }
-
-  async function toggleProofingPicky() {
-    if (proofingSaving) return;
-    setProofingSaving(true);
-    const previous = proofingPicky;
-    const next = !previous;
-    setProofingPicky(next);
-    try {
-      await updateMyWikiProofingPicky(next);
-    } catch {
-      setProofingPicky(previous);
-      toast.error(t("editor.proofing.saveFailed"));
-    } finally { setProofingSaving(false); }
-  }
-
-  function ignoreCurrentProofingIssue() {
-    if (!spellcheckIssue) return;
-    const key = proofingIssueKey(spellcheckIssue.issue);
-    ignoredProofingIssues.current.add(key);
-    setSpellcheckIssues(activeEditor, getSpellcheckIssues(activeEditor).filter((issue) => proofingIssueKey(issue) !== key));
-    setSpellcheckIssue(null);
-    void ignoreMyWikiProofingIssue(key).catch(() => toast.error(t("editor.proofing.preferenceFailed")));
-  }
-
-  function disableCurrentProofingRule() {
-    if (!spellcheckIssue?.issue.ruleId) return;
-    const { ruleId } = spellcheckIssue.issue;
-    disabledProofingRuleIds.current.add(ruleId);
-    setSpellcheckIssues(activeEditor, getSpellcheckIssues(activeEditor).filter((issue) => issue.ruleId !== ruleId));
-    setSpellcheckIssue(null);
-    void disableMyWikiProofingRule(ruleId).catch(() => toast.error(t("editor.proofing.preferenceFailed")));
-  }
-
-  async function addCurrentWordToDictionary() {
-    if (!spellcheckIssue || spellcheckIssue.issue.kind !== "spelling" || proofingDictionarySaving) return;
-    const word = spellcheckIssue.source.trim();
-    if (!word) return;
-    const language = proofingLanguage;
-    setProofingDictionarySaving(true);
-    try {
-      const response = await fetch("/api/wiki/proofing-dictionary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, word }),
-      });
-      if (!response.ok) throw new Error("Dictionary save failed");
-      const payload = await response.json() as { word: string };
-      setProofingDictionary((current) => current.some((item) => item.toLocaleLowerCase(proofingLanguage) === payload.word.toLocaleLowerCase(proofingLanguage)) ? current : [...current, payload.word]);
-      setSpellcheckIssue(null);
-      toast.success(t("editor.proofing.dictionaryAdded", { word: payload.word }));
-    } catch {
-      toast.error(t("editor.proofing.dictionaryFailed"));
-    } finally { setProofingDictionarySaving(false); }
-  }
-
-  function currentProofingIssue(replacement: string) {
-    if (!spellcheckIssue || !activeEditor.isEditable) return null;
-    const { issue, source } = spellcheckIssue;
-    return getSpellcheckIssues(activeEditor).find((candidate) => candidate.from === issue.from && candidate.to === issue.to
-      && !candidate.pending && candidate.ruleId === issue.ruleId && candidate.replacements.includes(replacement)
-      && activeEditor.state.doc.textBetween(candidate.from, candidate.to) === source) ?? null;
-  }
-
-  function replaceAllCurrentProofingIssue(replacement: string) {
-    const issue = currentProofingIssue(replacement);
-    if (!issue) { setSpellcheckIssue(null); return; }
-    const count = replaceAllSpellcheckOccurrences(activeEditor, issue, replacement);
-    setSpellcheckIssue(null);
-    activeEditor.commands.focus();
-    if (count > 0) toast.success(t("editor.proofing.replacedAll", { count }));
-  }
-
-  function replaceCurrentProofingIssue(replacement: string) {
-    const issue = currentProofingIssue(replacement);
-    if (!issue) { setSpellcheckIssue(null); return; }
-    // Suggestions are plain text, including an empty string for deletion.
-    activeEditor.view.dispatch(activeEditor.state.tr.insertText(replacement, issue.from, issue.to).scrollIntoView());
-    activeEditor.commands.focus();
-    setSpellcheckIssue(null);
-  }
-
-  function nextProofingIssue() {
-    activeEditor.commands.focus();
-    activeEditor.commands.keyboardShortcut("Alt-F7");
-  }
+  const {
+    changeProofingLanguage, toggleProofingPicky, ignoreCurrentProofingIssue, disableCurrentProofingRule,
+    addCurrentWordToDictionary, replaceAllCurrentProofingIssue, replaceCurrentProofingIssue, nextProofingIssue,
+  } = createWikiProofingHandlers({
+    activeEditor, pageId, t, spellcheckIssue, setSpellcheckIssue, proofingLanguage, setProofingLanguage,
+    proofingSaving, setProofingSaving, proofingPicky, setProofingPicky, setProofingDictionary, setProofingDictionaryLoaded,
+    proofingDictionarySaving, setProofingDictionarySaving, ignoredProofingIssues, disabledProofingRuleIds,
+  });
 
   const shortcutLabel = (action: WikiShortcutAction) => displayShortcut(wikiShortcuts[action], { ctrl: t("shortcuts.keys.ctrl"), delete: t("shortcuts.keys.delete") });
   const proofingMenuProps = { language: proofingLanguage, status: proofingStatus, count: proofingCount, picky: proofingPicky,
@@ -2271,68 +871,11 @@ function CollaborativeWikiEditor({
   const nextDocumentModeLabel = t(documentMode ? "document.noteMode" : "document.documentMode");
 
   function buildEditorCommands(): EditorSearchCommand[] {
-    const readOnlyActions = new Set(["search", "outline", "toggleComments", "typography", "shortcuts"]);
-    const editorCommands: EditorSearchCommand[] = WIKI_SHORTCUT_ACTIONS.map((action) => ({
-      id: action, label: t(`shortcuts.actions.${action}`), group: t("commandSearch.editor"), shortcut: shortcutLabel(action),
-      keywords: slashCommands.find((command) => command.id === action)?.keywords,
-      disabledReason: !activeEditor.isEditable && !readOnlyActions.has(action) ? t("commandSearch.readOnly")
-        : action.startsWith("image") && action !== "image" && !activeEditor.isActive("commentableImage") ? t("commandSearch.selectImage")
-        : action.startsWith("table") && action !== "tableOfContents" && !activeEditor.isActive("markdownTable") ? t("commandSearch.selectTable")
-        : action === "undo" && !activeEditor.can().undo() || action === "redo" && !activeEditor.can().redo() ? t("commandSearch.unavailable") : undefined,
-      execute: () => executeEditorAction(action),
-    }));
-    for (const command of slashCommands) {
-      if (editorCommands.some((item) => item.id === command.id) || command.id === "inlineImage") continue;
-      editorCommands.push({ id: command.id, label: command.label, group: command.groupLabel, keywords: command.keywords,
-        disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined, execute: () => command.execute(activeEditor) });
-    }
-    editorCommands.push({ id: "figureList", label: t("figures.insertList"), group: t("commandSearch.tools"), execute: insertFigureList, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "layout", label: t("document.panelTitle"), group: t("commandSearch.tools"), execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); } });
-    editorCommands.push({ id: "details", label: t("documentDetails"), group: t("commandSearch.tools"), execute: () => setPanel("details") });
-    editorCommands.push({ id: "graphics", label: t("graphics.title"), group: t("commandSearch.tools"), execute: () => setGraphicsOpen(true), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "suggestions", label: suggesting ? t("suggestions.leaveMode") : t("suggestions.enterMode"), group: t("commandSearch.tools"), execute: () => setSuggesting((value) => !value), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "acceptSuggestions", label: t("suggestions.acceptAll", { count: suggestionCounts.inserted + suggestionCounts.deleted }), group: t("commandSearch.tools"), execute: () => resolveSuggestions(true), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "rejectSuggestions", label: t("suggestions.rejectAll"), group: t("commandSearch.tools"), execute: () => resolveSuggestions(false), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "proofingPicky", label: t("editor.proofing.picky"), group: t("commandSearch.tools"), execute: () => { void toggleProofingPicky(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    editorCommands.push({ id: "proofingNext", label: t("commandSearch.proofingNext"), group: t("commandSearch.tools"), execute: nextProofingIssue });
-    editorCommands.push({ id: "proofingRetry", label: t("commandSearch.proofingRetry"), group: t("commandSearch.tools"), execute: () => proofingRetry.current() });
-    for (const language of ["de-DE", "de-AT", "en-US"] as ProofingLanguage[]) {
-      editorCommands.push({ id: `proofing-${language}`, label: t(`commandSearch.languages.${language}`), group: t("commandSearch.tools"), execute: () => { void changeProofingLanguage(language); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    }
-    for (const kind of ["budget", "workPackages", "timeline", "risks", "kpis", "generic"] as const) {
-      editorCommands.push({ id: `table-${kind}`, label: t(`document.proposal.${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalTable(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    }
-    for (const kind of ["executiveSummary", "objectives", "deliverables", "assumptions", "decision"] as const) {
-      editorCommands.push({ id: `snippet-${kind}`, label: t(`document.proposal.snippet_${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalSectionSnippet(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    }
-    for (const attribute of ["keepWithNext", "keepTogether"] as const) {
-      editorCommands.push({ id: attribute, label: t(`document.${attribute}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().updateAttributes(activeEditor.state.selection.$from.parent.type.name, { [attribute]: !activeEditor.isActive({ [attribute]: true }) }).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-    }
-    for (const format of ["pdf", "docx", "html"] as const) {
-      editorCommands.push({ id: `export-${format}`, label: t("commandSearch.export", { format: format.toUpperCase() }), group: t("commandSearch.tools"), execute: () => { void exportSavedDocument(pageId, format, false, flushSave, () => toast.error(t("document.exportSaveFailed"))); } });
-    }
-    for (const [id, field, label] of [["fontSize", "bodySizePt", "bodySize"], ["lineSpacing", "lineHeight", "lineHeight"]] as const) {
-      editorCommands.push({ id, label: t(`editor.preferences.controls.${label}`), group: t("commandSearch.tools"), keywords: t.raw(`commandSearch.aliases.${id}`) as string[], execute: () => { setTypographyFocus(field); setTypographyOpen(true); } });
-    }
-    editorCommands.push({ id: "pageMargins", label: t("commandSearch.pageMargins"), group: t("commandSearch.tools"), keywords: t.raw("commandSearch.aliases.pageMargins") as string[], execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); setMarginFocusRequest((value) => value + 1); } });
-    const recent = recentEditorCommands(readEditorStorage(`wiki-command-recent:${currentUserId}`));
-    const marks: Record<string, string> = { bold: "bold", italic: "italic", underline: "underline", highlight: "highlight", strike: "strike", inlineCode: "code", bulletList: "bulletList", orderedList: "orderedList", taskList: "taskList", blockquote: "blockquote", codeBlock: "codeBlock" };
-    for (const command of editorCommands) {
-      if (marks[command.id]) command.active = activeEditor.isActive(marks[command.id]);
-      if (/^heading[123]$/.test(command.id)) command.active = activeEditor.isActive("heading", { level: Number(command.id.at(-1)) });
-      if (command.id === "suggestions") command.active = suggesting;
-      if (command.id === "documentMode") command.active = documentMode;
-      if (command.id === "proofingPicky") command.active = proofingPicky;
-      if (t.has(`commandSearch.aliases.${command.id}`)) command.keywords = [...(command.keywords ?? []), ...(t.raw(`commandSearch.aliases.${command.id}`) as string[])];
-      const recentIndex = recent.indexOf(command.id);
-      if (recentIndex >= 0) command.recentIndex = recentIndex;
-      if (!command.disabledReason) {
-        if (activeEditor.isActive("commentableImage") && command.id.startsWith("image") && command.id !== "image") command.contextPriority = 3;
-        else if (activeEditor.isActive("markdownTable") && command.id.startsWith("table") && command.id !== "tableOfContents" && !command.id.startsWith("table-")) command.contextPriority = 3;
-        else if (!activeEditor.state.selection.empty && marks[command.id] && ["bold", "italic", "underline", "highlight", "strike", "inlineCode"].includes(command.id)) command.contextPriority = 2;
-      }
-    }
-    return editorCommands;
+    return buildWikiEditorCommands({
+      t, activeEditor, slashCommands, shortcutLabel, executeEditorAction, insertFigureList, documentMode, changeDocumentMode, setPanel,
+      setGraphicsOpen, suggesting, setSuggesting, suggestionCounts, resolveSuggestions, proofingPicky, toggleProofingPicky, nextProofingIssue,
+      proofingRetry, changeProofingLanguage, pageId, flushSave, setTypographyFocus, setTypographyOpen, setMarginFocusRequest, currentUserId,
+    });
   }
   function closeCommandSearch() {
     flushSync(() => setCommandSearchOpen(false));
@@ -2451,67 +994,16 @@ function CollaborativeWikiEditor({
         }
       }}
     >
-      <BubbleMenu editor={editor} pluginKey="wikiTextCommentMenu" options={{ strategy: "fixed", flip: true, shift: true, offset: 8 }} shouldShow={({ state }) => !state.selection.empty && !(state.selection instanceof NodeSelection)} className="z-40 flex items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
-        <Button type="button" size="icon-sm" variant={activeEditor.isActive("bold") ? "secondary" : "ghost"} aria-label={t("editor.toolbar.bold")} onClick={() => activeEditor.chain().focus().toggleBold().run()}><Bold className="size-4" /></Button>
-        <Button type="button" size="icon-sm" variant={activeEditor.isActive("italic") ? "secondary" : "ghost"} aria-label={t("editor.toolbar.italic")} onClick={() => activeEditor.chain().focus().toggleItalic().run()}><Italic className="size-4" /></Button>
-        <Button type="button" size="icon-sm" variant={activeEditor.isActive("link") ? "secondary" : "ghost"} aria-label={t("editor.link.button")} onClick={() => setLinkEditorRequest((value) => value + 1)}><Link2 className="size-4" /></Button>
-        <span className="mx-0.5 h-5 w-px bg-border" />
-        <Button type="button" size="sm" variant={activeEditor.isActive("highlight") ? "secondary" : "ghost"} onClick={() => activeEditor.chain().focus().toggleMark("highlight", { createdBy: currentUserId }).run()}><Highlighter className="size-4" />{t("highlightSelection")}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={prepareComment}><MessageSquareText className="size-4" />{t("commentSelection")}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => requestWikiTask(activeEditor)}><ClipboardCheck className="size-4" />{tTasks("createTask")}</Button>
-      </BubbleMenu>
-      {documentMode && <BubbleMenu editor={editor} pluginKey="wikiDocumentTableMenu" options={{ strategy: "fixed", placement: "bottom", flip: true, shift: true, offset: 8 }} shouldShow={() => activeEditor.isActive("markdownTable")} className="z-40 flex flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
-        <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableRow(activeEditor)}><Rows3 />{t("document.table.addRow")}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableColumn(activeEditor)}><Columns2 />{t("document.table.addColumn")}</Button>
-        <Button type="button" size="sm" variant="ghost" onClick={() => toggleMarkdownTableHeader(activeEditor)}>{t("document.table.header")}</Button>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.image.alignLeft")} onClick={() => setMarkdownTableCellAlignment(activeEditor, "left")}><AlignLeft /></Button>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.image.alignCenter")} onClick={() => setMarkdownTableCellAlignment(activeEditor, "center")}><AlignCenter /></Button>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.image.alignRight")} onClick={() => setMarkdownTableCellAlignment(activeEditor, "right")}><AlignRight /></Button>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.table.deleteRow")} onClick={() => deleteMarkdownTableRow(activeEditor)}><Trash2 /></Button>
-        <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.table.deleteColumn")} onClick={() => deleteMarkdownTableColumn(activeEditor)}><Minus /></Button>
-      </BubbleMenu>}
+      <WikiEditorBubbleMenus editor={activeEditor} documentMode={documentMode} currentUserId={currentUserId} setLinkEditorRequest={setLinkEditorRequest} prepareComment={prepareComment} requestWikiTask={requestWikiTask} />
       <div
         className={`wiki-editor-surface${documentMode ? " wiki-document-canvas" : ""}`}
         data-margin-guides={documentSettings.page.showMarginGuides ? "true" : "false"}
         data-numbered-headings={documentMode && documentSettings.page.numberedHeadings ? "true" : "false"}
         style={documentMode ? documentCanvasStyle : editorTypographyStyle}
       >
-        {documentMode && Array.from({ length: visibleDocumentPages }, (_, index) => <div key={index} className="wiki-document-page-sheet" style={{ top: `calc(${index} * (var(--document-paper-height) + var(--document-page-gap)))` }} aria-hidden="true" />)}
-        {documentMode && documentSettings.cover.enabled && <section className="wiki-document-cover" aria-label={t("document.cover")}>
-          <p>{documentSettings.cover.eyebrow}</p>
-          <h1>{pageTitle}</h1>
-          {documentSettings.cover.subtitle && <h2>{resolveDocumentText(documentSettings.cover.subtitle)}</h2>}
-          <dl>
-            {(documentSettings.cover.author || documentSettings.metadata.author) && <div><dt>{t("document.author")}</dt><dd>{resolveDocumentText(documentSettings.cover.author || documentSettings.metadata.author)}</dd></div>}
-            {documentSettings.cover.organization && <div><dt>{t("document.organization")}</dt><dd>{resolveDocumentText(documentSettings.cover.organization)}</dd></div>}
-            {(documentSettings.cover.date || documentSettings.variables.date) && <div><dt>{t("document.date")}</dt><dd>{resolveDocumentText(documentSettings.cover.date || documentSettings.variables.date)}</dd></div>}
-          </dl>
-        </section>}
-        {documentMode && Array.from({ length: documentPageCount }, (_, index) => {
-          const pageNumber = documentSettings.footer.pageNumberStart + index;
-          const top = pageStackPosition(coverPageCount + index);
-          return <div key={`chrome-${index}`} className="wiki-document-page-chrome" style={{ top: `${top}mm` }} aria-hidden="true">
-            {documentSettings.header.enabled && <header><span>{resolveDocumentText(documentSettings.header.left)}</span><span>{resolveDocumentText(documentSettings.header.center)}</span><span>{resolveDocumentText(documentSettings.header.right)}</span></header>}
-            {documentSettings.footer.enabled && <footer><span>{resolveDocumentText(documentSettings.footer.left)}</span><span>{resolveDocumentText(documentSettings.footer.center)}</span><span>{resolveDocumentText(documentSettings.footer.right)}</span>{documentSettings.footer.pageNumbers && <b>{pageNumber}</b>}</footer>}
-          </div>;
-        })}
+        <DocumentFrontMatter documentMode={documentMode} documentSettings={documentSettings} pageTitle={pageTitle} visibleDocumentPages={visibleDocumentPages} documentPageCount={documentPageCount} coverPageCount={coverPageCount} pageStackPosition={pageStackPosition} resolveDocumentText={resolveDocumentText} />
         <EditorContent editor={editor} data-testid="wiki-editor" data-document-mode={documentMode ? "true" : "false"} />
-        {bibliographyVisible && <section className="wiki-document-bibliography" aria-label={documentSettings.bibliography.heading}>
-          <p className="wiki-document-figure-index-kicker">IEEE</p>
-          <h2>{documentSettings.bibliography.heading || t("references")}</h2>
-          <ol>{bibliography.map(({ source, text }) => <li key={source.id}><a href={bibliographyHref(source)}>{text}</a></li>)}</ol>
-        </section>}
-        {figureIndexVisible && <section className="wiki-document-figure-index" aria-label={documentSettings.figures.heading}>
-          <p className="wiki-document-figure-index-kicker">{t("document.figureIndex")}</p>
-          <h2>{documentSettings.figures.heading}</h2>
-          {/* A caption that already numbers itself ("Abbildung 4: …") is not numbered twice. */}
-          <ol>{figureCaptions.map((figure, index) => <li key={figure.nodeId}><span>{t("document.figureNumber", { number: index + 1 })}</span><span>{figure.caption}</span></li>)}</ol>
-        </section>}
-        {tableIndexVisible && <section className="wiki-document-figure-index wiki-document-table-index" style={{ top: "var(--document-table-index-top)" }} aria-label={documentSettings.tables.heading}>
-          <p className="wiki-document-figure-index-kicker">{t("document.tableIndex")}</p>
-          <h2>{documentSettings.tables.heading}</h2>
-          <ol>{tableCaptions.map((table, index) => <li key={table.tableId}><span>{t("document.tableNumber", { number: index + 1 })}</span><span>{table.caption}</span></li>)}</ol>
-        </section>}
+        <DocumentBackMatter documentSettings={documentSettings} bibliography={bibliography} bibliographyVisible={bibliographyVisible} bibliographyHref={bibliographyHref} figureIndexVisible={figureIndexVisible} figureCaptions={figureCaptions} tableIndexVisible={tableIndexVisible} tableCaptions={tableCaptions} />
       </div>
       {spellcheckIssue && <WikiProofingSuggestions selected={spellcheckIssue} onClose={() => setSpellcheckIssue(null)}
         onReplace={replaceCurrentProofingIssue} onReplaceAll={replaceAllCurrentProofingIssue} onIgnore={ignoreCurrentProofingIssue}

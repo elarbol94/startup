@@ -16,7 +16,8 @@ vi.mock("@/db", async () => {
 
 import { db, sqlite } from "@/db";
 import { projectColumns, projects, taskDependencies, tasks, user } from "@/db/schema";
-import { upsertContextualTask, upsertTask } from "./actions";
+import { upsertTask } from "./task-actions";
+import { upsertContextualTask } from "./contextual-task-actions";
 import {
   addTaskDependencyFromDialog,
   deleteTaskKeepingSubtasks,
