@@ -16,3 +16,4 @@ export * from "@/modules/context/schema";
 export * from "@/modules/municipalities/schema";
 export * from "@/modules/wiki/collaboration/schema";
 export * from "@/modules/settings/version-control/schema";
+export * from "@/modules/time/schema";

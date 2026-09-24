@@ -242,6 +242,7 @@
     "calendar": "Calendar",
     "accounting": "Accounting",
     "personnel": "Personnel",
+    "time": "Time tracking",
     "documents": "Invoices & receipts",
     "projects": "Projects",
     "wiki": "Wiki",
@@ -4574,5 +4575,98 @@
     "columnDragOver": "Over column {column}.",
     "columnDragEnd": "Column order saved.",
     "columnDragCancel": "Reordering cancelled."
+  },
+  "time": {
+    "title": "Time tracking",
+    "subtitle": "Record working time live with the timer or enter it afterwards.",
+    "viewing": "Times of {name}",
+    "person": "Person",
+    "timer": {
+      "title": "Timer",
+      "idle": "No timer running",
+      "running": "Running since {time}",
+      "start": "Start timer",
+      "stop": "Stop",
+      "updateBooking": "Update booking",
+      "startedToast": "Timer started",
+      "stoppedToast": "Time recorded",
+      "discardedToast": "Timer discarded (under one minute)",
+      "bookingUpdated": "Booking updated"
+    },
+    "fields": {
+      "date": "Date",
+      "start": "Start",
+      "end": "End",
+      "break": "Break (min)",
+      "project": "Project",
+      "task": "Task",
+      "kind": "Type",
+      "note": "Note",
+      "noProject": "No project",
+      "noTask": "No task",
+      "overnightHint": "An end before the start counts as the next morning."
+    },
+    "kinds": {
+      "work": "Work",
+      "travel": "Travel",
+      "training": "Training",
+      "internal": "Internal"
+    },
+    "week": {
+      "title": "Week of {date}",
+      "previous": "Previous week",
+      "next": "Next week",
+      "today": "This week",
+      "addEntry": "Add time",
+      "noEntries": "No time recorded",
+      "running": "running",
+      "longDay": "More than 10 hours",
+      "target": "Target {value}",
+      "sourceTimer": "Recorded with timer",
+      "sourceManual": "Entered manually"
+    },
+    "summary": {
+      "week": "This week",
+      "month": "Month",
+      "actual": "Recorded",
+      "target": "Target",
+      "balance": "Balance to date",
+      "noContract": "No contract period is linked to this user, so no target hours are calculated. Link the user to an employee under Personnel."
+    },
+    "entry": {
+      "createTitle": "Add time",
+      "editTitle": "Edit time",
+      "description": "Times are in Austrian local time (Europe/Vienna).",
+      "save": "Save",
+      "delete": "Delete",
+      "confirmDelete": "Really delete?",
+      "saved": "Time saved",
+      "deleted": "Time deleted"
+    },
+    "holidays": {
+      "newYear": "New Year's Day",
+      "epiphany": "Epiphany",
+      "easterMonday": "Easter Monday",
+      "labourDay": "Labour Day",
+      "ascension": "Ascension Day",
+      "whitMonday": "Whit Monday",
+      "corpusChristi": "Corpus Christi",
+      "assumption": "Assumption Day",
+      "nationalDay": "National Day",
+      "allSaints": "All Saints' Day",
+      "immaculateConception": "Immaculate Conception",
+      "christmas": "Christmas Day",
+      "stStephen": "St. Stephen's Day"
+    },
+    "errors": {
+      "notFound": "This entry no longer exists.",
+      "forbidden": "You may not change this person's times.",
+      "invalid": "Please check your input.",
+      "overlap": "This period overlaps with another time entry.",
+      "timerRunning": "A timer is already running. Stop it first.",
+      "noTimer": "No timer is running.",
+      "breakTooLong": "The break must be shorter than the working period.",
+      "invalidWork": "The selected project or task is no longer available."
+    }
   }
 }
