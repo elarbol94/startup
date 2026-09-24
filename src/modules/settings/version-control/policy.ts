@@ -24,6 +24,8 @@ export const protectedTables = new Set([
   "task_dependencies", "project_dependencies", "project_task_dependencies", "schedule_change_sets",
   "schedule_change_items", "project_schedule_change_items", "wiki_pdf_documents", "wiki_pdf_pages",
   "wiki_figure_assets", "wiki_figure_sources", "wiki_svg_assets",
+  // Working-time records are corrected through the time module, never rolled back wholesale.
+  "time_entries",
 ]);
 
 const restorableTables = new Set([

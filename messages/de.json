@@ -263,6 +263,7 @@
     "calendar": "Kalender",
     "accounting": "Buchhaltung",
     "personnel": "Personal",
+    "time": "Zeiterfassung",
     "documents": "Rechnungen & Belege",
     "projects": "Projekte",
     "wiki": "Wiki",
@@ -4671,5 +4672,98 @@
     "columnDragOver": "Über Spalte {column}.",
     "columnDragEnd": "Spaltenreihenfolge gespeichert.",
     "columnDragCancel": "Verschieben abgebrochen."
+  },
+  "time": {
+    "title": "Zeiterfassung",
+    "subtitle": "Arbeitszeit live mit dem Timer erfassen oder nachträglich eintragen.",
+    "viewing": "Zeiten von {name}",
+    "person": "Person",
+    "timer": {
+      "title": "Timer",
+      "idle": "Kein Timer aktiv",
+      "running": "Läuft seit {time}",
+      "start": "Timer starten",
+      "stop": "Stoppen",
+      "updateBooking": "Zuordnung ändern",
+      "startedToast": "Timer gestartet",
+      "stoppedToast": "Zeit erfasst",
+      "discardedToast": "Timer verworfen (unter einer Minute)",
+      "bookingUpdated": "Zuordnung geändert"
+    },
+    "fields": {
+      "date": "Datum",
+      "start": "Beginn",
+      "end": "Ende",
+      "break": "Pause (Min.)",
+      "project": "Projekt",
+      "task": "Aufgabe",
+      "kind": "Art",
+      "note": "Notiz",
+      "noProject": "Kein Projekt",
+      "noTask": "Keine Aufgabe",
+      "overnightHint": "Ein Ende vor dem Beginn zählt als nächster Morgen."
+    },
+    "kinds": {
+      "work": "Arbeit",
+      "travel": "Reisezeit",
+      "training": "Weiterbildung",
+      "internal": "Intern"
+    },
+    "week": {
+      "title": "Woche ab {date}",
+      "previous": "Vorige Woche",
+      "next": "Nächste Woche",
+      "today": "Diese Woche",
+      "addEntry": "Zeit eintragen",
+      "noEntries": "Keine Zeit erfasst",
+      "running": "läuft",
+      "longDay": "Mehr als 10 Stunden",
+      "target": "Soll {value}",
+      "sourceTimer": "Mit Timer erfasst",
+      "sourceManual": "Manuell eingetragen"
+    },
+    "summary": {
+      "week": "Diese Woche",
+      "month": "Monat",
+      "actual": "Erfasst",
+      "target": "Soll",
+      "balance": "Saldo bis heute",
+      "noContract": "Diesem Benutzer ist kein Vertragsstand zugeordnet, daher wird keine Sollzeit berechnet. Verknüpfe den Benutzer unter Personal mit einer Person."
+    },
+    "entry": {
+      "createTitle": "Zeit eintragen",
+      "editTitle": "Zeit bearbeiten",
+      "description": "Zeiten gelten in österreichischer Ortszeit (Europe/Vienna).",
+      "save": "Speichern",
+      "delete": "Löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "saved": "Zeit gespeichert",
+      "deleted": "Zeit gelöscht"
+    },
+    "holidays": {
+      "newYear": "Neujahr",
+      "epiphany": "Heilige Drei Könige",
+      "easterMonday": "Ostermontag",
+      "labourDay": "Staatsfeiertag",
+      "ascension": "Christi Himmelfahrt",
+      "whitMonday": "Pfingstmontag",
+      "corpusChristi": "Fronleichnam",
+      "assumption": "Mariä Himmelfahrt",
+      "nationalDay": "Nationalfeiertag",
+      "allSaints": "Allerheiligen",
+      "immaculateConception": "Mariä Empfängnis",
+      "christmas": "Christtag",
+      "stStephen": "Stefanitag"
+    },
+    "errors": {
+      "notFound": "Dieser Eintrag existiert nicht mehr.",
+      "forbidden": "Du darfst die Zeiten dieser Person nicht ändern.",
+      "invalid": "Bitte Eingaben prüfen.",
+      "overlap": "Dieser Zeitraum überschneidet sich mit einem anderen Eintrag.",
+      "timerRunning": "Es läuft bereits ein Timer. Bitte zuerst stoppen.",
+      "noTimer": "Es läuft kein Timer.",
+      "breakTooLong": "Die Pause muss kürzer als die Arbeitszeit sein.",
+      "invalidWork": "Das gewählte Projekt oder die Aufgabe ist nicht mehr verfügbar."
+    }
   }
 }
