@@ -38,7 +38,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, MiniMap, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Check, Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
+import { Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
@@ -65,6 +65,8 @@ import { PresentationPlaybackSettings } from "./presentation-editor/presentation
 import { startDuplicateDrag } from "./presentation-editor/presentation-duplicate-drag";
 import { usePresentationCommandPalette } from "./presentation-editor/use-presentation-command-palette";
 import { usePresentationAutosave } from "./presentation-editor/use-presentation-autosave";
+import { usePresentationSaveState } from "./presentation-editor/use-presentation-save-state";
+import { PresentationSaveIndicator } from "./presentation-editor/presentation-save-indicator";
 import { usePresentationGestureBoundaries } from "./presentation-editor/use-presentation-gesture-boundaries";
 import { usePresentationSelectionEdits } from "./presentation-editor/use-presentation-selection-edits";
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
@@ -188,12 +190,7 @@ function Editor({
   const [status, setStatus] = useState<Exclude<SaveState, "unsaved">>("idle");
   const [uploading, setUploading] = useState(false);
 
-  // "Unsaved" is not a state of its own: it is the canvas being dirty while nothing is
-  // in flight, which keeps the indicator honest even when an edit lands mid-save. A failed
-  // write outranks it, so the error stays on screen until the author edits again.
-  const saveState: SaveState = status === "saving"
-    ? "saving"
-    : canvas.failed ? "error" : canvas.dirty ? "unsaved" : status;
+  const saveState = usePresentationSaveState(collaboration, { local: status, dirty: canvas.dirty, failed: canvas.failed });
 
   // The paths that leave the editor -- unmount, "Präsentieren", "PDF-Export" -- run outside
   // React's data flow and need the canvas as it is at that moment, not as it was when they
@@ -568,14 +565,6 @@ function Editor({
     flushThen(href, true);
   };
 
-  const saveIndicator = {
-    idle: null,
-    unsaved: <span className="text-muted-foreground">{t("presentations.saveStates.unsaved")}</span>,
-    saving: <span className="flex items-center gap-1 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />{t("presentations.saveStates.saving")}</span>,
-    saved: <span className="flex items-center gap-1 text-muted-foreground"><Check className="size-3.5" />{t("presentations.saveStates.saved")}</span>,
-    error: <span className="flex items-center gap-1 text-destructive"><TriangleAlert className="size-3.5" />{t("presentations.saveStates.error")}</span>,
-  }[saveState];
-
   const colorSwatches = (value: string, onPick: (color: string) => void) => (
     <ColorPicker aria-label={studio("color")} value={value} onChange={onPick} disabled={disabled || Boolean(selected?.locked)} clearLabel={t("presentations.colorDefault")} />
   );
@@ -714,14 +703,14 @@ function Editor({
   });
   useEffect(() => { const key = (event: KeyboardEvent) => handleKeyboard(event); window.addEventListener("keydown", key, true); return () => window.removeEventListener("keydown", key, true); }, []);
   return (
-    <div className="flex h-[calc(100dvh-7rem)] min-h-0 min-w-0 flex-col md:h-dvh" data-testid="presentation-editor" data-presentation-workspace data-wiki-command-scope ref={commandRoot} tabIndex={-1}
+    <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="presentation-editor" data-presentation-workspace data-wiki-command-scope ref={commandRoot} tabIndex={-1}
       onPointerDownCapture={event => { if (commandRoot.current?.contains(event.target as Node) && !(event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable=true]')) (canvasRef.current?.contains(event.target as Node) ? canvasRef.current : commandRoot.current)?.focus({ preventScroll: true }); }}>
       {commandsOpen && <EditorCommandSearch shortcutLabels={shortcutLabels} title={commandText} description={t("presentations.commands.description")} commands={commands}
         onClose={() => { flushSync(() => setCommandsOpen(false)); restoreCommandFocus(); }}
         onExecute={item => { if (item.disabledReason) return; flushSync(() => setCommandsOpen(false)); restoreCommandFocus(); item.execute(); }} />}
       <PresentationShortcutHelp open={shortcutHelp} onOpenChange={setShortcutHelp} title={interact("shortcutHelp")} help={interact("gestureHelp")} commands={commands} shortcutLabels={shortcutLabels} />
       <Dialog open={Boolean(insertPicker)} onOpenChange={open => { if (!open) setInsertPicker(null); }}><DialogContent finalFocus={pendingElement ? canvasRef : undefined}><DialogHeader><DialogTitle>{interact("choose")}</DialogTitle></DialogHeader><div className="grid grid-cols-3 gap-2">{(insertPicker === "shape" ? presentationShapeKinds : insertPicker === "chart" ? ["bar", "line", "pie"] : insertPicker === "icon" ? presentationIconNames : []).map(choice => <Button key={choice} variant="outline" onClick={() => { if (insertPicker === "shape") addShape(choice as PresentationShapeKind); else if (insertPicker) addStudioElement(insertPicker, choice); setInsertPicker(null); }}>{insertPicker === "shape" ? t(`presentations.shapeKinds.${choice}`) : interact(insertPicker === "icon" ? `icons.${choice}` : choice)}</Button>)}</div></DialogContent></Dialog>
-      {collaboration && <CollaborationStatus provider={collaboration} />}
+      {collaboration && <CollaborationStatus provider={collaboration} className="sr-only" />}
       <header className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background px-4 py-3">
         {documentResumeToken && <Button size="sm" variant="outline" onClick={() => void returnToDocument()}>{linkText("backDocument")}</Button>}
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
@@ -745,8 +734,8 @@ function Editor({
         />
         </div>
         <div className="flex w-full items-center justify-end gap-2 text-xs sm:ml-auto sm:w-auto">
-          <span role="status" aria-live="polite" className="mr-auto sm:mr-0">{saveIndicator}</span>
-          {saveState === "error" && <Button size="sm" variant="ghost" onClick={() => void flush()} disabled={disabled}><Save className="size-3.5" />{t("presentations.save")}</Button>}
+          <span role="status" aria-live="polite" className="mr-auto sm:mr-0"><PresentationSaveIndicator state={saveState} /></span>
+          {(saveState === "error" || saveState === "offline") && <Button size="sm" variant="ghost" onClick={() => void flush()} disabled={disabled}><Save className="size-3.5" />{t("presentations.save")}</Button>}
           <Button size="sm" variant="ghost" aria-label={t("workspace.share")} onClick={() => setWorkspaceDialog("sharing")}><Share2 className="size-4" /><span className="hidden sm:inline">{t("workspace.share")}</span></Button>
           <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.actions")} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem disabled={!steps.length || restoring !== null || uploading} onClick={() => flushThen(printHref, true)}><FileDown />{t("presentations.exportPdf")}</DropdownMenuItem>

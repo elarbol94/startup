@@ -3639,9 +3639,9 @@
       },
       "saveStates": {
         "unsaved": "Nicht gespeichert",
-        "saving": "Speichert…",
+        "saving": "Wird gespeichert…",
         "saved": "Gespeichert",
-        "error": "Fehler"
+        "offline": "Offline – Änderungen werden lokal gehalten"
       },
       "locked": "Jemand anderes bearbeitet diese Präsentation gerade. Ansehen ist möglich, Änderungen werden nicht gespeichert.",
       "lockedBy": "{name} bearbeitet diese Präsentation gerade. Ansehen ist möglich, Änderungen werden nicht gespeichert.",

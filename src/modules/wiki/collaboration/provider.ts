@@ -17,6 +17,8 @@ export interface CollaborationClient {
   user: { id: string; name: string };
   /** Why the last save failed, when the transport can tell (e.g. "tooLarge"). */
   errorReason?: string | null;
+  /** True while this tab holds edits the server has not acknowledged yet (queued or in flight). */
+  readonly hasPendingChanges: boolean;
   subscribe(listener: () => void): () => void;
   setPresence(presence: Pick<Presence, "cursor" | "selectedIds">): void;
   start(): Promise<void>;
@@ -52,11 +54,13 @@ export class CollaborationProvider implements CollaborationClient {
       if (origin === REMOTE) return;
       this.pending.push(update);
       this.journal();
-      if (this.status === "denied" || this.status === "error") return;
+      // Refused transports keep the edit journaled; listeners still learn it is pending.
+      if (this.status === "denied" || this.status === "error") { this.emit(); return; }
       this.setStatus("saving");
       if (this.ready && !this.disposed) void this.flush();
     });
   }
+  get hasPendingChanges() { return this.pending.length > 0; }
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   private emit() { this.listeners.forEach(listener => listener()); }
   private setStatus(status: CollaborationStatus) {

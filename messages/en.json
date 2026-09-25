@@ -3639,7 +3639,7 @@
         "unsaved": "Unsaved",
         "saving": "Saving…",
         "saved": "Saved",
-        "error": "Error"
+        "offline": "Offline – changes are kept locally"
       },
       "locked": "Someone else is editing this presentation. You can look around, but changes are not saved.",
       "lockedBy": "{name} is editing this presentation. You can look around, but changes are not saved.",

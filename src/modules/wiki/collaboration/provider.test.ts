@@ -78,3 +78,23 @@ it("does not recover another account's pending content", async () => {
   expect(bob.doc.getText("text").toString()).toBe("Hello");
   expect(storage.size).toBe(1);
 });
+it("reports pending changes until the server acknowledges them", async () => {
+  const client = provider(); await client.start();
+  expect(client.hasPendingChanges).toBe(false);
+  hold = () => {};
+  client.doc.getText("text").insert(5, " queued");
+  expect(client.hasPendingChanges).toBe(true);
+  const release = hold!; hold = undefined; release();
+  expect(await client.flush()).toBe(true);
+  expect(client.hasPendingChanges).toBe(false); expect(client.status).toBe("saved");
+});
+it("keeps changes pending while a save fails and notifies listeners", async () => {
+  const client = provider(); await client.start();
+  const listener = vi.fn(); client.subscribe(listener);
+  loseResponse = true;
+  client.doc.getText("text").insert(5, " offline");
+  expect(await client.flush()).toBe(false);
+  expect(client.status).toBe("reconnecting"); expect(client.hasPendingChanges).toBe(true);
+  expect(listener).toHaveBeenCalled();
+  expect(await client.flush()).toBe(true); expect(client.hasPendingChanges).toBe(false);
+});
