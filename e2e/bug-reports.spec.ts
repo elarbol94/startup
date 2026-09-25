@@ -98,6 +98,28 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await page.keyboard.press("Escape");
   await card.getByRole("combobox").selectOption("in_progress");
   await expect(panel.locator('[data-board-stage="in_progress"]').getByRole("button", { name: title, exact: true })).toBeVisible();
+  // The shortcut freezes the screen first: a popup that disappears afterwards is still captured.
+  await page.evaluate(() => {
+    const popup = document.createElement("div"); popup.id = "popup-fixture";
+    popup.style.cssText = "position:fixed;left:100px;top:250px;width:200px;height:120px;background:rgb(0,0,255);z-index:80";
+    document.body.append(popup);
+  });
+  await page.keyboard.press("Control+Y");
+  await expect(selector.locator("canvas")).toBeAttached();
+  await page.evaluate(() => document.getElementById("popup-fixture")?.remove());
+  await page.mouse.move(220, 330); await page.mouse.down();
+  await page.mouse.move(120, 270, { steps: 5 }); await page.mouse.up();
+  await selector.getByRole("button", { name: "Ausgewählten Bereich anhängen" }).click();
+  const frozen = dialog.getByRole("img", { name: /^bug-area-/ });
+  await expect(frozen).toBeVisible();
+  expect(await frozen.evaluate(async element => {
+    const image = element as HTMLImageElement; await image.decode();
+    const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d")!; context.drawImage(image, 0, 0);
+    return Array.from(context.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data);
+  })).toEqual([0, 0, 255, 255]);
+  await dialog.getByRole("button", { name: /^bug-area-.* entfernen$/ }).click();
+  await page.keyboard.press("Escape");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/projects");
   await page.getByRole("button", { name: "Hauptnavigation öffnen" }).click();
