@@ -4,6 +4,7 @@
 import { useEffect, type RefObject } from "react";
 import type { Editor } from "@tiptap/react";
 import { imageNodeAttrs } from "./wiki-editor-document-ops";
+import { resolveBlockInsertPosition } from "../../lib/block-insert-position";
 import type { WikiEditorHandle } from "./wiki-editor-types";
 
 export function useWikiEditorHandle({ actionsRef, editor, flushSaveRef }: {
@@ -21,7 +22,7 @@ export function useWikiEditorHandle({ actionsRef, editor, flushSaveRef }: {
         // Insert *after* the selection rather than into it: a freshly inserted
         // graphic stays selected as a node, and inserting into that selection
         // would replace the graphic that was just dropped in.
-        const at = editor.state.selection.to;
+        const at = resolveBlockInsertPosition(editor.state.doc, editor.state.selection.to, editor.schema.nodes.commentableImage);
         editor.chain().insertContentAt(at, {
           type: "commentableImage",
           // The rendered URL, not /api/files, so document typography applies immediately.

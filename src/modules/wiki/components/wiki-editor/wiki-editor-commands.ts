@@ -17,10 +17,17 @@ import type { ProofingLanguage } from "../../lib/spellcheck";
 import { addMarkdownTableColumn, addMarkdownTableRow, deleteMarkdownTableColumn, deleteMarkdownTableRow, setMarkdownTableCellAlignment, toggleMarkdownTableHeader } from "../../lib/document-table";
 import { WIKI_SHORTCUT_ACTIONS, type WikiShortcutAction } from "../../lib/wiki-shortcuts";
 import type { WikiEditorPageActions } from "./wiki-editor-types";
+import { insertBlockContent, isInsideTable } from "../../lib/block-insert-position";
 
 type WikiTranslator = ReturnType<typeof useTranslations<"wiki">>;
 type SetFlag = Dispatch<SetStateAction<boolean>>;
 type BumpRequest = Dispatch<SetStateAction<number>>;
+
+/** A rule inside a table cell goes after the table; elsewhere Tiptap's own command applies. */
+function insertHorizontalRule(editor: Editor) {
+  if (isInsideTable(editor.state.doc, editor.state.selection.from)) return insertBlockContent(editor.chain().focus(), { type: "horizontalRule" }).run();
+  return editor.chain().focus().setHorizontalRule().run();
+}
 
 /** The slash menu's commands; the command search reuses their keywords. */
 export function buildSlashCommands({
@@ -53,10 +60,10 @@ export function buildSlashCommands({
     slash("taskList", "lists", ListTodo, (editor) => editor.chain().focus().toggleTaskList().run()),
     slash("blockquote", "blocks", Quote, (editor) => editor.chain().focus().toggleBlockquote().run()),
     slash("codeBlock", "blocks", Code, (editor) => editor.chain().focus().toggleCodeBlock().run()),
-    slash("horizontalRule", "blocks", Minus, (editor) => editor.chain().focus().setHorizontalRule().run()),
-    slash("pageBreak", "blocks", ScissorsLineDashed, (editor) => editor.chain().focus().insertContent({ type: "pageBreak" }).run()),
-    slash("tableOfContents", "blocks", ListTree, (editor) => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()),
-    slash("twoColumns", "blocks", Columns2, (editor) => editor.chain().focus().insertContent({ type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()),
+    slash("horizontalRule", "blocks", Minus, insertHorizontalRule),
+    slash("pageBreak", "blocks", ScissorsLineDashed, (editor) => insertBlockContent(editor.chain().focus(), { type: "pageBreak" }).run()),
+    slash("tableOfContents", "blocks", ListTree, (editor) => insertBlockContent(editor.chain().focus(), { type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()),
+    slash("twoColumns", "blocks", Columns2, (editor) => insertBlockContent(editor.chain().focus(), { type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()),
     slash("pageLink", "wiki", Link2, () => setPageLinkOpen(true)),
     slash("todo", "wiki", ClipboardCheck, (editor) => requestWikiTask(editor)),
     slash("deadline", "wiki", CalendarClock, (editor) => requestWikiDeadline(editor)),
@@ -65,7 +72,7 @@ export function buildSlashCommands({
     slash("pdfEvidence", "wiki", Highlighter, () => setEvidenceOpen(true)),
     slash("inlineImage", "wiki", ImagePlus, () => openInlineImagePicker()),
     slash("mermaidDiagram", "wiki", Workflow, (editor) => {
-      editor.chain().focus().insertContent({ type: "mermaidDiagram", attrs: { code: MERMAID_PLACEHOLDER, svg: "" } }).run();
+      insertBlockContent(editor.chain().focus(), { type: "mermaidDiagram", attrs: { code: MERMAID_PLACEHOLDER, svg: "" } }).run();
     }),
     slash("attachment", "wiki", Paperclip, () => pageActions.addAttachment()),
     slash("supportingSource", "wiki", BookMarked, () => pageActions.linkSupportingSource()),
@@ -124,10 +131,10 @@ export function runWikiEditorAction(action: WikiShortcutAction, {
       case "taskList": run(() => editor.chain().focus().toggleTaskList().run()); break;
       case "blockquote": run(() => editor.chain().focus().toggleBlockquote().run()); break;
       case "codeBlock": run(() => editor.chain().focus().toggleCodeBlock().run()); break;
-      case "horizontalRule": run(() => editor.chain().focus().setHorizontalRule().run()); break;
-      case "pageBreak": run(() => editor.chain().focus().insertContent({ type: "pageBreak" }).run()); break;
-      case "tableOfContents": run(() => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()); break;
-      case "twoColumns": run(() => editor.chain().focus().insertContent({ type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()); break;
+      case "horizontalRule": run(() => insertHorizontalRule(editor)); break;
+      case "pageBreak": run(() => insertBlockContent(editor.chain().focus(), { type: "pageBreak" }).run()); break;
+      case "tableOfContents": run(() => insertBlockContent(editor.chain().focus(), { type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()); break;
+      case "twoColumns": run(() => insertBlockContent(editor.chain().focus(), { type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()); break;
       case "search": changeSearchOpen(true); break;
       case "outline": setOutlineOpen(true); break;
       case "inlineComment": prepareComment(); break;
@@ -223,10 +230,10 @@ export function buildWikiEditorCommands({
     editorCommands.push({ id: `proofing-${language}`, label: t(`commandSearch.languages.${language}`), group: t("commandSearch.tools"), execute: () => { void changeProofingLanguage(language); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   }
   for (const kind of ["budget", "workPackages", "timeline", "risks", "kpis", "generic"] as const) {
-    editorCommands.push({ id: `table-${kind}`, label: t(`document.proposal.${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalTable(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: `table-${kind}`, label: t(`document.proposal.${kind}`), group: t("commandSearch.tools"), execute: () => { insertBlockContent(activeEditor.chain().focus(), proposalTable(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   }
   for (const kind of ["executiveSummary", "objectives", "deliverables", "assumptions", "decision"] as const) {
-    editorCommands.push({ id: `snippet-${kind}`, label: t(`document.proposal.snippet_${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalSectionSnippet(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
+    editorCommands.push({ id: `snippet-${kind}`, label: t(`document.proposal.snippet_${kind}`), group: t("commandSearch.tools"), execute: () => { insertBlockContent(activeEditor.chain().focus(), proposalSectionSnippet(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   }
   for (const attribute of ["keepWithNext", "keepTogether"] as const) {
     editorCommands.push({ id: attribute, label: t(`document.${attribute}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().updateAttributes(activeEditor.state.selection.$from.parent.type.name, { [attribute]: !activeEditor.isActive({ [attribute]: true }) }).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });

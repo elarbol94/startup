@@ -2361,6 +2361,7 @@
     "shortcuts": {
       "title": "Tastenkürzel",
       "description": "Klicke auf ein Kürzel und drücke anschließend Strg oder Cmd plus die gewünschte Taste.",
+      "tabKeys": "Tab und Umschalt+Tab wechseln zwischen Tabellenzellen (Tab in der letzten Zelle fügt eine Zeile an), rücken Listenpunkte ein und fügen im Text einen Tabulator ein. Um den Editor mit der Tastatur zu verlassen, drücke Esc und danach Tab.",
       "recording": "Taste drücken…",
       "requiresModifier": "Verwende Strg oder Cmd zusammen mit einer Taste.",
       "reserved": "Diese Taste ist reserviert.",

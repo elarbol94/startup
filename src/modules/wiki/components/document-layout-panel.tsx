@@ -36,6 +36,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { insertBlockContent } from "../lib/block-insert-position";
 
 type Props = {
   marginFocusRequest?: number;
@@ -169,7 +170,7 @@ export function DocumentLayoutPanel({
   }
 
   function insertProposalTable(kind: Parameters<typeof proposalTable>[0], rows?: string[][]) {
-    editor.chain().focus().insertContent(proposalTable(kind, rows) as never).run();
+    insertBlockContent(editor.chain().focus(), proposalTable(kind, rows) as never).run();
   }
 
   function updateSelectedNode(position: number, attrs: Record<string, unknown>) {
@@ -182,7 +183,7 @@ export function DocumentLayoutPanel({
   }
 
   function insertSnippet(kind: Parameters<typeof proposalSectionSnippet>[0]) {
-    editor.chain().focus().insertContent(proposalSectionSnippet(kind) as never).run();
+    insertBlockContent(editor.chain().focus(), proposalSectionSnippet(kind) as never).run();
   }
 
   function insertVariable(key: string) {
@@ -366,9 +367,9 @@ export function DocumentLayoutPanel({
         <section className="space-y-2">
           <p className="text-[11px] font-semibold tracking-wide uppercase">{t("insert")}</p>
           <div className="grid grid-cols-2 gap-2">
-            <Button type="button" size="sm" variant="outline" className="justify-start" onClick={() => editor.chain().focus().insertContent({ type: "pageBreak" }).run()}><ScissorsLineDashed />{t("pageBreak")}</Button>
-            <Button type="button" size="sm" variant="outline" className="justify-start" onClick={() => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("contents"), maxLevel: 3 } }).run()}><ListTree />{t("contents")}</Button>
-            <Button type="button" size="sm" variant="outline" className="col-span-2 justify-start" onClick={() => editor.chain().focus().insertContent({ type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()}><Columns2 />{t("twoColumns")}</Button>
+            <Button type="button" size="sm" variant="outline" className="justify-start" onClick={() => insertBlockContent(editor.chain().focus(), { type: "pageBreak" }).run()}><ScissorsLineDashed />{t("pageBreak")}</Button>
+            <Button type="button" size="sm" variant="outline" className="justify-start" onClick={() => insertBlockContent(editor.chain().focus(), { type: "tableOfContents", attrs: { title: t("contents"), maxLevel: 3 } }).run()}><ListTree />{t("contents")}</Button>
+            <Button type="button" size="sm" variant="outline" className="col-span-2 justify-start" onClick={() => insertBlockContent(editor.chain().focus(), { type: "layoutSection", attrs: { columns: 2, gapMm: 8 }, content: [{ type: "paragraph" }, { type: "paragraph" }] }).run()}><Columns2 />{t("twoColumns")}</Button>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <Button type="button" size="sm" variant={editor.isActive({ keepWithNext: true }) ? "secondary" : "outline"} onClick={() => editor.chain().focus().updateAttributes(editor.state.selection.$from.parent.type.name, { keepWithNext: !editor.isActive({ keepWithNext: true }) }).run()}>{t("keepWithNext")}</Button>
@@ -389,11 +390,11 @@ export function DocumentLayoutPanel({
             {(["budget", "workPackages", "timeline", "risks", "kpis", "generic"] as const).map((kind) => <Button key={kind} type="button" size="sm" variant="outline" className="justify-start" onClick={() => insertProposalTable(kind)}>{t(`proposal.${kind}`)}</Button>)}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            {(["info", "decision", "warning", "assumption"] as const).map((kind) => <Button key={kind} type="button" size="sm" variant="outline" onClick={() => editor.chain().focus().insertContent({ type: "proposalCallout", attrs: { kind, title: t("proposal.callout_" + kind) }, content: [{ type: "paragraph" }] }).run()}>{t("proposal.callout_" + kind)}</Button>)}
+            {(["info", "decision", "warning", "assumption"] as const).map((kind) => <Button key={kind} type="button" size="sm" variant="outline" onClick={() => insertBlockContent(editor.chain().focus(), { type: "proposalCallout", attrs: { kind, title: t("proposal.callout_" + kind) }, content: [{ type: "paragraph" }] }).run()}>{t("proposal.callout_" + kind)}</Button>)}
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => editor.chain().focus().insertContent({ type: "annexMarker", attrs: { annexId: crypto.randomUUID(), title: t("proposal.annex") } }).run()}>{t("proposal.annex")}</Button>
-            <Button type="button" size="sm" variant="outline" onClick={() => editor.chain().focus().insertContent({ type: "signatureBlock", attrs: { name: settings.cover.author, role: "", location: "", date: settings.cover.date } }).run()}>{t("proposal.signature")}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => insertBlockContent(editor.chain().focus(), { type: "annexMarker", attrs: { annexId: crypto.randomUUID(), title: t("proposal.annex") } }).run()}>{t("proposal.annex")}</Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => insertBlockContent(editor.chain().focus(), { type: "signatureBlock", attrs: { name: settings.cover.author, role: "", location: "", date: settings.cover.date } }).run()}>{t("proposal.signature")}</Button>
           </div>
           {referenceTargets.length > 0 && <div className="flex gap-1">
             <Select value={referenceTarget} onValueChange={(value) => setReferenceTarget(value ?? "")}><SelectTrigger className="h-8 min-w-0 flex-1"><SelectValue placeholder={t("proposal.reference")} /></SelectTrigger><SelectContent>{referenceTargets.map((item, index) => <SelectItem key={`${item.id}-${index}`} value={item.id}>{item.text}</SelectItem>)}</SelectContent></Select>

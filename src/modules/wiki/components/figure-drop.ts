@@ -1,7 +1,7 @@
 import { Extension } from "@tiptap/core";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet, type EditorView } from "@tiptap/pm/view";
-import { canDropFigureInText, draggedFigure, dropFigureInText } from "../lib/figure-drop";
+import { canDropFigureInText, draggedFigure, dropFigureInTable, dropFigureInText } from "../lib/figure-drop";
 
 const key = new PluginKey<number | null>("figureTextDrop");
 function target(view: EditorView, event: DragEvent) {
@@ -41,7 +41,7 @@ export const FigureTextDrop = Extension.create({
         handleDrop(view, event, slice, moved) {
           if (!view.editable || !view.dragging) return false;
           const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos;
-          const transaction = position === undefined ? null : dropFigureInText(view.state, position, slice, moved);
+          const transaction = position === undefined ? null : dropFigureInText(view.state, position, slice, moved) ?? dropFigureInTable(view.state, position, slice, moved);
           if (!transaction) return false;
           view.dispatch(transaction.setMeta(key, { position: null }));
           view.focus();

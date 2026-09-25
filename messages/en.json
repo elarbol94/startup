@@ -2361,6 +2361,7 @@
     "shortcuts": {
       "title": "Keyboard shortcuts",
       "description": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
+      "tabKeys": "Tab and Shift+Tab move between table cells (Tab in the last cell adds a row), indent list items and insert a tab in text. To leave the editor with the keyboard, press Esc and then Tab.",
       "recording": "Press a key…",
       "requiresModifier": "Use Ctrl or Cmd together with a key.",
       "reserved": "This key is reserved.",
