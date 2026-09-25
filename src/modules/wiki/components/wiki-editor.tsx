@@ -552,9 +552,11 @@ function CollaborativeWikiEditor({
   }, [editor, leaseState, documentSettings.figures.enabled, documentSettings.figures.heading, documentSettings.figures.pageBreakBefore]);
 
   useEffect(() => () => {
+    // Reset the refs too: the schedulers skip while a handle is set, so a stale one would stop them for good.
     if (saveTimer.current) clearTimeout(saveTimer.current);
     if (maxSaveTimer.current) clearTimeout(maxSaveTimer.current);
     if (contentSyncTimer.current) clearTimeout(contentSyncTimer.current);
+    saveTimer.current = null; maxSaveTimer.current = null; contentSyncTimer.current = null;
   }, [editor]);
   useWikiProofingChecks({
     editor, pageId, proofingLanguage, proofingPicky, proofingDictionary, proofingDictionaryLoaded,
