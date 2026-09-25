@@ -1169,7 +1169,8 @@
     "allDay": "Ganztägig",
     "sourceFallback": "Die genaue Markierung wurde nicht gefunden. Die zugehörige Seite wurde geöffnet.",
     "markerLabel": "Verknüpfte Deadline",
-    "ganttLane": "Deadlines"
+    "ganttLane": "Deadlines",
+    "ganttToggle": "Deadlines einzeln als Zeilen ein- oder ausblenden"
   },
   "accountingEntry": {
     "stepOne": "Schritt 1 · Buchungsart",
