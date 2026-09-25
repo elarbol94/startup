@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { moduleNav } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
-import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey } from "./model";
+import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, previousTab, isTabSwitchShortcut, isEditableTarget } from "./model";
 
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
@@ -122,6 +122,31 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     return () => window.removeEventListener("message", receive);
   }, [embedded]);
 
+  // Alt+Q toggles to the last-used tab. Panes are iframes, so they forward the key.
+  const history = useRef<string[]>([]);
+  useEffect(() => { history.current = touchTabHistory(history.current, active); }, [active]);
+  const switchTab = useRef(() => {});
+  useEffect(() => {
+    switchTab.current = () => {
+      const target = previousTab(history.current, ["primary", ...tabs.map(tab => tab.id)], active);
+      if (target) choose(target);
+    };
+  });
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (!isTabSwitchShortcut(event) || isEditableTarget(event.target)) return;
+      event.preventDefault();
+      if (embedded) window.parent.postMessage({ type: "app-workspace-switch" }, window.location.origin);
+      else switchTab.current();
+    };
+    const receive = (event: MessageEvent) => {
+      if (event.origin === window.location.origin && event.data?.type === "app-workspace-switch" && [...frames.current.values()].some(frame => frame.contentWindow === event.source)) switchTab.current();
+    };
+    window.addEventListener("keydown", onKey, true);
+    if (!embedded) window.addEventListener("message", receive);
+    return () => { window.removeEventListener("keydown", onKey, true); window.removeEventListener("message", receive); };
+  }, [embedded]);
+
   useEffect(() => {
     if (!picker) return;
     let cancelled = false;
@@ -187,7 +212,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     <main data-app-main className={cn("rail-content-transition min-w-0 flex-1 duration-[220ms] motion-reduce:transition-none", !embedded && "md:pl-[var(--app-rail-width,3.5rem)]")}>
       <div ref={surface} className="min-w-0" data-workspace-root>
         {!embedded && <div className="sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2" data-workspace-toolbar>
-          <div role="tablist" aria-label={t("tabs")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
+          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts="Alt+Q" title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
             const index = items.indexOf(document.activeElement as HTMLButtonElement);
