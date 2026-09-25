@@ -34,10 +34,9 @@ export function formatElapsed(ms: number) {
   return `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-export function timeHref(params: { week?: string; user?: string | null }) {
+export function timeHref(params: { week?: string }) {
   const search = new URLSearchParams();
   if (params.week) search.set("week", params.week);
-  if (params.user) search.set("user", params.user);
   const query = search.toString();
   return query ? `/time?${query}` : "/time";
 }

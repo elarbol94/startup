@@ -4677,8 +4677,6 @@
   "time": {
     "title": "Time tracking",
     "subtitle": "Record working time live with the timer or enter it afterwards.",
-    "viewing": "Times of {name}",
-    "person": "Person",
     "timer": {
       "title": "Timer",
       "idle": "No timer running",
@@ -4758,7 +4756,7 @@
     },
     "errors": {
       "notFound": "This entry no longer exists.",
-      "forbidden": "You may not change this person's times.",
+      "forbidden": "You can only change your own times.",
       "invalid": "Please check your input.",
       "overlap": "This period overlaps with another time entry.",
       "timerRunning": "A timer is already running. Stop it first.",

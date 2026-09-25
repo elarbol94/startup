@@ -48,12 +48,10 @@ function initialForm(state: NonNullable<EntryDialogState>): FormState {
 export function EntryDialog({
   state,
   onClose,
-  userId,
   options,
 }: {
   state: EntryDialogState;
   onClose: () => void;
-  userId: string;
   options: WorkOptions;
 }) {
   return (
@@ -63,7 +61,6 @@ export function EntryDialog({
           key={state.mode === "edit" ? state.entry.id : `new-${state.date}`}
           state={state}
           onClose={onClose}
-          userId={userId}
           options={options}
         />
       )}
@@ -74,12 +71,10 @@ export function EntryDialog({
 function EntryForm({
   state,
   onClose,
-  userId,
   options,
 }: {
   state: NonNullable<EntryDialogState>;
   onClose: () => void;
-  userId: string;
   options: WorkOptions;
 }) {
   const t = useTranslations("time");
@@ -94,7 +89,6 @@ function EntryForm({
       () =>
         saveTimeEntry({
           id: editing?.id,
-          userId,
           workDate: form.workDate,
           start: form.start,
           end: form.end,

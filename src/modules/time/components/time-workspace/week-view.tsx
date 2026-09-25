@@ -15,7 +15,6 @@ export function WeekView({
   today,
   days,
   entries,
-  userParam,
   now,
   onCreate,
   onEdit,
@@ -24,7 +23,6 @@ export function WeekView({
   today: string;
   days: DaySummary[];
   entries: TimeEntryView[];
-  userParam: string | null;
   now: number;
   onCreate: (date: string) => void;
   onEdit: (entry: TimeEntryView) => void;
@@ -39,13 +37,13 @@ export function WeekView({
       <header className="flex flex-wrap items-center justify-between gap-3 border-b p-4">
         <h2 className="text-base font-semibold">{t("week.title", { date: formatDay(weekStart, locale) })}</h2>
         <div className="flex flex-wrap items-center gap-1.5">
-          <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.previous")} render={<Link href={timeHref({ week: addDays(weekStart, -7), user: userParam })} />}>
+          <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.previous")} render={<Link href={timeHref({ week: addDays(weekStart, -7) })} />}>
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" nativeButton={false} render={<Link href={timeHref({ user: userParam })} />}>
+          <Button variant="outline" nativeButton={false} render={<Link href={timeHref({})} />}>
             {t("week.today")}
           </Button>
-          <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.next")} render={<Link href={timeHref({ week: addDays(weekStart, 7), user: userParam })} />}>
+          <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.next")} render={<Link href={timeHref({ week: addDays(weekStart, 7) })} />}>
             <ChevronRight className="size-4" />
           </Button>
           <Button onClick={() => onCreate(weekStart <= today && today < addDays(weekStart, 7) ? today : weekStart)}>

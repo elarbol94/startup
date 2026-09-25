@@ -4679,8 +4679,6 @@
   "time": {
     "title": "Zeiterfassung",
     "subtitle": "Arbeitszeit live mit dem Timer erfassen oder nachträglich eintragen.",
-    "viewing": "Zeiten von {name}",
-    "person": "Person",
     "timer": {
       "title": "Timer",
       "idle": "Kein Timer aktiv",
@@ -4760,7 +4758,7 @@
     },
     "errors": {
       "notFound": "Dieser Eintrag existiert nicht mehr.",
-      "forbidden": "Du darfst die Zeiten dieser Person nicht ändern.",
+      "forbidden": "Du kannst nur deine eigenen Zeiten ändern.",
       "invalid": "Bitte Eingaben prüfen.",
       "overlap": "Dieser Zeitraum überschneidet sich mit einem anderen Eintrag.",
       "timerRunning": "Es läuft bereits ein Timer. Bitte zuerst stoppen.",

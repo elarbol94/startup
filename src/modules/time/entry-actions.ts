@@ -6,7 +6,6 @@ import { db } from "@/db";
 import { timeEntries } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
 import { isValidDate } from "@/modules/calendar/date-utils";
-import { canWriteTimeFor } from "./access";
 import { entryGrossMinutes } from "./lib/balance";
 import { intervalFromClock } from "./lib/entry-time";
 import {
@@ -23,7 +22,6 @@ const clock = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
 
 const entrySchema = assignmentSchema.extend({
   id: z.string().min(1).max(100).optional(),
-  userId: z.string().min(1).max(100).optional(),
   workDate: z.string().refine(isValidDate),
   start: clock,
   end: clock,
@@ -32,7 +30,7 @@ const entrySchema = assignmentSchema.extend({
 
 export type TimeEntryInput = z.input<typeof entrySchema>;
 
-/** Creates a manual entry or corrects an existing, finished one. */
+/** Creates a manual entry or corrects an existing, finished one of the signed-in user. */
 export async function saveTimeEntry(input: TimeEntryInput): Promise<TimeActionResult<{ id: string }>> {
   const viewer = await requireUserOrThrow();
   const parsed = entrySchema.safeParse(input);
@@ -42,8 +40,9 @@ export async function saveTimeEntry(input: TimeEntryInput): Promise<TimeActionRe
   const existing = data.id ? loadEntry(data.id) : undefined;
   if (data.id && !existing) return fail("notFound");
   if (existing && !existing.endedAt) return fail("timerRunning");
-  const ownerId = existing?.userId ?? data.userId ?? viewer.id;
-  if (!canWriteTimeFor(viewer, ownerId)) return fail("forbidden");
+  // Time tracking is strictly personal: nobody (not even admins) edits another user's time.
+  if (existing && existing.userId !== viewer.id) return fail("forbidden");
+  const ownerId = viewer.id;
 
   const assignment = resolveAssignment(data);
   if (!assignment) return fail("invalidWork");
@@ -82,7 +81,7 @@ export async function deleteTimeEntry(id: string): Promise<TimeActionResult> {
   if (!parsedId.success) return fail("invalid");
   const existing = loadEntry(parsedId.data);
   if (!existing) return fail("notFound");
-  if (!canWriteTimeFor(viewer, existing.userId)) return fail("forbidden");
+  if (existing.userId !== viewer.id) return fail("forbidden");
   db.delete(timeEntries).where(eq(timeEntries.id, existing.id)).run();
   revalidateTime();
   return { ok: true };

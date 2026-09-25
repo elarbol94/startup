@@ -6,11 +6,9 @@ import {
   projects,
   tasks,
   timeEntries,
-  user,
 } from "@/db/schema";
 import type { SessionUser } from "@/lib/auth";
 import { addDays, endOfMonthWindow, isValidDate, localDateInZone, startOfWeek } from "@/modules/calendar/date-utils";
-import { canManageTime } from "./access";
 import { summarizePeriod, type ContractWindow } from "./lib/balance";
 import { TIME_ZONE } from "./lib/entry-time";
 
@@ -122,24 +120,8 @@ function listAssignableWork() {
   return { projects: activeProjects, tasks: openTasks };
 }
 
-export function getTimeWorkspace(
-  viewer: SessionUser,
-  params: { userId?: string; week?: string },
-  now = new Date(),
-) {
-  const canManage = canManageTime(viewer);
-  const people = canManage
-    ? db
-        .select({ id: user.id, name: user.name })
-        .from(user)
-        .where(isNull(user.removedAt))
-        .orderBy(asc(user.name))
-        .all()
-    : [];
-  const subject =
-    canManage && params.userId
-      ? people.find((person) => person.id === params.userId) ?? { id: viewer.id, name: viewer.name }
-      : { id: viewer.id, name: viewer.name };
+/** Time tracking is own-time-only for everyone, so the workspace always shows the viewer's time. */
+export function getTimeWorkspace(viewer: SessionUser, params: { week?: string }, now = new Date()) {
 
   const today = todayInVienna(now);
   const weekStart = startOfWeek(params.week && isValidDate(params.week) ? params.week : today);
@@ -149,8 +131,8 @@ export function getTimeWorkspace(
 
   const rangeStart = month.start < weekStart ? month.start : weekStart;
   const rangeEnd = month.end > weekEnd ? month.end : weekEnd;
-  const rows = listEntriesInRange(subject.id, rangeStart, rangeEnd);
-  const contracts = listContractWindows(subject.id);
+  const rows = listEntriesInRange(viewer.id, rangeStart, rangeEnd);
+  const contracts = listContractWindows(viewer.id);
   const measured = rows.map((row) => ({
     workDate: row.workDate,
     startedAt: row.startedAt,
@@ -165,10 +147,6 @@ export function getTimeWorkspace(
     now: now.getTime(),
     weekStart,
     month: month.start.slice(0, 7),
-    subject,
-    isOwn: subject.id === viewer.id,
-    canManage,
-    people,
     running: running ? serializeEntry(running) : null,
     entries: rows
       .filter((row) => row.workDate >= weekStart && row.workDate < weekEnd)

@@ -5,10 +5,10 @@ import { TimeWorkspace } from "@/modules/time/components/time-workspace";
 export default async function TimePage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; user?: string }>;
+  searchParams: Promise<{ week?: string }>;
 }) {
   const viewer = await requireUser();
   const params = await searchParams;
-  const data = getTimeWorkspace(viewer, { week: params.week, userId: params.user });
+  const data = getTimeWorkspace(viewer, { week: params.week });
   return <TimeWorkspace data={data} />;
 }
