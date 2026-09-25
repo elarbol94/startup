@@ -11,6 +11,7 @@ import {
   findMarkdownShortcutAtSelection,
   type MarkdownShortcutBoundary,
 } from "../lib/markdown-shortcuts";
+import { EditorTabKeymap } from "./wiki-editor/editor-tab-keymap";
 
 const Subscript = Mark.create({
   name: "subscript",
@@ -162,7 +163,11 @@ function paragraphWithText(transaction: Transaction, text: string) {
 
 function replaceBlocks(transaction: Transaction, from: number, to: number, node: ProseMirrorNode) {
   const paragraph = paragraphWithText(transaction, "");
-  transaction.replaceWith(from, to, Fragment.fromArray([node, paragraph]));
+  const replacement = Fragment.fromArray([node, paragraph]);
+  // Never let a block shortcut (---, ![](), [^1]:) split a table cell into two tables.
+  const $from = transaction.doc.resolve(from);
+  if (!$from.parent.canReplace($from.index(), $from.index() + 1, replacement)) return false;
+  transaction.replaceWith(from, to, replacement);
   transaction.setSelection(TextSelection.create(transaction.doc, from + node.nodeSize + 1));
   return true;
 }
@@ -385,4 +390,5 @@ export const MarkdownDocumentExtensions = [
   MarkdownTableRow,
   MarkdownTableHeader,
   MarkdownTableCell,
+  EditorTabKeymap,
 ];

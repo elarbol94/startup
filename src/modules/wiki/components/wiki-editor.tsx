@@ -90,6 +90,7 @@ import { WikiEditorBubbleMenus } from "./wiki-editor/wiki-editor-bubble-menus";
 import { DocumentBackMatter, DocumentFrontMatter } from "./wiki-editor/wiki-document-pages";
 import { buildSlashCommands, buildWikiEditorCommands, runWikiEditorAction } from "./wiki-editor/wiki-editor-commands";
 import { createFigureHandlers } from "./wiki-editor/wiki-editor-figure-handlers";
+import { insertBlockContent } from "../lib/block-insert-position";
 import { createWikiProofingHandlers } from "./wiki-editor/wiki-editor-proofing";
 import { useWikiProofingChecks } from "./wiki-editor/use-wiki-proofing-checks";
 import { useDocumentPagination } from "./wiki-editor/use-document-pagination";
@@ -409,7 +410,7 @@ function CollaborativeWikiEditor({
         anchor: { quote, from, to },
       },
       onCreated: (deadlineId) => {
-        targetEditor.chain().focus().insertContent({
+        insertBlockContent(targetEditor.chain().focus(), {
           type: "deadlineReference",
           attrs: {
             deadlineId,
@@ -916,7 +917,7 @@ function CollaborativeWikiEditor({
     <input ref={imageInputRef} data-testid="wiki-inline-image-input" hidden type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,.svg,.svgz" onChange={(event) => { const file = event.target.files?.[0]; if (file) void insertInlineImage(file); event.target.value = ""; }} />
     <FigurePicker sourceMode={figureSourceMode} open={inlineImagePickerOpen} onOpenChange={setInlineImagePickerOpen} selectedAssetId={figureTargetId ? (() => { let id = ""; activeEditor.state.doc.descendants((node) => { if (node.attrs.nodeId === figureTargetId) id = String(node.attrs.assetId || ""); }); return id; })() : undefined}
       onInsert={insertFigureAsset} onExisting={insertExistingImage} onUpload={(files) => void insertFigureFiles(files, toolbarSelection.current?.from ?? activeEditor.state.selection.from, figureTargetId)}
-      onDiagram={() => toolbarChain().insertContent({ type: "mermaidDiagram", attrs: { code: MERMAID_PLACEHOLDER, svg: "", nodeId: crypto.randomUUID(), numbered: true } }).run()}
+      onDiagram={() => insertBlockContent(toolbarChain(), { type: "mermaidDiagram", attrs: { code: MERMAID_PLACEHOLDER, svg: "", nodeId: crypto.randomUUID(), numbered: true } }).run()}
       onEditSvg={(preferredId) => { setPreferredSvgId(preferredId || ""); setInlineImagePickerOpen(false); setGraphicsOpen(true); }} />
     <FigureReferencePicker editor={activeEditor} open={figureReferenceOpen} onOpenChange={setFigureReferenceOpen} insert={(targetId, label) => {
       const selection = toolbarSelection.current || activeEditor.state.selection;

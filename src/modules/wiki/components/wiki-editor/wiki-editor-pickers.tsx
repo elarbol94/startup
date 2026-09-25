@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { applyEditorLink } from "../../lib/editor-link";
 import { formatInlineCitation } from "../../lib/citations";
+import { insertBlockContent } from "../../lib/block-insert-position";
 import { NewSourceDialog } from "../new-source-dialog";
 import { citationNumberForSource, evidenceInsertContent } from "./wiki-editor-document-ops";
 import type { EvidenceRef, PageRef, SourceRef } from "./wiki-editor-types";
@@ -68,7 +69,7 @@ export function EvidencePicker({ editor, pageId, locale, open, onOpenChange }: {
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
   function insert(item: EvidenceRef) {
-    editor.chain().focus().insertContent(evidenceInsertContent(item, locale)).run();
+    insertBlockContent(editor.chain().focus(), evidenceInsertContent(item, locale)).run();
     onOpenChange(false);
     setQuery("");
   }

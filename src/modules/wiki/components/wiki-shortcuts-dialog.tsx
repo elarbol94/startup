@@ -55,6 +55,7 @@ export function WikiShortcutsDialog({ open, onOpenChange, bindings, onBindingsCh
         <DialogDescription>{t("description")}</DialogDescription>
       </DialogHeader>
       <div className="space-y-4 px-5 py-4">
+        <p className="text-xs text-muted-foreground" data-testid="wiki-shortcuts-tab-keys">{t("tabKeys")}</p>
         {error && <p role="alert" className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">{error}</p>}
         {WIKI_SHORTCUT_GROUPS.map((group) => <section key={group.label} className="overflow-hidden rounded-lg border">
           <h3 className="border-b bg-muted/40 px-3 py-2 text-xs font-semibold tracking-wide text-muted-foreground uppercase">{t(`groups.${group.label}`)}</h3>
