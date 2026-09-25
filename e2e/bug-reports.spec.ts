@@ -114,7 +114,7 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await expect(dialog).not.toBeVisible();
 });
 
-test("Ctrl+Y freezes the screen so a popup that disappears is still in the screenshot", async ({ page }) => {
+test("Ctrl+Y opens the report and freezes the screen so a vanished popup can still be captured", async ({ page }) => {
   const credentials = { username: "admin", password: "super-secret-1" };
   let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
@@ -130,21 +130,17 @@ test("Ctrl+Y freezes the screen so a popup that disappears is still in the scree
     document.body.append(popup); popup.focus();
   });
   await page.keyboard.press("Control+y");
+  // The form opens directly; a screenshot is optional.
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Kurzer Titel")).toBeVisible();
+  await expect(dialog.getByRole("img", { name: /^bug-area-/ })).toHaveCount(0);
+  await expect(dialog.getByText(/beim Drücken von Strg\+Y/)).toBeVisible();
+  await page.evaluate(() => document.getElementById("transient-popup")?.remove());
+  await dialog.getByRole("button", { name: "Betroffenen Bereich auswählen" }).click();
   const selector = page.getByTestId("bug-area-selector");
   await expect(selector).toHaveAttribute("data-frozen", "true");
-  // Esc only cancels the selection; the popup underneath stays open.
-  await page.keyboard.press("Escape");
-  await expect(selector).not.toBeVisible();
-  await expect(page.locator("#transient-popup")).toBeVisible();
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toHaveCount(0);
-  await page.locator("#transient-popup").focus();
-  await page.keyboard.press("Control+y");
-  await expect(selector).toHaveAttribute("data-frozen", "true");
-  await page.evaluate(() => document.getElementById("transient-popup")?.remove());
   await page.mouse.move(120, 270); await page.mouse.down();
   await page.mouse.move(220, 330, { steps: 5 }); await page.mouse.up();
-  await expect(page.locator("#transient-popup")).toHaveCount(0);
   await selector.getByRole("button", { name: "Ausgewählten Bereich anhängen" }).click();
   const captured = dialog.getByRole("img", { name: /^bug-area-/ });
   await expect(captured).toBeVisible();
@@ -155,22 +151,4 @@ test("Ctrl+Y freezes the screen so a popup that disappears is still in the scree
     return { width: canvas.width, height: canvas.height, center: Array.from(context.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data) };
   });
   expect(pixels).toEqual({ width: 100, height: 60, center: [0, 0, 255, 255] });
-});
-
-test("the area selector does not close an open menu underneath", async ({ page }) => {
-  const credentials = { username: "admin", password: "super-secret-1" };
-  let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
-  expect(response.ok()).toBe(true);
-  await page.goto("/");
-  await page.getByText("admin@example.com").first().click();
-  const menu = page.getByRole("menu");
-  await expect(menu).toBeVisible();
-  await page.keyboard.press("Control+y");
-  const selector = page.getByTestId("bug-area-selector");
-  await expect(selector).toHaveAttribute("data-frozen", "true");
-  await page.mouse.click(500, 500);
-  await page.keyboard.press("Escape");
-  await expect(selector).not.toBeVisible();
-  await expect(menu).toBeVisible();
 });

@@ -19,7 +19,7 @@
     "uploadFailed": "Deine Meldung wurde gespeichert, aber einige Screenshots fehlen. Erneut versuchen lädt nur fehlende Screenshots hoch.",
     "invalidFiles": "Wähle bis zu 5 PNG-, JPEG- oder WebP-Screenshots mit jeweils höchstens 10 MB.",
     "archived": "Das Bugs-Projekt ist archiviert. Bitte einen Administrator, es wieder zu öffnen. Dein Entwurf bleibt erhalten.",
-    "agentWorked": "Ein Coding-Agent hat am {date} daran gearbeitet", "shortcut": "Strg+Y", "agentBranch": "Branch"
+    "agentWorked": "Ein Coding-Agent hat am {date} daran gearbeitet", "frozenHint": "Bereiche werden aus dem Bildschirm ausgewählt, wie er beim Drücken von Strg+Y aussah.", "shortcut": "Strg+Y", "agentBranch": "Branch"
   },
   "appWorkspace": {
     "tabs": "Geöffnete Tabs",
