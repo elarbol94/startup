@@ -78,6 +78,17 @@ export function UserIdentities({ userIds, compact = false, className }: { userId
   return <span className={cn("inline-flex min-w-0 flex-wrap items-center gap-1.5", className)}>{[...new Set(userIds)].map(id => <UserIdentity key={id} userId={id} compact={compact} />)}</span>;
 }
 
+/** Single-line summary for tight spots such as select triggers: overlapping avatars and truncated names. */
+export function UserIdentityStack({ people, className }: { people: Array<{ id: string; name?: string | null }>; className?: string }) {
+  const unique = people.filter((person, index) => people.findIndex(other => other.id === person.id) === index);
+  const names = unique.map(person => person.name || person.id).join(", ");
+  return <span data-slot="user-identity-stack" className={cn("flex min-w-0 flex-nowrap items-center gap-1.5", className)} title={names}>
+    <span className="flex shrink-0 -space-x-1.5">{unique.map(person =>
+      <UserIdentity key={person.id} userId={person.id} name={person.name} avatarOnly compact className="rounded-full ring-2 ring-background" />)}</span>
+    <span className="truncate">{names}</span>
+  </span>;
+}
+
 export function UserAttribution({ userId, relation, className }: { userId: string | null; relation: "createdBy" | "updatedBy" | "assignedTo" | "managedBy" | "uploadedBy"; className?: string }) {
   const t = useTranslations("userIdentity");
   if (!userId) return null;
