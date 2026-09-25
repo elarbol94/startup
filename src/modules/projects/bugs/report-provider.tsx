@@ -29,12 +29,11 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   const [selectingArea, setSelectingArea] = useState(false);
   const [snapshot, setSnapshot] = useState<HTMLCanvasElement | undefined>();
   const freezing = useRef(false);
-  const endSelection = useCallback((reopen = true) => {
-    setSelectingArea(false); if (reopen) setOpen(true);
-    setSnapshot(current => { if (current) { current.width = 0; current.height = 0; } return undefined; });
-  }, []);
-  // Cancelling a shortcut selection returns to the page as it was, leaving popups open.
-  const cancelSelection = useCallback(() => endSelection(!snapshot), [endSelection, snapshot]);
+  const endSelection = useCallback(() => { setSelectingArea(false); setOpen(true); }, []);
+  const replaceSnapshot = useCallback((next?: HTMLCanvasElement) => setSnapshot(current => {
+    if (current && current !== next) { current.width = 0; current.height = 0; }
+    return next;
+  }), []);
   const [context, setContext] = useState<Awaited<ReturnType<typeof getBugReportContext>> | null>(null);
   const [source, setSource] = useState({ path: "", browser: "" });
   const [title, setTitle] = useState("");
@@ -53,6 +52,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
 
   function reset() {
     screenshots.forEach(item => URL.revokeObjectURL(item.url));
+    replaceSnapshot(undefined);
     setScreenshots([]); setReceipt(null); setTitle(""); setHappened(""); setSteps(""); setExpected(""); setError("");
     submissionId.current = "";
   }
@@ -64,7 +64,9 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     try { setContext(await getBugReportContext()); } catch { setError(t("failed")); }
   }
   function show() { setOpen(true); void prepare(); }
-  // Ctrl/⌘+Y freezes the visible screen, then opens the area selector over it.
+  // Ctrl/⌘+Y freezes the visible screen, then opens the report form. Attaching a
+  // screenshot stays optional; if the user selects an area, they select it over
+  // the frozen screen, so popups that closed meanwhile are still included.
   // Listening on window in the capture phase runs before any open popup, menu
   // or editor, so none of them can swallow the key.
   const shortcut = useRef<(event: KeyboardEvent) => void>(() => {});
@@ -72,15 +74,12 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     shortcut.current = event => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "y") return;
       event.preventDefault(); event.stopImmediatePropagation();
-      if (selectingArea || freezing.current) return;
-      if (receipt || busy || screenshots.length >= 5) { show(); return; }
-      if (open) { setOpen(false); setSelectingArea(true); return; }
+      if (open || selectingArea || freezing.current) return;
+      if (receipt || busy) { show(); return; }
       freezing.current = true;
-      void prepare();
       freezeViewport(new AbortController().signal)
-        .then(canvas => { setSnapshot(canvas); setSelectingArea(true); })
-        .catch(() => { setError(t("captureFailed")); setOpen(true); })
-        .finally(() => { freezing.current = false; });
+        .then(canvas => replaceSnapshot(canvas), () => replaceSnapshot(undefined))
+        .finally(() => { freezing.current = false; show(); });
     };
   });
 
@@ -124,9 +123,9 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     finally { submitting.current = false; setBusy(false); }
   }
   const failedUploads = screenshots.some(item => item.state !== "saved");
-  return <ReportContext.Provider value={show}>
+  return <ReportContext.Provider value={() => { replaceSnapshot(undefined); show(); }}>
     {children}
-    {selectingArea && <AreaCapture snapshot={snapshot} onCancel={cancelSelection} onError={() => { setError(t("captureFailed")); endSelection(); }} onCapture={file => { addFiles([file]); setSource(current => ({ ...current, path: pathname })); endSelection(); }} />}
+    {selectingArea && <AreaCapture snapshot={snapshot} onCancel={endSelection} onError={() => { setError(t("captureFailed")); endSelection(); }} onCapture={file => { addFiles([file]); setSource(current => ({ ...current, path: pathname })); endSelection(); }} />}
     {!selectingArea && <Dialog open={open} onOpenChange={next => { if (!busy) setOpen(next); }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onPaste={event => {
         const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); addFiles(files); }
@@ -143,7 +142,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
             </div></details>
           </form>}
         <div className="space-y-2"><Label htmlFor="bug-screenshots">{t("screenshots")}</Label>
-          {!receipt && <><Button type="button" variant="outline" disabled={busy || screenshots.length >= 5} onClick={() => { setOpen(false); setSelectingArea(true); }}>{t("selectArea")}</Button><p className="text-xs text-muted-foreground">{t("captureHint")}</p></>}
+          {!receipt && <><Button type="button" variant="outline" disabled={busy || screenshots.length >= 5} onClick={() => { setOpen(false); setSelectingArea(true); }}>{t("selectArea")}</Button><p className="text-xs text-muted-foreground">{t(snapshot ? "frozenHint" : "captureHint")}</p></>}
           {!receipt && <><Input id="bug-screenshots" type="file" accept="image/png,image/jpeg,image/webp" multiple disabled={busy} onChange={event => { addFiles(Array.from(event.target.files ?? [])); event.target.value = ""; }} /><p className="text-xs text-muted-foreground">{t("fileHint")}</p></>}
           <div className="grid grid-cols-3 gap-2">{screenshots.map(item => <div key={item.id} className="relative min-w-0 rounded border p-1">
             {/* Local object URLs are previews, never remote image requests. */}

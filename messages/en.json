@@ -19,7 +19,7 @@
     "uploadFailed": "Your report is saved, but some screenshots failed. Retry to upload only the missing screenshots.",
     "invalidFiles": "Choose up to 5 PNG, JPEG or WebP screenshots, each no larger than 10 MB.",
     "archived": "The Bugs project is archived. Ask an administrator to reopen it. Your draft is kept.",
-    "agentWorked": "A coding agent worked on this on {date}", "shortcut": "Ctrl+Y", "agentBranch": "Branch"
+    "agentWorked": "A coding agent worked on this on {date}", "frozenHint": "Areas are selected from the screen as it was when you pressed Ctrl+Y.", "shortcut": "Ctrl+Y", "agentBranch": "Branch"
   },
   "appWorkspace": {
     "tabs": "Open tabs",
