@@ -3503,6 +3503,7 @@
       "addText": "Text",
       "addImage": "Image",
       "addFrame": "Frame",
+      "frameName": "Frame {number}",
       "newTextPlaceholder": "New text",
       "overview": "Overview",
       "spotlight": "Spotlight cursor",
@@ -3721,6 +3722,8 @@
         "height": "Height",
         "rotation": "Rotation (degrees)",
         "proportional": "Lock aspect ratio",
+        "aspect": "Frame aspect ratio",
+        "aspectPreset": "Aspect ratio {preset}",
         "units": "Absolute canvas units. Size: 20–20,000. Enter or leave a field to apply; Escape cancels.",
         "alignFrame": "Align within parent frame",
         "invalid": "Value cannot be applied. Check size limits and group contents."

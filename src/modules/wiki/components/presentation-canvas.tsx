@@ -28,6 +28,8 @@ export type PresentationNodeData = {
   onEndpointChange?: (element: PresentationElement) => void;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
+  /** A frame the dragged selection would join if dropped now. */
+  dropTarget?: boolean;
   [key: string]: unknown;
 };
 
@@ -141,10 +143,12 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
   return (
     <div
       inert={data.hidden || undefined}
+      data-drop-target={data.dropTarget || undefined}
       className={cn(
         "h-full w-full",
         data.editable && "cursor-move active:cursor-grabbing",
         data.editable && selected && "ring-2 ring-indigo-500/60",
+        data.dropTarget && "bg-indigo-500/5 ring-4 ring-indigo-500",
         shape !== "none" && "border-2",
         shape === "circle" && "rounded-full",
         shape === "rect" && "rounded-xl",
@@ -272,6 +276,7 @@ export function elementsToNodes(
     hiddenIds?: Set<string>;
     animationMs?: number;
     mediaUrl?: (id: string) => string;
+    dropTargetId?: string | null;
   },
 ): PresentationNode[] {
   return elements.map((element, index) => {
@@ -324,6 +329,7 @@ export function elementsToNodes(
         onResizeChange: options.onResizeChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
+        dropTarget: options.dropTargetId === element.id || undefined,
       },
     };
   });

@@ -57,6 +57,8 @@ export {
   groupPresentationElements,
   ungroupPresentationElements,
   duplicatePresentationTree,
+  frameAtPoint,
+  assignFrameMembership,
 } from "./presentation-hierarchy";
 export {
   parsePresentationSteps,

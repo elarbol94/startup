@@ -135,3 +135,40 @@ it("does not add undo entries for rich-text initialization that leaves content u
   expect(bridge.undo!.canUndo()).toBe(false);
   stop();
 });
+
+it("keeps a drop into a frame, the frame's move and a created frame's stop in one shared undo step each", () => {
+  vi.useFakeTimers();
+  const provider = new CollaborationProvider("presentation", "frame-membership");
+  const empty = { title: "Frames", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, empty, { ...empty, elements: [
+    { id: "f", type: "frame", x: 0, y: 0, width: 960, height: 540, rotation: 0, content: { label: "Rahmen 1", shape: "rect", color: "" } },
+    { id: "a", type: "text", x: 2000, y: 0, width: 200, height: 100, rotation: 0, content: { text: "Hello", fontSize: 32, bold: false, color: "", align: "left" } },
+  ] });
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, "Frames"), () => {});
+  const stop = bridge.connect();
+  const element = (id: string) => presentationJSON(provider.doc).elements.find(e => e.id === id);
+  bridge.dispatch({ type: "gesture-start" });
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: true, changes: [{ id: "a", x: 1000 }] });
+  vi.advanceTimersByTime(1000);
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, changes: [{ id: "a", x: 100, y: 100 }], membership: ["a"] });
+  bridge.dispatch({ type: "gesture-end" });
+  expect(element("a")).toMatchObject({ x: 100, parentId: "f" });
+  vi.advanceTimersByTime(1000);
+  bridge.dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, changes: [{ id: "f", x: 300 }], membership: ["f"] });
+  expect(element("a")).toMatchObject({ x: 400, y: 100 });
+  vi.advanceTimersByTime(1000);
+  bridge.dispatch({ type: "edit", at: Date.now(), separate: true,
+    elements: current => [...current, { id: "g", type: "frame", x: 3000, y: 0, width: 960, height: 540, rotation: 0, content: { label: "Rahmen 2", shape: "rect", color: "" } }],
+    steps: current => [...current, { id: "s", elementId: "g" }] });
+  expect(presentationJSON(provider.doc).steps).toHaveLength(1);
+  bridge.dispatch({ type: "undo" });
+  expect(element("g")).toBeUndefined(); expect(presentationJSON(provider.doc).steps).toHaveLength(0);
+  bridge.dispatch({ type: "undo" });
+  expect(element("f")).toMatchObject({ x: 0 }); expect(element("a")).toMatchObject({ x: 100, parentId: "f" });
+  bridge.dispatch({ type: "undo" });
+  expect(element("a")).toMatchObject({ x: 2000 }); expect(element("a")).not.toHaveProperty("parentId");
+  bridge.dispatch({ type: "redo" });
+  expect(element("a")).toMatchObject({ x: 100, parentId: "f" });
+  stop(); vi.useRealTimers();
+});

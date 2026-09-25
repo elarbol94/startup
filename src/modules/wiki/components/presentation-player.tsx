@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
-import { ReactFlow, ReactFlowProvider, useReactFlow, type NodeMouseHandler } from "@xyflow/react";
+import { ReactFlow, ReactFlowProvider, getViewportForBounds, useReactFlow, useStore, useStoreApi, type NodeMouseHandler } from "@xyflow/react";
 import { ChevronLeft, ChevronRight, Maximize, Minimize, NotebookText, Pause, Play, Scan, Spotlight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -21,6 +21,7 @@ import {
   stepTarget,
   presentationCameraStep,
   presentationHiddenIds,
+  type PresentationBounds,
 } from "../lib/presentation";
 import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
 import { synchronizePresentationHeadings } from "../lib/presentation-source";
@@ -48,6 +49,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const reactFlow = useReactFlow<PresentationNode>();
   const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
+  const controlsRef = useRef<HTMLDivElement>(null);
+  const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
   const [index, setIndex] = useState(() => Math.min(Math.max(follow?.stepIndex ?? 0, 0), Math.max(presentation.steps.length - 1, 0)));
   const [presenterSession] = useState(() => clientUUID());
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -85,6 +88,16 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     [reactFlow, cameraDuration, cameraEase],
   );
 
+  /** Fits a stop with the usual padding, plus the control bar's height at the bottom so the
+   * bar never covers it. */
+  const store = useStoreApi<PresentationNode>();
+  const fitStop = useCallback((bounds: PresentationBounds, duration: number) => {
+    const { width, height, minZoom, maxZoom } = store.getState();
+    const inset = Math.floor((height - height / (1 + PRESENTATION_CAMERA_PADDING)) / 2);
+    const padding = { x: PRESENTATION_CAMERA_PADDING, top: `${inset}px`, bottom: `${inset + (controlsRef.current?.offsetHeight ?? 0)}px` } as const;
+    void reactFlow.setViewport(getViewportForBounds(bounds, width, height, minZoom, maxZoom, padding), { duration, ease: cameraEase });
+  }, [store, reactFlow, cameraEase]);
+
   /**
    * Every step is framed by fitting its element's bounds, so a small frame nested inside
    * a large one zooms all the way in — the camera never inherits the previous scale.
@@ -94,9 +107,9 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       const step = presentationCameraStep(steps, stepIndex);
       const target = step ? stepTarget(step, elements) : null;
       if (!target) return overview(duration);
-      void reactFlow.fitBounds(presentationCameraBounds(target), { padding: PRESENTATION_CAMERA_PADDING, duration, ease: cameraEase });
+      fitStop(presentationCameraBounds(target), duration);
     },
-    [elements, overview, reactFlow, steps, cameraDuration, cameraEase],
+    [elements, overview, steps, cameraDuration, fitStop],
   );
 
   // Presenter-side pinch/wheel zoom and free pan: ReactFlow's own pane already implements
@@ -210,13 +223,9 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         flyTo(action.index);
         return;
       }
-      void reactFlow.fitBounds(presentationCameraBounds(target), {
-        padding: PRESENTATION_CAMERA_PADDING,
-        duration: cameraDuration,
-        ease: cameraEase,
-      });
+      fitStop(presentationCameraBounds(target), cameraDuration);
     },
-    [following, steps, elements, index, move, flyTo, reactFlow, cameraDuration, cameraEase],
+    [following, steps, elements, index, move, flyTo, cameraDuration, fitStop],
   );
 
   // Remote follow (polled live session); the presenter-notes window keeps its own
@@ -285,12 +294,14 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     if (!popup) toast.error(t("presentations.popupBlocked"));
   }, [presentation.id, presenterSession, t]);
 
+  // The first flight waits for a sized pane and lands instantly on the opening stop; there
+  // is no fitView to race it. Later step changes animate.
+  const firstFlight = useRef(true);
   useEffect(() => {
-    // A frame after paint, so the very first flight is measured against a pane that
-    // already has its size rather than against a zero-sized one.
-    const frame = requestAnimationFrame(() => flyTo(index));
+    if (!viewportSized) return;
+    const frame = requestAnimationFrame(() => { flyTo(index, firstFlight.current ? 0 : undefined); firstFlight.current = false; });
     return () => cancelAnimationFrame(frame);
-  }, [index, flyTo]);
+  }, [index, flyTo, viewportSized]);
 
   // Entering fullscreen or resizing changes what "fits" means, so the current step is
   // re-framed instantly rather than left half off-screen.
@@ -391,7 +402,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         edges={[]}
         nodeTypes={presentationNodeTypes}
         colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-        fitView
+        // With stops the opening camera is stop 1 (see the first flight above).
+        fitView={!steps.length}
         fitViewOptions={{ padding: 0.15 }}
         minZoom={0.02}
         maxZoom={8}
@@ -450,7 +462,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       {/* The strip spans the whole viewport width, so it must stay transparent to pointers:
           only the pill itself is a control, and only the pill may swallow a canvas click. */}
       {!following && (
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 p-4">
+      <div ref={controlsRef} data-testid="presentation-controls" className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 p-4">
         <div
           className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border bg-background/90 px-2 py-1 shadow-sm backdrop-blur sm:rounded-full"
           onClick={(event) => event.stopPropagation()}

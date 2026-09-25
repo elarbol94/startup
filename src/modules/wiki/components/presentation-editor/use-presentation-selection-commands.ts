@@ -7,9 +7,10 @@ import type { useReactFlow } from "@xyflow/react";
 import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import { mutableSelection, parsePresentationClipboard, pastePresentationObjects, serializeSelection, ungroupSteps } from "../../lib/presentation-interactions";
-import { groupPresentationElements, ungroupPresentationElements, type PresentationCanvasAction, type PresentationCanvasState, type PresentationElement, type PresentationStep } from "../../lib/presentation";
+import { groupPresentationElements, presentationDescendants, ungroupPresentationElements, type PresentationCanvasAction, type PresentationCanvasState, type PresentationElement, type PresentationStep } from "../../lib/presentation";
 import type { PresentationRecord } from "../../presentation-queries";
 import type { PresentationNode } from "../presentation-canvas";
+import { frameInsertionEdit } from "./use-presentation-frames";
 
 export function usePresentationSelectionCommands({
   selection, selected, selectedIds, selectedRoots, canMutate, elements, steps, disabled, contextPosition, reactFlow, viewportCenter,
@@ -39,7 +40,10 @@ export function usePresentationSelectionCommands({
     try {
       const raw = serializeSelection(elements, selectedIds);
       await navigator.clipboard.writeText(raw);
-      if (cut && !latest.current.readOnly && mutableSelection(latest.current.canvas.elements, selectedIds)) deleteSelection(selectedIds);
+      if (cut && !latest.current.readOnly && mutableSelection(latest.current.canvas.elements, selectedIds)) {
+        // Cut removes exactly what was copied, a frame's members included.
+        deleteSelection([...presentationDescendants(latest.current.canvas.elements, new Set(selectedIds))]);
+      }
     } catch { toast.error(t("presentations.interactions.clipboardError")); }
   }, [selection, canMutate, elements, selectedIds, deleteSelection, t, latest]);
   const pasteSelection = useCallback(async () => {
@@ -70,10 +74,11 @@ export function usePresentationSelectionCommands({
       if (latest.current.readOnly) throw new Error("Editing unavailable");
       const newIds = copied.map(() => createId());
       const rootIds = copied.flatMap((e, index) => !e.parentId ? [newIds[index]] : []);
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => {
+      const added = copied.map((element, index) => ({ ...element, id: newIds[index] }));
+      dispatch(frameInsertionEdit(added, current => {
         let index = 0;
         return pastePresentationObjects(copied, current, point, () => newIds[index++]).elements;
-      } });
+      }, t));
       setSelectedIds(rootIds);
     } catch { toast.error(t("presentations.interactions.clipboardError")); }
   }, [disabled, contextPosition, reactFlow, viewportCenter, elements, presentation.id, dispatch, t, latest, setSelectedIds]);

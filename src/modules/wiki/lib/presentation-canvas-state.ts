@@ -6,6 +6,7 @@ import { retainObservedPresentationSections } from "./presentation-source";
 import { mergePresentation, presentationValuesEqual } from "./presentation-merge";
 import { defaultPresentationSettings, presentationElementsSchema, presentationSettingsSchema, presentationStepsSchema, type PresentationElement, type PresentationSettings, type PresentationStep } from "./presentation-model";
 import { applyGeometryChanges, type PresentationGeometryChange, type SnapGuide } from "./presentation-transform";
+import { assignFrameMembership } from "./presentation-hierarchy";
 
 /**
  * Undo/redo for one editing session. Pointer gestures have explicit boundaries and
@@ -48,7 +49,12 @@ export type PresentationCanvasAction =
     elements?: (current: PresentationElement[]) => PresentationElement[];
     steps?: (current: PresentationStep[]) => PresentationStep[];
   }
-  | { type: "geometry"; at: number; changes: PresentationGeometryChange[]; tolerance: number; gesture: boolean }
+  | {
+    type: "geometry"; at: number; changes: PresentationGeometryChange[]; tolerance: number; gesture: boolean;
+    /** Roots dropped by this change (a gesture's last update, a nudge): they join or leave
+     * frames in the same step as the move. */
+    membership?: string[];
+  }
   | { type: "gesture-start" }
   | { type: "gesture-end" }
   | { type: "source-headings"; elements: (current: PresentationElement[]) => PresentationElement[] }
@@ -165,7 +171,8 @@ export function presentationCanvasReducer(
     }
     case "geometry": {
       const result = applyGeometryChanges(state.elements, action.changes, action.tolerance, state.guides);
-      const next = commitCanvas(state, result.elements, state.steps, action.at);
+      const elements = action.membership ? assignFrameMembership(result.elements, action.membership) : result.elements;
+      const next = commitCanvas(state, elements, state.steps, action.at);
       // The canvas library can deliver late drag updates after cancellation.
       const guides = action.gesture && state.gestureActive ? result.guides : [];
       if (next === state && !guides.length && !state.guides.length) return state;

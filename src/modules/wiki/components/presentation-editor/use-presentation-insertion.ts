@@ -7,6 +7,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import type { PresentationElement, PresentationShapeKind, presentationIconNames } from "../../lib/presentation";
 import type { PresentationRecord } from "../../presentation-queries";
+import { PRESENTATION_FRAME_SIZE } from "../../lib/presentation-frames";
 
 const MAX_IMAGE_SIDE = 480;
 
@@ -30,8 +31,10 @@ export function usePresentationInsertion({ addElement, viewportCenter, t, studio
 
   const addFrame = useCallback(() => {
     const { x, y } = viewportCenter();
+    const { width, height } = PRESENTATION_FRAME_SIZE;
+    // Named "Rahmen N" and added to the path when placed (frameInsertionEdit).
     addElement({
-      id: createId(), type: "frame", x: x - 320, y: y - 200, width: 640, height: 400, rotation: 0,
+      id: createId(), type: "frame", x: x - width / 2, y: y - height / 2, width, height, rotation: 0,
       content: { label: "", shape: "rect", color: "" },
     });
   }, [addElement, viewportCenter]);

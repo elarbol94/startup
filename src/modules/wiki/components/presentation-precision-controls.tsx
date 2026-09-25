@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { canEditGeometry, containingPresentationFrame, frameAlignments, precisionFields, type GeometryField } from "../lib/presentation-precision";
 import { layoutRoots, type PresentationAlignment } from "../lib/presentation-layout";
 import { normalizeRotation, type PresentationElement } from "../lib/presentation";
+import { framePresetHeight, isSectionFrame, presentationFramePresets } from "../lib/presentation-frames";
 
 function GeometryInput({ value, field, label, onCommit }: {
   value: number; field: GeometryField; label: string; onCommit: (value: number) => boolean;
@@ -61,6 +62,11 @@ export function PresentationPrecisionControls({ elements, selection, disabled, o
           onCommit={value => onGeometry(selected.id, field, value, proportional)} />)}
       </div>
       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={proportional} onChange={event => setProportional(event.target.checked)} />{t("precision.proportional")}</label>
+      {isSectionFrame(selected) && <div role="group" aria-label={t("precision.aspect")} className="flex items-center gap-1">
+        <span className="mr-auto text-xs text-muted-foreground">{t("precision.aspect")}</span>
+        {presentationFramePresets.map(([preset]) => <Button key={preset} type="button" size="xs" variant="outline" aria-label={t("precision.aspectPreset", { preset })}
+          onClick={() => onGeometry(selected.id, "height", framePresetHeight(selected.width, preset), false)}>{preset}</Button>)}
+      </div>}
       <p className="text-xs text-muted-foreground">{t("precision.units")}</p>
     </fieldset>}
     {frame && <fieldset disabled={locked} className="space-y-2">

@@ -69,6 +69,7 @@ import { usePresentationGestureBoundaries } from "./presentation-editor/use-pres
 import { usePresentationSelectionEdits } from "./presentation-editor/use-presentation-selection-edits";
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
 import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
+import { frameInsertionEdit, usePresentationFrames } from "./presentation-editor/use-presentation-frames";
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
@@ -276,14 +277,15 @@ function Editor({
     dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true });
   }, [dispatch, reactFlow]);
   const collaboratorPresence = collaboration?.people;
+  const { dropTargetId, trackDrag, clearPlacement, reveal, openedWithElements } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
       onRichTextChange, onEndpointChange, onResizeChange,
-      onGestureStart: startGesture, onGestureEnd: endGesture }).map(node => {
+      onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange, dropTargetId],
   );
 
   /**
@@ -309,6 +311,7 @@ function Editor({
       }
 
       const geometry = new Map<string, PresentationGeometryChange>();
+      const moved = new Set<string>();
       let gesture = false;
       for (const change of changes) {
         if (change.type === "position" && change.position) {
@@ -316,6 +319,7 @@ function Editor({
           const group = presentationAncestors(elements, change.id).findLast((element) => element.type === "frame" && element.content.isGroup);
           if (group && element) geometry.set(group.id, { id: group.id, x: group.x + change.position.x - element.x, y: group.y + change.position.y - element.y });
           else geometry.set(change.id, { ...geometry.get(change.id), id: change.id, x: change.position.x, y: change.position.y });
+          moved.add(group?.id ?? change.id);
           if (change.dragging) gesture = true;
         } else if (change.type === "dimensions" && change.dimensions && (change.resizing || change.setAttributes)) {
           // React Flow also reports the dimensions it measured on mount; the reducer drops
@@ -344,7 +348,7 @@ function Editor({
         changes: [...geometry.values()],
         // The snap has to feel the same at any zoom, so the screen tolerance is converted.
         tolerance: axisDrag.current?.shift ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(),
-        gesture,
+        gesture, membership: ended && moved.size ? selectionRoots(elements, moved).map((element) => element.id) : undefined, // drop joins/leaves frames in the same undo step
       });
       if (ended) endGesture();
     },
@@ -377,15 +381,16 @@ function Editor({
       if (disabled) return;
       if (elements.length >= 500) { toast.error(t("presentations.elementLimit")); return; }
       if (place) { setPendingElement(element); canvasRef.current?.focus(); return; }
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => [...current, element] });
+      dispatch(frameInsertionEdit([element], current => [...current, element], t));
       setSelectedIds([element.id]);
     },
     [dispatch, disabled, elements.length, t],
   );
 
-  const placePending = (point: { x: number; y: number }) => {
+  const placePending = (point: { x: number; y: number }, keyboard = false) => {
     if (!pendingElement || disabled) return;
-    addElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }, false);
+    const centred = { ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }, placed = keyboard ? clearPlacement(centred) : centred;
+    addElement(placed, false); if (keyboard) reveal(placed);
     setPendingElement(null); canvasRef.current?.focus();
   };
 
@@ -685,7 +690,7 @@ function Editor({
     const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
     if (mod && key === "s") { event.preventDefault(); executeCommand("save"); return; }
     if (typing || target.closest("button, a") || commandsOpen || shortcutHelp) return;
-    if (pendingElement && (key === "escape" || key === "enter")) { event.preventDefault(); if (key === "escape") setPendingElement(null); else placePending(viewportCenter()); return; }
+    if (pendingElement && (key === "escape" || key === "enter")) { event.preventDefault(); if (key === "escape") setPendingElement(null); else placePending(viewportCenter(), true); return; }
     let id: string | undefined;
     if (mod) id = ({ a: "selectAll", c: event.shiftKey ? "copyFormat" : "copy", x: "cut", v: event.shiftKey ? "pasteFormat" : "paste", d: "duplicateSelection", g: event.shiftKey ? "ungroup" : "group", z: event.shiftKey ? "redo" : "undo", y: "redo", "]": event.shiftKey ? "front" : "forward", "[": event.shiftKey ? "back" : "backward", "}": "front", "{": "back" } as Record<string, string>)[key];
     else if (key === "delete" || key === "backspace") id = "deleteSelection";
@@ -700,7 +705,7 @@ function Editor({
     }
     if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) && canMutate) {
       event.preventDefault(); event.stopPropagation(); const step = event.shiftKey ? 10 : 1;
-      dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, changes: selectedRoots.filter(e => !(e.type === "shape" && e.content.connection)).map(e => ({ id: e.id, x: e.x + (key === "arrowright" ? step : key === "arrowleft" ? -step : 0), y: e.y + (key === "arrowdown" ? step : key === "arrowup" ? -step : 0) })) });
+      const nudged = selectedRoots.filter(e => !(e.type === "shape" && e.content.connection)); dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, membership: nudged.map(e => e.id), changes: nudged.map(e => ({ id: e.id, x: e.x + (key === "arrowright" ? step : key === "arrowleft" ? -step : 0), y: e.y + (key === "arrowdown" ? step : key === "arrowup" ? -step : 0) })) });
     }
   });
   useEffect(() => { const key = (event: KeyboardEvent) => handleKeyboard(event); window.addEventListener("keydown", key, true); return () => window.removeEventListener("keydown", key, true); }, []);
@@ -779,6 +784,7 @@ function Editor({
         </Button>
         <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} onClick={addFrame}><Square className="size-3.5" />{t("presentations.addFrame")}</Button>
         <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={disabled || uploading || elements.length >= 500} />}>{t("editor.toolbar.insert")}</DropdownMenuTrigger><DropdownMenuContent finalFocus={pendingElement ? canvasRef : undefined}>
+          <DropdownMenuItem onClick={addFrame}><Square />{t("presentations.addFrame")}</DropdownMenuItem>
           <DropdownMenuSub><DropdownMenuSubTrigger><Shapes />{t("presentations.addShape")}</DropdownMenuSubTrigger><DropdownMenuSubContent>
             {presentationShapeKinds.map(shape => <DropdownMenuItem key={shape} onClick={() => addShape(shape)}><span className="h-5 w-8"><PresentationShape element={{ id: "preview", type: "shape", x: 0, y: 0, width: 80, height: 40, rotation: 0, content: { shape, fill: "", stroke: "", strokeWidth: 3, opacity: 1 } }} /></span>{t(`presentations.shapeKinds.${shape}`)}</DropdownMenuItem>)}
           </DropdownMenuSubContent></DropdownMenuSub>
@@ -885,14 +891,14 @@ function Editor({
               if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false);
             }}
             zoomOnDoubleClick={false}
-            onNodeDragStart={event => { axisDrag.current = { positions: new Map(elements.map(e => [e.id, { x: e.x, y: e.y }])), shift: event.shiftKey }; startGesture(); }}
-            onNodeDragStop={() => { axisDrag.current = null; endGesture(); }}
-            onSelectionDragStart={event => { axisDrag.current = { positions: new Map(elements.map(e => [e.id, { x: e.x, y: e.y }])), shift: event.shiftKey }; startGesture(); }}
-            onSelectionDragStop={() => { axisDrag.current = null; endGesture(); }}
+            onNodeDragStart={(event, _node, dragged) => { axisDrag.current = { positions: new Map(elements.map(e => [e.id, { x: e.x, y: e.y }])), shift: event.shiftKey }; trackDrag(dragged); startGesture(); }}
+            onNodeDragStop={() => { axisDrag.current = null; trackDrag(null); endGesture(); }}
+            onSelectionDragStart={(event, dragged) => { axisDrag.current = { positions: new Map(elements.map(e => [e.id, { x: e.x, y: e.y }])), shift: event.shiftKey }; trackDrag(dragged); startGesture(); }}
+            onSelectionDragStop={() => { axisDrag.current = null; trackDrag(null); endGesture(); }}
             elevateNodesOnSelect={false}
             className={styles.canvas}
             colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-            fitView={!resumeToken && !requestedElement}
+            fitView={openedWithElements && !resumeToken && !requestedElement}
             fitViewOptions={{ padding: 0.2 }}
             minZoom={0.02}
             maxZoom={8}

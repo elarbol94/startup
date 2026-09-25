@@ -3505,6 +3505,7 @@
       "addText": "Text",
       "addImage": "Bild",
       "addFrame": "Rahmen",
+      "frameName": "Rahmen {number}",
       "newTextPlaceholder": "Neuer Text",
       "overview": "Übersicht",
       "spotlight": "Spotlight-Cursor",
@@ -3723,6 +3724,8 @@
         "height": "Höhe",
         "rotation": "Drehung (Grad)",
         "proportional": "Seitenverhältnis sperren",
+        "aspect": "Seitenverhältnis des Rahmens",
+        "aspectPreset": "Seitenverhältnis {preset}",
         "units": "Absolute Canvas-Einheiten. Größe: 20–20.000. Enter oder Feld verlassen zum Anwenden; Escape verwirft.",
         "alignFrame": "Im übergeordneten Rahmen ausrichten",
         "invalid": "Wert kann nicht angewendet werden. Größenlimits und Gruppeninhalt prüfen."
