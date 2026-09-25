@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.use({ actionTimeout: 25_000, viewport: { width: 1440, height: 1000 } });
 test.describe.configure({ timeout: 240_000 });
@@ -24,7 +25,8 @@ async function screenshot(page: Page, name: string) {
 test("document tools share one panel and retain drafts at desktop, tablet, and phone sizes", async ({ page }) => {
   await login(page);
   await page.goto("/wiki/pages");
-  await page.getByRole("button", { name: "Neu", exact: true }).click();
+  await page.getByRole("button", { name: "Dokument schreiben", exact: true }).click();
+  await submitNewDocumentTitle(page, "Quiet workspace");
   await page.waitForURL(/\/wiki\/pages\/.+/, { timeout: 90_000 });
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
@@ -40,8 +42,9 @@ test("document tools share one panel and retain drafts at desktop, tablet, and p
   await page.getByTestId("document-toolbar").getByRole("button", { name: "Fett", exact: true }).click();
   await expect(editor.locator("strong")).toHaveText("A");
   const longTitle = "Strategische Zusammenarbeit und langfristige Unternehmensentwicklung";
-  page.once("dialog", (dialog) => void dialog.accept(longTitle));
   await page.getByRole("button", { name: /^Umbenennen:/ }).click();
+  await page.getByTestId("page-title-input").fill(longTitle);
+  await page.getByTestId("page-title-input").press("Enter");
   await expect(page.getByRole("button", { name: `Umbenennen: ${longTitle}`, exact: true })).toBeVisible();
   await tool(page, "Kommentare");
   await page.getByTestId("page-comment-input").fill("Unsent review note");

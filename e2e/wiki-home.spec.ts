@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test("wiki home persists customization and double Shift switches documents", async ({ page }) => {
   test.setTimeout(180_000);
@@ -15,6 +16,7 @@ test("wiki home persists customization and double Shift switches documents", asy
   await page.keyboard.press("Shift");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await home.getByRole("button", { name: "Dokument schreiben", exact: true }).click();
+  await submitNewDocumentTitle(page, "Navigation test");
   await page.waitForURL(/\/wiki\/pages\/.+/);
   const documentUrl = page.url();
   const editor = page.locator(".ProseMirror");

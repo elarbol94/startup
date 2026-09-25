@@ -2,9 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
-import { toast } from "sonner";
+import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Bell, BookOpen, FileText, FolderTree, House, Inbox, LibraryBig, PanelLeftClose, PanelLeftOpen, Plus, Presentation, Search, Star, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,8 +23,8 @@ import {
 } from "@/components/ui/tooltip";
 import { useFocusMode } from "@/components/focus-mode";
 import { cn } from "@/lib/utils";
-import { requestAppNavigation } from "@/lib/app-navigation";
-import { createQuickNote, searchResearch } from "../research-actions";
+import { searchResearch } from "../research-actions";
+import { useQuickNoteCreator } from "./use-quick-note-creator";
 import { SearchSnippet } from "./search-snippet";
 import { useWikiLocalSetting, useWikiNavigation } from "./wiki-navigation";
 
@@ -107,8 +106,6 @@ export function ResearchSidebar({
 }) {
   const t = useTranslations("wiki");
   const { openSearch, userId } = useWikiNavigation();
-  const locale = useLocale();
-  const router = useRouter();
   const { isFocused } = useFocusMode();
   // The labelled panel is the default; collapsing to the icon rail is remembered per
   // user in this browser. While collapsed, hovering/focusing expands it as an overlay
@@ -122,8 +119,8 @@ export function ResearchSidebar({
     return () => { document.documentElement.style.removeProperty("--research-rail-width"); };
   }, [collapsed, isFocused]);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [creating, setCreating] = useState(false);
-  const creatingRef = useRef(false);
+  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const { dialog: quickNoteDialog, create: createNote, creating } = useQuickNoteCreator({ onCreated: closeMobile });
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResults | null>(null);
   const [searching, setSearching] = useState(false);
@@ -132,22 +129,6 @@ export function ResearchSidebar({
   const searchRequest = useRef(0);
   const desktopSearchRef = useRef<HTMLInputElement>(null);
   const mobileSearchRef = useRef<HTMLInputElement>(null);
-
-  const createNote = useCallback(() => requestAppNavigation("/wiki/pages", async () => {
-    if (creating || creatingRef.current) return;
-    creatingRef.current = true;
-    setCreating(true);
-    try {
-      const note = await createQuickNote(locale === "en" ? "en" : "de");
-      setMobileOpen(false);
-      router.push(`/wiki/pages/${note.slug}`);
-    } catch {
-      toast.error(t("quickNoteFailed"));
-    } finally {
-      creatingRef.current = false;
-      setCreating(false);
-    }
-  }), [creating, locale, router, t]);
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
@@ -409,7 +390,8 @@ export function ResearchSidebar({
     );
   }
 
-  if (isFocused) return null;
+  // The Ctrl+Shift+N shortcut still works in focus mode, so its title prompt must render.
+  if (isFocused) return <>{quickNoteDialog}</>;
 
   return (
     <>
@@ -478,6 +460,7 @@ export function ResearchSidebar({
           navigationId: "research-primary-navigation",
         })}
       </aside>
+      {quickNoteDialog}
     </>
   );
 }

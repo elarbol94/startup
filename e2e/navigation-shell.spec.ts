@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 async function login(page: Page) {
   const signup = await page.request.post("/api/auth/sign-up/email", {
@@ -82,6 +83,7 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await researchSidebar.hover();
   await expectWidth(researchSidebar, 256);
   await researchSidebar.getByRole("button", { name: "Schnelle Notiz" }).click();
+  await submitNewDocumentTitle(page, "Focus mode note");
   await expect(page).toHaveURL(/\/wiki\/pages\/[^/]+$/);
   await page.getByRole("button", { name: "Fokusmodus", exact: true }).click();
   await expect(appSidebar).toHaveCount(0);

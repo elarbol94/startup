@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.use({ viewport: { width: 1440, height: 1000 }, actionTimeout: 30_000, navigationTimeout: 60_000 });
 test.setTimeout(180_000);
@@ -12,6 +13,7 @@ for (const kind of ["page", "presentation"] as const) {
     if (kind === "page") {
       await page.goto("/wiki/inbox");
       await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+      await submitNewDocumentTitle(page, "Editor navigation");
       await page.waitForURL(/\/wiki\/pages\/[^/]+$/);
       await expect(page.locator(".ProseMirror")).toHaveAttribute("contenteditable", "true");
     } else {

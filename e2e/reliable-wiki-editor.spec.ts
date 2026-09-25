@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 async function login(page: Page) {
   let response = await page.request.post("/api/auth/sign-in/username", {
@@ -29,6 +30,7 @@ async function login(page: Page) {
 
 async function createNote(page: Page) {
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "Reliable editor note");
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/, { timeout: 180_000 });
   const editor = page.locator(".ProseMirror");
   await expect(editor).toBeVisible();
