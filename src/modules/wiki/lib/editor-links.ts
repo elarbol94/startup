@@ -15,3 +15,21 @@ export function handleEditorLinkClick(view: EditorView, event: MouseEvent): bool
   window.open(href, "_blank", "noopener,noreferrer");
   return true;
 }
+
+export const EDITOR_LINK_MODIFIER_CLASS = "editor-link-modifier";
+
+/** Show a pointer over links while Ctrl/Meta is held, since only modified clicks open them. */
+export function trackEditorLinkModifier(view: Pick<EditorView, "dom">, event: { ctrlKey?: boolean; metaKey?: boolean; type: string }): boolean {
+  const held = event.type !== "mouseleave" && event.type !== "blur" && Boolean(event.ctrlKey || event.metaKey);
+  view.dom.classList.toggle(EDITOR_LINK_MODIFIER_CLASS, held);
+  return false;
+}
+
+export const editorLinkDOMEvents = {
+  click: handleEditorLinkClick,
+  mousemove: trackEditorLinkModifier,
+  keydown: trackEditorLinkModifier,
+  keyup: trackEditorLinkModifier,
+  mouseleave: trackEditorLinkModifier,
+  blur: trackEditorLinkModifier,
+};

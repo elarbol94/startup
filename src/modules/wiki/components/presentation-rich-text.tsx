@@ -2,7 +2,7 @@
 import { SourcePassageButton } from "./source-passage-button";
 import { ySyncPluginKey } from "@tiptap/y-tiptap";
 
-import { handleEditorLinkClick } from "../lib/editor-links";
+import { editorLinkDOMEvents } from "../lib/editor-links";
 
 import { useEffect, useRef } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
@@ -25,7 +25,7 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
     extensions: [...richExtensions(), ...(collaboration ? [Collaboration.configure({ document: collaboration.doc, field: `rich:${elementId}` })] : [])],
     content: collaboration ? undefined : toDoc(content), editable: !disabled,
     editorProps: {
-      handleDOMEvents: { click: handleEditorLinkClick }, attributes: { class: inline ? "h-full min-h-12 outline-none" : "min-h-24 rounded-md border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500", role: "textbox", "aria-label": label ?? t("richText"), "aria-multiline": "true" } },
+      handleDOMEvents: editorLinkDOMEvents, attributes: { class: inline ? "h-full min-h-12 outline-none" : "min-h-24 rounded-md border p-2 text-sm outline-none focus:ring-2 focus:ring-indigo-500", role: "textbox", "aria-label": label ?? t("richText"), "aria-multiline": "true" } },
     onUpdate: ({ editor, transaction }) => {
       const next = fromDoc(editor.getJSON());
       if (next.text.length > 5000 || (next.runs?.length ?? 0) > 200) editor.commands.undo();
