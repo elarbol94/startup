@@ -89,6 +89,7 @@ import { CitationPicker, EvidencePicker, PageLinkPicker } from "./wiki-editor/wi
 import { WikiEditorBubbleMenus } from "./wiki-editor/wiki-editor-bubble-menus";
 import { DocumentBackMatter, DocumentFrontMatter } from "./wiki-editor/wiki-document-pages";
 import { buildSlashCommands, buildWikiEditorCommands, runWikiEditorAction } from "./wiki-editor/wiki-editor-commands";
+import { createWikiTypingExtension, WIKI_PASTE_RULE_EXTENSIONS } from "./wiki-editor/wiki-typing-extension";
 import { createFigureHandlers } from "./wiki-editor/wiki-editor-figure-handlers";
 import { createWikiProofingHandlers } from "./wiki-editor/wiki-editor-proofing";
 import { useWikiProofingChecks } from "./wiki-editor/use-wiki-proofing-checks";
@@ -426,11 +427,12 @@ function CollaborativeWikiEditor({
     t, pageActions, setPageLinkOpen, setLinkEditorRequest, setCitationOpen, setEvidenceOpen, setCommentsVisible,
     setCommentFocusRequest, setFigureReferenceOpen, requestWikiTask, requestWikiDeadline, openInlineImagePicker, rememberToolbarSelection,
   });
+  const slashCommandsRef = useRef(slashCommands); slashCommandsRef.current = slashCommands;
 
-  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, CommentHighlights, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
+  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: true, enablePasteRules: WIKI_PASTE_RULE_EXTENSIONS, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, CommentHighlights, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
       const source = liveEditor.current?.state.doc.textBetween(issue.from, issue.to) ?? "";
       setSpellcheckIssue({ issue, target, source });
-    })],
+    }), createWikiTypingExtension({ getSlashCommands: () => slashCommandsRef.current, slashAriaLabel: t("slash.ariaLabel"), slashEmptyLabel: t("slash.empty"), currentUserId })],
     editorProps: {
       handleDOMEvents: editorLinkDOMEvents,
       attributes: { class: "prose prose-neutral dark:prose-invert max-w-none min-h-[28rem] focus:outline-none", spellcheck: "false" },

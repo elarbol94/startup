@@ -1,15 +1,18 @@
-// Editor command definitions shared by the slash menu, the command search and keyboard
-// shortcuts of the wiki editor. Used by wiki-editor.tsx.
+// Editor command definitions shared by the "/" menu, the command search and keyboard
+// shortcuts of the wiki editor - the single source of truth for both menus. Used by wiki-editor.tsx.
 import type { Dispatch, SetStateAction } from "react";
 import type { Editor } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
 import type { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { AlignLeft, BookMarked, CalendarClock, ClipboardCheck, Code, Columns2, Heading1, Heading2, Heading3, Highlighter, ImagePlus, Link2, List, ListOrdered, ListTodo, ListTree, MessageSquareText, Minus, Paperclip, Quote, ScissorsLineDashed, Workflow } from "lucide-react";
+import { AlignLeft, BookMarked, CalendarClock, ClipboardCheck, Code, Columns2, Heading1, Heading2, Heading3, Highlighter, ImagePlus, Link2, List, ListOrdered, ListTodo, ListTree, MessageSquareText, Minus, Paperclip, Quote, ScissorsLineDashed, Table, Workflow } from "lucide-react";
 import type { SlashCommandDefinition } from "../slash-command-menu";
 import type { EditorSearchCommand } from "../editor-command-search";
 import type { DocumentTool } from "../document-workspace";
 import { MERMAID_PLACEHOLDER } from "../mermaid-extension";
+import { undoMarkdownConversion } from "./markdown-conversion-undo";
 import { recentEditorCommands } from "../../lib/command-search";
+import { MARKDOWN_SHORTCUT_HINTS } from "../../lib/slash-commands";
 import { readEditorStorage } from "../../lib/editor-draft";
 import { exportSavedDocument } from "../../lib/editor-export";
 import { proposalSectionSnippet, proposalTable } from "../../lib/proposal";
@@ -42,7 +45,7 @@ export function buildSlashCommands({
   rememberToolbarSelection: () => void;
 }): SlashCommandDefinition[] {
   const group = (name: "text" | "lists" | "blocks" | "wiki") => t("slash.groups." + name);
-  const slash = (id: string, groupName: "text" | "lists" | "blocks" | "wiki", icon: SlashCommandDefinition["icon"], execute: SlashCommandDefinition["execute"]): SlashCommandDefinition => ({ id, group: groupName, groupLabel: group(groupName), icon, execute, label: t("slash.commands." + id + ".label"), description: t("slash.commands." + id + ".description"), keywords: t.raw("slash.commands." + id + ".keywords") as string[] });
+  const slash = (id: string, groupName: "text" | "lists" | "blocks" | "wiki", icon: SlashCommandDefinition["icon"], execute: SlashCommandDefinition["execute"]): SlashCommandDefinition => ({ id, group: groupName, groupLabel: group(groupName), icon, execute, label: t("slash.commands." + id + ".label"), description: t("slash.commands." + id + ".description"), keywords: t.raw("slash.commands." + id + ".keywords") as string[], markdownHint: MARKDOWN_SHORTCUT_HINTS[id] });
   const slashCommands: SlashCommandDefinition[] = [
     slash("paragraph", "text", AlignLeft, (editor) => editor.chain().focus().setParagraph().run()),
     slash("heading1", "text", Heading1, (editor) => editor.chain().focus().setHeading({ level: 1 }).run()),
@@ -53,6 +56,7 @@ export function buildSlashCommands({
     slash("taskList", "lists", ListTodo, (editor) => editor.chain().focus().toggleTaskList().run()),
     slash("blockquote", "blocks", Quote, (editor) => editor.chain().focus().toggleBlockquote().run()),
     slash("codeBlock", "blocks", Code, (editor) => editor.chain().focus().toggleCodeBlock().run()),
+    slash("table", "blocks", Table, (editor) => insertEmptyTable(editor)),
     slash("horizontalRule", "blocks", Minus, (editor) => editor.chain().focus().setHorizontalRule().run()),
     slash("pageBreak", "blocks", ScissorsLineDashed, (editor) => editor.chain().focus().insertContent({ type: "pageBreak" }).run()),
     slash("tableOfContents", "blocks", ListTree, (editor) => editor.chain().focus().insertContent({ type: "tableOfContents", attrs: { title: t("document.contents"), maxLevel: 3 } }).run()),
@@ -78,6 +82,23 @@ export function buildSlashCommands({
     slash("crossReference", "wiki", Link2, () => { rememberToolbarSelection(); setFigureReferenceOpen(true); }),
   ];
   return slashCommands;
+}
+
+/** Inserts an empty 3×3 table (header row plus two rows) and puts the cursor in its first cell. */
+function insertEmptyTable(editor: Editor) {
+  const table = proposalTable("generic", [["", "", ""], ["", "", ""], ["", "", ""]]);
+  const tableId = String(table.attrs?.tableId);
+  return editor.chain().focus().insertContent(table as never).command(({ tr }) => {
+    let cell = -1;
+    tr.doc.descendants((node, position) => {
+      if (cell >= 0) return false;
+      if (node.type.name === "markdownTable" && node.attrs.tableId === tableId) cell = position + 3;
+      return true;
+    });
+    // markdownTable > markdownTableRow > markdownTableHeader > paragraph: its content starts one level deeper.
+    if (cell >= 0) tr.setSelection(TextSelection.create(tr.doc, cell + 1));
+    return true;
+  }).run();
 }
 
 /** Runs one configurable wiki shortcut action against the editor. */
@@ -108,7 +129,8 @@ export function runWikiEditorAction(action: WikiShortcutAction, {
   if (!editor) return;
     const run = (command: () => boolean) => command();
     switch (action) {
-      case "undo": run(() => editor.chain().focus().undo().run()); break;
+      // Right after a Markdown auto-conversion, undo restores the typed Markdown first.
+      case "undo": run(() => undoMarkdownConversion(editor) || editor.chain().focus().undo().run()); break;
       case "redo": run(() => editor.chain().focus().redo().run()); break;
       case "bold": run(() => editor.chain().focus().toggleBold().run()); break;
       case "italic": run(() => editor.chain().focus().toggleItalic().run()); break;
@@ -196,7 +218,7 @@ export function buildWikiEditorCommands({
 }): EditorSearchCommand[] {
   const readOnlyActions = new Set(["search", "outline", "toggleComments", "typography", "shortcuts"]);
   const editorCommands: EditorSearchCommand[] = WIKI_SHORTCUT_ACTIONS.map((action) => ({
-    id: action, label: t(`shortcuts.actions.${action}`), group: t("commandSearch.editor"), shortcut: shortcutLabel(action),
+    id: action, label: t(`shortcuts.actions.${action}`), group: t("commandSearch.editor"), shortcut: shortcutLabel(action), markdownHint: MARKDOWN_SHORTCUT_HINTS[action],
     keywords: slashCommands.find((command) => command.id === action)?.keywords,
     disabledReason: !activeEditor.isEditable && !readOnlyActions.has(action) ? t("commandSearch.readOnly")
       : action.startsWith("image") && action !== "image" && !activeEditor.isActive("commentableImage") ? t("commandSearch.selectImage")
@@ -206,7 +228,7 @@ export function buildWikiEditorCommands({
   }));
   for (const command of slashCommands) {
     if (editorCommands.some((item) => item.id === command.id) || command.id === "inlineImage") continue;
-    editorCommands.push({ id: command.id, label: command.label, group: command.groupLabel, keywords: command.keywords,
+    editorCommands.push({ id: command.id, label: command.label, group: command.groupLabel, keywords: command.keywords, markdownHint: command.markdownHint,
       disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined, execute: () => command.execute(activeEditor) });
   }
   editorCommands.push({ id: "figureList", label: t("figures.insertList"), group: t("commandSearch.tools"), execute: insertFigureList, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
@@ -222,7 +244,8 @@ export function buildWikiEditorCommands({
   for (const language of ["de-DE", "de-AT", "en-US"] as ProofingLanguage[]) {
     editorCommands.push({ id: `proofing-${language}`, label: t(`commandSearch.languages.${language}`), group: t("commandSearch.tools"), execute: () => { void changeProofingLanguage(language); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   }
-  for (const kind of ["budget", "workPackages", "timeline", "risks", "kpis", "generic"] as const) {
+  // The plain table is the shared "table" command above.
+  for (const kind of ["budget", "workPackages", "timeline", "risks", "kpis"] as const) {
     editorCommands.push({ id: `table-${kind}`, label: t(`document.proposal.${kind}`), group: t("commandSearch.tools"), execute: () => { activeEditor.chain().focus().insertContent(proposalTable(kind) as never).run(); }, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   }
   for (const kind of ["executiveSummary", "objectives", "deliverables", "assumptions", "decision"] as const) {

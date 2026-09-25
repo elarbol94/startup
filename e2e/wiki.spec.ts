@@ -254,7 +254,7 @@ test("editor productivity tools support links, rich-text paste, search, outline,
   await context.setOffline(false);
 });
 
-test("Markdown syntax stays literal when typed and pasted", async ({ page }) => {
+test("typed Markdown converts while pasted block syntax stays literal", async ({ page }) => {
   await login(page);
   await quickNote(page, "Literal syntax", "Start");
   const editor = page.locator(".ProseMirror");
@@ -268,9 +268,10 @@ test("Markdown syntax stays literal when typed and pasted", async ({ page }) => 
     data.setData("text/plain", "## Pasted heading **text**");
     document.querySelector(".ProseMirror")?.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));
   });
-  await expect(editor).toContainText("# Heading **bold**");
-  await expect(editor).toContainText("## Pasted heading **text**");
-  await expect(editor.locator("h1, h2, strong")).toHaveCount(0);
+  await expect(editor.getByRole("heading", { level: 1, name: "Heading bold" })).toBeVisible();
+  await expect(editor.locator("h1 strong")).toHaveText("bold");
+  await expect(editor).toContainText("## Pasted heading");
+  await expect(editor.locator("h2")).toHaveCount(0);
   await openEditorMore(page);
   await expect(page.getByTestId("markdown-help-button")).toHaveCount(0);
 });

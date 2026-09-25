@@ -38,8 +38,18 @@ document text. Toggle commands display their current on/off state. Font size,
 line spacing and page margin commands focus their settings directly. Image/table commands explain the required
 selection, and editing commands are unavailable when the document is read-only.
 Shift used for typing, selecting text or other shortcuts does not open search.
-Typing `/` inserts ordinary text; it no longer opens a command menu. Empty
-paragraphs have no writing/command placeholder.
+Commands with a Markdown equivalent show it next to their name (for example
+`# ` for Heading 1). Empty paragraphs have no writing/command placeholder.
+
+## Slash menu
+
+Typing `/` at the start of a paragraph or after a space opens a block menu
+(headings, lists, task list, quote, code block, table, divider, image, Mermaid
+diagram, wiki references …). It uses the command search's definitions from
+`wiki-editor/wiki-editor-commands.ts` (`buildSlashCommands`), filters as you
+type, supports Arrow Up/Down, Enter and Escape, and removes the `/query` text
+when a command runs. It does not open inside words, links or code blocks and
+closes once the text after `/` contains a space and matches nothing.
 
 Focused checks: `npx vitest run src/modules/wiki/lib/command-search.test.ts
 src/modules/wiki/lib/wiki-shortcuts.test.ts src/modules/wiki/lib/slash-commands.test.ts`.
@@ -48,10 +58,21 @@ Browser coverage: `npm run e2e -- e2e/reliable-wiki-editor.spec.ts --grep
 
 ## Text formatting
 
-Use the rich-text toolbar to format documents. Markdown typing shortcuts, paste
-conversion, help and export are no longer available. Plain-text Markdown stays
-literal; rich HTML paste and HTML, Word and PDF exports remain supported. Existing
-formatted content, tables and references retain their stored document schema.
+Markdown converts while typing: `# `/`## `/`### ` headings, `- `/`* ` bullet
+lists, `1. ` numbered lists, `[ ] `/`[x] ` task lists, `> ` quotes, `` ``` `` (then
+Space or Enter) code blocks, `---` dividers, and `**bold**`, `*italic*`/`_italic_`,
+`~~strike~~`, `` `code` `` and `==highlight==` on the closing delimiter. Links
+`[text](url)`, sub/superscript, footnotes, emoji and arrows convert at the following
+Space/Enter (`markdown-shortcut-extension.ts`), as do `| a | b |` tables on Enter.
+Backspace or Ctrl/Cmd+Z right after a conversion restores the literal text
+(`wiki-editor/markdown-conversion-undo.ts`). Nothing converts inside code blocks,
+and remote collaboration updates never trigger conversions. Pasted plain text only
+converts inline marks; pasted block syntax (`# `, `- `) stays literal. Rich HTML
+paste and HTML, Word and PDF exports remain supported.
+
+Focused checks: `npx vitest run src/modules/wiki/lib/markdown-shortcuts.test.ts
+src/modules/wiki/lib/slash-commands.test.ts`; browser coverage:
+`e2e/wiki-markdown-slash.spec.ts`.
 
 ## Linked presentations
 
