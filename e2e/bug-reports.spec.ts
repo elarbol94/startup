@@ -113,3 +113,64 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await dialog.getByRole("button", { name: "Fertig", exact: true }).click();
   await expect(dialog).not.toBeVisible();
 });
+
+test("Ctrl+Y freezes the screen so a popup that disappears is still in the screenshot", async ({ page }) => {
+  const credentials = { username: "admin", password: "super-secret-1" };
+  let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
+  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
+  expect(response.ok()).toBe(true);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Fehler melden", exact: true })).toHaveAttribute("aria-keyshortcuts", "Control+Y");
+  await expect(page.getByText("Strg+Y", { exact: true })).toBeAttached();
+  // A transient popup that swallows keys in its own handlers, like a menu or error toast.
+  await page.evaluate(() => {
+    const popup = document.createElement("div"); popup.id = "transient-popup"; popup.tabIndex = 0;
+    popup.style.cssText = "position:fixed;left:100px;top:250px;width:200px;height:120px;background:rgb(0,0,255);z-index:60";
+    popup.addEventListener("keydown", event => event.stopPropagation());
+    document.body.append(popup); popup.focus();
+  });
+  await page.keyboard.press("Control+y");
+  const selector = page.getByTestId("bug-area-selector");
+  await expect(selector).toHaveAttribute("data-frozen", "true");
+  // Esc only cancels the selection; the popup underneath stays open.
+  await page.keyboard.press("Escape");
+  await expect(selector).not.toBeVisible();
+  await expect(page.locator("#transient-popup")).toBeVisible();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toHaveCount(0);
+  await page.locator("#transient-popup").focus();
+  await page.keyboard.press("Control+y");
+  await expect(selector).toHaveAttribute("data-frozen", "true");
+  await page.evaluate(() => document.getElementById("transient-popup")?.remove());
+  await page.mouse.move(120, 270); await page.mouse.down();
+  await page.mouse.move(220, 330, { steps: 5 }); await page.mouse.up();
+  await expect(page.locator("#transient-popup")).toHaveCount(0);
+  await selector.getByRole("button", { name: "Ausgewählten Bereich anhängen" }).click();
+  const captured = dialog.getByRole("img", { name: /^bug-area-/ });
+  await expect(captured).toBeVisible();
+  const pixels = await captured.evaluate(async element => {
+    const image = element as HTMLImageElement; await image.decode();
+    const canvas = document.createElement("canvas"); canvas.width = image.naturalWidth; canvas.height = image.naturalHeight;
+    const context = canvas.getContext("2d")!; context.drawImage(image, 0, 0);
+    return { width: canvas.width, height: canvas.height, center: Array.from(context.getImageData(canvas.width / 2, canvas.height / 2, 1, 1).data) };
+  });
+  expect(pixels).toEqual({ width: 100, height: 60, center: [0, 0, 255, 255] });
+});
+
+test("the area selector does not close an open menu underneath", async ({ page }) => {
+  const credentials = { username: "admin", password: "super-secret-1" };
+  let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
+  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
+  expect(response.ok()).toBe(true);
+  await page.goto("/");
+  await page.getByText("admin@example.com").first().click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Control+y");
+  const selector = page.getByTestId("bug-area-selector");
+  await expect(selector).toHaveAttribute("data-frozen", "true");
+  await page.mouse.click(500, 500);
+  await page.keyboard.press("Escape");
+  await expect(selector).not.toBeVisible();
+  await expect(menu).toBeVisible();
+});

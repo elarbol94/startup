@@ -4,43 +4,83 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { cropSnapshot, renderArea, type Area } from "./screenshot";
 
 type Point = { x: number; y: number };
-type Area = { x: number; y: number; width: number; height: number };
 const minimum = 16;
+function point(event: PointerEvent | React.PointerEvent): Point {
+  return { x: Math.max(0, Math.min(window.innerWidth, event.clientX)), y: Math.max(0, Math.min(window.innerHeight, event.clientY)) };
+}
+const inside = (element: HTMLElement | null, target: EventTarget | null) => !!element && target instanceof Node && element.contains(target);
 
-export function AreaCapture({ onCapture, onCancel, onError }: {
-  onCapture: (file: File) => void; onCancel: () => void; onError: () => void;
+/**
+ * Full-screen area selector. With a `snapshot` (a frozen viewport), the user
+ * selects over that image, so popups that close meanwhile still get captured.
+ * Events are intercepted on window in the capture phase so dialogs and menus
+ * underneath never see them: Esc and clicks only cancel the selection.
+ */
+export function AreaCapture({ snapshot, onCapture, onCancel, onError }: {
+  snapshot?: HTMLCanvasElement; onCapture: (file: File) => void; onCancel: () => void; onError: () => void;
 }) {
   const t = useTranslations("bugReports");
   const root = useRef<HTMLDivElement>(null);
+  const surface = useRef<HTMLDivElement>(null);
+  const frozen = useRef<HTMLCanvasElement>(null);
   const start = useRef<Point | null>(null);
   const capturing = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const [area, setArea] = useState<Area | null>(null);
   const [busy, setBusy] = useState(false);
+  const handleKey = useRef<(event: KeyboardEvent) => void>(() => {});
+
+  useEffect(() => {
+    if (snapshot) frozen.current?.getContext("2d")?.drawImage(snapshot, 0, 0);
+  }, [snapshot]);
 
   useEffect(() => {
     const element = root.current;
     element?.focus();
-    // The closing report dialog restores focus after unmount. Keep that handoff
-    // inside the selector so keyboard input never reaches the underlying page.
-    const keepFocus = (event: FocusEvent) => { if (!element?.contains(event.target as Node)) element?.focus(); };
-    document.addEventListener("focusin", keepFocus);
     const focusFrame = requestAnimationFrame(() => element?.focus());
+    const keydown = (event: KeyboardEvent) => { event.stopPropagation(); handleKey.current(event); };
+    const pointerdown = (event: PointerEvent) => {
+      // Keep underlying popups open: they treat outside pointerdown as dismissal.
+      event.stopPropagation();
+      if (!inside(element, event.target)) { event.preventDefault(); return; }
+      const target = surface.current;
+      if (!target || !inside(target, event.target) || capturing.current || !event.isPrimary || event.button !== 0) return;
+      event.preventDefault(); element?.focus();
+      start.current = point(event); setArea(null);
+      target.setPointerCapture(event.pointerId);
+    };
+    // Focus traps of underlying dialogs would pull focus back; hide our focus moves from them.
+    const focusin = (event: FocusEvent) => {
+      event.stopPropagation();
+      if (!inside(element, event.target)) element?.focus();
+    };
+    const focusout = (event: FocusEvent) => { if (inside(element, event.relatedTarget) || inside(element, event.target)) event.stopPropagation(); };
     const preventScroll = (event: Event) => event.preventDefault();
     element?.addEventListener("wheel", preventScroll, { passive: false });
     const resize = () => {
-      if (capturing.current) { controller.current?.abort(); onCancel(); }
+      // A frozen snapshot no longer matches the resized viewport.
+      if (capturing.current || snapshot) { controller.current?.abort(); onCancel(); }
       else { start.current = null; setArea(null); }
     };
+    window.addEventListener("keydown", keydown, true);
+    window.addEventListener("pointerdown", pointerdown, true);
+    window.addEventListener("focusin", focusin, true);
+    window.addEventListener("focusout", focusout, true);
     window.addEventListener("resize", resize);
-    return () => { controller.current?.abort(); cancelAnimationFrame(focusFrame); document.removeEventListener("focusin", keepFocus); element?.removeEventListener("wheel", preventScroll); window.removeEventListener("resize", resize); };
-  }, [onCancel]);
+    return () => {
+      controller.current?.abort(); cancelAnimationFrame(focusFrame);
+      element?.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("keydown", keydown, true);
+      window.removeEventListener("pointerdown", pointerdown, true);
+      window.removeEventListener("focusin", focusin, true);
+      window.removeEventListener("focusout", focusout, true);
+      window.removeEventListener("resize", resize);
+    };
+  }, [onCancel, snapshot]);
 
-  function point(event: React.PointerEvent): Point {
-    return { x: Math.max(0, Math.min(window.innerWidth, event.clientX)), y: Math.max(0, Math.min(window.innerHeight, event.clientY)) };
-  }
   function update(event: React.PointerEvent) {
     if (!start.current) return;
     const end = point(event);
@@ -51,21 +91,7 @@ export function AreaCapture({ onCapture, onCancel, onError }: {
     capturing.current = true; setBusy(true);
     const abort = new AbortController(); controller.current = abort;
     try {
-      const { default: html2canvas } = await import("html2canvas-pro");
-      if (abort.signal.aborted) return;
-      const canvas = await html2canvas(document.documentElement, {
-        x: window.scrollX + area.x, y: window.scrollY + area.y,
-        width: area.width, height: area.height,
-        scrollX: window.scrollX, scrollY: window.scrollY,
-        windowWidth: window.innerWidth, windowHeight: window.innerHeight,
-        scale: Math.min(window.devicePixelRatio || 1, 2),
-        logging: false, allowTaint: false, useCORS: false, imageTimeout: 3000,
-        signal: abort.signal,
-        ignoreElements: element => element.hasAttribute("data-html2canvas-ignore") || element.tagName === "NEXTJS-PORTAL",
-        onclone: document => {
-          document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
-        },
-      });
+      const canvas = snapshot ? cropSnapshot(snapshot, area) : await renderArea(area, abort.signal);
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png"));
       canvas.width = 0; canvas.height = 0;
       if (abort.signal.aborted) return;
@@ -73,12 +99,8 @@ export function AreaCapture({ onCapture, onCancel, onError }: {
       onCapture(new File([blob], `bug-area-${Date.now()}.png`, { type: "image/png" }));
     } catch { if (!abort.signal.aborted) onError(); }
   }
-
-  return createPortal(<div ref={root} role="dialog" aria-modal="true" aria-label={t("selectArea")} aria-describedby="capture-instructions"
-    tabIndex={-1} data-testid="bug-area-selector" data-html2canvas-ignore="true"
-    className="fixed inset-0 z-[100] touch-none select-none outline-none"
-    onKeyDown={event => {
-      event.stopPropagation();
+  useEffect(() => {
+    handleKey.current = event => {
       if (event.key === "Escape") { event.preventDefault(); controller.current?.abort(); onCancel(); return; }
       if (event.key === "Tab") {
         const buttons = Array.from(root.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
@@ -94,9 +116,15 @@ export function AreaCapture({ onCapture, onCancel, onError }: {
         setArea(event.shiftKey ? { ...current, width: Math.max(minimum, Math.min(window.innerWidth - current.x, current.width + dx)), height: Math.max(minimum, Math.min(window.innerHeight - current.y, current.height + dy)) }
           : { ...current, x: Math.max(0, Math.min(window.innerWidth - current.width, current.x + dx)), y: Math.max(0, Math.min(window.innerHeight - current.height, current.y + dy)) });
       }
-    }}>
-    <div className={`absolute inset-0 ${busy ? "cursor-wait" : "cursor-crosshair"}`} data-testid="bug-area-surface"
-      onPointerDown={event => { if (busy || !event.isPrimary || event.button !== 0) return; event.preventDefault(); root.current?.focus(); start.current = point(event); setArea(null); event.currentTarget.setPointerCapture(event.pointerId); }}
+    };
+  });
+
+
+  return createPortal(<div ref={root} role="dialog" aria-modal="true" aria-label={t("selectArea")} aria-describedby="capture-instructions"
+    tabIndex={-1} data-testid="bug-area-selector" data-frozen={snapshot ? "true" : undefined} data-html2canvas-ignore="true"
+    className="pointer-events-auto fixed inset-0 z-[100] touch-none select-none outline-none">
+    {snapshot && <canvas ref={frozen} width={snapshot.width} height={snapshot.height} data-testid="bug-area-snapshot" className="absolute inset-0 size-full bg-background" />}
+    <div ref={surface} className={`absolute inset-0 ${busy ? "cursor-wait" : "cursor-crosshair"}`} data-testid="bug-area-surface"
       onPointerMove={update}
       onPointerUp={event => { update(event); start.current = null; if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId); }}
       onPointerCancel={() => { start.current = null; setArea(null); }}>
