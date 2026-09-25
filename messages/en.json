@@ -1169,7 +1169,8 @@
     "allDay": "All day",
     "sourceFallback": "The exact marker could not be found. The related page was opened.",
     "markerLabel": "Linked deadline",
-    "ganttLane": "Deadlines"
+    "ganttLane": "Deadlines",
+    "ganttToggle": "Show or hide each deadline as its own row"
   },
   "accountingEntry": {
     "stepOne": "Step 1 · Booking type",

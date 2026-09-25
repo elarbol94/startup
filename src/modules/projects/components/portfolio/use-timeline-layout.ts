@@ -28,6 +28,7 @@ import {
   minDate,
   zoomModeForDayWidth,
 } from "./portfolio-utils";
+import { deadlineLaneTotalHeight } from "../deadline-clusters";
 import { rowFocusViewport } from "./timeline-row-focus";
 import type { useTimelineViewport } from "./use-timeline-viewport";
 
@@ -54,6 +55,7 @@ export function useTimelineLayout({
   reducedMotion,
   restoredViewRef,
   setTimelineDayWidth,
+  deadlinesExpanded = false,
 }: Pick<
   ReturnType<typeof useTimelineViewport>,
   | "ganttViewportWidth"
@@ -65,6 +67,7 @@ export function useTimelineLayout({
   | "setTimelineDayWidth"
 > & {
   view: "timeline" | "projects";
+  deadlinesExpanded?: boolean;
   focusedTaskId: string | null;
   focusedTask: PortfolioTask | null;
   schedule: PortfolioSchedule;
@@ -140,8 +143,8 @@ export function useTimelineLayout({
   const timelineWidth = dayCount * dayWidth;
   const totalWidth = treeWidth + timelineWidth;
   const deadlineLaneHeight =
-    !embedded && !focusedTask && effectiveSchedule.deadlines.length > 0
-      ? DEADLINE_LANE_HEIGHT
+    !embedded && !focusedTask
+      ? deadlineLaneTotalHeight(effectiveSchedule.deadlines.length, deadlinesExpanded, DEADLINE_LANE_HEIGHT)
       : 0;
   const totalHeight = HEADER_HEIGHT + deadlineLaneHeight + rows.length * ROW_HEIGHT;
 

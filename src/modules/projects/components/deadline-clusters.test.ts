@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { clusterDeadlineMarkers } from "./deadline-clusters";
+import { clusterDeadlineMarkers, deadlineLaneTotalHeight, sortDeadlinesForRows } from "./deadline-clusters";
+
+describe("sortDeadlinesForRows", () => {
+  it("orders by due date, undated last, ties by title", () => {
+    const sorted = sortDeadlinesForRows([
+      { dueDate: null, title: "A" },
+      { dueDate: "2026-10-02", title: "B" },
+      { dueDate: "2026-10-01", title: "Z" },
+      { dueDate: "2026-10-01", title: "C" },
+    ]);
+    expect(sorted.map((item) => item.title)).toEqual(["C", "Z", "B", "A"]);
+  });
+});
+
+describe("deadlineLaneTotalHeight", () => {
+  it("is one row collapsed, header plus one row per deadline expanded, zero when empty", () => {
+    expect(deadlineLaneTotalHeight(4, false, 36)).toBe(36);
+    expect(deadlineLaneTotalHeight(4, true, 36)).toBe(180);
+    expect(deadlineLaneTotalHeight(0, true, 36)).toBe(0);
+  });
+});
 
 describe("clusterDeadlineMarkers", () => {
   const at = (x: number) => ({ id: String(x), x });

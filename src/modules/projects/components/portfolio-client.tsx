@@ -99,6 +99,7 @@ export function PortfolioClient({
 
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(() => new Set(embedded ? [embedded.projectId] : []));
   const [expandedTasks, setExpandedTasks] = useState<Set<string>>(() => new Set());
+  const [deadlinesExpanded, setDeadlinesExpanded] = useState(false);
   const [projectDialog, setProjectDialog] = useState<ProjectDialogState>(null);
   const [inspectorOpen, setInspectorOpen] = useState(Boolean(initialFocusedTaskId));
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
@@ -181,6 +182,7 @@ export function PortfolioClient({
     view, focusedTaskId, focusedTask, schedule, effectiveSchedule, embedded, visibleProjects, today,
     rows, ganttViewportWidth, treeWidth, dayWidth, dayWidthRef, setDayWidth, setZoom, scrollRef,
     fittedFocusRef, revealTaskId, setRevealTaskId, reducedMotion, setTimelineDayWidth, restoredViewRef,
+    deadlinesExpanded,
   });
   const dependencyLayout = layoutDependencyRoutes({
     rows, effectiveSchedule, visibleFocusDependencyIds, dependencyDraft, range, dayWidth,
@@ -371,6 +373,7 @@ export function PortfolioClient({
                     totalWidth, treeWidth, timelineWidth, effectiveSchedule, range, renderedRangeEnd,
                     renderedAt, dayWidth, draggedRef, startDeadlineDrag, moveDeadlineDrag,
                     endDeadlineDrag, cancelDeadlineDrag, handleDeadlineKey, deadlinePreview,
+                    expanded: deadlinesExpanded, onToggleExpanded: () => setDeadlinesExpanded((value) => !value),
                   }}
                 />
               )}
