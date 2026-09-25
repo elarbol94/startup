@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, previousTab, isTabSwitchShortcut } from "./model";
+import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut } from "./model";
 
 describe("tab switch shortcut", () => {
-  it("toggles to the most recently used open tab", () => {
+  it("cycles through open tabs in most-recently-used order", () => {
     let history: string[] = [];
     for (const id of ["primary", "a", "b", "c"]) history = touchTabHistory(history, id);
-    expect(previousTab(history, ["primary", "a", "b", "c"], "c")).toBe("b");
-    history = touchTabHistory(history, "b");
-    expect(previousTab(history, ["primary", "a", "b", "c"], "b")).toBe("c");
-    expect(previousTab(history, ["primary", "a", "b"], "b")).toBe("a");
-    expect(previousTab([], ["primary", "a"], "primary")).toBe("a");
-    expect(previousTab([], ["primary"], "primary")).toBeNull();
+    const order = tabCycleOrder(history, ["primary", "a", "b", "c"]);
+    expect(order).toEqual(["c", "b", "a", "primary"]);
+    expect(cycleTarget(order, 1)).toBe("b");
+    expect(cycleTarget(order, 2)).toBe("a");
+    expect(cycleTarget(order, 3)).toBe("primary");
+    expect(cycleTarget(order, 4)).toBe("c");
+    expect(cycleTarget(order, -1)).toBe("primary");
+  });
+  it("skips closed tabs and appends unvisited ones", () => {
+    expect(tabCycleOrder(["b", "x", "primary"], ["primary", "a", "b"])).toEqual(["b", "primary", "a"]);
+    expect(cycleTarget(["primary"], 1)).toBeNull();
   });
   it("matches only Alt+Q", () => {
-    const base = { altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, repeat: false, code: "KeyQ" };
+    const base = { altKey: true, ctrlKey: false, metaKey: false, code: "KeyQ" };
     expect(isTabSwitchShortcut(base)).toBe(true);
     expect(isTabSwitchShortcut({ ...base, ctrlKey: true })).toBe(false);
     expect(isTabSwitchShortcut({ ...base, code: "KeyW" })).toBe(false);
