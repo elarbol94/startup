@@ -1809,6 +1809,8 @@
     "togglePhase": "Phase ein- oder ausklappen",
     "toggleTask": "Aufgabe ein- oder ausklappen",
     "openProjectPage": "Projekt „{name}“ öffnen",
+    "showRowTimeline": "Zeitplan von „{name}“ anzeigen",
+    "showRowTimelineUnavailable": "Keine Termine gesetzt – nichts im Zeitplan anzuzeigen",
     "openBoard": "Kanban-Board öffnen",
     "noScheduleResults": "Keine Projekte oder Aufgaben entsprechen den Filtern.",
     "indentTask": "Einrücken",

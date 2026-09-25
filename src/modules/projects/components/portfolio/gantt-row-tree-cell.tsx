@@ -25,6 +25,7 @@ import {
   PanelRightClose,
   Pencil,
   Plus,
+  ScanSearch,
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ import type { usePortfolioRows } from "./use-portfolio-rows";
 import type { useScheduleCommit } from "./use-schedule-commit";
 import type { useStructureDrag } from "./use-structure-drag";
 import type { useTaskTreeActions } from "./use-task-tree-actions";
+import type { useTimelineLayout } from "./use-timeline-layout";
 
 export type GanttRowTreeCellProps = Pick<
   ReturnType<typeof useStructureDrag>,
@@ -69,7 +71,8 @@ export type GanttRowTreeCellProps = Pick<
   Pick<ReturnType<typeof usePortfolioRows>, "tasksByProject" | "conflicts"> &
   Pick<ReturnType<typeof useBarDrag>, "handleTaskScheduleKey"> &
   Pick<ReturnType<typeof useScheduleCommit>, "offerScheduleUndo" | "fitTaskDates"> &
-  Pick<ReturnType<typeof usePortfolioFocus>, "enterTaskFocus"> & {
+  Pick<ReturnType<typeof usePortfolioFocus>, "enterTaskFocus"> &
+  Pick<ReturnType<typeof useTimelineLayout>, "focusRowTimeline"> & {
     row: Row;
     project: PortfolioSchedule["projects"][number];
     schedule: PortfolioSchedule;
@@ -125,6 +128,7 @@ export function GanttRowTreeCell({
   outdentRow,
   indentRow,
   requestDeleteTask,
+  focusRowTimeline,
 }: GanttRowTreeCellProps) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");
@@ -192,6 +196,24 @@ export function GanttRowTreeCell({
       {row.task?.assignees.length ? <span className="flex w-12 shrink-0 items-center -space-x-1">{row.task.assignees.slice(0, 2).map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}{row.task.assignees.length > 2 && <span className="bg-card text-[10px]">+{row.task.assignees.length - 2}</span>}</span> : null}
       {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600" aria-label={t("projectRiskExplanation")} /></span>}
       {isConflict && <span tabIndex={0} title={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.task && isTaskDone(row.task) ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")} /></span>}
+      {(() => {
+        const hasDates = Boolean(row.startDate && row.dueDate);
+        const label = hasDates ? t("showRowTimeline", { name: row.label }) : t("showRowTimelineUnavailable");
+        return (
+          <span title={label} className="shrink-0">
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="opacity-30 transition-opacity group-hover/row:opacity-100 group-focus-within/row:opacity-100 motion-reduce:transition-none"
+              disabled={!hasDates}
+              aria-label={label}
+              onClick={(event) => { event.stopPropagation(); focusRowTimeline(row); }}
+            >
+              <ScanSearch className="size-3.5" />
+            </Button>
+          </span>
+        );
+      })()}
       <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
       {!embedded && row.kind === "project" && (
         <DropdownMenu>
