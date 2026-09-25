@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { applyEditorLink } from "../lib/editor-link";
+import { capturePendingLink, clearPendingLink, pendingLinkRange } from "./wiki-editor/link-selection";
 import { isAllowedUri } from "@tiptap/extension-link";
 import { useTranslations } from "next-intl";
 import { CaseSensitive, Check, ChevronDown, ExternalLink, Link2, Replace, Search, WholeWord, X } from "lucide-react";
@@ -31,33 +32,39 @@ export function EditorLinkPopover({ editor, pages, request = 0 }: { editor: Edit
   const [error, setError] = useState("");
   const range = useRef({ from: 0, to: 0 });
 
-  function prepare() {
-    const { from, to } = editor.state.selection;
-    range.current = { from, to };
-    setLabel(editor.state.doc.textBetween(from, to, " "));
+  // The range is captured before focus moves into the popover (see
+  // link-selection.ts); request-based openers capture it when they fire.
+  function prepareRange(captured: { from: number; to: number }) {
+    range.current = captured;
+    setLabel(editor.state.doc.textBetween(captured.from, captured.to, " "));
     setUrl(String(editor.getAttributes("link").href ?? ""));
     setError("");
     setOpen(true);
   }
 
+  function prepare() {
+    prepareRange(capturePendingLink(editor));
+  }
+
   useEffect(() => {
     if (request <= 0) return;
-    const frame = requestAnimationFrame(() => {
-      const { from, to } = editor.state.selection;
-      range.current = { from, to };
-      setLabel(editor.state.doc.textBetween(from, to, " "));
-      setUrl(String(editor.getAttributes("link").href ?? ""));
-      setError("");
-      setOpen(true);
-    });
+    const captured = pendingLinkRange(editor.state) ?? capturePendingLink(editor);
+    const frame = requestAnimationFrame(() => prepareRange(pendingLinkRange(editor.state) ?? captured));
     return () => cancelAnimationFrame(frame);
+    // prepareRange only reads the editor, which is a dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, request]);
+
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    if (!next) clearPendingLink(editor);
+  }
 
   function apply(href = url, text = label) {
     const normalized = normalizeUrl(href);
     if (!normalized || !isAllowedUri(normalized)) { setError(t("link.invalid")); return; }
-    applyEditorLink(editor, normalized, text.trim() || normalized, range.current);
-    setOpen(false);
+    applyEditorLink(editor, normalized, text.trim() || normalized, pendingLinkRange(editor.state) ?? range.current);
+    changeOpen(false);
   }
 
   const suggestions = useMemo(() => {
@@ -66,7 +73,7 @@ export function EditorLinkPopover({ editor, pages, request = 0 }: { editor: Edit
     return pages.filter((page) => page.title.toLocaleLowerCase().includes(query)).slice(0, 5);
   }, [label, pages, url]);
 
-  return <Popover open={open} onOpenChange={setOpen}>
+  return <Popover open={open} onOpenChange={changeOpen}>
     <PopoverTrigger render={<Button type="button" variant={editor.isActive("link") ? "secondary" : "ghost"} size="icon-sm" aria-label={t("link.button")} aria-pressed={editor.isActive("link")} onMouseDown={(event) => event.preventDefault()} onClick={prepare} />}>
       <Link2 className="size-4 rotate-45" />
     </PopoverTrigger>
@@ -86,7 +93,7 @@ export function EditorLinkPopover({ editor, pages, request = 0 }: { editor: Edit
       </div>}
       <div className="flex justify-between gap-2 border-t pt-2">
         <div className="flex gap-1">
-          {editor.isActive("link") && <Button type="button" size="sm" variant="ghost" onClick={() => { editor.chain().focus().unsetLink().run(); setOpen(false); }}>{t("link.remove")}</Button>}
+          {editor.isActive("link") && <Button type="button" size="sm" variant="ghost" onClick={() => { const target = pendingLinkRange(editor.state) ?? range.current; editor.chain().focus().setTextSelection(target).unsetLink().run(); changeOpen(false); }}>{t("link.remove")}</Button>}
           {url && <Button type="button" size="icon-sm" variant="ghost" aria-label={t("link.open")} onClick={() => window.open(normalizeUrl(url), "_blank", "noopener,noreferrer")}><ExternalLink className="size-4" /></Button>}
         </div>
         <Button type="button" size="sm" onClick={() => apply()}><Check className="size-3.5" />{t("link.apply")}</Button>

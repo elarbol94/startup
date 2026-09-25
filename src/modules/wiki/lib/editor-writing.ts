@@ -17,3 +17,7 @@ export function calculateWritingStats(doc: ProseMirrorNode, selection?: { from: 
     readingMinutes: wordCount ? Math.max(1, Math.ceil(wordCount / 200)) : 0,
   };
 }
+
+export function sameWritingStats(a: WritingStats, b: WritingStats) {
+  return a.words === b.words && a.characters === b.characters && a.selectedWords === b.selectedWords && a.readingMinutes === b.readingMinutes;
+}

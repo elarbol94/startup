@@ -2724,7 +2724,7 @@
         "takeoverFailed": "Die Bearbeitung konnte nicht übernommen werden."
       },
       "paste": {
-        "imagesDropped": "Bilder aus dem eingefügten Inhalt wurden nicht übernommen. Verwende „Bild einfügen“, um sie hinzuzufügen.",
+        "imagesDropped": "{count, plural, one {# Bild aus dem eingefügten Inhalt konnte nicht übernommen werden. Verwende „Bild einfügen“, um es hinzuzufügen.} other {# Bilder aus dem eingefügten Inhalt konnten nicht übernommen werden. Verwende „Bild einfügen“, um sie hinzuzufügen.}}",
         "tooLarge": "Der eingefügte Inhalt ist zu groß für eine Seite. Bitte in kleineren Teilen einfügen."
       },
       "search": {

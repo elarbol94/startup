@@ -2724,7 +2724,7 @@
         "takeoverFailed": "Editing could not be taken over."
       },
       "paste": {
-        "imagesDropped": "Images from the pasted content were not included. Use \"Insert image\" to add them.",
+        "imagesDropped": "{count, plural, one {# image from the pasted content could not be imported. Use \"Insert image\" to add it.} other {# images from the pasted content could not be imported. Use \"Insert image\" to add them.}}",
         "tooLarge": "The pasted content is too large for one page. Please paste it in smaller parts."
       },
       "search": {

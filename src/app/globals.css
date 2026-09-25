@@ -570,6 +570,13 @@
     box-shadow: 0 0 0 1px color-mix(in oklab, var(--chart-4) 24%, transparent);
   }
 
+  /* The text a link is being entered for, while focus is in the link popover. */
+  .wiki-pending-link {
+    border-radius: 0.15rem;
+    background: color-mix(in oklab, var(--primary) 18%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--primary) 35%, transparent);
+  }
+
   .wiki-search-match-current {
     background: #facc15;
     color: #1c1917;

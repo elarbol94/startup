@@ -19,6 +19,7 @@ import { ySyncPluginKey } from "@tiptap/y-tiptap";
 const MAX_PASTE_CHARACTERS = 1_000_000;
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { NodeSelection } from "@tiptap/pm/state";
+import type { EditorView } from "@tiptap/pm/view";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
@@ -51,7 +52,6 @@ import { EditorSearchExtension } from "../lib/editor-search";
 import { createSpellcheckExtension, type ProofingLanguage } from "../lib/spellcheck";
 import { WikiProofingMenu, WikiProofingSuggestions, type OpenProofingIssue } from "./wiki-proofing";
 import { sanitizePastedHtml } from "../lib/paste-html";
-import { calculateWritingStats, type WritingStats } from "../lib/editor-writing";
 import { readEditorStorage, removeEditorStorage, writeEditorStorage } from "../lib/editor-draft";
 import { exportSavedDocument } from "../lib/editor-export";
 import { MermaidDiagram, MERMAID_PLACEHOLDER } from "./mermaid-extension";
@@ -99,6 +99,10 @@ import { useEvidenceInsertion } from "./wiki-editor/use-evidence-insertion";
 import { useReferenceFocus } from "./wiki-editor/use-reference-focus";
 import { useHighlightAuthorColors } from "./wiki-editor/use-highlight-author-colors";
 import { useWikiEditorHandle } from "./wiki-editor/use-wiki-editor-handle";
+import { useWritingStats } from "./wiki-editor/use-writing-stats";
+import { useHistoryAvailability } from "./wiki-editor/use-history-availability";
+import { PendingLinkRange } from "./wiki-editor/link-selection";
+import { importPastedImages, parseSanitizedHtml } from "./wiki-editor/pasted-html-images";
 
 export type { WikiEditorHandle } from "./wiki-editor/wiki-editor-types";
 
@@ -192,7 +196,6 @@ function CollaborativeWikiEditor({
     }
   }
   const [outline, setOutline] = useState<OutlineItem[]>([]); const [activeHeadingPosition, setActiveHeadingPosition] = useState<number | null>(null);
-  const [writingStats, setWritingStats] = useState<WritingStats>({ words: 0, characters: 0, selectedWords: 0, readingMinutes: 0 });
   // TipTap v3 no longer re-renders per transaction, so the toolbar needs an
   // explicit nudge to show the marks under the caret. It stays on the keystroke
   // path because it is cheap; the document-wide derived state does not.
@@ -302,7 +305,6 @@ function CollaborativeWikiEditor({
     setCitationTargets([...targets.values()]);
     const cursor = currentEditor.state.selection.from;
     setActiveHeadingPosition([...items].reverse().find((item) => item.position < cursor)?.position ?? null);
-    setWritingStats(calculateWritingStats(currentEditor.state.doc, currentEditor.state.selection));
     setDocumentIssues(collectDocumentPreflightIssues(currentEditor.getJSON(), documentSettingsRef.current));
   }
 
@@ -427,7 +429,7 @@ function CollaborativeWikiEditor({
     setCommentFocusRequest, setFigureReferenceOpen, requestWikiTask, requestWikiDeadline, openInlineImagePicker, rememberToolbarSelection,
   });
 
-  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, CommentHighlights, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, createSpellcheckExtension((issue, target) => {
+  const editor = useEditor({ immediatelyRender: false, editable: false, enableInputRules: false, enablePasteRules: false, extensions: [Collaboration.configure({ document: collaboration.doc, field: "body" }), collaborationCursors(collaboration), StarterKit.configure({ undoRedo: false, dropcursor: { color: "#3b82f6", width: 3 }, bold: false, code: false, heading: false, listItem: false, italic: false, link: { openOnClick: false }, strike: false }), CollapsibleHeading.configure({ levels: [1, 2, 3] }), HeadingListItem, HeadingIdentity, ...MarkdownShortcutMarks, ...MarkdownDocumentExtensions, ...DocumentExtensions, FigureIdentity, FigureTextDrop, FigureUploads, FigureList, FigureListEntry, FigureListSync, TaskList, TaskItem.configure({ nested: true }), Citation, PdfEvidence, TaskReference, DeadlineReference, CommentableImage, MermaidDiagram, CommentMark, CommentHighlights, SuggestionInsert, SuggestionDelete, SuggestionMode, Highlight, Placeholder.configure({ placeholder: ({ node }) => node.type.name === "heading" ? t("editor.placeholder.heading") : "" }), EditorSearchExtension, PendingLinkRange, createSpellcheckExtension((issue, target) => {
       const source = liveEditor.current?.state.doc.textBetween(issue.from, issue.to) ?? "";
       setSpellcheckIssue({ issue, target, source });
     })],
@@ -454,21 +456,21 @@ function CollaborativeWikiEditor({
           // keeps only the nodes/marks each extension's parseHTML() rule recognizes
           // and silently drops everything else, so no hand-rolled HTML->Tiptap
           // converter is needed here.
-          const { html: sanitized, hadImages } = sanitizePastedHtml(html);
+          const { html: sanitized, imageSources } = sanitizePastedHtml(html);
           // An inert document: unlike innerHTML on a live-document element, it never
           // loads images or runs handlers that slipped past the regex sanitizer.
           const container = new window.DOMParser().parseFromString(sanitized, "text/html").body;
           const slice = ProseMirrorDOMParser.fromSchema(view.state.schema).parseSlice(container, { preserveWhitespace: true });
           event.preventDefault();
           view.dispatch(view.state.tr.replaceSelection(slice).scrollIntoView());
-          if (hadImages) toast.info(t("editor.paste.imagesDropped"));
+          importHtmlImages(view, imageSources, view.state.selection.to);
           return true;
         }
         return false;
       },
-      handleDrop(view, event) {
+      handleDrop(view, event, _slice, moved) {
         const files = [...(event.dataTransfer?.files ?? [])].filter(isInlineImageFile).map(normalizeInlineImageFile);
-        if (!files.length) return false;
+        if (!files.length) return moved ? false : dropHtmlWithImages(view, event);
         event.preventDefault();
         const coordinates = view.posAtCoords({ left: event.clientX, top: event.clientY });
         void insertFigureFiles(files, coordinates?.pos ?? view.state.selection.from);
@@ -506,6 +508,8 @@ function CollaborativeWikiEditor({
   });
 
   useHighlightAuthorColors({ editor, editorRootRef, users, currentUserId });
+  const writingStats = useWritingStats(editor);
+  const { canUndo, canRedo } = useHistoryAvailability(editor);
 
   useEffect(() => {
     const update = () => {
@@ -783,6 +787,23 @@ function CollaborativeWikiEditor({
   function insertFigureFiles(files: File[], position: number, targetId = "") {
     return figureHandlers.insertFigureFiles(files, position, targetId);
   }
+  function importHtmlImages(view: EditorView, sources: string[], position: number) {
+    void importPastedImages({ view, sources, position, upload: (files, at) => insertFigureFiles(files, at), onSkipped: (count) => toast.info(t("editor.paste.imagesDropped", { count })) });
+  }
+  // External HTML with images is inserted like a paste so its images are imported;
+  // anything else keeps ProseMirror's own drop handling.
+  function dropHtmlWithImages(view: EditorView, event: DragEvent) {
+    const html = event.dataTransfer?.getData("text/html") ?? "";
+    if (!html || html.length > MAX_PASTE_CHARACTERS) return false;
+    const { html: sanitized, imageSources } = sanitizePastedHtml(html);
+    if (!imageSources.length) return false;
+    const position = view.posAtCoords({ left: event.clientX, top: event.clientY })?.pos ?? view.state.selection.from;
+    event.preventDefault();
+    const transaction = view.state.tr.replaceRange(position, position, parseSanitizedHtml(view, sanitized));
+    view.dispatch(transaction.scrollIntoView());
+    importHtmlImages(view, imageSources, transaction.mapping.map(position, 1));
+    return true;
+  }
   async function submitComment() {
     if (!pendingAnchor || !commentBody.trim() || commentSubmittingRef.current) return;
     commentSubmittingRef.current = true; setCommentSubmitting(true);
@@ -850,8 +871,8 @@ function CollaborativeWikiEditor({
   return <FigureLibraryContext.Provider value={{ ...figureLibrary, editArtwork: (nodeId) => void editFigureArtwork(nodeId), replace: (nodeId) => { rememberToolbarSelection(); setFigureSourceMode(false); setFigureTargetId(nodeId); setInlineImagePickerOpen(true); }, editSource: (nodeId) => { rememberToolbarSelection(); setFigureSourceMode(true); setFigureTargetId(nodeId); setInlineImagePickerOpen(true); } }}><div className="relative flex flex-col gap-3"><DocumentPresentationLinks editor={activeEditor} pageId={pageId} slug={pageSlug} flush={() => flushSaveRef.current()} /><div data-testid="document-toolbar" className="sticky top-0 z-40 flex flex-wrap items-center gap-1 border-b border-border/60 bg-background/95 py-2 backdrop-blur">
     <ToolbarButton title={t("commandSearch.title")} shortcut="⇧ ⇧" onClick={() => { rememberToolbarSelection(); setCommandSearchCommands(buildEditorCommands()); setCommandSearchOpen(true); }}><Search className="size-4" /></ToolbarButton>
     <ToolbarGroup label={t("editor.toolbar.groups.history")}>
-      <ToolbarButton title={t("editor.toolbar.undo")} shortcut={shortcutLabel("undo")} onClick={() => activeEditor.chain().focus().undo().run()}><Undo2 className="size-4" /></ToolbarButton>
-      <ToolbarButton title={t("editor.toolbar.redo")} shortcut={shortcutLabel("redo")} onClick={() => activeEditor.chain().focus().redo().run()}><Redo2 className="size-4" /></ToolbarButton>
+      <ToolbarButton title={t("editor.toolbar.undo")} shortcut={shortcutLabel("undo")} disabled={!canUndo} onClick={() => activeEditor.chain().focus().undo().run()}><Undo2 className="size-4" /></ToolbarButton>
+      <ToolbarButton title={t("editor.toolbar.redo")} shortcut={shortcutLabel("redo")} disabled={!canRedo} onClick={() => activeEditor.chain().focus().redo().run()}><Redo2 className="size-4" /></ToolbarButton>
     </ToolbarGroup>
     <ToolbarGroup label={t("editor.toolbar.groups.writing")}>
       <ToolbarMenu label={t("workspace.textStyle")} icon={<Pilcrow className="size-4" />} onPointerDown={rememberToolbarSelection}>
