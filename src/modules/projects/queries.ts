@@ -3,6 +3,7 @@ import { assignedTo, unassignedTask, taskAssigneeFields } from "./assignees";
 import { and, asc, desc, eq, gte, isNull, lte, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/db";
 import {
+  bugReportProject,
   bugReports,
   projectColumns,
   projects,
@@ -98,11 +99,15 @@ export function getBoard(projectId: string) {
 export type PortfolioSchedule = ReturnType<typeof getPortfolioSchedule>;
 export type PortfolioTask = PortfolioSchedule["tasks"][number];
 
+// The system Bugs project is a triage inbox, not scheduled work: keep it
+// out of the portfolio/Gantt view while leaving it reachable elsewhere.
+const notBugReportProject = sql`${projects.id} NOT IN (SELECT ${bugReportProject.projectId} FROM ${bugReportProject})`;
+
 export function getPortfolioSchedule() {
   const projectRows = db
     .select()
     .from(projects)
-    .where(eq(projects.status, "active"))
+    .where(and(eq(projects.status, "active"), notBugReportProject))
     .orderBy(asc(projects.sortOrder), asc(projects.createdAt), asc(projects.id))
     .all();
 
@@ -130,7 +135,7 @@ export function getPortfolioSchedule() {
     .from(tasks)
     .innerJoin(projects, eq(tasks.projectId, projects.id))
     .innerJoin(projectColumns, eq(tasks.columnId, projectColumns.id))
-    .where(eq(projects.status, "active"))
+    .where(and(eq(projects.status, "active"), notBugReportProject))
     .orderBy(
       asc(tasks.projectId),
       asc(tasks.sortOrder),

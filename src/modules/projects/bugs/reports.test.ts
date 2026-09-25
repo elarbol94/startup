@@ -28,6 +28,7 @@ import { getBugReportContext, getBugReportDetails, submitBugReport } from "./act
 import { saveBugScreenshot } from "./uploads";
 import { exportBugReports, markBugReports } from "./agent-triage";
 import { requireUserOrThrow } from "@/lib/auth";
+import { getPortfolioSchedule, getProject } from "../queries";
 
 const input = () => ({ submissionId: randomUUID(), title: "Broken save", happened: "Button does nothing", steps: "Click save", expected: "Saved", pagePath: "/projects/p?secret=test#section", browser: "Test browser", locale: "en" as const });
 const png = () => new File([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS6UAAAAASUVORK5CYII=", "base64")], "screen.png", { type: "image/png" });
@@ -50,6 +51,14 @@ describe("bug reporting", () => {
     expect(task).toMatchObject({ title: "Broken save", createdBy: "reporter", assigneeId: null, priority: "medium", status: "open" });
     expect(task.description).toContain("Expected behavior\nSaved");
     expect(await getBugReportDetails(task.id)).toMatchObject({ pagePath: "/projects/p", browser: "Test browser", reporter: "Reporter" });
+  });
+  it("hides the Bugs project and its tasks from the portfolio schedule only", async () => {
+    const report = await create();
+    const other = db.insert(projects).values({ name: "Regular", createdBy: "reporter" }).returning().get();
+    const schedule = getPortfolioSchedule();
+    expect(schedule.projects.map(project => project.id)).toEqual([other.id]);
+    expect(schedule.tasks.some(task => task.projectId === report.projectId)).toBe(false);
+    expect(getProject(report.projectId)).toBeTruthy();
   });
   it("retries return the same task even after renaming or archiving the project", async () => {
     const data = input(); const first = await submitBugReport(data); if ("error" in first) throw new Error();
