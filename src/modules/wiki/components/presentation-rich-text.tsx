@@ -4,8 +4,9 @@ import { ySyncPluginKey } from "@tiptap/y-tiptap";
 
 import { editorLinkDOMEvents } from "../lib/editor-links";
 
-import { useEffect, useRef } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { useEffect, useLayoutEffect, useRef } from "react";
+import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { TextSelection } from "@tiptap/pm/state";
 import Collaboration from "@tiptap/extension-collaboration";
 import { useCollaborationContext } from "../collaboration/ui";
 import { richExtensions, toDoc, fromDoc, type Content } from "../collaboration/rich-text";
@@ -14,14 +15,20 @@ import { Button } from "@/components/ui/button";
 import { presentationLinkSchema } from "../lib/presentation";
 
 
-export function PresentationRichText({ content, onChange, disabled, elementId, inline = false, autoFocus = inline, label }: { label?: string; autoFocus?: boolean; inline?: boolean; elementId: string; content: Content; onChange: (content: Content) => void; disabled?: boolean }) {
+/**
+ * `inline` is the on-canvas editor. It is only mounted on the client, in response to the
+ * author entering edit mode, so it renders its editor immediately and takes focus with
+ * the whole text selected in the same commit: keys typed right after Enter or a
+ * double-click must land in the text, not on the canvas.
+ */
+export function PresentationRichText({ content, onChange, disabled, elementId, inline = false, autoFocus = inline, label, onReady }: { label?: string; autoFocus?: boolean; inline?: boolean; elementId: string; content: Content; onChange: (content: Content) => void; disabled?: boolean; onReady?: (editor: Editor) => void }) {
   const collaboration = useCollaborationContext();
   const t = useTranslations("presentationStudio");
   const current = useRef({ content, onChange });
   useEffect(() => { current.current = { content, onChange }; });
   const editor = useEditor({
-    immediatelyRender: false,
-    autofocus: autoFocus ? "all" : false,
+    immediatelyRender: inline,
+    autofocus: autoFocus && !inline ? "all" : false,
     extensions: [...richExtensions(), ...(collaboration ? [Collaboration.configure({ document: collaboration.doc, field: `rich:${elementId}` })] : [])],
     content: collaboration ? undefined : toDoc(content), editable: !disabled,
     editorProps: {
@@ -35,6 +42,17 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
       }
     },
   });
+  const ready = useRef(onReady);
+  useLayoutEffect(() => { ready.current = onReady; });
+  useLayoutEffect(() => {
+    if (!inline || !editor || editor.isDestroyed) return;
+    if (autoFocus) {
+      const { doc } = editor.state;
+      editor.view.dispatch(editor.state.tr.setSelection(TextSelection.create(doc, TextSelection.atStart(doc).from, TextSelection.atEnd(doc).to)));
+      editor.view.focus();
+    }
+    ready.current?.(editor);
+  }, [inline, editor, autoFocus]);
   // Access changes are not content edits and must not add autosaves or undo steps.
   useEffect(() => { editor?.setEditable(!disabled, false); }, [editor, disabled]);
   useEffect(() => {
@@ -44,7 +62,7 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
       if (JSON.stringify(editor.getJSON()) !== JSON.stringify(next)) editor.commands.setContent(next, { emitUpdate: false });
     }
   }, [content, editor, collaboration]);
-  return <div className="space-y-2">
+  return <div className={inline ? "h-full" : "space-y-2"}>
     {!inline && <div className="flex flex-wrap gap-1">
       {(["bold", "italic", "underline"] as const).map((mark) => <Button key={mark} type="button" size="sm" variant="outline" disabled={disabled} onClick={() => editor?.chain().focus().toggleMark(mark).run()}>{t(mark)}</Button>)}
       <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => {

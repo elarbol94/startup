@@ -14,7 +14,7 @@ import { frameInsertionEdit } from "./use-presentation-frames";
 
 export function usePresentationSelectionCommands({
   selection, selected, selectedIds, selectedRoots, canMutate, elements, steps, disabled, contextPosition, reactFlow, viewportCenter,
-  presentation, dispatch, setSelectedIds, deleteSelection, latest, canvasRef, t,
+  presentation, dispatch, setSelectedIds, deleteSelection, latest, startTextEditing, t,
 }: {
   selection: PresentationElement[];
   selected: PresentationElement | null;
@@ -32,7 +32,7 @@ export function usePresentationSelectionCommands({
   setSelectedIds: Dispatch<SetStateAction<string[]>>;
   deleteSelection: (ids: string[]) => void;
   latest: RefObject<{ canvas: PresentationCanvasState; readOnly: boolean }>;
-  canvasRef: RefObject<HTMLDivElement | null>;
+  startTextEditing: (id: string) => void;
   t: ReturnType<typeof useTranslations<"wiki">>;
 }) {
   const copySelection = useCallback(async (cut = false) => {
@@ -99,8 +99,8 @@ export function usePresentationSelectionCommands({
   }, [canMutate, selectedRoots, steps, elements, dispatch, t, setSelectedIds]);
   const editText = useCallback(() => {
     if (selected?.type !== "text" || !canMutate) return;
-    canvasRef.current?.querySelector<HTMLElement>(`[data-presentation-text="${window.CSS.escape(selected.id)}"]`)?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-  }, [selected, canMutate, canvasRef]);
+    startTextEditing(selected.id);
+  }, [selected, canMutate, startTextEditing]);
   const setSelectionLocked = useCallback((locked: boolean) => {
     dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => selectedIds.includes(e.id) ? { ...e, locked } : e) });
   }, [dispatch, selectedIds]);

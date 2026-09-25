@@ -21,13 +21,17 @@ export function usePresentationInsertion({ addElement, viewportCenter, t, studio
   uploading: boolean;
   setUploading: Dispatch<SetStateAction<boolean>>;
 }) {
-  const addText = useCallback(() => {
-    const { x, y } = viewportCenter();
-    addElement({
-      id: createId(), type: "text", x: x - 160, y: y - 30, width: 320, height: 60, rotation: 0,
-      content: { text: t("presentations.newTextPlaceholder"), fontSize: 32, bold: false, color: "", align: "left" },
-    });
-  }, [addElement, t, viewportCenter]);
+  const newText = useCallback(({ x, y }: { x: number; y: number }): PresentationElement => ({
+    id: createId(), type: "text", x: x - 160, y: y - 30, width: 320, height: 60, rotation: 0,
+    content: { text: t("presentations.newTextPlaceholder"), fontSize: 32, bold: false, color: "", align: "left" },
+  }), [t]);
+  const addText = useCallback(() => addElement(newText(viewportCenter())), [addElement, newText, viewportCenter]);
+  /** Adds a text centred on a canvas point right away (no placement step) and returns its id. */
+  const addTextAt = useCallback((point: { x: number; y: number }) => {
+    const element = newText(point);
+    addElement(element, false);
+    return element.id;
+  }, [addElement, newText]);
 
   const addFrame = useCallback(() => {
     const { x, y } = viewportCenter();
@@ -106,5 +110,5 @@ export function usePresentationInsertion({ addElement, viewportCenter, t, studio
     [addElement, presentation.id, t, viewportCenter, setUploading],
   );
 
-  return { addText, addFrame, addShape, addStudioElement, uploadMedia, uploadImage };
+  return { addText, addTextAt, addFrame, addShape, addStudioElement, uploadMedia, uploadImage };
 }

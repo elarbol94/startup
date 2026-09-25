@@ -70,6 +70,7 @@ import { usePresentationSelectionEdits } from "./presentation-editor/use-present
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
 import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
 import { frameInsertionEdit, usePresentationFrames } from "./presentation-editor/use-presentation-frames";
+import { usePresentationTextEditing } from "./presentation-editor/use-presentation-text-editing";
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
@@ -278,14 +279,15 @@ function Editor({
   }, [dispatch, reactFlow]);
   const collaboratorPresence = collaboration?.people;
   const { dropTargetId, trackDrag, clearPlacement, reveal, openedWithElements } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
+  const textEditing = usePresentationTextEditing();
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
-      onRichTextChange, onEndpointChange, onResizeChange,
+      onRichTextChange, onEndpointChange, onResizeChange, editingId: textEditing.editingId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
       onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange, dropTargetId],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange, dropTargetId, textEditing.editingId, textEditing.onEditingChange, textEditing.onEditorReady],
   );
 
   /**
@@ -392,6 +394,7 @@ function Editor({
     const centred = { ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }, placed = keyboard ? clearPlacement(centred) : centred;
     addElement(placed, false); if (keyboard) reveal(placed);
     setPendingElement(null); canvasRef.current?.focus();
+    textEditing.onPlaced(pendingElement, elements.length < 500);
   };
 
   const arrangementRoots = layoutRoots(elements, selectedSet);
@@ -419,7 +422,7 @@ function Editor({
     elements, dispatch, disabled, t, commitElements, selection, formatClipboard, setFormatClipboard, setSelectedIds,
   });
 
-  const { addText, addFrame, addShape, addStudioElement, uploadMedia, uploadImage } = usePresentationInsertion({
+  const { addText, addTextAt, addFrame, addShape, addStudioElement, uploadMedia, uploadImage } = usePresentationInsertion({
     addElement, viewportCenter, t, studio, presentation, disabled, uploading, setUploading,
   });
 
@@ -654,7 +657,7 @@ function Editor({
   const executeCommand = (id: string) => { const command = commands.find(c => c.id === id); if (command && !command.disabledReason) command.execute(); };
   const { copySelection, pasteSelection, groupSelection, ungroupSelection, editText, setSelectionLocked } = usePresentationSelectionCommands({
     selection, selected, selectedIds, selectedRoots, canMutate, elements, steps, disabled, contextPosition, reactFlow, viewportCenter,
-    presentation, dispatch, setSelectedIds, deleteSelection, latest, canvasRef, t,
+    presentation, dispatch, setSelectedIds, deleteSelection, latest, startTextEditing: textEditing.startEditing, t,
   });
   const commands: EditorSearchCommand[] = [
     ...baseCommands,
@@ -689,6 +692,7 @@ function Editor({
     const typing = Boolean(target.closest("input, textarea, select, [contenteditable=true]"));
     const mod = event.ctrlKey || event.metaKey, key = event.key.toLowerCase();
     if (mod && key === "s") { event.preventDefault(); executeCommand("save"); return; }
+    if (!typing && textEditing.captureKey(event)) return;
     if (typing || target.closest("button, a") || commandsOpen || shortcutHelp) return;
     if (pendingElement && (key === "escape" || key === "enter")) { event.preventDefault(); if (key === "escape") setPendingElement(null); else placePending(viewportCenter(), true); return; }
     let id: string | undefined;
@@ -873,6 +877,7 @@ function Editor({
             const target = event.target as HTMLElement;
             if (!disabled && (event.ctrlKey || event.metaKey || (isMac && event.altKey)) && target.closest(".react-flow__node") && !target.closest("input, textarea, [contenteditable=true], button, .nodrag")) { event.preventDefault(); event.stopPropagation(); }
           }}
+          onDoubleClick={event => { if (!pendingElement && !disabled && elements.length < 500) textEditing.onCanvasDoubleClick(event, () => addTextAt(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))); }}
           onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const group = presentationAncestors(elements, node.dataset.id).findLast(e => e.type === "frame" && e.content.isGroup); const id = group?.id ?? node.dataset.id; if (!selectedIds.includes(id)) setSelectedIds([id]); } else setSelectedIds([]); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
           {contextPosition && <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} position={contextPosition} onClose={() => { setContextPosition(null); canvasRef.current?.focus(); }} />}
           <div className="absolute right-3 bottom-3 z-10 rounded-lg border bg-background shadow-sm">        <Button type="button" variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION })}>
