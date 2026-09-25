@@ -47,15 +47,22 @@ export function touchTabHistory(history: readonly string[], id: string): string[
   return [id, ...history.filter(entry => entry !== id)].slice(0, MAX_WORKSPACE_TABS + 1);
 }
 
-/** The last-used open tab other than the active one (like Alt+Tab), or null. */
-export function previousTab(history: readonly string[], openIds: readonly string[], active: string): string | null {
+/** Open tabs in most-recently-used order; tabs never visited keep their strip order at the end. */
+export function tabCycleOrder(history: readonly string[], openIds: readonly string[]): string[] {
   const open = new Set(openIds);
-  return history.find(id => id !== active && open.has(id)) ?? openIds.find(id => id !== active) ?? null;
+  const used = history.filter(id => open.has(id));
+  return [...used, ...openIds.filter(id => !used.includes(id))];
 }
 
-/** Alt+Q switches tabs; `code` is layout-independent (macOS Option+Q types "œ"). */
-export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "code" | "repeat">): boolean {
-  return event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.repeat && event.code === "KeyQ";
+/** Next tab while cycling like Firefox's Ctrl+Tab: `step` presses from the start, negative walks back. */
+export function cycleTarget(order: readonly string[], step: number): string | null {
+  if (order.length < 2) return null;
+  return order[((step % order.length) + order.length) % order.length];
+}
+
+/** Alt+Q cycles tabs (Shift reverses); `code` is layout-independent (macOS Option+Q types "œ"). */
+export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "code">): boolean {
+  return event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyQ";
 }
 
 /** Shortcuts must not fire while the user is typing. */

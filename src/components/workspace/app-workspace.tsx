@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { moduleNav } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
-import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, previousTab, isTabSwitchShortcut, isEditableTarget } from "./model";
+import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget } from "./model";
 
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
@@ -122,29 +122,56 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     return () => window.removeEventListener("message", receive);
   }, [embedded]);
 
-  // Alt+Q toggles to the last-used tab. Panes are iframes, so they forward the key.
+  // Alt+Q cycles tabs like Firefox's Ctrl+Tab: hold Alt and press Q repeatedly to reach
+  // older tabs (Shift+Q goes back); releasing Alt settles the order. Panes are iframes,
+  // so they forward the keys to the workspace.
   const history = useRef<string[]>([]);
-  useEffect(() => { history.current = touchTabHistory(history.current, active); }, [active]);
-  const switchTab = useRef(() => {});
+  const cycle = useRef<{ order: string[]; step: number } | null>(null);
+  useEffect(() => { if (!cycle.current) history.current = touchTabHistory(history.current, active); }, [active]);
+  const switchTab = useRef<(back: boolean) => void>(() => {});
+  const endCycle = useRef(() => {});
   useEffect(() => {
-    switchTab.current = () => {
-      const target = previousTab(history.current, ["primary", ...tabs.map(tab => tab.id)], active);
+    switchTab.current = back => {
+      cycle.current ??= { order: tabCycleOrder(history.current, ["primary", ...tabs.map(tab => tab.id)]), step: 0 };
+      cycle.current.step += back ? -1 : 1;
+      const target = cycleTarget(cycle.current.order, cycle.current.step);
       if (target) choose(target);
+    };
+    endCycle.current = () => {
+      if (!cycle.current) return;
+      cycle.current = null;
+      history.current = touchTabHistory(history.current, active);
     };
   });
   useEffect(() => {
+    const send = (type: string, back = false) => window.parent.postMessage({ type, back }, window.location.origin);
     const onKey = (event: KeyboardEvent) => {
       if (!isTabSwitchShortcut(event) || isEditableTarget(event.target)) return;
       event.preventDefault();
-      if (embedded) window.parent.postMessage({ type: "app-workspace-switch" }, window.location.origin);
-      else switchTab.current();
+      if (embedded) send("app-workspace-switch", event.shiftKey);
+      else switchTab.current(event.shiftKey);
     };
+    const onRelease = (event: KeyboardEvent) => {
+      if (event.key !== "Alt") return;
+      if (embedded) send("app-workspace-switch-end");
+      else endCycle.current();
+    };
+    const settle = () => { if (embedded) send("app-workspace-switch-end"); else endCycle.current(); };
     const receive = (event: MessageEvent) => {
-      if (event.origin === window.location.origin && event.data?.type === "app-workspace-switch" && [...frames.current.values()].some(frame => frame.contentWindow === event.source)) switchTab.current();
+      if (event.origin !== window.location.origin || ![...frames.current.values()].some(frame => frame.contentWindow === event.source)) return;
+      if (event.data?.type === "app-workspace-switch") switchTab.current(event.data.back === true);
+      else if (event.data?.type === "app-workspace-switch-end") endCycle.current();
     };
     window.addEventListener("keydown", onKey, true);
+    window.addEventListener("keyup", onRelease, true);
+    window.addEventListener("pointerdown", settle, true);
     if (!embedded) window.addEventListener("message", receive);
-    return () => { window.removeEventListener("keydown", onKey, true); window.removeEventListener("message", receive); };
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      window.removeEventListener("keyup", onRelease, true);
+      window.removeEventListener("pointerdown", settle, true);
+      window.removeEventListener("message", receive);
+    };
   }, [embedded]);
 
   useEffect(() => {
@@ -212,7 +239,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     <main data-app-main className={cn("rail-content-transition min-w-0 flex-1 duration-[220ms] motion-reduce:transition-none", !embedded && "md:pl-[var(--app-rail-width,3.5rem)]")}>
       <div ref={surface} className="min-w-0" data-workspace-root>
         {!embedded && <div className="sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2" data-workspace-toolbar>
-          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts="Alt+Q" title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
+          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts="Alt+Q Alt+Shift+Q" title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
             const index = items.indexOf(document.activeElement as HTMLButtonElement);

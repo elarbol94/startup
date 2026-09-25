@@ -23,7 +23,7 @@
   },
   "appWorkspace": {
     "tabs": "Geöffnete Tabs",
-    "switchShortcut": "Alt+Q wechselt zum zuletzt verwendeten Tab",
+    "switchShortcut": "Alt gedrückt halten und Q drücken, um durch die zuletzt verwendeten Tabs zu wechseln (Umschalt+Q zurück)",
     "current": "Aktuelle Seite",
     "newTab": "Neuer Tab",
     "closeTab": "{title} schließen",
