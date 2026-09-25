@@ -67,7 +67,7 @@ test("three accounts edit one document live, reconnect and preserve formatting",
     await editors[0].press("End"); await editors[0].pressSequentially(" online-change");
     await contexts[0].setOffline(false);
     for (const editor of editors) { await expect(editor).toContainText("offline-change"); await expect(editor).toContainText("online-change"); }
-    await expect(peers[1].getByTestId("collaboration-status")).toContainText("Gespeichert");
+    await expect(peers[1].getByTestId("document-save-status")).toContainText("Gespeichert");
     await peers[1].reload(); await expect(peers[1].locator(".ProseMirror").first()).toContainText("offline-change");
     const extraTab = await peers[0].context().newPage();
     await extraTab.goto(`/wiki/pages/${pageId}`);
@@ -131,14 +131,14 @@ test("live sessions stop on permission removal, session expiry and item deletion
     await peers[1].reload();
     await expect(peers[1].getByRole("button", { name: "Text", exact: true })).toBeDisabled();
     await peers[2].goto(`/wiki/pages/${pageId}`);
-    await expect(peers[2].getByTestId("collaboration-status")).toContainText("Gespeichert");
+    await expect(peers[2].getByTestId("document-save-status")).toContainText("Gespeichert");
     sqlite.prepare('UPDATE session SET expiresAt = 1 WHERE id = ?').run(sessions[2].session.id);
-    await expect(peers[2].getByTestId("collaboration-status")).toContainText(/zugriff/i);
+    await expect(peers[2].getByTestId("document-save-status")).toContainText(/zugriff/i);
     expect((await peers[2].request.post(`/api/wiki/collaboration/page/${pageId}`, { data: { client: randomUUID() } })).status()).toBeGreaterThanOrEqual(401);
     await page.goto(`/wiki/pages/${pageId}`);
-    await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+    await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert");
     sqlite.prepare("UPDATE wiki_pages SET deleted_at = ? WHERE id = ?").run(Date.now(), pageId);
-    await expect(page.getByTestId("collaboration-status")).toContainText(/zugriff/i);
+    await expect(page.getByTestId("document-save-status")).toContainText(/zugriff/i);
     expect((await page.request.get(`/api/wiki/collaboration/page/${pageId}`)).status()).toBe(403);
   } finally { sqlite.close(); await Promise.all(contexts.map(context => context.close())); }
 });

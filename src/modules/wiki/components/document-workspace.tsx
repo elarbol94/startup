@@ -1,18 +1,19 @@
 "use client";
 
 import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import type { CollaborationClient } from "../collaboration/provider";
 
 export type DocumentTool = "outline" | "comments" | "layout" | "details" | "image" | null;
-export type DocumentSaveState = "idle" | "unsaved" | "saving" | "saved" | "offline" | "error" | "conflict";
 const DocumentWorkspace = createContext<{
   panel: DocumentTool; setPanel: Dispatch<SetStateAction<DocumentTool>>;
-  saveState: DocumentSaveState; setSaveState: Dispatch<SetStateAction<DocumentSaveState>>;
+  /** The page's live collaboration transport: the one source of its save status. */
+  collaboration: CollaborationClient | null; setCollaboration: Dispatch<SetStateAction<CollaborationClient | null>>;
 } | null>(null);
 
 export function DocumentWorkspaceProvider({ children }: { children: ReactNode }) {
   const [panel, setPanel] = useState<DocumentTool>(null);
-  const [saveState, setSaveState] = useState<DocumentSaveState>("idle");
-  return <DocumentWorkspace.Provider value={{ panel, setPanel, saveState, setSaveState }}>{children}</DocumentWorkspace.Provider>;
+  const [collaboration, setCollaboration] = useState<CollaborationClient | null>(null);
+  return <DocumentWorkspace.Provider value={{ panel, setPanel, collaboration, setCollaboration }}>{children}</DocumentWorkspace.Provider>;
 }
 
 export function useDocumentWorkspace() {

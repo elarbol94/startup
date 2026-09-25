@@ -105,6 +105,7 @@ import { useWritingStats } from "./wiki-editor/use-writing-stats";
 import { useHistoryAvailability } from "./wiki-editor/use-history-availability";
 import { PendingLinkRange } from "./wiki-editor/link-selection";
 import { importPastedImages, parseSanitizedHtml } from "./wiki-editor/pasted-html-images";
+import { usePublishCollaboration } from "./wiki-editor/use-save-status";
 
 export type { WikiEditorHandle } from "./wiki-editor/wiki-editor-types";
 
@@ -114,9 +115,10 @@ const CONTENT_SYNC_DELAY = 200;
 
 export function WikiEditor(props: WikiEditorProps) {
   const collaboration = useCollaboration("page", props.pageId);
+  usePublishCollaboration(collaboration);
   const layout = collaboration.doc.getMap("layout").toJSON();
   return <CollaborationContext.Provider value={collaboration}>
-    <CollaborationStatus provider={collaboration} />
+    <CollaborationStatus provider={collaboration} showStatus={false} />
     {collaboration.ready && <CollaborativeWikiEditor {...props} initialContent={JSON.stringify(documentJSON(collaboration.doc))} initialDocumentMode={layout.documentMode} initialDocumentSettings={JSON.stringify(layout.settings)} />}
   </CollaborationContext.Provider>;
 }
@@ -156,8 +158,7 @@ function CollaborativeWikiEditor({
   const collaboration = useCollaborationContext()!;
   const tCollaboration = useTranslations("collaboration");
   const t = useTranslations("wiki"); const tTasks = useTranslations("tasks"); const tDeadlines = useTranslations("deadlines"); const format = useFormatter(); const router = useRouter(); const searchParams = useSearchParams(); const externalSearchQuery = searchParams.get("search")?.trim() ?? ""; const { openTaskCreator } = useTaskCreator(); const { openDeadlineCreator } = useDeadlineCreator(); const [saveState, setSaveState] = useState<"idle" | "unsaved" | "saving" | "saved" | "offline" | "error" | "conflict">("idle");
-  const { panel, setPanel, setSaveState: reportSaveState } = useDocumentWorkspace();
-  useEffect(() => { reportSaveState(saveState); }, [saveState, reportSaveState]);
+  const { panel, setPanel } = useDocumentWorkspace();
   function togglePanel(name: "comments" | "outline" | "layout", value: SetStateAction<boolean>) {
     setPanel((current) => (typeof value === "function" ? value(current === name) : value) ? name : current === name ? null : current);
   }

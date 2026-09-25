@@ -49,12 +49,12 @@ test("durable updates replay after a server crash and recover edits made during 
     await page.goto(`/wiki/pages/${id}`);
     const editor = page.locator(".ProseMirror").first(); await expect(editor).toHaveAttribute("contenteditable", "true");
     await editor.fill("Accepted before crash");
-    await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+    await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert");
     await crash();
     await editor.press("Control+End"); await page.keyboard.insertText(" plus downtime edit");
-    await expect(page.getByTestId("collaboration-status")).not.toContainText("Gespeichert");
+    await expect(page.getByTestId("document-save-status")).not.toContainText("Gespeichert");
     await start();
-    await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert", { timeout: 30_000 });
+    await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert", { timeout: 30_000 });
     const joined = await context.newPage(); await joined.goto(`/wiki/pages/${id}`);
     await expectRecoveredText(joined.locator(".ProseMirror").first());
     await page.reload(); await expectRecoveredText(editor);

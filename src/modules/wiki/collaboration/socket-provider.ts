@@ -24,6 +24,11 @@ type SocketConfig = { url: string; user: { id: string; name: string } };
  *   with its own.
  * - Save failures (e.g. an oversized paste) are reported but never lock the
  *   editor; the next successful store clears them. Only lost access does.
+ * - Listeners are notified asynchronously and only when something they can
+ *   show changed. Most notifications start inside a Yjs transaction (a
+ *   keystroke, a remote update); calling React or ProseMirror synchronously
+ *   from there re-entered the editor and could loop until React gave up
+ *   ("Maximum update depth exceeded"), which aborted the socket handlers.
  */
 export class SocketCollaborationProvider implements CollaborationClient {
   readonly doc = new Y.Doc();
@@ -34,12 +39,15 @@ export class SocketCollaborationProvider implements CollaborationClient {
   people: Presence[] = [];
   user = { id: "", name: "" };
   errorReason: string | null = null;
+  /** When the server last confirmed a successful store (ms since epoch). */
+  savedAt: number | null = null;
 
   private listeners = new Set<() => void>();
   private provider?: HocuspocusProvider;
   private socket?: HocuspocusProviderWebsocket;
   private local?: IndexeddbPersistence;
   private connected = false;
+  private synced = false;
   private denied = false;
   private storedVector: Map<number, number> | null = null;
   private waiters = new Map<string, (message: Extract<SocketMessage, { type: "flushed" }>) => void>();
@@ -55,7 +63,20 @@ export class SocketCollaborationProvider implements CollaborationClient {
   }
 
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
-  private emit() { this.listeners.forEach(listener => listener()); }
+  private emitScheduled = false;
+  private emitted = "";
+  /** Coalesces notifications into one microtask, after the current transaction. */
+  private emit() {
+    if (this.emitScheduled) return;
+    this.emitScheduled = true;
+    queueMicrotask(() => {
+      this.emitScheduled = false;
+      const snapshot = JSON.stringify([this.status, this.ready, this.errorReason, this.savedAt, this.recoveryAvailable, this.people]);
+      if (snapshot === this.emitted) return;
+      this.emitted = snapshot;
+      this.listeners.forEach(listener => listener());
+    });
+  }
 
   /** True while this tab shows changes the server has not stored yet. */
   private get dirty() {
@@ -68,13 +89,14 @@ export class SocketCollaborationProvider implements CollaborationClient {
   }
 
   private refresh() {
-    const previous = this.status;
     if (this.denied) this.status = "denied";
     else if (!this.ready) this.status = "connecting";
     else if (!this.connected || (typeof navigator !== "undefined" && !navigator.onLine)) this.status = "reconnecting";
     else if (this.errorReason) this.status = "error";
-    else this.status = this.dirty ? "saving" : "saved";
-    if (previous !== this.status || this.status === "saving") this.emit();
+    // "saved" needs a synced connection: right after a reconnect the stored
+    // vector from before the drop may be stale.
+    else this.status = this.dirty || !this.synced ? "saving" : "saved";
+    this.emit();
   }
 
   private presence = "";
@@ -102,7 +124,7 @@ export class SocketCollaborationProvider implements CollaborationClient {
     try { message = JSON.parse(payload); } catch { return; }
     if (message.type === "stored" || message.type === "flushed") {
       if (message.vector) this.storedVector = Y.decodeStateVector(decode(message.vector));
-      if (message.type === "stored" || message.ok) this.errorReason = null;
+      if (message.type === "stored" || message.ok) { this.errorReason = null; this.savedAt = Date.now(); }
       else this.errorReason = message.reason ?? "failed";
       if (message.type === "flushed") this.waiters.get(message.nonce)?.(message);
       if (!this.dirty) this.forgetLegacyJournal();
@@ -155,9 +177,10 @@ export class SocketCollaborationProvider implements CollaborationClient {
       name: documentName(this.kind, this.id),
       document: this.doc,
       token: "session", // identity comes from the session cookie on the handshake
-      onStatus: ({ status }) => { this.connected = status === "connected"; this.refresh(); },
+      onStatus: ({ status }) => { this.connected = status === "connected"; if (!this.connected) this.synced = false; this.refresh(); },
       onSynced: () => {
         this.ready = true;
+        this.synced = true;
         clearTimeout(this.offlineTimer);
         this.refresh();
       },
@@ -217,6 +240,7 @@ export class SocketCollaborationProvider implements CollaborationClient {
     this.socket = undefined;
     this.local = undefined;
     this.connected = false;
+    this.synced = false;
     for (const [nonce, resolve] of this.waiters) resolve({ type: "flushed", nonce, ok: false, vector: "" });
   }
 

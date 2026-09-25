@@ -17,6 +17,8 @@ export interface CollaborationClient {
   user: { id: string; name: string };
   /** Why the last save failed, when the transport can tell (e.g. "tooLarge"). */
   errorReason?: string | null;
+  /** When the server last confirmed a successful store, if the transport knows. */
+  savedAt?: number | null;
   subscribe(listener: () => void): () => void;
   setPresence(presence: Pick<Presence, "cursor" | "selectedIds">): void;
   start(): Promise<void>;

@@ -50,7 +50,7 @@ async function trackedNote(page: Page) {
   const editor = await createNote(page);
   return { editor, id: pageIdForSlug(new URL(page.url()).pathname.split("/").at(-1)!) };
 }
-const saved = (page: Page) => expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+const saved = (page: Page) => expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
 function storedContent(id: string) {
   const sqlite = new Database(path.resolve("data/e2e.db"));
   try { return (sqlite.prepare("SELECT content_json FROM wiki_pages WHERE id = ?").get(id) as { content_json: string }).content_json; }
@@ -67,7 +67,7 @@ test("edits made offline survive closing the tab and are stored after reconnecti
   await page.keyboard.insertText(" and offline words");
   await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
   await page.getByTestId("document-mode-toggle").click();
-  await expect(page.getByTestId("collaboration-status")).toContainText("Verbindung wird wiederhergestellt");
+  await expect(page.getByTestId("document-save-status")).toContainText("Offline");
   const url = page.url();
   await page.close();
   await page.context().setOffline(false);
@@ -94,7 +94,7 @@ test("a save the server refuses reports why, keeps editing possible and recovers
   await expect(page.getByText("Der eingefügte Inhalt ist zu groß für eine Seite.")).toBeVisible();
   // Several allowed pastes can still grow the page beyond what can be stored.
   for (let index = 0; index < 3; index++) await paste("y".repeat(900_000));
-  await expect(page.getByTestId("collaboration-status")).toContainText("zu groß zum Speichern", { timeout: 30_000 });
+  await expect(page.getByTestId("document-save-status")).toContainText("zu groß zum Speichern", { timeout: 30_000 });
   await expect(editor).toHaveAttribute("contenteditable", "true");
   for (let index = 0; index < 3; index++) await editor.press("Control+z");
   await page.keyboard.insertText(" after undo");
@@ -135,7 +135,7 @@ test("server saving still works when local recovery storage is unavailable", asy
   await login(page);
   const { editor, id } = await trackedNote(page);
   await editor.fill("Save without a local copy");
-  await expect(page.getByTestId("collaboration-status").getByText(/Lokale Wiederherstellung nicht verfügbar/)).toBeVisible();
+  await expect(page.getByRole("alert").filter({ hasText: /lokale Wiederherstellung ist nicht verfügbar/ })).toBeVisible();
   await saved(page);
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Save without a local copy");
@@ -153,7 +153,7 @@ test("applying a template preserves current text by default and uses normal savi
   await panel.getByRole("tab").nth(1).click();
   await expect(panel.getByLabel("Text durch Vorlageninhalt ersetzen")).not.toBeChecked();
   await panel.getByRole("button", { name: "Vorlage anwenden", exact: true }).click();
-  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Keep these current words");
   await expect(editor).toContainText("Keep these current words");
@@ -194,7 +194,7 @@ test("a second editor joins automatically without taking over", async ({ browser
   await login(page);
   const editor = await createNote(page);
   await editor.fill("Shared draft");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert");
   const competingContext = await browser.newContext({ storageState: await page.context().storageState() });
   try {
     const second = await competingContext.newPage(); await second.goto(page.url());
@@ -481,7 +481,7 @@ test("proofing keeps delayed checks useful without applying stale offsets", asyn
     await page.locator(".wiki-spellcheck-issue").click({ button: "right" });
     await page.getByRole("button", { name: "Fehler", exact: true }).click();
     await expect(editor).toHaveText("Ganz neuer TextFehler alt");
-    await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+    await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   } finally { release(); }
 });
 
@@ -528,7 +528,7 @@ test("proofing recovers after service failure, selects languages directly and fi
   await expect(page.getByRole("combobox", { name: "Prüfsprache" })).toBeEnabled();
   await expect(editor).toHaveAttribute("lang", "en-US");
   await page.keyboard.press("Escape");
-  await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.reload();
   await expect(editor).toHaveAttribute("lang", "en-US");
   await page.setViewportSize({ width: 390, height: 700 });
