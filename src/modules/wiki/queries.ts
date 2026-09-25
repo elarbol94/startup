@@ -57,6 +57,18 @@ export function getPageByPreviousSlug(slug: string) {
     .get(`%,${slug},%`) as { id: string; slug: string } | undefined;
 }
 
+/**
+ * A slug is unavailable when another page (including trashed ones, which can be
+ * restored) uses it now, or a live page used it before a rename: handing that old
+ * slug to a new page would silently repoint existing links and bookmarks.
+ */
+export function isPageSlugTaken(slug: string, excludePageId?: string) {
+  const current = db.select({ id: wikiPages.id }).from(wikiPages).where(eq(wikiPages.slug, slug)).get();
+  if (current && current.id !== excludePageId) return true;
+  const previous = getPageByPreviousSlug(slug);
+  return Boolean(previous && previous.id !== excludePageId);
+}
+
 export function getFirstPage() {
   return db
     .select()

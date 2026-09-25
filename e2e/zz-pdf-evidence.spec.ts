@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 
 test.describe.configure({ mode: "serial", timeout: 90_000 });
@@ -186,6 +187,7 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
 
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "PDF Evidence Review");
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
   await editor.focus();
@@ -254,6 +256,7 @@ test("PDF and note focus modes expand their workspaces and persist independently
   await expect(appSidebar).toBeVisible();
   await expect(researchSidebar).toBeVisible();
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "Focused writing");
   const editor = page.locator(".ProseMirror");
   await editor.click();
   await page.keyboard.type("Focused writing remains autosaved");

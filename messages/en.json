@@ -2114,6 +2114,10 @@
     "hideDocumentDetails": "Close document details",
     "pageTitle": "Title",
     "rename": "Rename",
+    "renameFailed": "The title could not be changed.",
+    "newDocumentTitle": "New document",
+    "newDocumentDescription": "Give the document a title. You can change it at any time.",
+    "checkpointLabel": "Name for this version (optional)",
     "deletePage": "Delete page",
     "searchPlaceholder": "Search the wiki…",
     "noResults": "No results",
@@ -2261,7 +2265,6 @@
     "usedIn": "Used in",
     "history": "History",
     "checkpoint": "Save version",
-    "checkpointLabelPrompt": "Optional name for this version:",
     "revisionKinds": {
       "autosave": "Automatic checkpoint",
       "manual": "Saved version",

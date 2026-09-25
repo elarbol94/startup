@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 import * as Y from "yjs";
 import { decode, documentJSON } from "../src/modules/wiki/collaboration/codec";
 
@@ -37,11 +38,12 @@ test("document sections and presentation elements support saved round trips and 
   // Cold document/presentation route compilation can exceed four minutes on shared hosts.
   test.setTimeout(360_000);
   await login(page);
+  const docTitle = `E2E linked document ${Date.now()}`;
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, docTitle);
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/);
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
-  const docTitle = `E2E linked document ${Date.now()}`;
   const initialSave = documentSaved(page, docTitle);
   // Seed through the live editor so its normal save/version/recovery state stays
   // authoritative, just as it does for a paste or an imported document.
@@ -192,6 +194,7 @@ test("collapsed document sections remove hidden media, nested headings and page-
   test.setTimeout(240_000);
   await login(page);
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "Fold this section");
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/);
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
@@ -234,12 +237,13 @@ test("collapsed document sections remove hidden media, nested headings and page-
 test("heading structure changes require approval and preserve playback order through undo and reload", async ({ page }) => {
   test.setTimeout(300_000);
   await login(page);
+  const title = `E2E structure ${Date.now()}`;
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, title);
   await page.waitForURL(/\/wiki\/pages\/[^/]+$/);
   const documentUrl = page.url();
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
-  const title = `E2E structure ${Date.now()}`;
   const initialSave = documentSaved(page, title);
   await editor.evaluate((node, title) => {
     const active = (node as HTMLElement & { editor: import("@tiptap/core").Editor }).editor;

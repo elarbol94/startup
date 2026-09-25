@@ -2114,6 +2114,10 @@
     "hideDocumentDetails": "Dokumentdetails schließen",
     "pageTitle": "Titel",
     "rename": "Umbenennen",
+    "renameFailed": "Der Titel konnte nicht geändert werden.",
+    "newDocumentTitle": "Neues Dokument",
+    "newDocumentDescription": "Gib dem Dokument einen Titel. Du kannst ihn später jederzeit ändern.",
+    "checkpointLabel": "Name dieser Version (optional)",
     "deletePage": "Seite löschen",
     "searchPlaceholder": "Wiki durchsuchen…",
     "noResults": "Keine Treffer",
@@ -2261,7 +2265,6 @@
     "usedIn": "Verwendet in",
     "history": "Verlauf",
     "checkpoint": "Version merken",
-    "checkpointLabelPrompt": "Optionaler Name für diese Version:",
     "revisionKinds": {
       "autosave": "Automatischer Stand",
       "manual": "Gemerkte Version",

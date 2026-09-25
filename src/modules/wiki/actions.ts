@@ -10,17 +10,13 @@ import { requireUserOrThrow } from "@/lib/auth";
 import { indexText, removeFromIndex } from "./lib/vector-store.server";
 
 import { slugify } from "./lib/tiptap";
+import { isPageSlugTaken } from "./queries";
 
 function uniqueSlug(title: string, excludePageId?: string): string {
   const base = slugify(title);
   let slug = base;
   for (let i = 2; i < 100; i++) {
-    const exists = db
-      .select({ id: wikiPages.id })
-      .from(wikiPages)
-      .where(eq(wikiPages.slug, slug))
-      .get();
-    if (!exists || exists.id === excludePageId) return slug;
+    if (!isPageSlugTaken(slug, excludePageId)) return slug;
     slug = `${base}-${i}`;
   }
   throw new Error("Could not allocate a unique slug");

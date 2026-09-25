@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.describe.configure({ mode: "serial" });
 
@@ -13,7 +14,8 @@ async function login(page: Page) {
 async function quickNote(page: Page, title: string, body: string) {
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
-  await expect(page).toHaveURL(/\/wiki\/pages\/unbenannte-notiz/, { timeout: 30_000 });
+  await submitNewDocumentTitle(page, title);
+  await expect(page.getByRole("button", { name: `Umbenennen: ${title}`, exact: true })).toBeVisible({ timeout: 30_000 });
   const editor = page.locator(".ProseMirror");
   await editor.click();
   await page.keyboard.type(title);
@@ -124,7 +126,8 @@ test("global writing style previews, cancels, persists across pages, and reaches
 
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
-  await expect(page).toHaveURL(/\/wiki\/pages\/unbenannte-notiz/, { timeout: 30_000 });
+  await submitNewDocumentTitle(page, "Compact list preview");
+  await expect(page).toHaveURL(/\/wiki\/pages\/compact-list-preview/, { timeout: 30_000 });
   await expect(page.locator(".wiki-editor-surface")).toHaveCSS("--wiki-list-item-spacing", "0em", { timeout: 30_000 });
 
   await openWritingStyle(page);
@@ -315,6 +318,7 @@ test("create a source, cite it, and render the bibliography", async ({ page }) =
   await expect(page.getByRole("heading", { name: sourceTitle })).toBeVisible();
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "Citation review");
   await expect(page.locator(".ProseMirror")).toHaveAttribute("contenteditable", "true");
   await page.locator(".ProseMirror").fill("Citation review");
   await page.locator(".ProseMirror").click();
@@ -338,14 +342,19 @@ test("subpages remain nested and deletion is recoverable", async ({ page }) => {
   await login(page);
   await page.goto("/wiki/pages");
   await page.getByRole("link", { name: "Onboarding" }).last().click();
-  page.once("dialog", (dialog) => dialog.accept("Erster Arbeitstag"));
-  await page.getByRole("button", { name: "Unterseite anlegen" }).click();
+  await openEditorMore(page);
+  await page.getByRole("menuitem", { name: "Unterseite anlegen" }).click();
+  const subpageDialog = page.getByRole("dialog", { name: "Unterseite anlegen" });
+  await subpageDialog.getByLabel("Titel", { exact: true }).fill("Erster Arbeitstag");
+  await subpageDialog.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page).toHaveURL(/\/wiki\/pages\/erster-arbeitstag/, { timeout: 30_000 });
-  page.once("dialog", (dialog) => dialog.accept("Tag Eins"));
-  await page.getByRole("button", { name: "Erster Arbeitstag" }).click();
-  await expect(page.getByRole("button", { name: "Tag Eins" })).toBeVisible();
+  await page.getByRole("button", { name: "Umbenennen: Erster Arbeitstag" }).click();
+  await page.getByTestId("page-title-input").fill("Tag Eins");
+  await page.getByTestId("page-title-input").press("Enter");
+  await expect(page.getByRole("button", { name: "Umbenennen: Tag Eins" })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Seite löschen" }).click();
+  await openEditorMore(page);
+  await page.getByRole("menuitem", { name: "Seite löschen" }).click();
   await expect(page).toHaveURL(/\/wiki\/inbox/, { timeout: 30_000 });
   await page.goto("/wiki/trash");
   await expect(page.getByText("Tag Eins")).toBeVisible();
