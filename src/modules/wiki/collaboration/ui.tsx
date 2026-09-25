@@ -20,12 +20,13 @@ export function useCollaboration(kind: Kind, id: string, enabled = true) {
   return provider;
 }
 const ERROR_REASONS = new Set(["tooLarge", "invalid"]);
-export function CollaborationStatus({ provider }: { provider: CollaborationClient }) {
+/** Collaborators (and, unless a page shows its own save status, the connection state). */
+export function CollaborationStatus({ provider, showStatus = true }: { provider: CollaborationClient; showStatus?: boolean }) {
   const t = useTranslations("collaboration");
   const reason = provider.status === "error" && provider.errorReason && ERROR_REASONS.has(provider.errorReason) ? provider.errorReason : null;
   return <div className="flex flex-wrap items-center gap-2 text-xs" role="status" data-testid="collaboration-status">
-    <span className={reason ? "text-destructive" : undefined}>{reason ? t(`errorReasons.${reason}`) : t(provider.status)}</span>
+    {showStatus && <span className={reason ? "text-destructive" : undefined}>{reason ? t(`errorReasons.${reason}`) : t(provider.status)}</span>}
     {[...new Map(provider.people.map(person => [person.userId, person])).values()].map(person => <span className="rounded-full border px-2 py-1" key={person.userId}><UserIdentity userId={person.userId} name={person.name} />{person.selectedIds?.length ? ` · ${t("selected", { count: person.selectedIds.length })}` : ""}</span>)}
-    {!provider.recoveryAvailable && <span className="text-amber-700">{t("recoveryUnavailable")}</span>}
+    {showStatus && !provider.recoveryAvailable && <span className="text-amber-700">{t("recoveryUnavailable")}</span>}
   </div>;
 }

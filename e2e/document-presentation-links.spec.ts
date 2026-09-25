@@ -54,7 +54,7 @@ test("document sections and presentation elements support saved round trips and 
     { type: "paragraph", content: [{ type: "text", text: "Forecast details" }] },
   ] });
   await initialSave;
-  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.goto("/wiki/presentations");
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   await page.getByRole("menuitem", { name: "Aus Wiki-Seite", exact: true }).click();
@@ -98,7 +98,7 @@ test("document sections and presentation elements support saved round trips and 
       if (heading.type.name === "heading" && heading.attrs.id === "forecast") active.view.dispatch(active.state.tr.insertText("Updated forecast", position + 1, position + heading.nodeSize - 1));
     });
   });
-  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   await renameSave;
   const player = await page.context().newPage();
   await player.goto(`/wiki/presentations/${presentationId}/present`);
@@ -252,7 +252,7 @@ test("heading structure changes require approval and preserve playback order thr
     ] });
   }, title);
   await initialSave;
-  await expect(page.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("document-save-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   await page.goto("/wiki/presentations");
   await page.getByRole("button", { name: "Neu", exact: true }).click();
   await page.getByRole("menuitem", { name: "Aus Wiki-Seite", exact: true }).click();
@@ -282,7 +282,7 @@ test("heading structure changes require approval and preserve playback order thr
       });
     }, value);
     await saved;
-    await expect(target.getByTestId("collaboration-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
+    await expect(target.getByTestId("document-save-status").filter({ visible: true }).getByText("Gespeichert", { exact: true })).toBeVisible();
   }
   await level(page, 1);
   await page.getByRole("button", { name: "Zurück zur Präsentation", exact: true }).click();

@@ -61,7 +61,7 @@ async function quickNote(page: Page, title: string, body: string) {
   await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 25_000 });
   await page.reload();
   await expect(editor).toHaveAttribute("contenteditable", "true");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert");
 }
 
 test("selection comments stay beside their anchors and support replies and resolution", async ({ page }) => {

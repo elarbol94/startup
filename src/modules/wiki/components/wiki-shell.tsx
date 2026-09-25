@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { WikiEditor } from "./wiki-editor";
+import { DocumentSaveStatus } from "./document-save-status";
 import { AttachmentPanel, type AttachmentPanelHandle } from "./attachment-panel";
 import { SvgGraphicsSection } from "./svg-graphics-section";
 import type { WikiEditorHandle } from "./wiki-editor";
@@ -107,7 +108,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   const [supportingSourceOpen, setSupportingSourceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [savedRevisionsOnly, setSavedRevisionsOnly] = useState(false);
-  const { setPanel, saveState } = useDocumentWorkspace();
+  const { setPanel } = useDocumentWorkspace();
   const [supportingSourcesCollapsed, setSupportingSourcesCollapsed] = useState(true);
   const [selectedRevisionId, setSelectedRevisionId] = useState(research.revisions[0]?.id ?? "");
   const editorActions = useRef<WikiEditorHandle | null>(null);
@@ -177,7 +178,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   return <div className="wiki-calm-document mx-auto min-h-dvh max-w-[112rem] px-3 py-4 md:px-6">
     <header className="mb-3 border-b border-border/60 pb-3">
       <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-2"><Link href="/wiki" aria-label={t("backToWikiStart")} title={t("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link><div className="min-w-0"><button type="button" aria-label={`${t("rename")}: ${page.title}`} onClick={rename} className="max-w-4xl break-words text-left text-xl font-semibold tracking-tight hover:text-indigo-700 dark:hover:text-indigo-300">{page.title}</button>{!isFocused && meta && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" /><UserAttribution userId={meta.updatedBy} relation="updatedBy" /> · {format.dateTime(new Date(meta.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</p>}</div></div>
-        <div className="flex items-center gap-1"><span data-testid="document-save-status" role={saveState === "error" || saveState === "conflict" ? "alert" : "status"} className={`mr-2 text-xs ${saveState === "error" || saveState === "conflict" || saveState === "offline" ? "text-destructive" : "text-muted-foreground"}`}>{saveState === "idle" ? "" : saveState === "saving" ? t("saving") : saveState === "saved" ? t("saved") : saveState === "conflict" ? t("editConflict") : t(`editor.save.${saveState}`)}</span><PageHeaderActions onExport={(format, inline = false) => { void exportSavedDocument(page.id, format, inline, () => editorActions.current?.flushSave() ?? Promise.resolve(false), () => toast.error(t("document.exportSaveFailed"))); }} favorite={research.favorite} onNewSubpage={async () => { const title = prompt(t("pageTitle")); if (!title?.trim()) return; const child = await createPage({ title: title.trim(), parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }} onToggleFavorite={async () => { await toggleFavorite("page", page.id); router.refresh(); }} onVerify={() => void runVerify(6)} onDelete={remove} onHistory={() => setHistoryOpen(true)} /><FocusModeToggle compact={isFocused} /></div></div>
+        <div className="flex items-center gap-1"><DocumentSaveStatus /><PageHeaderActions onExport={(format, inline = false) => { void exportSavedDocument(page.id, format, inline, () => editorActions.current?.flushSave() ?? Promise.resolve(false), () => toast.error(t("document.exportSaveFailed"))); }} favorite={research.favorite} onNewSubpage={async () => { const title = prompt(t("pageTitle")); if (!title?.trim()) return; const child = await createPage({ title: title.trim(), parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }} onToggleFavorite={async () => { await toggleFavorite("page", page.id); router.refresh(); }} onVerify={() => void runVerify(6)} onDelete={remove} onHistory={() => setHistoryOpen(true)} /><FocusModeToggle compact={isFocused} /></div></div>
     </header>
 
     <div className="w-full">

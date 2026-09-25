@@ -2716,7 +2716,10 @@
         "unsaved": "Nicht gespeichert",
         "offline": "Offline · lokal gesichert",
         "error": "Speichern fehlgeschlagen",
-        "retry": "Erneut versuchen"
+        "retry": "Erneut versuchen",
+        "offlineUnsaved": "Offline · Seite bis zum Speichern geöffnet lassen",
+        "lastSaved": "Zuletzt gespeichert: {time}",
+        "notSavedYet": "In dieser Sitzung noch nicht gespeichert"
       },
       "lease": {
         "locked": "Diese Seite wird bereits in einem anderen Fenster bearbeitet. Dein lokaler Entwurf bleibt erhalten.",

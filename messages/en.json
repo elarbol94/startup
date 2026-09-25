@@ -2716,7 +2716,10 @@
         "unsaved": "Not saved",
         "offline": "Offline · saved locally",
         "error": "Save failed",
-        "retry": "Retry"
+        "retry": "Retry",
+        "offlineUnsaved": "Offline · keep this page open until saved",
+        "lastSaved": "Last saved: {time}",
+        "notSavedYet": "Not saved yet in this session"
       },
       "lease": {
         "locked": "This page is already being edited in another window. Your local draft remains safe.",
