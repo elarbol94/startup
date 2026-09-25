@@ -41,6 +41,7 @@ import { useDependencyLinking } from "./portfolio/use-dependency-linking";
 import { useDragClickGuard } from "./portfolio/use-drag-click-guard";
 import { useEffectiveSchedule } from "./portfolio/use-effective-schedule";
 import { useInspectorDockWidth } from "./portfolio/use-inspector-dock-width";
+import { useHistoryView } from "./portfolio/use-history-view";
 import { useMediaQuery } from "./portfolio/use-media-query";
 import { usePortfolioFocus } from "./portfolio/use-portfolio-focus";
 import { usePortfolioRows } from "./portfolio/use-portfolio-rows";
@@ -148,6 +149,12 @@ export function PortfolioClient({
     setExpandedProjects, expandedTasks, setExpandedTasks, treeWidth, setTreeWidth, dayWidthRef,
     setDayWidth, setZoom, scrollRef, setTimelineDayWidth, openTask,
   });
+  const { restoredRef: restoredViewRef } = useHistoryView({
+    enabled: !embedded && !initialFocusedTaskId,
+    snapshot: { view, query, owner, health, criticalVisible, linesVisible, treeWidth, expandedProjects, expandedTasks },
+    scrollRef, dayWidthRef, setView, setQuery, setOwner, setHealth, setCriticalVisible, setLinesVisible,
+    setDayWidth, setZoom, setTreeWidth, setExpandedProjects, setExpandedTasks,
+  });
   const { effectiveSchedule } = useEffectiveSchedule({
     schedule, embedded, dragPreview, activePreview, draft, deadlinePreview, dependencyDraft,
   });
@@ -164,7 +171,7 @@ export function PortfolioClient({
   } = useTimelineLayout({
     view, focusedTaskId, focusedTask, schedule, effectiveSchedule, embedded, visibleProjects, today,
     rows, ganttViewportWidth, treeWidth, dayWidth, dayWidthRef, setDayWidth, setZoom, scrollRef,
-    fittedFocusRef, revealTaskId, setRevealTaskId, reducedMotion, setTimelineDayWidth,
+    fittedFocusRef, revealTaskId, setRevealTaskId, reducedMotion, setTimelineDayWidth, restoredViewRef,
   });
   const dependencyLayout = layoutDependencyRoutes({
     rows, effectiveSchedule, visibleFocusDependencyIds, dependencyDraft, range, dayWidth,
