@@ -3,6 +3,7 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import Database from "better-sqlite3";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { loginAsAnyUser } from "./helpers/login";
 
 // Tables in the wiki editor: block insertions must never split a table, and Tab/Shift+Tab
 // move between cells instead of leaving the editor.
@@ -11,15 +12,7 @@ test.use({ actionTimeout: 45_000, screenshot: "only-on-failure", trace: "retain-
 
 const artwork = Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200"><rect x="20" y="40" width="160" height="120" fill="#315EFB"/></svg>');
 
-async function login(page: Page) {
-  let response = await page.request.post("/api/auth/sign-in/username", { data: { username: "table-editor", password: "super-secret-1" } });
-  // Reuse whichever account the suite created first; sign-up only works on an empty database.
-  for (const username of ["admin", "document-editor", "figure-editor", "reliable-editor"]) {
-    if (!response.ok()) response = await page.request.post("/api/auth/sign-in/username", { data: { username, password: "super-secret-1" } });
-  }
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { username: "table-editor", displayUsername: "table-editor", name: "Table Editor", email: "table-editor@example.com", password: "super-secret-1" } });
-  expect(response.ok()).toBe(true);
-}
+const login = loginAsAnyUser;
 
 const text = (value: string) => value ? [{ type: "paragraph", content: [{ type: "text", text: value }] }] : [{ type: "paragraph" }];
 function table(rows: string[][]): JSONContent {

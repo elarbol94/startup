@@ -1,27 +1,14 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import Database from "better-sqlite3";
 import path from "node:path";
 import { submitNewDocumentTitle } from "./helpers/new-document";
+import { loginAsAnyUser } from "./helpers/login";
 
 // The dev server compiles each route on first visit, which can take minutes on a busy machine.
 test.use({ viewport: { width: 1440, height: 1000 }, navigationTimeout: 240_000 });
 test.describe.configure({ mode: "serial", timeout: 360_000 });
 
-async function login(page: Page) {
-  const credentials = { username: "admin", password: "super-secret-1" };
-  // The admin normally exists already; sign up only when this spec runs alone. The
-  // auth routes can 404 briefly while the dev server compiles them.
-  const signup = { name: "E2E Admin", username: "admin", displayUsername: "admin", email: "admin" + String.fromCharCode(64) + "example.com", password: credentials.password };
-  const headers = { origin: new URL(test.info().project.use.baseURL!).origin };
-  let response = await page.request.post("/api/auth/sign-up/email", { data: signup, headers });
-  for (let attempt = 0; response.status() === 404 && attempt < 5; attempt += 1) {
-    await page.waitForTimeout(1_000);
-    response = await page.request.post("/api/auth/sign-up/email", { data: signup, headers });
-  }
-  if (response.ok()) return;
-  response = await page.request.post("/api/auth/sign-in/username", { data: credentials, headers });
-  expect(response.ok(), `${response.status()} ${await response.text()}`).toBe(true);
-}
+const login = loginAsAnyUser;
 
 function pageCountByTitle(title: string) {
   const sqlite = new Database(path.resolve("data/e2e.db"), { readonly: true });

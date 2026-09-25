@@ -3,20 +3,13 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import Database from "better-sqlite3";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { loginAsAnyUser } from "./helpers/login";
 
 // Markdown shortcuts while typing and the "/" block menu of the wiki editor.
 
 function database() { return new Database(path.resolve("data/e2e.db")); }
 
-async function login(page: Page) {
-  let response = await page.request.post("/api/auth/sign-in/username", { data: { username: "markdown-editor", password: "super-secret-1" } });
-  // Sign-up is only open for the first account, so reuse the ones other specs create.
-  for (const username of ["admin", "document-editor"]) {
-    if (!response.ok()) response = await page.request.post("/api/auth/sign-in/username", { data: { username, password: "super-secret-1" } });
-  }
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { username: "markdown-editor", displayUsername: "markdown-editor", name: "Markdown Editor", email: "markdown-editor@example.com", password: "super-secret-1" } });
-  expect(response.ok()).toBe(true);
-}
+const login = loginAsAnyUser;
 
 async function openEmptyPage(page: Page) {
   await login(page);

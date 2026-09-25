@@ -207,7 +207,8 @@ export async function renamePage(id: string, title: string) {
   });
   syncFts(id, cleanTitle, page.contentText);
   scheduleIndex(id, cleanTitle, page.contentText);
-  revalidatePath("/wiki", "layout");
+  // No revalidatePath here: it would re-render the old URL inside the action response,
+  // whose redirect to the new slug remounts the open editor. The caller refreshes instead.
   return { slug: nextSlug };
 }
 

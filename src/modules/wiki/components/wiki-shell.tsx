@@ -115,6 +115,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   const [supportingSourcesCollapsed, setSupportingSourcesCollapsed] = useState(true);
   const [selectedRevisionId, setSelectedRevisionId] = useState(research.revisions[0]?.id ?? "");
   const editorActions = useRef<WikiEditorHandle | null>(null);
+  const currentSlug = useRef(page.slug);
   const attachmentRef = useRef<AttachmentPanelHandle>(null); const supportingSourceSectionRef = useRef<HTMLElement>(null); const supportingSourceTriggerRef = useRef<HTMLButtonElement>(null);
   const selectedRevision = research.revisions.find((revision) => revision.id === selectedRevisionId) ?? research.revisions[0];
   const visibleRevisions = savedRevisionsOnly ? research.revisions.filter((revision) => revision.kind !== "autosave") : research.revisions;
@@ -150,7 +151,14 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
     setMetaSaved(true); setTimeout(() => setMetaSaved(false), 1600); router.refresh();
   }
 
-  async function rename(title: string) { const renamed = await renamePage(page.id, title); if (renamed.slug !== page.slug) router.replace(`/wiki/pages/${encodeURIComponent(renamed.slug)}`); else router.refresh(); }
+  // Swap the URL in place: navigating or refreshing under the new slug would remount the
+  // editor and drop its focus and undo history. The old slug keeps redirecting on reload.
+  async function rename(title: string) {
+    const renamed = await renamePage(page.id, title);
+    if (renamed.slug === currentSlug.current) { router.refresh(); return; }
+    currentSlug.current = renamed.slug;
+    window.history.replaceState(null, "", `/wiki/pages/${encodeURIComponent(renamed.slug)}${window.location.search}`);
+  }
   async function newSubpage() { const title = await askText({ title: t("newSubpage"), label: t("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") }); if (!title) return; const child = await createPage({ title, parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }
   async function createCheckpoint() { const label = await askText({ title: t("checkpoint"), label: t("checkpointLabel"), maxLength: 120, confirmLabel: t("checkpoint") }); if (label === null) return; await createPageCheckpoint(page.id, label); router.refresh(); }
   async function remove() { if (!confirm(common("confirmDeleteTitle"))) return; await deletePage(page.id); router.push("/wiki/inbox"); }

@@ -2,18 +2,14 @@ import Database from "better-sqlite3";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { loginAsAnyUser } from "./helpers/login";
 
 // Two tabs, renames and connection drops: the QA session that lost edits (C1),
 // showed contradicting save labels (H2) and broke undo (H3).
 test.describe.configure({ timeout: 240_000 });
 test.use({ actionTimeout: 30_000 });
 
-async function login(page: Page) {
-  let response = await page.request.post("/api/auth/sign-in/username", { data: { username: "admin", password: "super-secret-1" } });
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { username: "admin", name: "Admin", email: "admin@example.com", password: "super-secret-1" } });
-  expect(response.ok(), await response.text()).toBe(true);
-  return (await (await page.request.get("/api/auth/get-session")).json()).user.id as string;
-}
+const login = loginAsAnyUser;
 
 function seedPage(userId: string, title: string) {
   const sqlite = new Database(path.resolve("data/e2e.db"));
@@ -54,8 +50,10 @@ const toEnd = (editor: Locator) => editor.evaluate((element) => new Promise<void
 const text = (editor: Locator) => editor.evaluate((element) => (element as HTMLElement & { editor?: { getText(): string } }).editor?.getText() ?? "");
 
 async function rename(page: Page, title: string) {
-  page.once("dialog", (dialog) => void dialog.accept(title));
   await page.getByRole("button", { name: /^Umbenennen:/ }).filter({ visible: true }).click();
+  const input = page.getByTestId("page-title-input");
+  await input.fill(title);
+  await input.press("Enter");
   await expect(page.getByRole("button", { name: `Umbenennen: ${title}` }).filter({ visible: true })).toBeVisible();
 }
 

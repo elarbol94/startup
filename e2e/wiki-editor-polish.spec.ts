@@ -3,17 +3,13 @@ import type { Editor, JSONContent } from "@tiptap/core";
 import Database from "better-sqlite3";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
+import { loginAsAnyUser } from "./helpers/login";
 
 // Always the disposable database started by the Playwright configuration.
 function database() { return new Database(path.resolve("data/e2e.db")); }
 type EditorElement = HTMLElement & { editor: Editor };
 
-async function login(page: Page) {
-  let response = await page.request.post("/api/auth/sign-in/username", { data: { username: "document-editor", password: "super-secret-1" } });
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-in/username", { data: { username: "admin", password: "super-secret-1" } });
-  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { username: "document-editor", displayUsername: "document-editor", name: "Document Editor", email: "document-editor@example.com", password: "super-secret-1" } });
-  expect(response.ok()).toBe(true);
-}
+const login = loginAsAnyUser;
 
 async function note(page: Page, content: JSONContent = { type: "doc", content: [{ type: "paragraph" }] }) {
   await login(page);
