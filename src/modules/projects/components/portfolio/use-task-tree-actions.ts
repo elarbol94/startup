@@ -5,6 +5,7 @@
 import { useState, type RefObject } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { usePendingDelete } from "@/lib/use-pending-delete";
 import { deleteTask, reparentTask } from "@/modules/projects/task-actions";
 import { deleteTaskKeepChildren } from "@/modules/projects/delete-actions";
 import type {
@@ -65,7 +66,9 @@ export function useTaskTreeActions({
     task: PortfolioTask;
     descendantCount: number;
   } | null>(null);
-  const [deletePending, setDeletePending] = useState(false);
+  // Deletes are scheduled (usePendingDelete), so the confirm dialog never waits.
+  const deletePending = false;
+  const scheduleDelete = usePendingDelete();
 
   function toggle(setter: React.Dispatch<React.SetStateAction<Set<string>>>, id: string) {
     setter((current) => {
@@ -140,45 +143,38 @@ export function useTaskTreeActions({
     }
   }
 
-  async function confirmDeleteTask() {
+  // Delayed delete: the rows are hidden now (the schedule is filtered by the
+  // pending ids) and the server delete runs after the Undo window.
+  function confirmDeleteTask() {
     if (!pendingDelete || deletePending) return;
     const { task } = pendingDelete;
-    setDeletePending(true);
-    try {
-      await deleteTask(task.id);
-      setPendingDelete(null);
-      closeDeletedTask(task, true);
-      await refreshSchedule();
-      toast.success(tCommon("deleted"));
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setDeletePending(false);
-    }
+    scheduleDelete({
+      hiddenIds: [task.id, ...taskDescendants(schedule.tasks, task.id).map((child) => child.id)],
+      commit: async () => {
+        await deleteTask(task.id);
+      },
+      onCommitted: () => void refreshSchedule(),
+    });
+    setPendingDelete(null);
+    closeDeletedTask(task, true);
   }
 
   /** Lifts the children to the deleted task's parent in one transaction. */
-  async function outdentChildrenThenDelete() {
+  function outdentChildrenThenDelete() {
     if (!pendingDelete || deletePending) return;
     const { task } = pendingDelete;
-    setDeletePending(true);
-    try {
-      const result = await deleteTaskKeepChildren(task.id);
-      if (!result.ok) {
-        toast.error(scheduleErrorMessage(t, result.code, "delete"));
-        return;
-      }
-      setPendingDelete(null);
-      closeDeletedTask(task, false);
-      if (task.parentTaskId) {
-        setExpandedTasks((current) => new Set([...current, task.parentTaskId!]));
-      }
-      await refreshSchedule();
-      toast.success(tCommon("deleted"));
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setDeletePending(false);
+    scheduleDelete({
+      hiddenIds: [task.id],
+      commit: async () => {
+        const result = await deleteTaskKeepChildren(task.id);
+        if (!result.ok) return scheduleErrorMessage(t, result.code, "delete");
+      },
+      onCommitted: () => void refreshSchedule(),
+    });
+    setPendingDelete(null);
+    closeDeletedTask(task, false);
+    if (task.parentTaskId) {
+      setExpandedTasks((current) => new Set([...current, task.parentTaskId!]));
     }
   }
 

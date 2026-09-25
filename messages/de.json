@@ -255,6 +255,7 @@
     "confirmDeleteDescription": "Diese Aktion kann nicht rückgängig gemacht werden.",
     "saved": "Gespeichert",
     "deleted": "Gelöscht",
+    "undo": "Rückgängig",
     "error": "Etwas ist schiefgelaufen",
     "noResults": "Keine Einträge gefunden",
     "nextPage": "Nächste Seite"

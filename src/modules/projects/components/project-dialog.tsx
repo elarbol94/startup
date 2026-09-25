@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePendingDelete } from "@/lib/use-pending-delete";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
@@ -497,6 +498,7 @@ export function ProjectConfirmDialog({
   const router = useRouter();
   const [impact, setImpact] = useState<{ projectId: string; value: ProjectImpact | null } | null>(null);
   const [pending, setPending] = useState(false);
+  const scheduleDelete = usePendingDelete();
   // Keep the last project visible while the dialog animates closed.
   const [shown, setShown] = useState(project);
   if (project && project !== shown) setShown(project);
@@ -523,10 +525,27 @@ export function ProjectConfirmDialog({
 
   async function confirm() {
     if (!project) return;
+    if (action === "delete") {
+      // Delayed delete: hidden now, committed after the Undo window. The
+      // project and its tasks are filtered out wherever they are listed.
+      const projectId = project.id;
+      scheduleDelete({
+        hiddenIds: [projectId],
+        commit: async () => {
+          await deleteProject(projectId);
+        },
+        onCommitted: () => {
+          onDone?.(projectId);
+          router.refresh();
+        },
+      });
+      onOpenChange(false);
+      if (afterDoneHref) router.push(afterDoneHref);
+      return;
+    }
     setPending(true);
     try {
-      if (action === "delete") await deleteProject(project.id);
-      else await setProjectStatus(project.id, "archived");
+      await setProjectStatus(project.id, "archived");
       onDone?.(project.id);
       onOpenChange(false);
       if (afterDoneHref) router.push(afterDoneHref);

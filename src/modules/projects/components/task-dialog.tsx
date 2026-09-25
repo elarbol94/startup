@@ -5,6 +5,7 @@ import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-sel
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { usePendingDelete } from "@/lib/use-pending-delete";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { AlertTriangle, ChevronRight, GitBranch, Loader2, Plus, Trash2 } from "lucide-react";
@@ -129,6 +130,7 @@ export function TaskDialog({
   const [formError, setFormError] = useState<string | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [pending, setPending] = useState(false);
+  const scheduleDelete = usePendingDelete();
   // Links, move targets and the subtree size come from the server per task.
   const [details, setDetails] = useState<TaskDialogDetails | null>(null);
   const [detailsVersion, setDetailsVersion] = useState(0);
@@ -280,21 +282,20 @@ export function TaskDialog({
     }
   }
 
-  async function onDelete(keepSubtasks: boolean) {
+  function onDelete(keepSubtasks: boolean) {
     if (!task || readOnly) return;
-    setPending(true);
-    try {
-      if (keepSubtasks) await deleteTaskKeepingSubtasks(task.id);
-      else await deleteTask(task.id);
-      setConfirmingDelete(false);
-      onOpenChange(false);
-      router.refresh();
-      toast.success(tCommon("deleted"));
-    } catch {
-      toast.error(tCommon("error"));
-    } finally {
-      setPending(false);
-    }
+    const taskId = task.id;
+    // Delayed delete: hidden now, committed after the Undo window.
+    scheduleDelete({
+      hiddenIds: keepSubtasks ? [taskId] : [taskId, ...subtasks.map((subtask) => subtask.id)],
+      commit: async () => {
+        if (keepSubtasks) await deleteTaskKeepingSubtasks(taskId);
+        else await deleteTask(taskId);
+      },
+      onCommitted: () => router.refresh(),
+    });
+    setConfirmingDelete(false);
+    onOpenChange(false);
   }
 
   async function addLink() {
