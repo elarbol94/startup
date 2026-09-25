@@ -160,7 +160,7 @@ export function PortfolioClient({
   });
   const {
     range, dayCount, renderedRangeEnd, timelineWidth, totalWidth, deadlineLaneHeight, totalHeight,
-    scrollToToday, fitTimelineView,
+    scrollToToday, fitTimelineView, focusRowTimeline,
   } = useTimelineLayout({
     view, focusedTaskId, focusedTask, schedule, effectiveSchedule, embedded, visibleProjects, today,
     rows, ganttViewportWidth, treeWidth, dayWidth, dayWidthRef, setDayWidth, setZoom, scrollRef,
@@ -212,7 +212,7 @@ export function PortfolioClient({
     cancelTaskDrag, startUnscheduledDrag, handleTaskScheduleKey, startProjectDrag, moveProjectDrag,
     endProjectDrag, cancelProjectDrag, startProjectPlacement, handleScheduleResizeKey,
     validDependencyTarget, startConnectorGesture, moveConnectorGesture, endConnectorGesture,
-    cancelConnectorGesture, openTaskFromBar,
+    cancelConnectorGesture, openTaskFromBar, focusRowTimeline,
   };
 
   return (

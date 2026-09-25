@@ -1809,6 +1809,8 @@
     "togglePhase": "Expand or collapse phase",
     "toggleTask": "Expand or collapse task",
     "openProjectPage": "Open project “{name}”",
+    "showRowTimeline": "Show the timeline of “{name}”",
+    "showRowTimelineUnavailable": "No dates set – nothing to show on the timeline",
     "openBoard": "Open Kanban board",
     "noScheduleResults": "No projects or tasks match these filters.",
     "scheduleSaved": "Schedule updated",

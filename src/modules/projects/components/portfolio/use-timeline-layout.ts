@@ -28,6 +28,7 @@ import {
   minDate,
   zoomModeForDayWidth,
 } from "./portfolio-utils";
+import { rowFocusViewport } from "./timeline-row-focus";
 import type { useTimelineViewport } from "./use-timeline-viewport";
 
 export function useTimelineLayout({
@@ -218,8 +219,27 @@ export function useTimelineLayout({
     });
   }
 
+  function focusRowTimeline(row: Pick<Row, "startDate" | "dueDate">) {
+    const scrollContainer = scrollRef.current;
+    if (!scrollContainer) return;
+    const viewport = rowFocusViewport({
+      rangeStart: range.start,
+      startDate: row.startDate,
+      dueDate: row.dueDate,
+      availableWidth: Math.max(120, scrollContainer.clientWidth - treeWidth - 12),
+    });
+    if (!viewport) return;
+    setTimelineDayWidth(viewport.dayWidth);
+    requestAnimationFrame(() => {
+      scrollContainer.scrollTo({
+        left: viewport.scrollLeft,
+        behavior: reducedMotion ? "auto" : "smooth",
+      });
+    });
+  }
+
   return {
     range, dayCount, renderedRangeEnd, timelineWidth, totalWidth, deadlineLaneHeight, totalHeight,
-    scrollToToday, fitTimelineView,
+    scrollToToday, fitTimelineView, focusRowTimeline,
   };
 }
