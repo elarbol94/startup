@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PortfolioSchedule } from "@/modules/projects/queries";
 import { cn } from "@/lib/utils";
 import type { Row, SetState } from "./portfolio-types";
-import { calendarDistance } from "./portfolio-utils";
+import { calendarDistance, ganttBarColors } from "./portfolio-utils";
 import type { useBarDrag } from "./use-bar-drag";
 import type { useDependencyLinking } from "./use-dependency-linking";
 import type { usePortfolioRows } from "./use-portfolio-rows";
@@ -96,6 +96,7 @@ export function GanttRowTimeline({
   const scheduled = row.startDate && row.dueDate;
   const left = scheduled ? calendarDistance(range.start, row.startDate!) * dayWidth : 0;
   const width = scheduled ? Math.max(dayWidth, (calendarDistance(row.startDate!, row.dueDate!) + 1) * dayWidth) : 0;
+  const barColors = ganttBarColors(row.kind === "project" ? "project" : "task", row.color);
   const isCritical = Boolean(row.task && critical.has(row.id));
   const overflowSpans =
     row.kind === "project" && scheduled
@@ -431,7 +432,7 @@ export function GanttRowTimeline({
             "group absolute overflow-visible border transition-shadow motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-ring",
             "cursor-grab active:cursor-grabbing",
             row.kind === "project"
-              ? "top-[15px] h-3.5 rounded-[3px] shadow-none"
+              ? "top-2 h-7 rounded-md border-2 shadow-sm"
               : "top-2 h-7 rounded-md shadow-xs",
             isCritical && criticalVisible && "ring-2 ring-red-500",
             isDependencyTarget && "ring-2 ring-indigo-400/70",
@@ -440,12 +441,8 @@ export function GanttRowTimeline({
           style={{
             left,
             width,
-            borderColor:
-              row.kind === "project" ? row.color : "#6366f1",
-            backgroundColor:
-              row.kind === "project"
-                ? `color-mix(in oklab, ${row.color} 18%, var(--card))`
-                : "color-mix(in oklab, #4f46e5 18%, var(--card))",
+            borderColor: barColors.border,
+            backgroundColor: barColors.background,
           }}
           title={manager ? t("projectManagerTooltip", { name: manager }) : undefined}
           aria-current={selectedTaskId === row.task?.id ? "true" : undefined}
@@ -455,15 +452,14 @@ export function GanttRowTimeline({
             className="absolute inset-y-0 left-0 opacity-75"
             style={{
               width: `${row.progress}%`,
-              backgroundColor:
-              row.kind === "project" ? row.color : "#4f46e5",
+              backgroundColor: barColors.progress,
             }}
           />
           {dependencyTargetHandle}
           {width > 72 && <span className={cn(
             "relative z-[1] block truncate px-2 text-left text-[10px]",
             row.kind === "project"
-              ? "font-semibold leading-[12px]"
+              ? "font-semibold leading-6"
               : "font-medium leading-6",
           )}>{row.label}</span>}
           {manager && <span className="pointer-events-none absolute right-5 top-1/2 z-[2] max-w-40 -translate-y-1/2 truncate rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover:opacity-100"><UserIdentity userId={project.managerId} name={manager} compact /></span>}
@@ -477,7 +473,7 @@ export function GanttRowTimeline({
         <span
           key={span.key}
           data-project-overflow={span.key}
-          className="pointer-events-none absolute top-[15px] h-3.5 rounded-[3px] border border-dashed border-amber-500/80"
+          className="pointer-events-none absolute top-2 h-7 rounded-md border border-dashed border-amber-500/80"
           style={{
             left: span.left,
             width: Math.max(2, span.width),

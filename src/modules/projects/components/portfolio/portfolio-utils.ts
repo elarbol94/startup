@@ -9,6 +9,23 @@ import { localDateValue } from "@/modules/tasks/deadline-utils";
 import { DAY_MS } from "./portfolio-constants";
 import type { Zoom } from "./portfolio-types";
 
+/** Gantt bar colours: project bars use the project colour at full strength;
+ * task bars inherit the same colour, slightly dimmed. */
+export function ganttBarColors(kind: "project" | "task", color: string) {
+  if (kind === "project") {
+    return {
+      border: color,
+      background: `color-mix(in oklab, ${color} 32%, var(--card))`,
+      progress: color,
+    };
+  }
+  return {
+    border: `color-mix(in oklab, ${color} 65%, var(--card))`,
+    background: `color-mix(in oklab, ${color} 14%, var(--card))`,
+    progress: `color-mix(in oklab, ${color} 60%, var(--card))`,
+  };
+}
+
 export function zoomModeForDayWidth(dayWidth: number): Zoom {
   if (dayWidth >= 24) return "week";
   if (dayWidth >= 11) return "month";
