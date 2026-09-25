@@ -52,6 +52,7 @@ export function useTimelineLayout({
   revealTaskId,
   setRevealTaskId,
   reducedMotion,
+  restoredViewRef,
   setTimelineDayWidth,
 }: Pick<
   ReturnType<typeof useTimelineViewport>,
@@ -77,6 +78,8 @@ export function useTimelineLayout({
   revealTaskId: string | null;
   setRevealTaskId: SetState<string | null>;
   reducedMotion: boolean;
+  /** Set when a Back/Forward navigation restored a saved view; skips the initial fit. */
+  restoredViewRef?: RefObject<boolean>;
 }) {
   const fittedPortfolioRef = useRef(false);
 
@@ -145,6 +148,10 @@ export function useTimelineLayout({
   useEffect(() => {
     if (view !== "timeline" || ganttViewportWidth <= 0) return;
     if (focusedTaskId ? fittedFocusRef.current === focusedTaskId : fittedPortfolioRef.current) return;
+    if (!focusedTaskId && restoredViewRef?.current) {
+      fittedPortfolioRef.current = true;
+      return;
+    }
     const frame = requestAnimationFrame(() => {
       const container = scrollRef.current;
       if (!container) return;
@@ -173,6 +180,7 @@ export function useTimelineLayout({
     today,
     dayWidthRef,
     fittedFocusRef,
+    restoredViewRef,
     scrollRef,
     setDayWidth,
     setZoom,
