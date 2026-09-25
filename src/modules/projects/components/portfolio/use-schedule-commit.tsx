@@ -209,7 +209,7 @@ export function useScheduleCommit({
 
       const key = event.key.toLocaleLowerCase();
       const isUndo = key === "z" && !event.shiftKey;
-      const isRedo = key === "y" || (key === "z" && event.shiftKey);
+      const isRedo = key === "z" && event.shiftKey;
       if (!isUndo && !isRedo) return;
 
       const target = event.target;

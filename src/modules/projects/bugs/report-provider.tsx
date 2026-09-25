@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { canonicalTaskHref } from "@/modules/context/routes";
 import { getBugReportContext, submitBugReport } from "./actions";
 import { AreaCapture } from "./area-capture";
+import { freezeViewport } from "./screenshot";
 
 const ReportContext = createContext<() => void>(() => {});
 export const useBugReporter = () => useContext(ReportContext);
@@ -26,7 +27,14 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selectingArea, setSelectingArea] = useState(false);
-  const endSelection = useCallback(() => { setSelectingArea(false); setOpen(true); }, []);
+  const [snapshot, setSnapshot] = useState<HTMLCanvasElement | undefined>();
+  const freezing = useRef(false);
+  const endSelection = useCallback((reopen = true) => {
+    setSelectingArea(false); if (reopen) setOpen(true);
+    setSnapshot(current => { if (current) { current.width = 0; current.height = 0; } return undefined; });
+  }, []);
+  // Cancelling a shortcut selection returns to the page as it was, leaving popups open.
+  const cancelSelection = useCallback(() => endSelection(!snapshot), [endSelection, snapshot]);
   const [context, setContext] = useState<Awaited<ReturnType<typeof getBugReportContext>> | null>(null);
   const [source, setSource] = useState({ path: "", browser: "" });
   const [title, setTitle] = useState("");
@@ -48,14 +56,39 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     setScreenshots([]); setReceipt(null); setTitle(""); setHappened(""); setSteps(""); setExpected(""); setError("");
     submissionId.current = "";
   }
-  async function show() {
+  async function prepare() {
     if (!submissionId.current) {
       submissionId.current = crypto.randomUUID();
       setSource({ path: pathname, browser: navigator.userAgent.slice(0, 500) });
     }
-    setOpen(true);
     try { setContext(await getBugReportContext()); } catch { setError(t("failed")); }
   }
+  function show() { setOpen(true); void prepare(); }
+  // Ctrl/⌘+Y freezes the visible screen, then opens the area selector over it.
+  // Listening on window in the capture phase runs before any open popup, menu
+  // or editor, so none of them can swallow the key.
+  const shortcut = useRef<(event: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    shortcut.current = event => {
+      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "y") return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      if (selectingArea || freezing.current) return;
+      if (receipt || busy || screenshots.length >= 5) { show(); return; }
+      if (open) { setOpen(false); setSelectingArea(true); return; }
+      freezing.current = true;
+      void prepare();
+      freezeViewport(new AbortController().signal)
+        .then(canvas => { setSnapshot(canvas); setSelectingArea(true); })
+        .catch(() => { setError(t("captureFailed")); setOpen(true); })
+        .finally(() => { freezing.current = false; });
+    };
+  });
+
+  useEffect(() => {
+    const listener = (event: KeyboardEvent) => shortcut.current(event);
+    window.addEventListener("keydown", listener, true);
+    return () => window.removeEventListener("keydown", listener, true);
+  }, []);
   function addFiles(files: File[]) {
     if (receipt || busy) return;
     if (screenshots.length + files.length > 5 || files.some(file => !file.size || file.size > 10 * 1024 * 1024 || !["image/png", "image/jpeg", "image/webp"].includes(file.type))) {
@@ -91,9 +124,9 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     finally { submitting.current = false; setBusy(false); }
   }
   const failedUploads = screenshots.some(item => item.state !== "saved");
-  return <ReportContext.Provider value={() => { void show(); }}>
+  return <ReportContext.Provider value={show}>
     {children}
-    {selectingArea && <AreaCapture onCancel={endSelection} onError={() => { setError(t("captureFailed")); endSelection(); }} onCapture={file => { addFiles([file]); setSource(current => ({ ...current, path: pathname })); endSelection(); }} />}
+    {selectingArea && <AreaCapture snapshot={snapshot} onCancel={cancelSelection} onError={() => { setError(t("captureFailed")); endSelection(); }} onCapture={file => { addFiles([file]); setSource(current => ({ ...current, path: pathname })); endSelection(); }} />}
     {!selectingArea && <Dialog open={open} onOpenChange={next => { if (!busy) setOpen(next); }}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onPaste={event => {
         const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); addFiles(files); }

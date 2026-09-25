@@ -27,6 +27,7 @@ export const DEFAULT_WIKI_SHORTCUT_BINDINGS: WikiShortcutBindings = {
   tableAddRow: "Ctrl+Alt+Shift+N", tableAddColumn: "Ctrl+Alt+Shift+C", tableHeader: "Ctrl+Alt+Shift+T", tableAlignLeft: "Ctrl+Alt+Shift+ArrowLeft", tableAlignCenter: "Ctrl+Alt+Shift+ArrowDown", tableAlignRight: "Ctrl+Alt+Shift+ArrowRight", tableDeleteRow: "Ctrl+Alt+Delete", tableDeleteColumn: "Ctrl+Alt+Shift+Delete",
 };
 
+// Ctrl+Y is the global bug report shortcut (see projects/bugs/report-provider.tsx).
 const reservedShortcutKeys = new Set(["Tab", "Escape", "F5", "F11", "F12"]);
 const canonicalKey = (key: string) => key === " " ? "Space" : key.length === 1 ? key.toUpperCase() : key;
 
@@ -39,7 +40,7 @@ export function normalizeWikiShortcut(input: { key: string; ctrlKey: boolean; sh
 
 
 export function isReservedWikiShortcut(shortcut: string) {
-  return reservedShortcutKeys.has(shortcut.split("+").at(-1) ?? "");
+  return shortcut === "Ctrl+Y" || reservedShortcutKeys.has(shortcut.split("+").at(-1) ?? "");
 }
 
 export function parseWikiShortcutBindings(value: unknown): WikiShortcutBindings {

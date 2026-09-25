@@ -34,6 +34,7 @@ export const DEFAULT_PDF_SHORTCUT_BINDINGS: PdfShortcutBindings = {
 };
 
 const canonicalKey = (key: string) => key === " " ? "Space" : key.length === 1 ? key.toUpperCase() : key;
+// Ctrl+Y is the global bug report shortcut (see projects/bugs/report-provider.tsx).
 const reservedShortcutKeys = new Set(["Tab", "Escape", "F5", "F11", "F12"]);
 
 export function normalizePdfShortcut(input: { key: string; ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey?: boolean }) {
@@ -47,7 +48,7 @@ export function normalizePdfShortcut(input: { key: string; ctrlKey: boolean; shi
 }
 
 export function isReservedPdfShortcut(shortcut: string) {
-  return reservedShortcutKeys.has(shortcut.split("+").at(-1) ?? "");
+  return shortcut === "Ctrl+Y" || reservedShortcutKeys.has(shortcut.split("+").at(-1) ?? "");
 }
 
 export function parsePdfShortcutBindings(value: unknown): PdfShortcutBindings {
