@@ -6,7 +6,7 @@ import { ReactRenderer } from "@tiptap/react";
 import Suggestion, { type SuggestionProps } from "@tiptap/suggestion";
 import { PluginKey } from "@tiptap/pm/state";
 import type { SlashCommandSearchItem } from "../lib/slash-commands";
-import { canOpenSlashCommands, filterSlashCommands } from "../lib/slash-commands";
+import { canOpenSlashCommands, filterSlashCommands, shouldShowSlashMenu } from "../lib/slash-commands";
 
 export type SlashCommandDefinition = SlashCommandSearchItem & {
   groupLabel: string;
@@ -67,13 +67,14 @@ const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandMenuProp
   }), [command, items, selectedIndex]);
 
   if (items.length === 0) {
-    return <div role="status" className="z-[80] w-80 rounded-xl border bg-popover p-3 text-sm text-muted-foreground shadow-xl">{emptyLabel}</div>;
+    return <div role="status" data-testid="slash-command-menu" className="z-[80] w-80 rounded-xl border bg-popover p-3 text-sm text-muted-foreground shadow-xl">{emptyLabel}</div>;
   }
 
   let previousGroup = "";
   return (
     <div
       role="listbox"
+      data-testid="slash-command-menu"
       aria-label={ariaLabel}
       aria-activedescendant={`slash-command-${items[selectedIndex]?.id}`}
       className="z-[80] max-h-[min(24rem,60vh)] w-80 overflow-y-auto rounded-xl border bg-popover p-1.5 text-popover-foreground shadow-xl"
@@ -96,10 +97,11 @@ const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandMenuProp
               onPointerDown={(event) => { event.preventDefault(); command(item); }}
             >
               <span className="mt-0.5 rounded-md border bg-background p-1.5"><Icon className="size-4" /></span>
-              <span className="min-w-0">
+              <span className="min-w-0 flex-1">
                 <span className="block text-sm font-medium">{item.label}</span>
                 <span className="block truncate text-xs text-muted-foreground">{item.description}</span>
               </span>
+              {item.markdownHint && <kbd className="mt-0.5 shrink-0 rounded border px-1.5 py-0.5 font-mono text-[11px] whitespace-pre text-muted-foreground">{item.markdownHint}</kbd>}
             </button>
           </div>
         );
@@ -108,18 +110,23 @@ const SlashCommandMenu = forwardRef<SlashCommandMenuHandle, SlashCommandMenuProp
   );
 });
 
+/**
+ * The "/" block menu. `getCommands` returns the command search's current definitions, so both
+ * surfaces stay in sync and commands always run with the editor's latest callbacks.
+ */
 export function createSlashCommandExtension({
-  commands,
+  getCommands,
   ariaLabel,
   emptyLabel,
 }: {
-  commands: SlashCommandDefinition[];
+  getCommands: () => SlashCommandDefinition[];
   ariaLabel: string;
   emptyLabel: string;
 }) {
   return Extension.create({
     name: "slashCommands",
-    priority: 200,
+    // Above the Markdown Space/Enter shortcuts so Enter picks the highlighted command.
+    priority: 1_200,
     addProseMirrorPlugins() {
       return [Suggestion<SlashCommandDefinition, SlashCommandDefinition>({
         pluginKey: new PluginKey("slashCommands"),
@@ -130,7 +137,8 @@ export function createSlashCommandExtension({
         placement: "bottom-start",
         offset: { mainAxis: 6 },
         flip: true,
-        items: ({ query }) => filterSlashCommands(commands, query),
+        items: ({ query }) => filterSlashCommands(getCommands(), query),
+        shouldShow: ({ query }) => shouldShowSlashMenu(query, filterSlashCommands(getCommands(), query).length),
         allow: ({ state, range }) => {
           const $slash = state.doc.resolve(range.from);
           if (!$slash.parent.isTextblock) return false;

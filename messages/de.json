@@ -3027,6 +3027,17 @@
             "programmieren"
           ]
         },
+        "table": {
+          "label": "Tabelle",
+          "description": "Leere Tabelle mit Kopfzeile einfügen",
+          "keywords": [
+            "tabelle",
+            "table",
+            "raster",
+            "spalten",
+            "zeilen"
+          ]
+        },
         "horizontalRule": {
           "label": "Trennlinie",
           "description": "Abschnitte visuell trennen",
@@ -3932,6 +3943,7 @@
       "recent": "Zuletzt verwendet",
       "context": "Passend zur Auswahl",
       "pageMargins": "Seitenränder",
+      "markdownHint": "Markdown-Kürzel: {syntax}",
       "aliases": {
         "bold": [
           "bold",

@@ -3028,6 +3028,17 @@
             "programming"
           ]
         },
+        "table": {
+          "label": "Table",
+          "description": "Insert an empty table with a header row",
+          "keywords": [
+            "table",
+            "tabelle",
+            "grid",
+            "columns",
+            "rows"
+          ]
+        },
         "horizontalRule": {
           "label": "Divider",
           "description": "Visually separate sections",
@@ -3930,6 +3941,7 @@
       "recent": "Recently used",
       "context": "For your selection",
       "pageMargins": "Page margins",
+      "markdownHint": "Markdown shortcut: {syntax}",
       "aliases": {
         "bold": [
           "bold",
