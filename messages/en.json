@@ -3739,7 +3739,8 @@
         "addConnector": "Add connector",
         "noTargets": "Add another object to create a connection.",
         "twoObjects": "Select exactly two independent objects to connect them.",
-        "multiSelectHint": "Shift-click another object to reveal alignment controls. Select three or more for equal spacing.",
+        "multiSelectHint": "Shift- or Ctrl/Cmd-click more objects (click again to remove them) to reveal alignment controls. Select three or more for equal spacing.",
+        "emptySelectionHint": "Click an object or drag a selection box on empty space. Shift- or Ctrl/Cmd-click adds or removes objects; clicking inside a frame selects the frame.",
         "panels": "Editor panels"
       },
       "format": {
@@ -3772,7 +3773,7 @@
         "detach": "Detach connector",
         "shortcutHelp": "Keyboard shortcuts",
         "clipboardError": "Could not use the clipboard. Allow clipboard access and copy valid presentation objects with accessible attachments.",
-        "gestureHelp": "Drag empty space to select; Shift adds to selection. Space+drag or middle-drag pans. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
+        "gestureHelp": "Drag empty space to select; Shift adds to selection. Shift- or Ctrl/Cmd-click adds or removes an object. Clicking inside a frame or on its name selects the frame; dragging its name or edge moves it. Mouse wheel and two-finger scroll pan, Ctrl/Cmd+wheel and pinch zoom; Space+drag or middle-drag also pans. Ctrl+Y or Ctrl+Shift+Z redoes. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
         "choose": "Choose an item",
         "bar": "Bar chart",
         "line": "Line chart",

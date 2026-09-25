@@ -3741,7 +3741,8 @@
         "addConnector": "Verbindung hinzufügen",
         "noTargets": "Ein weiteres Objekt hinzufügen, um eine Verbindung zu erstellen.",
         "twoObjects": "Genau zwei unabhängige Objekte auswählen, um sie zu verbinden.",
-        "multiSelectHint": "Mit Umschalt-Klick ein weiteres Objekt auswählen, um es auszurichten. Für gleiche Abstände mindestens drei auswählen.",
+        "multiSelectHint": "Mit Umschalt- oder Strg/Cmd-Klick weitere Objekte auswählen (erneut klicken entfernt sie), um sie auszurichten. Für gleiche Abstände mindestens drei auswählen.",
+        "emptySelectionHint": "Objekt anklicken oder auf leerer Fläche einen Auswahlrahmen aufziehen. Umschalt- oder Strg/Cmd-Klick fügt Objekte hinzu oder entfernt sie; ein Klick in einen Rahmen wählt den Rahmen.",
         "panels": "Editor-Bereiche"
       },
       "format": {
@@ -3774,7 +3775,7 @@
         "detach": "Verbindung lösen",
         "shortcutHelp": "Tastenkürzel",
         "clipboardError": "Zwischenablage nicht verfügbar. Zugriff erlauben und gültige Präsentationsobjekte mit zugänglichen Anhängen kopieren.",
-        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen. Drehen rastet horizontal, vertikal und parallel zu anderen Objekten ein; Umschalt nutzt 15°-Schritte, Alt dreht frei.",
+        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Umschalt- oder Strg/Cmd-Klick fügt ein Objekt hinzu oder entfernt es. Klick in einen Rahmen oder auf seinen Namen wählt den Rahmen; Name oder Rand ziehen verschiebt ihn. Mausrad und Zwei-Finger-Wischen verschieben die Ansicht, Strg/Cmd+Mausrad und Zwei-Finger-Zoom zoomen; auch Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg+Y oder Strg+Umschalt+Z stellt wieder her. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen. Drehen rastet horizontal, vertikal und parallel zu anderen Objekten ein; Umschalt nutzt 15°-Schritte, Alt dreht frei.",
         "choose": "Element auswählen",
         "bar": "Balkendiagramm",
         "line": "Liniendiagramm",

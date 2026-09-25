@@ -58,7 +58,8 @@ export function startDuplicateDrag(event: React.PointerEvent<HTMLDivElement>, {
   const cancel = () => clear();
   const finish = () => {
     clear();
-    if (!moved) { setSelectedIds(event.ctrlKey || event.metaKey ? (selectedIds.includes(targetId) ? selectedIds.filter(id => id !== targetId) : [...selectedIds, targetId]) : [targetId]); return; }
+    // Without movement it was a click: Ctrl/Cmd-click toggles in the canvas click handler.
+    if (!moved) { if (!(event.ctrlKey || event.metaKey)) setSelectedIds([targetId]); return; }
     try {
       dispatch(frameInsertionEdit(preview, current => {
         if (current.length + preview.length > 500 || source.some(e => !current.some(now => now.id === e.id) || isPresentationElementLocked(current, e.id))) throw new Error("Selection changed");

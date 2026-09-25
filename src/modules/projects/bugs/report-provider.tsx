@@ -20,6 +20,16 @@ export const useBugReporter = () => useContext(ReportContext);
 type Screenshot = { id: string; file: File; url: string; state: "pending" | "saved" | "failed" };
 type Receipt = { number: number; taskId: string; projectId: string };
 
+/** Whether a key belongs to an on-screen presentation editor (focused, or focus fell back to the page). */
+function presentationEditorOwnsKey(event: KeyboardEvent) {
+  const workspace = "[data-presentation-workspace]";
+  const focus = event.target instanceof Element ? event.target : document.activeElement;
+  if (focus?.closest(workspace)) return true;
+  if (focus && focus !== document.body && focus !== document.documentElement) return false;
+  const editor = document.querySelector<HTMLElement>(workspace);
+  return Boolean(editor && (typeof editor.checkVisibility === "function" ? editor.checkVisibility() : editor.getClientRects().length > 0));
+}
+
 export function BugReportProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("bugReports");
   const locale = useLocale();
@@ -73,6 +83,8 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     shortcut.current = event => {
       if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "y") return;
+      // In the presentation editor Ctrl/⌘+Y is redo, as in every other canvas tool.
+      if (presentationEditorOwnsKey(event)) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (open || selectingArea || freezing.current) return;
       if (receipt || busy) { show(); return; }

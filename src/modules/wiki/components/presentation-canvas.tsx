@@ -150,7 +150,11 @@ function ImageNode({ data, selected }: NodeProps<PresentationNode>) {
   );
 }
 
+/** Screen width of the band along a frame's outline that grabs and moves the frame. */
+const FRAME_EDGE_HIT = 12;
+
 function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
+  const { zoom } = useViewport();
   const element = data.element;
   if (element.type !== "frame") return null;
   const { label, shape, color } = element.content;
@@ -173,21 +177,25 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
       )}
       style={shape !== "none" && color ? { borderColor: color } : undefined}
     >
-      {/* Only the outline receives clicks. Its screen-sized hit area also works
-          for circular/rotated frames and does not cover nested objects. */}
+      {/* Only the outline and the label receive pointer events: they move the frame. A click
+          on the empty interior reaches the pane (which selects the frame) and a drag there
+          draws a marquee. The band is sized in screen pixels -- non-scaling-stroke ignores the
+          viewport's CSS scale -- and sits under the resize handles, so grabbing the edge
+          between two handles moves the frame. */}
       {!data.hidden && (
-        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-frame-edge>
           {shape === "circle" ? (
-            <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="none" stroke="transparent" strokeWidth={10} vectorEffect="non-scaling-stroke" pointerEvents="stroke" />
+            <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="none" stroke="transparent" strokeWidth={FRAME_EDGE_HIT / zoom} pointerEvents="stroke" />
           ) : (
-            <rect width="100%" height="100%" rx={12} fill="none" stroke="transparent" strokeWidth={10} vectorEffect="non-scaling-stroke" pointerEvents="stroke" />
+            <rect width="100%" height="100%" rx={12} fill="none" stroke="transparent" strokeWidth={FRAME_EDGE_HIT / zoom} pointerEvents="stroke" />
           )}
         </svg>
       )}
       <Resizer selected={Boolean(selected)} data={data} />
       {label && (
         <span
-          className="pointer-events-none absolute -top-6 left-0 truncate text-sm font-medium"
+          data-frame-label
+          className="pointer-events-auto absolute -top-6 left-0 max-w-full truncate text-sm font-medium"
           style={{ color: color || undefined }}
         >
           {label}
