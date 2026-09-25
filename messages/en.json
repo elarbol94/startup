@@ -23,6 +23,7 @@
   },
   "appWorkspace": {
     "tabs": "Open tabs",
+    "switchShortcut": "Alt+Q switches to the last used tab",
     "current": "Current page",
     "newTab": "New tab",
     "closeTab": "Close {title}",

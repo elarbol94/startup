@@ -1,5 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey } from "./model";
+import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, previousTab, isTabSwitchShortcut } from "./model";
+
+describe("tab switch shortcut", () => {
+  it("toggles to the most recently used open tab", () => {
+    let history: string[] = [];
+    for (const id of ["primary", "a", "b", "c"]) history = touchTabHistory(history, id);
+    expect(previousTab(history, ["primary", "a", "b", "c"], "c")).toBe("b");
+    history = touchTabHistory(history, "b");
+    expect(previousTab(history, ["primary", "a", "b", "c"], "b")).toBe("c");
+    expect(previousTab(history, ["primary", "a", "b"], "b")).toBe("a");
+    expect(previousTab([], ["primary", "a"], "primary")).toBe("a");
+    expect(previousTab([], ["primary"], "primary")).toBeNull();
+  });
+  it("matches only Alt+Q", () => {
+    const base = { altKey: true, ctrlKey: false, metaKey: false, shiftKey: false, repeat: false, code: "KeyQ" };
+    expect(isTabSwitchShortcut(base)).toBe(true);
+    expect(isTabSwitchShortcut({ ...base, ctrlKey: true })).toBe(false);
+    expect(isTabSwitchShortcut({ ...base, code: "KeyW" })).toBe(false);
+  });
+});
 describe("workspace destinations", () => {
   it("keeps deep links and query state inside the app", () => {
     expect(workspaceHref("/projects/project-0?view=knowledge#context", "https://app.test")).toBe("/projects/project-0?view=knowledge#context");

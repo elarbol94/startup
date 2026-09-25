@@ -41,3 +41,26 @@ export function workspaceDestinationKey(href: string): string {
   const path = href.split(/[?#]/)[0];
   return /^\/wiki\/(?:sources|pages|presentations)\/[^/]+/.exec(path)?.[0] || href;
 }
+
+/** Most-recently-used tab order: the given tab moves to the front. */
+export function touchTabHistory(history: readonly string[], id: string): string[] {
+  return [id, ...history.filter(entry => entry !== id)].slice(0, MAX_WORKSPACE_TABS + 1);
+}
+
+/** The last-used open tab other than the active one (like Alt+Tab), or null. */
+export function previousTab(history: readonly string[], openIds: readonly string[], active: string): string | null {
+  const open = new Set(openIds);
+  return history.find(id => id !== active && open.has(id)) ?? openIds.find(id => id !== active) ?? null;
+}
+
+/** Alt+Q switches tabs; `code` is layout-independent (macOS Option+Q types "œ"). */
+export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "shiftKey" | "code" | "repeat">): boolean {
+  return event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && !event.repeat && event.code === "KeyQ";
+}
+
+/** Shortcuts must not fire while the user is typing. */
+export function isEditableTarget(target: EventTarget | null): boolean {
+  if (!target || typeof (target as HTMLElement).closest !== "function") return false;
+  const element = target as HTMLElement;
+  return element.isContentEditable || element.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])") !== null;
+}
