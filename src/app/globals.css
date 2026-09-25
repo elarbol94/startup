@@ -1298,3 +1298,8 @@
     display: none;
   }
 }
+
+/* Links in rich-text editors open on Ctrl/Cmd+click; show that while the modifier is held. */
+.editor-link-modifier a[href] {
+  cursor: pointer;
+}
