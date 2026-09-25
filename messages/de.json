@@ -220,6 +220,7 @@
     "importFailed": "Import fehlgeschlagen. Eine gültige, unverschlüsselte .pptx-Datei innerhalb der Größenbegrenzung verwenden.",
     "importWarnings": "Importhinweise",
     "openImported": "Importierte Präsentation öffnen",
+    "noFileChosen": "Keine Datei ausgewählt",
     "choosePptx": "PowerPoint-Datei auswählen",
     "previous": "Zurück",
     "next": "Weiter",
@@ -3472,6 +3473,8 @@
     "editors": "Herausgeber:innen",
     "editorsHelp": "Eine Person pro Zeile, wie oben. Leer lassen, wenn es keine gibt.",
     "presentations": {
+      "uploadImage": "Bild hochladen",
+      "documentTitle": "{title} – Präsentation",
       "commands": {
         "title": "Präsentationsbefehle",
         "description": "Aktion finden. Deine aktuelle Objektauswahl bleibt erhalten.",
@@ -3619,6 +3622,7 @@
       },
       "elementTypes": {
         "text": "Text",
+        "group": "Gruppe",
         "image": "Bild",
         "frame": "Rahmen",
         "shape": "Form",
@@ -3809,7 +3813,9 @@
         },
         "dashPattern": "Strichmuster",
         "placeHint": "Zum Platzieren klicken · Escape bricht ab · Enter platziert in der Mitte",
-        "minimapLabel": "Canvas-Übersicht"
+        "minimapLabel": "Canvas-Übersicht",
+        "minimapShow": "Minikarte einblenden",
+        "minimapHide": "Minikarte ausblenden"
       }
     },
     "figures": {

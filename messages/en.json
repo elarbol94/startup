@@ -220,6 +220,7 @@
     "importFailed": "Import failed. Use a valid, unencrypted .pptx within the size limit.",
     "importWarnings": "Import notes",
     "openImported": "Open imported presentation",
+    "noFileChosen": "No file chosen",
     "choosePptx": "Choose PowerPoint file",
     "previous": "Previous",
     "next": "Next",
@@ -3470,6 +3471,8 @@
     "editors": "Editors",
     "editorsHelp": "One person per line, as above. Leave empty if there are none.",
     "presentations": {
+      "uploadImage": "Upload image",
+      "documentTitle": "{title} – Presentation",
       "commands": {
         "title": "Presentation commands",
         "description": "Find an action. Your current object selection stays active.",
@@ -3617,6 +3620,7 @@
       },
       "elementTypes": {
         "text": "Text",
+        "group": "Group",
         "image": "Image",
         "frame": "Frame",
         "shape": "Shape",
@@ -3807,7 +3811,9 @@
         },
         "dashPattern": "Dash pattern",
         "placeHint": "Click to place · Escape cancels · Enter places in the center",
-        "minimapLabel": "Canvas overview"
+        "minimapLabel": "Canvas overview",
+        "minimapShow": "Show minimap",
+        "minimapHide": "Hide minimap"
       }
     },
     "figures": {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { alignPresentationToFrame, containingPresentationFrame, setPreciseGeometry } from "./presentation-precision";
+import { alignPresentationToFrame, containingPresentationFrame, formatGeometryValue, setPreciseGeometry } from "./presentation-precision";
 import { initialPresentationCanvasState, normalizeRotation, presentationCanvasReducer, presentationElementsSchema, type PresentationElement } from "./presentation";
 
 const frame: PresentationElement = { id: "frame", type: "frame", x: 0, y: 0, width: 1000, height: 600, rotation: 0, content: { label: "Slide", color: "", shape: "rect" } };
@@ -86,5 +86,15 @@ describe("align within frame", () => {
     const locked = [{ ...frame, locked: true }, shape];
     expect(alignPresentationToFrame(locked, new Set(["a"]), "left")).toBe(locked);
     expect(alignPresentationToFrame([frame, shape], new Set(["a"]), "horizontal")).toEqual([frame, shape]);
+  });
+});
+
+describe("formatGeometryValue", () => {
+  it("shows at most one decimal and no negative zero", () => {
+    expect(formatGeometryValue(123.456789)).toBe("123.5");
+    expect(formatGeometryValue(40)).toBe("40");
+    expect(formatGeometryValue(-12.04)).toBe("-12");
+    expect(formatGeometryValue(-0.04)).toBe("0");
+    expect(formatGeometryValue(19.95)).toBe("20");
   });
 });

@@ -73,3 +73,9 @@ export function alignPresentationToFrame(elements: PresentationElement[], ids: S
   const next = elements.map(e => { const move = moves.get(e.id); return move ? { ...e, x: e.x + move.x, y: e.y + move.y } : e; });
   return presentationElementsSchema.safeParse(next).success ? next : elements;
 }
+
+/** Inspector display: at most one decimal, so dragged fractional geometry stays readable. */
+export function formatGeometryValue(value: number): string {
+  const rounded = Math.round(value * 10) / 10;
+  return String(Object.is(rounded, -0) ? 0 : rounded);
+}

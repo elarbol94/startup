@@ -48,7 +48,7 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
   const [paletteId, setPaletteId] = useState<PresentationPaletteId>("original");
   const [previewIndex, setPreviewIndex] = useState(0);
   const catalog = useMemo(() => presentationTemplateIds.map((id) => localizedPresentationTemplate(presentationTemplates[id], locale, undefined, paletteId)), [locale, paletteId]);
-  const preview = useMemo(() => selected === "blank" ? null : localizedPresentationTemplate(presentationTemplates[selected], locale, title, paletteId), [selected, locale, title, paletteId]);
+  const preview = useMemo(() => selected === "blank" ? null : localizedPresentationTemplate(presentationTemplates[selected], locale, title, paletteId, !title.trim()), [selected, locale, title, paletteId]);
 
   const choose = (id: PresentationTemplateId | "blank") => {
     setSelected(id);
@@ -58,7 +58,7 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
     if (busy) return;
     setBusy(true);
     try {
-      const { id } = await createPresentation({ title: title.trim() || t("presentations.untitled"), templateId: selected === "blank" ? undefined : selected, locale, paletteId });
+      const { id } = await createPresentation({ title: title.trim() || t("presentations.untitled"), untitled: !title.trim(), templateId: selected === "blank" ? undefined : selected, locale, paletteId });
       setOpen(false);
       setTitle("");
       setBusy(false);
@@ -79,7 +79,8 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
             <DialogDescription className="hidden sm:block">{t("presentations.chooseTemplateDescription")}</DialogDescription>
             <div className="mt-3 space-y-2">
               <Label htmlFor="new-presentation-title">{t("presentations.presentationTitle")}</Label>
-              <Input id="new-presentation-title" value={title} disabled={busy} maxLength={200} placeholder={t("presentations.newPlaceholder")} onChange={(event) => setTitle(event.target.value)} />
+              <Input id="new-presentation-title" value={title} disabled={busy} maxLength={200} placeholder={t("presentations.newPlaceholder")} onChange={(event) => setTitle(event.target.value)}
+                onKeyDown={(event) => { if (event.key === "Enter" && !event.nativeEvent.isComposing) { event.preventDefault(); void create(); } }} />
             </div>
           </DialogHeader>
           <div className="min-h-0 overflow-y-auto lg:grid lg:grid-cols-[1.15fr_1fr]">
@@ -89,6 +90,12 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
                 <span className="text-xs text-muted-foreground">{t("presentations.templateCount", { count: catalog.length })}</span>
               </div>
               <div className="flex gap-3 overflow-x-auto pb-2 lg:grid lg:grid-cols-2 lg:gap-4">
+                <button type="button" aria-label={t("presentations.templates.blank")} aria-pressed={selected === "blank"} disabled={busy} onClick={() => choose("blank")}
+                  className={cn("col-span-2 flex w-40 shrink-0 items-center gap-3 rounded-xl lg:w-auto border border-dashed p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring", selected === "blank" && "border-primary bg-accent ring-2 ring-primary/20")}>
+                  <Plus className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <div className="flex-1"><p className="text-sm font-semibold">{t("presentations.templates.blank")}</p><p className="mt-1 text-xs text-muted-foreground">{t("presentations.templateDescriptions.blank")}</p></div>
+                  {selected === "blank" && <Check className="size-4 text-primary" aria-hidden="true" />}
+                </button>
                 {catalog.map((template) => <button key={template.id} type="button" disabled={busy}
                   aria-label={t(`presentations.templates.${template.id}`)} aria-pressed={selected === template.id}
                   onClick={() => choose(template.id)}
@@ -103,12 +110,6 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
                     <p className="mt-2 text-[11px] text-muted-foreground">{t("presentations.templateSlides", { count: template.steps.length })}</p>
                   </div>
                 </button>)}
-                <button type="button" aria-label={t("presentations.templates.blank")} aria-pressed={selected === "blank"} disabled={busy} onClick={() => choose("blank")}
-                  className={cn("col-span-2 flex w-40 shrink-0 items-center gap-3 rounded-xl lg:w-auto border border-dashed p-4 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring", selected === "blank" && "border-primary bg-accent ring-2 ring-primary/20")}>
-                  <Plus className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                  <div className="flex-1"><p className="text-sm font-semibold">{t("presentations.templates.blank")}</p><p className="mt-1 text-xs text-muted-foreground">{t("presentations.templateDescriptions.blank")}</p></div>
-                  {selected === "blank" && <Check className="size-4 text-primary" aria-hidden="true" />}
-                </button>
               </div>
             </div>
             <div className="border-t bg-muted/30 p-4 sm:p-6 lg:sticky lg:top-0 lg:self-start lg:border-t-0 lg:border-l">
@@ -139,7 +140,7 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
                 <Button variant="outline" size="icon-sm" aria-label={t("presentations.templateNextPage")} disabled={previewIndex === preview.steps.length - 1 || busy} onClick={() => setPreviewIndex((index) => index + 1)}><ChevronRight className="size-4" /></Button>
               </div>}
               <p className="mt-5 hidden text-sm leading-relaxed text-muted-foreground lg:block">{t(`presentations.templateDescriptions.${selected}`)}</p>
-              <p className="mt-3 hidden text-xs leading-relaxed text-muted-foreground lg:block">{t("presentations.templateEditable")}</p>
+              {preview && <p className="mt-3 hidden text-xs leading-relaxed text-muted-foreground lg:block">{t("presentations.templateEditable")}</p>}
             </div>
           </div>
           <div className="flex shrink-0 items-center justify-between gap-4 border-t bg-background px-4 py-4 sm:px-6">

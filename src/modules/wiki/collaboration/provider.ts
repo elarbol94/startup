@@ -2,6 +2,7 @@
 import { clientUUID } from "@/lib/client-uuid";
 import * as Y from "yjs";
 import { decode, encode, REMOTE, type Kind } from "./codec";
+import { readRetiredClients, retiredClientsKey, setClientRetired } from "./retired-clients";
 
 export type Presence = { client: string; name: string; userId: string; cursor?: { anchor: string; head: string } | null; selectedIds?: string[] };
 export type CollaborationStatus = "connecting" | "saving" | "saved" | "reconnecting" | "denied" | "error";
@@ -47,9 +48,14 @@ export class CollaborationProvider implements CollaborationClient {
   private generation = 0;
   private presence: Pick<Presence, "cursor" | "selectedIds"> = {};
   private sequence = 0;
+  /** This tab's earlier loads, whose presence lingers briefly on the server. */
+  private retired: Set<string>;
+  private readonly retiredKey: string;
   readonly url: string;
   constructor(kind: Kind, id: string) {
     this.url = `/api/wiki/collaboration/${kind}/${encodeURIComponent(id)}`;
+    this.retiredKey = retiredClientsKey(this.url);
+    this.retired = new Set(readRetiredClients(this.retiredKey));
     this.doc.on("update", (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE) return;
       this.pending.push(update);
@@ -86,8 +92,12 @@ export class CollaborationProvider implements CollaborationClient {
       if (this.ready && !this.disposed) void this.flush();
     }, 250);
   }
+  private retire = () => setClientRetired(this.retiredKey, this.client, true);
+  private revive = () => setClientRetired(this.retiredKey, this.client, false);
   async start() {
     this.disposed = false;
+    this.revive();
+    if (typeof window !== "undefined") { window.addEventListener("pagehide", this.retire); window.addEventListener("pageshow", this.revive); }
     const generation = ++this.generation;
     const connect = async () => {
       try {
@@ -121,7 +131,7 @@ export class CollaborationProvider implements CollaborationClient {
           try { const data = JSON.parse((event as MessageEvent).data); Y.applyUpdate(this.doc, decode(data.update), REMOTE); this.sequence = data.sequence; this.journal(); }
           catch { this.setStatus("error"); }
         });
-        this.source.addEventListener("presence", event => { this.people = JSON.parse((event as MessageEvent).data).filter((person: Presence) => person.client !== this.client); this.emit(); });
+        this.source.addEventListener("presence", event => { this.people = JSON.parse((event as MessageEvent).data).filter((person: Presence) => person.client !== this.client && !this.retired.has(person.client)); this.emit(); });
         this.source.addEventListener("denied", () => { this.source?.close(); this.setStatus("denied"); });
         this.source.onerror = () => { if (this.status !== "denied" && this.status !== "error") this.setStatus("reconnecting"); };
         this.source.onopen = () => { if (this.status !== "denied" && this.status !== "error") this.setStatus(this.pending.length ? "saving" : "saved"); };
@@ -155,5 +165,8 @@ export class CollaborationProvider implements CollaborationClient {
     })();
     return this.inFlight.then(ok => ok && this.pending.length ? this.flush() : ok);
   }
-  stop() { this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); clearTimeout(this.presenceTimer); this.presenceTimer = undefined; this.journal(); }
+  stop() {
+    this.retire();
+    if (typeof window !== "undefined") { window.removeEventListener("pagehide", this.retire); window.removeEventListener("pageshow", this.revive); }
+    this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); clearTimeout(this.presenceTimer); this.presenceTimer = undefined; this.journal(); }
 }
