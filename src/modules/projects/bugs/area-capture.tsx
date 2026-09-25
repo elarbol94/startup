@@ -9,30 +9,16 @@ type Point = { x: number; y: number };
 type Area = { x: number; y: number; width: number; height: number };
 const minimum = 16;
 
-export function AreaCapture({ frame, onCapture, onCancel, onError }: {
-  frame: HTMLCanvasElement | null; onCapture: (file: File) => void; onCancel: () => void; onError: () => void;
+export function AreaCapture({ onCapture, onCancel, onError }: {
+  onCapture: (file: File) => void; onCancel: () => void; onError: () => void;
 }) {
   const t = useTranslations("bugReports");
   const root = useRef<HTMLDivElement>(null);
   const start = useRef<Point | null>(null);
   const capturing = useRef(false);
   const controller = useRef<AbortController | null>(null);
-  const snapshot = useRef<Promise<HTMLCanvasElement> | null>(null);
-  const frozen = useRef<HTMLDivElement>(null);
   const [area, setArea] = useState<Area | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    // Show a frozen viewport so the page underneath cannot change the result.
-    const abort = new AbortController(); controller.current = abort;
-    const shot = snapshot.current = frame ? Promise.resolve(frame) : viewportSnapshot(abort.signal);
-    shot.then(canvas => {
-      if (abort.signal.aborted) return;
-      canvas.style.cssText = "width:100%;height:100%";
-      frozen.current?.replaceChildren(canvas);
-    }, () => { if (!abort.signal.aborted) onError(); });
-    return () => abort.abort();
-  }, [frame, onError]);
 
   useEffect(() => {
     const element = root.current;
@@ -44,17 +30,12 @@ export function AreaCapture({ frame, onCapture, onCancel, onError }: {
     const focusFrame = requestAnimationFrame(() => element?.focus());
     const preventScroll = (event: Event) => event.preventDefault();
     element?.addEventListener("wheel", preventScroll, { passive: false });
-    // The frozen image no longer matches a resized viewport.
-    const resize = () => { controller.current?.abort(); onCancel(); };
-    window.addEventListener("resize", resize);
-    // Native listener: stops Escape before an open popup underneath sees it
-    // on document and closes itself.
-    const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      event.stopPropagation(); event.preventDefault(); controller.current?.abort(); onCancel();
+    const resize = () => {
+      if (capturing.current) { controller.current?.abort(); onCancel(); }
+      else { start.current = null; setArea(null); }
     };
-    element?.addEventListener("keydown", escape);
-    return () => { cancelAnimationFrame(focusFrame); document.removeEventListener("focusin", keepFocus); element?.removeEventListener("wheel", preventScroll); element?.removeEventListener("keydown", escape); window.removeEventListener("resize", resize); };
+    window.addEventListener("resize", resize);
+    return () => { controller.current?.abort(); cancelAnimationFrame(focusFrame); document.removeEventListener("focusin", keepFocus); element?.removeEventListener("wheel", preventScroll); window.removeEventListener("resize", resize); };
   }, [onCancel]);
 
   function point(event: React.PointerEvent): Point {
@@ -68,14 +49,23 @@ export function AreaCapture({ frame, onCapture, onCancel, onError }: {
   async function capture() {
     if (!area || area.width < minimum || area.height < minimum || capturing.current) return;
     capturing.current = true; setBusy(true);
-    const abort = controller.current!;
+    const abort = new AbortController(); controller.current = abort;
     try {
-      const frame = await snapshot.current!;
+      const { default: html2canvas } = await import("html2canvas-pro");
       if (abort.signal.aborted) return;
-      const scale = frame.width / window.innerWidth;
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(area.width * scale); canvas.height = Math.round(area.height * scale);
-      canvas.getContext("2d")!.drawImage(frame, area.x * scale, area.y * scale, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height);
+      const canvas = await html2canvas(document.documentElement, {
+        x: window.scrollX + area.x, y: window.scrollY + area.y,
+        width: area.width, height: area.height,
+        scrollX: window.scrollX, scrollY: window.scrollY,
+        windowWidth: window.innerWidth, windowHeight: window.innerHeight,
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+        logging: false, allowTaint: false, useCORS: false, imageTimeout: 3000,
+        signal: abort.signal,
+        ignoreElements: element => element.hasAttribute("data-html2canvas-ignore") || element.tagName === "NEXTJS-PORTAL",
+        onclone: document => {
+          document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
+        },
+      });
       const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, "image/png"));
       canvas.width = 0; canvas.height = 0;
       if (abort.signal.aborted) return;
@@ -86,9 +76,10 @@ export function AreaCapture({ frame, onCapture, onCancel, onError }: {
 
   return createPortal(<div ref={root} role="dialog" aria-modal="true" aria-label={t("selectArea")} aria-describedby="capture-instructions"
     tabIndex={-1} data-testid="bug-area-selector" data-html2canvas-ignore="true"
-    className="pointer-events-auto fixed inset-0 z-[100] touch-none select-none outline-none"
+    className="fixed inset-0 z-[100] touch-none select-none outline-none"
     onKeyDown={event => {
       event.stopPropagation();
+      if (event.key === "Escape") { event.preventDefault(); controller.current?.abort(); onCancel(); return; }
       if (event.key === "Tab") {
         const buttons = Array.from(root.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? []);
         if (buttons.length) { event.preventDefault(); const index = buttons.indexOf(document.activeElement as HTMLButtonElement); buttons[(index + (event.shiftKey ? buttons.length - 1 : 1)) % buttons.length].focus(); }
@@ -104,7 +95,6 @@ export function AreaCapture({ frame, onCapture, onCancel, onError }: {
           : { ...current, x: Math.max(0, Math.min(window.innerWidth - current.width, current.x + dx)), y: Math.max(0, Math.min(window.innerHeight - current.height, current.y + dy)) });
       }
     }}>
-    <div ref={frozen} className="absolute inset-0" aria-hidden="true" />
     <div className={`absolute inset-0 ${busy ? "cursor-wait" : "cursor-crosshair"}`} data-testid="bug-area-surface"
       onPointerDown={event => { if (busy || !event.isPrimary || event.button !== 0) return; event.preventDefault(); root.current?.focus(); start.current = point(event); setArea(null); event.currentTarget.setPointerCapture(event.pointerId); }}
       onPointerMove={update}
@@ -118,22 +108,4 @@ export function AreaCapture({ frame, onCapture, onCancel, onError }: {
       <div className="ml-auto flex gap-2"><Button type="button" variant="outline" onClick={() => { controller.current?.abort(); onCancel(); }}>{t("cancelCapture")}</Button><Button type="button" disabled={busy || !area || area.width < minimum || area.height < minimum} onClick={() => void capture()}>{t("useArea")}</Button></div>
     </div>
   </div>, document.body);
-}
-
-export async function viewportSnapshot(signal?: AbortSignal) {
-  const { default: html2canvas } = await import("html2canvas-pro");
-  signal?.throwIfAborted();
-  return html2canvas(document.documentElement, {
-    x: window.scrollX, y: window.scrollY,
-    width: window.innerWidth, height: window.innerHeight,
-    scrollX: window.scrollX, scrollY: window.scrollY,
-    windowWidth: window.innerWidth, windowHeight: window.innerHeight,
-    scale: Math.min(window.devicePixelRatio || 1, 2),
-    logging: false, allowTaint: false, useCORS: false, imageTimeout: 3000,
-    signal,
-    ignoreElements: element => element.hasAttribute("data-html2canvas-ignore") || element.tagName === "NEXTJS-PORTAL",
-    onclone: document => {
-      document.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
-    },
-  });
 }

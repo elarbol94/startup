@@ -16,7 +16,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuShortcut,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
@@ -96,7 +95,6 @@ export function UserMenu({
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuItem
-          aria-keyshortcuts="Control+Y"
           onClick={() => {
             onNavigate?.();
             openBugReporter();
@@ -104,7 +102,6 @@ export function UserMenu({
         >
           <Bug className="mr-2 size-4" />
           {tBugs("report")}
-          <DropdownMenuShortcut aria-hidden="true">{tBugs("globalShortcut")}</DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>
