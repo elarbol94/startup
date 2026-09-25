@@ -41,6 +41,8 @@ import { TaskDialog, type BoardTaskDto, type MemberDto } from "./task-dialog";
 import { cn } from "@/lib/utils";
 import type { ColumnDto } from "./board/board-types";
 import { TaskCard } from "./board/task-card";
+import { usePendingDeleteIds } from "@/lib/use-pending-delete";
+import { hidePendingFromBoard } from "@/modules/projects/pending-delete-view";
 import { BoardColumn } from "./board/board-column";
 import { ColumnNameDialog } from "./board/column-name-dialog";
 
@@ -100,6 +102,13 @@ export function BoardClient({
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  // Tasks awaiting a delayed delete (Undo window) are hidden from the board.
+  const pendingDeleteIds = usePendingDeleteIds();
+  const visibleBoard = useMemo(
+    () => hidePendingFromBoard(board, subtasksByParent, pendingDeleteIds),
+    [board, subtasksByParent, pendingDeleteIds],
   );
 
   const taskIndex = useMemo(() => {
@@ -431,8 +440,8 @@ export function BoardClient({
             <BoardColumn
               key={column.id}
               column={column}
-              tasks={board[column.id] ?? []}
-              subtasksByParent={subtasksByParent}
+              tasks={visibleBoard.tasksByColumn[column.id] ?? []}
+              subtasksByParent={visibleBoard.subtasksByParent}
               columns={columns}
               expandedTasks={expandedTasks}
               canDelete={columns.length > 1}

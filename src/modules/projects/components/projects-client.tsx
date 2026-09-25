@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { usePendingDeleteIds } from "@/lib/use-pending-delete";
 import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { setProjectStatus } from "@/modules/projects/actions";
 import { Badge } from "@/components/ui/badge";
@@ -86,8 +87,11 @@ export function ProjectsClient({
     }
   }
 
-  const active = items.filter((p) => p.status === "active");
-  const archived = items.filter((p) => p.status === "archived");
+  // Projects awaiting a delayed delete (Undo window) are hidden locally.
+  const pendingDeleteIds = usePendingDeleteIds();
+  const visible = items.filter((p) => !pendingDeleteIds.has(p.id));
+  const active = visible.filter((p) => p.status === "active");
+  const archived = visible.filter((p) => p.status === "archived");
 
   return (
     <div className="flex flex-col gap-6">

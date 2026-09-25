@@ -255,6 +255,7 @@
     "confirmDeleteDescription": "This action cannot be undone.",
     "saved": "Saved",
     "deleted": "Deleted",
+    "undo": "Undo",
     "error": "Something went wrong",
     "noResults": "No entries found",
     "nextPage": "Next page"

@@ -2,9 +2,12 @@
 
 import {
   useCallback,
+  useMemo,
   useRef,
   useState,
 } from "react";
+import { usePendingDeleteIds } from "@/lib/use-pending-delete";
+import { hidePendingFromSchedule } from "@/modules/projects/pending-delete-view";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { PortfolioSchedule } from "@/modules/projects/queries";
@@ -56,7 +59,7 @@ export type { EmbeddedProjectPlanner } from "./portfolio/portfolio-types";
 // The timeline is assembled from the pieces in ./portfolio/: hooks own state and gestures,
 // components render the chrome, rows, dependency lines and dialogs.
 export function PortfolioClient({
-  schedule,
+  schedule: serverSchedule,
   projects,
   initialFocusedTaskId = null,
   embedded,
@@ -68,6 +71,12 @@ export function PortfolioClient({
 }) {
   const t = useTranslations("projects");
   const router = useRouter();
+  // Projects/tasks awaiting a delayed delete (Undo window) are hidden locally.
+  const pendingDeleteIds = usePendingDeleteIds();
+  const schedule = useMemo(
+    () => hidePendingFromSchedule(serverSchedule, pendingDeleteIds),
+    [serverSchedule, pendingDeleteIds],
+  );
   const refreshSchedule = useCallback(() => {
     if (embedded) return embedded.onRefresh();
     router.refresh();
