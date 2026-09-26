@@ -24,6 +24,13 @@ describe("rowFocusViewport", () => {
     expect(result).toEqual({ dayWidth: MIN_DAY_WIDTH, scrollLeft: 10 * MIN_DAY_WIDTH });
   });
 
+  it("fits a year-long project into a laptop-width timeline (BUG-14)", () => {
+    // 2026-01-01..2026-12-31 is 365 inclusive days; a laptop leaves ~730px for the timeline.
+    const result = rowFocusViewport({ rangeStart: "2025-12-25", startDate: "2026-01-01", dueDate: "2026-12-31", availableWidth: 730 });
+    expect(result).toEqual({ dayWidth: 2, scrollLeft: 14 });
+    expect(365 * (result?.dayWidth ?? 0)).toBeLessThanOrEqual(730);
+  });
+
   it("never scrolls before the timeline start", () => {
     const result = rowFocusViewport({ rangeStart: "2026-01-01", startDate: "2026-01-01", dueDate: "2026-01-02", availableWidth: 600 });
     expect(result?.scrollLeft).toBe(0);
