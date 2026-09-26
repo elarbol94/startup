@@ -65,9 +65,5 @@ export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlK
   return event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyQ";
 }
 
-/** Shortcuts must not fire while the user is typing. */
-export function isEditableTarget(target: EventTarget | null): boolean {
-  if (!target || typeof (target as HTMLElement).closest !== "function") return false;
-  const element = target as HTMLElement;
-  return element.isContentEditable || element.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])") !== null;
-}
+/** Shortcuts must not fire while the user is typing; shared with the global shortcut manager. */
+export { isEditableTarget } from "@/lib/shortcuts";

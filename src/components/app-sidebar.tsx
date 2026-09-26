@@ -54,6 +54,9 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
+import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
 import { cn } from "@/lib/utils";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { moduleNav, navSectionAliases, type ModuleNavItem } from "@/modules/registry";
@@ -95,6 +98,7 @@ function NavLink({
   active,
   compact,
   onNavigate,
+  shortcut,
 }: {
   href: string;
   label: string;
@@ -102,6 +106,7 @@ function NavLink({
   active: boolean;
   compact: boolean;
   onNavigate?: () => void;
+  shortcut?: string;
 }) {
   const link = (
     <Link
@@ -129,7 +134,7 @@ function NavLink({
     </Link>
   );
 
-  return link;
+  return <ShortcutTooltip label={label} shortcut={shortcut} side="right">{link}</ShortcutTooltip>;
 }
 
 function SortableNavLink({
@@ -213,7 +218,11 @@ function SortableNavLink({
     </button>
   );
 
-  return button;
+  return (
+    <ShortcutTooltip label={label} shortcut={NAVIGATION_SHORTCUTS[item.key]} side="right" disabled={isDragging}>
+      {button}
+    </ShortcutTooltip>
+  );
 }
 
 /** Shortcut hints are only useful with a physical keyboard / fine pointer. */
@@ -265,7 +274,7 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
           >
             <ClipboardPlus className="mr-1 size-4" />
             {t("newTask")}
-            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}>Ctrl ⇧ A</DropdownMenuShortcut>
+            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.newTask} /></DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => {
@@ -285,7 +294,7 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
           >
             <CalendarClock className="mr-1 size-4" />
             {t("newDeadline")}
-            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}>Ctrl ⇧ D</DropdownMenuShortcut>
+            <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.newDeadline} /></DropdownMenuShortcut>
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
@@ -359,6 +368,7 @@ function AppNavigation({
           className={cn("flex flex-1 flex-col gap-1 overflow-y-auto", compact ? "px-2 py-3" : "p-3")}
         >
           <QuickCreateMenu compact={compact} onNavigate={onNavigate} />
+          <ShortcutTooltip label={tCommon("search")} shortcut={GLOBAL_SHORTCUTS.search} side="right">
           <button
             type="button"
             onClick={() => {
@@ -370,7 +380,7 @@ function AppNavigation({
               compact ? "justify-center px-0" : "gap-3 px-3",
             )}
             aria-label={tCommon("search")}
-            title={`${tCommon("search")} · Ctrl+K`}
+            aria-keyshortcuts="Control+K Meta+K"
           >
             <Search className="size-5" />
             <span
@@ -384,12 +394,9 @@ function AppNavigation({
             >
               {tCommon("search")}
             </span>
-            {!compact && (
-              <kbd className={cn("ml-auto rounded border bg-background px-1 py-0.5 text-[9px]", KEYBOARD_HINT_CLASS)}>
-                Ctrl K
-              </kbd>
-            )}
+            {!compact && <ShortcutKeys shortcut={GLOBAL_SHORTCUTS.search} className={cn("ml-auto", KEYBOARD_HINT_CLASS)} />}
           </button>
+          </ShortcutTooltip>
           <DndContext
             id="app-sidebar-navigation"
             sensors={sensors}
@@ -434,6 +441,7 @@ function AppNavigation({
               active={isActive("/settings")}
               compact={compact}
               onNavigate={onNavigate}
+              shortcut={NAVIGATION_SHORTCUTS.settings}
             />
           </div>
         </nav>
@@ -464,6 +472,13 @@ export function AppSidebar({
   const [searchOpen, setSearchOpen] = useState(false);
   const desktopPointerInsideRef = useRef(false);
   const desktopDragRef = useRef(false);
+  const router = useRouter();
+  useKeyboardShortcuts(
+    [...moduleNav, { key: "settings" as const, href: "/settings" }].map((item) => ({
+      shortcut: NAVIGATION_SHORTCUTS[item.key],
+      handler: () => requestAppNavigation(item.href, () => router.push(item.href)),
+    })),
+  );
 
   function handleDesktopDragStateChange(dragging: boolean) {
     desktopDragRef.current = dragging;
