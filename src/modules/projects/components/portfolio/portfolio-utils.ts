@@ -6,8 +6,23 @@ import type {
 } from "@/modules/projects/queries";
 import { projectScheduleRisk } from "@/modules/projects/schedule";
 import { localDateValue } from "@/modules/tasks/deadline-utils";
-import { DAY_MS } from "./portfolio-constants";
+import { BAR_EDGE_GRAB_WIDTH, DAY_MS } from "./portfolio-constants";
 import type { Zoom } from "./portfolio-types";
+
+/** Width of the resize grab zone at each end of a bar: a quarter of the bar at
+ * most, so short bars keep a middle that moves them. */
+export function barEdgeGrabWidth(barWidth: number) {
+  return Math.max(0, Math.min(BAR_EDGE_GRAB_WIDTH, barWidth / 4));
+}
+
+/** Which edge a pointer `offsetX` px from the bar's left grabs, or null for the middle. */
+export function barEdgeAt(offsetX: number, barWidth: number): "start" | "end" | null {
+  const zone = barEdgeGrabWidth(barWidth);
+  if (zone <= 0) return null;
+  if (offsetX < zone) return "start";
+  if (offsetX > barWidth - zone) return "end";
+  return null;
+}
 
 /** Gantt bar colours: project bars use the project colour at full strength;
  * task bars inherit the same colour, slightly dimmed. */
