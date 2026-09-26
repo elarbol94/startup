@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   try {
     const data = await bounded.formData(), file = data.get("file");
     if (!(file instanceof File) || !/\.pptx$/i.test(file.name) || file.size > 50 * 1024 * 1024) return Response.json({ error: "Use a .pptx under 50 MB" }, { status: 400 });
-    const imported = importPresentationPptx(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.pptx$/i, ""));
+    const imported = await importPresentationPptx(new Uint8Array(await file.arrayBuffer()), file.name.replace(/\.pptx$/i, ""));
     const media = new Map<string, string>();
     for (const item of imported.media) {
       const attachment = await saveAttachment({ file: new File([new Uint8Array(item.bytes)], item.name.split("/").pop()!, { type: item.mime }), entityType: "wikiPresentation", entityId: id, userId: session.user.id });
