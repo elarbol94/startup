@@ -54,6 +54,8 @@ import { TaskProjectPlanner } from "./task-project-planner";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { canonicalTaskHref } from "@/modules/context/routes";
 import { projectIdFromPath } from "@/modules/projects/current-project";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
 
 type OpenTaskOptions = {
   origin?: TaskOrigin;
@@ -171,12 +173,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
-      if (
-        !event.defaultPrevented &&
-        (event.ctrlKey || event.metaKey) &&
-        event.shiftKey &&
-        event.key.toLocaleLowerCase() === "a"
-      ) {
+      if (!event.defaultPrevented && matchesShortcut(event, GLOBAL_SHORTCUTS.newTask)) {
         event.preventDefault();
         openTaskCreator();
       }

@@ -1659,6 +1659,9 @@
     }
   },
   "projects": {
+    "focusSearch": "Projekte und Aufgaben suchen",
+    "keyboardShortcuts": "Tastenkürzel",
+    "shortcutsHint": "Kürzel funktionieren, solange kein Textfeld fokussiert ist.",
     "mobileProjectsHeading": "Projekte",
     "mobileDeadlinesHeading": "Deadlines",
     "mobileNoProjects": "Keine Projekte passen zu den Filtern.",
@@ -4870,5 +4873,9 @@
       "breakTooLong": "Die Pause muss kürzer als die Arbeitszeit sein.",
       "invalidWork": "Das gewählte Projekt oder die Aufgabe ist nicht mehr verfügbar."
     }
+  },
+  "shortcuts": {
+    "ctrl": "Strg",
+    "then": "dann"
   }
 }

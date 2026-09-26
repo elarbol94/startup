@@ -1659,6 +1659,9 @@
     }
   },
   "projects": {
+    "focusSearch": "Search projects and tasks",
+    "keyboardShortcuts": "Keyboard shortcuts",
+    "shortcutsHint": "Shortcuts work while no text field is focused.",
     "mobileProjectsHeading": "Projects",
     "mobileDeadlinesHeading": "Deadlines",
     "mobileNoProjects": "No projects match the filters.",
@@ -4868,5 +4871,9 @@
       "breakTooLong": "The break must be shorter than the working period.",
       "invalidWork": "The selected project or task is no longer available."
     }
+  },
+  "shortcuts": {
+    "ctrl": "Ctrl",
+    "then": "then"
   }
 }

@@ -48,6 +48,8 @@ import type {
   TaskOrigin,
   TaskStatus,
 } from "../types";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
 
 type OpenDeadlineOptions = {
   origin?: TaskOrigin;
@@ -164,12 +166,7 @@ export function DeadlineCreateProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     function onShortcut(event: KeyboardEvent) {
-      if (
-        !event.defaultPrevented &&
-        (event.ctrlKey || event.metaKey) &&
-        event.shiftKey &&
-        event.key.toLocaleLowerCase() === "d"
-      ) {
+      if (!event.defaultPrevented && matchesShortcut(event, GLOBAL_SHORTCUTS.newDeadline)) {
         event.preventDefault();
         openDeadlineCreator();
       }

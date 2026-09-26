@@ -14,6 +14,8 @@ import { canonicalTaskHref } from "@/modules/context/routes";
 import { getBugReportContext, submitBugReport } from "./actions";
 import { AreaCapture } from "./area-capture";
 import { freezeViewport } from "./screenshot";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
 
 const ReportContext = createContext<() => void>(() => {});
 export const useBugReporter = () => useContext(ReportContext);
@@ -82,7 +84,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   const shortcut = useRef<(event: KeyboardEvent) => void>(() => {});
   useEffect(() => {
     shortcut.current = event => {
-      if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey || event.key.toLowerCase() !== "y") return;
+      if (!matchesShortcut(event, GLOBAL_SHORTCUTS.reportBug)) return;
       // In the presentation editor Ctrl/⌘+Y is redo, as in every other canvas tool.
       if (presentationEditorOwnsKey(event)) return;
       event.preventDefault(); event.stopImmediatePropagation();

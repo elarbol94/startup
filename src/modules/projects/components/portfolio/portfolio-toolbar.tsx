@@ -4,6 +4,7 @@
 
 import { UserIdentity } from "@/components/user-identity";
 
+import { useRef } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   CalendarClock,
@@ -26,6 +27,9 @@ import type {
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { PROJECTS_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
   Select,
   SelectContent,
@@ -51,6 +55,7 @@ import { isTaskDone } from "@/modules/projects/schedule";
 import type { ProjectDialogState } from "../project-dialog";
 import type { EmbeddedProjectPlanner, SetState, Zoom } from "./portfolio-types";
 import { parseDate, projectRisk } from "./portfolio-utils";
+import { PortfolioShortcutList, useTimelineToolbarShortcuts } from "./portfolio-shortcuts";
 import type { usePortfolioFocus } from "./use-portfolio-focus";
 import type { usePortfolioRows } from "./use-portfolio-rows";
 import type { useStructureDrag } from "./use-structure-drag";
@@ -76,6 +81,7 @@ export function PortfolioHeader({
   const riskCount = schedule.projects.filter((project) =>
     projectRisk(project, tasksByProject.get(project.id) ?? [], today),
   ).length;
+  useKeyboardShortcut(PROJECTS_PAGE_SHORTCUTS.newProject, () => setProjectDialog({ kind: "create" }));
   return (
     <PageHeader
       className="mb-0"
@@ -93,7 +99,11 @@ export function PortfolioHeader({
           )}
         </span>
       }
-      actions={<Button onClick={() => setProjectDialog({ kind: "create" })}><Plus className="size-4" />{t("newProject")}</Button>}
+      actions={
+        <ShortcutTooltip label={t("newProject")} shortcut={PROJECTS_PAGE_SHORTCUTS.newProject}>
+          <Button onClick={() => setProjectDialog({ kind: "create" })}><Plus className="size-4" />{t("newProject")}</Button>
+        </ShortcutTooltip>
+      }
     />
   );
 }
@@ -151,17 +161,33 @@ export function TimelineToolbar({
     setLinesVisible: SetState<boolean>;
   }) {
   const t = useTranslations("projects");
+  const searchRef = useRef<HTMLInputElement>(null);
+  useTimelineToolbarShortcuts({
+    enabled: true,
+    viewSwitchEnabled: !embedded,
+    view,
+    setView,
+    setTimelineZoom,
+    scrollToToday,
+    focusSearch: () => searchRef.current?.focus(),
+  });
   return (
     <div className="flex flex-wrap items-center gap-2 border-b pb-3">
       {!embedded && <div className={cn("flex w-full gap-1", view === "timeline" && "border-b pb-3")}>
-        <Button size="sm" variant={view === "timeline" ? "secondary" : "ghost"} onClick={() => setView("timeline")}><CalendarClock className="size-4" />{t("timeline")}</Button>
-        <Button size="sm" variant={view === "projects" ? "secondary" : "ghost"} onClick={() => setView("projects")}><FolderKanban className="size-4" />{t("projectOverview")}</Button>
+        <ShortcutTooltip label={t("timeline")} shortcut={PROJECTS_PAGE_SHORTCUTS.timeline}>
+          <Button size="sm" variant={view === "timeline" ? "secondary" : "ghost"} onClick={() => setView("timeline")}><CalendarClock className="size-4" />{t("timeline")}</Button>
+        </ShortcutTooltip>
+        <ShortcutTooltip label={t("projectOverview")} shortcut={PROJECTS_PAGE_SHORTCUTS.projectOverview}>
+          <Button size="sm" variant={view === "projects" ? "secondary" : "ghost"} onClick={() => setView("projects")}><FolderKanban className="size-4" />{t("projectOverview")}</Button>
+        </ShortcutTooltip>
       </div>}
       {view === "timeline" && (
         <>
           <div className="relative w-full sm:w-64 lg:w-72">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+            <ShortcutTooltip label={t("focusSearch")} shortcut={PROJECTS_PAGE_SHORTCUTS.search}>
             <Input
+              ref={searchRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={t("searchSchedule")}
@@ -169,7 +195,9 @@ export function TimelineToolbar({
               role="combobox"
               aria-expanded={Boolean(query.trim())}
               aria-controls="schedule-search-results"
+              aria-keyshortcuts="/"
             />
+            </ShortcutTooltip>
             {query.trim() && (
               <div
                 id="schedule-search-results"
@@ -235,9 +263,15 @@ export function TimelineToolbar({
           <Select value={health} onValueChange={(value) => setHealth((value ?? "all") as typeof health)}><SelectTrigger className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label={t("allHealth")}><SelectValue>{health === "risk" ? t("atRisk") : health === "track" ? t("onTrack") : t("allHealth")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allHealth")}</SelectItem><SelectItem value="track">{t("onTrack")}</SelectItem><SelectItem value="risk">{t("atRisk")}</SelectItem></SelectContent></Select></div>
           <div className={cn("flex items-center gap-2 lg:ml-auto", !embedded && "max-md:hidden")} role="group" aria-label={t("timelineControls")}>
             <div className="flex rounded-md border p-0.5">
-              {(["week", "month", "quarter"] as const).map((option) => <Button key={option} size="xs" variant={zoom === option ? "secondary" : "ghost"} aria-pressed={zoom === option} onClick={() => setTimelineZoom(option)}>{t(option)}</Button>)}
+              {(["week", "month", "quarter"] as const).map((option) => (
+                <ShortcutTooltip key={option} label={t(option)} shortcut={PROJECTS_PAGE_SHORTCUTS[option]}>
+                  <Button size="xs" variant={zoom === option ? "secondary" : "ghost"} aria-pressed={zoom === option} onClick={() => setTimelineZoom(option)}>{t(option)}</Button>
+                </ShortcutTooltip>
+              ))}
             </div>
-            <Button size="sm" variant="outline" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
+            <ShortcutTooltip label={t("today")} shortcut={PROJECTS_PAGE_SHORTCUTS.today}>
+              <Button size="sm" variant="outline" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
+            </ShortcutTooltip>
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label={t("viewOptions")}><Ellipsis className="size-4" /><span className="hidden sm:inline">{t("viewOptionsShort")}</span>{(criticalVisible || !linesVisible) && <span className="size-1.5 rounded-full bg-indigo-500" aria-hidden />}</Button>} />
               <DropdownMenuContent align="end" className="w-56">
@@ -248,8 +282,8 @@ export function TimelineToolbar({
                 <DropdownMenuItem disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Popover><PopoverTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("timelineHelp")} title={t("timelineHelp")}><CircleHelp className="size-4" /></Button>} />
-              <PopoverContent align="end" className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p></PopoverContent>
+            <Popover><ShortcutTooltip label={t("timelineHelp")}><PopoverTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("timelineHelp")}><CircleHelp className="size-4" /></Button>} /></ShortcutTooltip>
+              <PopoverContent align="end" className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p><PortfolioShortcutList /></PopoverContent>
             </Popover>
           </div>
           {/* Screen-reader status stays visually hidden unless a structure drag is in progress; a visible wide line caused horizontal scroll on laptops. */}

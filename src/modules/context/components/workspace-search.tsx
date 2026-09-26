@@ -24,6 +24,8 @@ import type {
   ContextEntityType,
   WorkspaceSearchResultDto,
 } from "../types";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
 
 function ResultIcon({ type }: { type: ContextEntityType }) {
   if (type === "project") return <FolderKanban className="size-4" />;
@@ -49,12 +51,7 @@ export function WorkspaceSearch({
 
   useEffect(() => {
     function shortcut(event: KeyboardEvent) {
-      if (
-        !event.defaultPrevented &&
-        (event.ctrlKey || event.metaKey) &&
-        !event.shiftKey &&
-        event.key.toLowerCase() === "k"
-      ) {
+      if (!event.defaultPrevented && matchesShortcut(event, GLOBAL_SHORTCUTS.search)) {
         event.preventDefault();
         onOpenChange(true);
       }
