@@ -25,3 +25,5 @@ export const DEPENDENCY_TYPE_OPTIONS: DependencyType[] = [
   "start_to_finish",
 ];
 export const DRAG_CLICK_THRESHOLD = 4;
+/** Widest grab zone (px) at each end of a Gantt bar that resizes instead of moving it. */
+export const BAR_EDGE_GRAB_WIDTH = 8;

@@ -9,7 +9,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { PortfolioSchedule } from "@/modules/projects/queries";
 import { cn } from "@/lib/utils";
 import type { Row, SetState } from "./portfolio-types";
-import { calendarDistance, ganttBarColors } from "./portfolio-utils";
+import { barEdgeAt, barEdgeGrabWidth, calendarDistance, ganttBarColors } from "./portfolio-utils";
 import type { useBarDrag } from "./use-bar-drag";
 import type { useDependencyLinking } from "./use-dependency-linking";
 import type { usePortfolioRows } from "./use-portfolio-rows";
@@ -406,10 +406,15 @@ export function GanttRowTimeline({
           data-task-bar={row.task ? "true" : undefined}
           onClick={() => openTaskFromBar(row.task)}
           onPointerDown={(event) => {
+            // The bar's own ends resize it, like the handles beside it.
+            const bounds = event.currentTarget.getBoundingClientRect();
+            const mode = row.isMilestone
+              ? "move"
+              : barEdgeAt(event.clientX - bounds.left, bounds.width) ?? "move";
             if (row.task) {
-              if (!dependencySourceId) startDrag(event, row.task, "move");
+              if (!dependencySourceId) startDrag(event, row.task, mode);
             } else {
-              startProjectDrag(event, project, row, "move");
+              startProjectDrag(event, project, row, mode);
             }
           }}
           onPointerMove={(event) => {
@@ -455,6 +460,15 @@ export function GanttRowTimeline({
               backgroundColor: barColors.progress,
             }}
           />
+          {!row.isMilestone && (["start", "end"] as const).map((edge) => (
+            <span
+              key={edge}
+              data-bar-edge={edge}
+              className={cn("absolute inset-y-0 z-[3] cursor-ew-resize", edge === "start" ? "left-0" : "right-0")}
+              style={{ width: barEdgeGrabWidth(width) }}
+              aria-hidden
+            />
+          ))}
           {dependencyTargetHandle}
           {width > 72 && <span className={cn(
             "relative z-[1] block truncate px-2 text-left text-[10px]",
