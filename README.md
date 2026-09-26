@@ -53,6 +53,11 @@ underlying cause; only password/invalid-document errors blame the uploaded file.
   Administrators can also remove other users here. Removal revokes account access
   while retaining their name and existing business records for history.
   See [docs/user-invitations.md](docs/user-invitations.md) for email configuration.
+- There is no self-service password reset. On the server, reset a forgotten
+  password with `docker exec -it management-platform-app-1 node
+  dist-scripts/reset-password.mjs <username>` (locally: `npm run
+  user:reset-password -- <username>`). It prompts for the new password without
+  echo and signs out the user's existing sessions.
 - Migrations and default categories are applied automatically on server boot
   (`src/instrumentation.ts`). Manual commands: `npm run db:migrate`,
   `npm run db:seed`, `npx drizzle-kit studio`.

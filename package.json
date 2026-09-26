@@ -36,7 +36,8 @@
     "e2e": "playwright test",
     "perf:budget": "node scripts/check-performance-budget.mjs",
     "wiki:backfill-embeddings": "tsx scripts/backfill-embeddings.ts",
-    "bugs": "tsx scripts/bug-reports.ts"
+    "bugs": "tsx scripts/bug-reports.ts",
+    "user:reset-password": "tsx scripts/reset-password.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -34,6 +34,8 @@ RUN npx esbuild scripts/backfill-embeddings.ts --bundle --platform=node --format
       --external:@huggingface/transformers --outfile=dist-scripts/backfill-embeddings.mjs
 RUN npx esbuild scripts/bug-reports.ts --bundle --platform=node --format=esm \
       --target=node22 --external:better-sqlite3 --outfile=dist-scripts/bug-reports.mjs
+RUN npx esbuild scripts/reset-password.ts --bundle --platform=node --format=esm \
+      --target=node22 --external:better-sqlite3 --outfile=dist-scripts/reset-password.mjs
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
