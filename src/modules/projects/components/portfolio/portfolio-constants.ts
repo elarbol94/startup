@@ -14,7 +14,9 @@ export const ZOOM_WIDTH: Record<Zoom, number> = {
   month: 16,
   quarter: 7,
 };
-export const MIN_DAY_WIDTH = 6;
+// Low enough that a year-long project fits a laptop-width timeline when focused (BUG-14);
+// quarter-zoom month labels (30 days) still get ~60px.
+export const MIN_DAY_WIDTH = 2;
 export const MAX_DAY_WIDTH = 44;
 export const ZOOM_WHEEL_SENSITIVITY = 0.0015;
 export const FOCUS_VIEW_STORAGE_KEY = "projects.focusPortfolioView";
