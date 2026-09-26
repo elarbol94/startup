@@ -1,9 +1,9 @@
 "use client";
 
-import { useOptimistic, useState, useTransition } from "react";
+import { useCallback, useOptimistic, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { DndContext, DragOverlay, MouseSensor, TouchSensor, pointerWithin, useDraggable, useDroppable, useSensor, useSensors } from "@dnd-kit/core";
+import { DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type CollisionDetection } from "@dnd-kit/core";
 import { ChevronDown, ChevronRight, GripVertical, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -14,22 +14,39 @@ import { UserIdentity } from "@/components/user-identity";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { todayLocal } from "../deadline-utils";
+import { applyBoardMove, boardStages as stages, laneAtPoint, type BoardStage as Stage } from "../board-drop";
 import type { OverviewTask } from "./task-overview";
 
-const stages = ["todo", "in_progress", "done"] as const;
-type Stage = typeof stages[number];
+type BoardTask = OverviewTask & { moving?: boolean };
+
+// Lanes are columns: the pointer (or, for keyboard drags, the card's centre)
+// picks the lane by its horizontal position, so short lanes and the gaps
+// between lanes still accept a drop.
+const laneCollision: CollisionDetection = ({ droppableContainers, droppableRects, pointerCoordinates, collisionRect }) => {
+  const lanes = droppableContainers.flatMap(container => {
+    const rect = droppableRects.get(container.id);
+    return rect ? [{ id: String(container.id), rect }] : [];
+  });
+  const point = pointerCoordinates ?? { x: collisionRect.left + collisionRect.width / 2, y: collisionRect.top + collisionRect.height / 2 };
+  const id = laneAtPoint(point, lanes);
+  return id ? [{ id }] : [];
+};
 
 function TaskCard({ task, pending, onEdit, onMove }: {
-  task: OverviewTask; pending: boolean; onEdit: (task: OverviewTask) => void; onMove: (id: string, stage: Stage) => void;
+  task: BoardTask; pending: boolean; onEdit: (task: OverviewTask) => void; onMove: (id: string, stage: Stage) => void;
 }) {
   const t = useTranslations("tasks");
   const format = useFormatter();
-  const { setNodeRef, listeners, attributes, isDragging } = useDraggable({ id: task.id, disabled: pending });
+  const locked = pending || Boolean(task.moving);
+  const { setNodeRef, setActivatorNodeRef, listeners, attributes, isDragging } = useDraggable({ id: task.id, disabled: locked });
+  // The whole card is the drag source and keyboard activator (as on the project
+  // board), so Space/Enter on the nested title button and select keep working.
+  const setRefs = useCallback((node: HTMLElement | null) => { setNodeRef(node); setActivatorNodeRef(node); }, [setNodeRef, setActivatorNodeRef]);
   const today = todayLocal(new Date());
-  return <article ref={setNodeRef} data-task-card={task.id} className={`rounded-md border bg-card p-2.5 ${isDragging ? "opacity-30" : ""}`}>
+  return <article ref={setRefs} data-task-card={task.id} {...attributes} {...listeners} aria-label={t("board.drag", { title: task.title })} className={`rounded-md border bg-card p-2.5 focus-visible:outline-2 focus-visible:outline-ring ${locked ? "" : "cursor-grab"} ${isDragging ? "opacity-30" : ""}`}>
     <div className="flex items-start gap-1">
       <button type="button" onClick={() => onEdit(task)} className={`min-w-0 flex-1 break-words text-left text-sm font-medium hover:underline ${task.boardStage === "done" ? "text-muted-foreground line-through" : ""}`}>{task.title}</button>
-      <button type="button" {...attributes} {...listeners} aria-label={t("board.drag", { title: task.title })} className="-mr-1 grid min-h-7 min-w-7 touch-none place-items-center rounded text-muted-foreground hover:bg-muted" disabled={pending}><GripVertical className="size-3.5" /></button>
+      <GripVertical aria-hidden="true" className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
     </div>
     {task.projectName && <p className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground"><span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: task.projectColor || undefined }} /><span className="truncate">{task.projectName}</span></p>}
     <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -37,7 +54,7 @@ function TaskCard({ task, pending, onEdit, onMove }: {
       {task.assignees.length > 3 && <span title={task.assignees.slice(3).map(person => person.name).join(", ")} className="text-xs text-muted-foreground">+{task.assignees.length - 3}</span>}
       {task.dueDate && <time dateTime={task.dueDate} className={`text-[11px] ${task.boardStage !== "done" && task.dueDate < today ? "font-medium text-destructive" : "text-muted-foreground"}`}>{format.dateTime(new Date(`${task.dueDate}T12:00:00`), { day: "numeric", month: "short" })}</time>}
       {task.priority === "high" && <span className="rounded bg-destructive/10 px-1 text-[11px] font-medium text-destructive">{t("priorities.high")}</span>}
-      <select aria-label={t("board.move", { title: task.title })} value={task.boardStage} disabled={pending} onChange={event => onMove(task.id, event.target.value as Stage)} className="ml-auto max-w-full rounded border-0 bg-transparent py-1 text-[11px] text-muted-foreground focus-visible:outline-2">
+      <select aria-label={t("board.move", { title: task.title })} value={task.boardStage} disabled={locked} onChange={event => onMove(task.id, event.target.value as Stage)} className="ml-auto max-w-full rounded border-0 bg-transparent py-1 text-[11px] text-muted-foreground focus-visible:outline-2">
         {stages.map(stage => <option key={stage} value={stage}>{t(`board.${stage}`)}</option>)}
       </select>
     </div>
@@ -45,7 +62,7 @@ function TaskCard({ task, pending, onEdit, onMove }: {
 }
 
 function BoardLane({ stage, tasks, pending, onEdit, onMove, onCreate }: {
-  stage: Stage; tasks: OverviewTask[]; pending: boolean; onEdit: (task: OverviewTask) => void;
+  stage: Stage; tasks: BoardTask[]; pending: boolean; onEdit: (task: OverviewTask) => void;
   onMove: (id: string, stage: Stage) => void; onCreate: (title: string, stage: Stage) => Promise<boolean>;
 }) {
   const t = useTranslations("tasks");
@@ -54,7 +71,7 @@ function BoardLane({ stage, tasks, pending, onEdit, onMove, onCreate }: {
   const [expanded, setExpanded] = useState(stage !== "done");
   const [creating, setCreating] = useState(false);
   const [title, setTitle] = useState("");
-  return <section ref={setNodeRef} aria-label={t(`board.${stage}`)} data-board-stage={stage} className={`flex min-w-[190px] flex-1 flex-col self-start rounded-lg p-2 ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-muted/45"}`}>
+  return <section ref={setNodeRef} aria-label={t(`board.${stage}`)} data-board-stage={stage} className={`flex min-w-[190px] flex-1 flex-col rounded-lg p-2 ${isOver ? "bg-primary/10 ring-2 ring-primary/40" : "bg-muted/45"}`}>
     <div className="mb-2 flex items-center gap-2 px-1">
       <button type="button" className="flex min-h-8 flex-1 items-center gap-1.5 text-left text-xs font-semibold" aria-expanded={expanded} onClick={() => setExpanded(!expanded)}>
         {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}{t(`board.${stage}`)}<span className="ml-1 text-muted-foreground tabular-nums">{tasks.length}</span>
@@ -78,12 +95,21 @@ export function TaskBoard({ tasks, onEdit, projectId, assigneeId, priority }: {
   const t = useTranslations("tasks");
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Moves run in their own transition and only lock the card being saved, so a
+  // second drag right after the first one is not silently dropped.
+  const [moving, startMove] = useTransition();
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [optimisticTasks, moveOptimistically] = useOptimistic(tasks, (rows, update: { id: string; stage: Stage }) => rows.map(task => task.id === update.id ? { ...task, boardStage: update.stage } : task));
-  const sensors = useSensors(useSensor(MouseSensor, { activationConstraint: { distance: 6 } }), useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }));
+  const [optimisticTasks, moveOptimistically] = useOptimistic<BoardTask[], { id: string; stage: Stage }>(tasks, applyBoardMove);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } }),
+    useSensor(KeyboardSensor),
+  );
+  const activeTask = activeId ? optimisticTasks.find(task => task.id === activeId) : undefined;
   function move(id: string, stage: Stage) {
-    if (pending || tasks.find(task => task.id === id)?.boardStage === stage) return;
-    startTransition(async () => {
+    const task = optimisticTasks.find(row => row.id === id);
+    if (!task || task.moving || task.boardStage === stage) return;
+    startMove(async () => {
       moveOptimistically({ id, stage });
       try { await moveDashboardTask({ taskId: id, stage }); router.refresh(); }
       catch { toast.error(t("board.moveFailed")); }
@@ -97,15 +123,21 @@ export function TaskBoard({ tasks, onEdit, projectId, assigneeId, priority }: {
       } catch { toast.error(t("board.createFailed")); resolve(false); }
     }));
   }
-  return <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={event => setActiveId(String(event.active.id))} onDragCancel={() => setActiveId(null)} onDragEnd={event => {
+  return <DndContext sensors={sensors} collisionDetection={laneCollision} onDragStart={event => setActiveId(String(event.active.id))} onDragCancel={() => setActiveId(null)} onDragEnd={event => {
     setActiveId(null);
     if (event.over && stages.includes(event.over.id as Stage)) move(String(event.active.id), event.over.id as Stage);
   }}>
-    <div className="min-h-0 flex-1 overflow-auto p-3" aria-busy={pending} data-testid="dashboard-task-board">
+    <div className="min-h-0 flex-1 overflow-auto p-3" aria-busy={pending || moving} data-testid="dashboard-task-board">
       <div className="flex min-h-full gap-2">
         {stages.map(stage => <BoardLane key={stage} stage={stage} tasks={optimisticTasks.filter(task => task.boardStage === stage)} pending={pending} onEdit={onEdit} onMove={move} onCreate={create} />)}
       </div>
     </div>
-    <DragOverlay>{activeId && <div className="max-w-64 rounded-md border bg-card px-3 py-2 text-sm shadow-lg">{tasks.find(task => task.id === activeId)?.title}</div>}</DragOverlay>
+    {/* The overlay takes the dragged card's size, so the preview stays under the
+        pointer at the spot where the card was grabbed. No drop animation: the
+        card is already in its new lane and must not fly back to the old one. */}
+    <DragOverlay dropAnimation={null}>{activeTask && <div className="size-full cursor-grabbing rounded-md border bg-card p-2.5 shadow-lg">
+      <p className="break-words text-sm font-medium">{activeTask.title}</p>
+      {activeTask.projectName && <p className="mt-1 truncate text-[11px] text-muted-foreground">{activeTask.projectName}</p>}
+    </div>}</DragOverlay>
   </DndContext>;
 }
