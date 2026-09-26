@@ -1,13 +1,19 @@
 import { getSchema, Mark } from "@tiptap/core";
 import TaskItem from "@tiptap/extension-task-item";
 import TaskList from "@tiptap/extension-task-list";
-import { EditorState, TextSelection } from "@tiptap/pm/state";
+import { EditorState, Plugin, TextSelection } from "@tiptap/pm/state";
 import StarterKit from "@tiptap/starter-kit";
 import { describe, expect, it } from "vitest";
 import {
   MarkdownDocumentExtensions,
   MarkdownShortcutMarks,
 } from "../components/markdown-shortcut-extension";
+import { headingIdentityPlugin } from "../components/heading-identity";
+import {
+  markdownConversionUndoPlugin,
+  markdownConversionUndoTransaction,
+  markMarkdownConversion,
+} from "../components/wiki-editor/markdown-conversion-undo";
 import {
   applyMarkdownShortcut,
   findMarkdownShortcutAtSelection,
@@ -193,5 +199,64 @@ describe("applyMarkdownShortcut", () => {
     expect(list.child(0).textContent).toBe("line");
     expect(markedText(transaction, "italic")).toBe("line");
     expect(list.child(1).textContent).toBe("");
+  });
+});
+
+describe("markdown conversion undo", () => {
+  // Stands in for TipTap's input-rules plugin, which marks its transactions this way.
+  const inputRules = new Plugin({ isInputRules: true } as never);
+  const plugins = [inputRules, markdownConversionUndoPlugin(), headingIdentityPlugin()];
+
+  function stateWith(text: string) {
+    const doc = schema.node("doc", null, [schema.node("paragraph", null, text ? [schema.text(text)] : [])]);
+    return EditorState.create({ schema, doc, plugins, selection: TextSelection.create(doc, text.length + 1) });
+  }
+
+  function convertHeading() {
+    // What the "# " input rule does: drop the "#" and turn the paragraph into a heading.
+    const state = stateWith("#");
+    const transaction = state.tr.delete(1, 2).setBlockType(1, 1, schema.nodes.heading, { level: 1 });
+    transaction.setMeta(inputRules, { transform: transaction, from: 2, to: 2, text: " " });
+    return state.apply(transaction);
+  }
+
+  it("restores the literal text even after appended transactions (heading ids)", () => {
+    const converted = convertHeading();
+    expect(converted.doc.firstChild?.type.name).toBe("heading");
+    expect(converted.doc.firstChild?.attrs.id).toBeTruthy();
+
+    const undo = markdownConversionUndoTransaction(converted);
+    expect(undo).not.toBeNull();
+    const restored = converted.apply(undo!);
+    expect(restored.doc.firstChild?.type.name).toBe("paragraph");
+    expect(restored.doc.firstChild?.textContent).toBe("# ");
+    expect(restored.selection.from).toBe(3);
+    expect(markdownConversionUndoTransaction(restored)).toBeNull();
+  });
+
+  it("forgets the conversion once the user keeps typing or moves the cursor", () => {
+    const converted = convertHeading();
+    expect(markdownConversionUndoTransaction(converted.apply(converted.tr.insertText("x")))).toBeNull();
+    expect(markdownConversionUndoTransaction(converted.apply(converted.tr.setSelection(TextSelection.create(converted.doc, 1))))).toBeNull();
+  });
+
+  it("restores a Space-triggered shortcut including the typed space", () => {
+    const input = "[Docs](https://example.com)";
+    const state = stateWith(input);
+    const transaction = state.tr;
+    const from = transaction.selection.from;
+    expect(applyMarkdownShortcut(transaction, "space")).toBe(true);
+    markMarkdownConversion(transaction, { from, to: from, text: " " });
+    const converted = state.apply(transaction);
+    expect(converted.doc.firstChild?.textContent).toBe("Docs ");
+
+    const restored = converted.apply(markdownConversionUndoTransaction(converted)!);
+    expect(restored.doc.firstChild?.textContent).toBe(`${input} `);
+    expect(markedText(restored.tr, "link")).toBe("");
+  });
+
+  it("has nothing to undo without a conversion", () => {
+    const state = stateWith("plain");
+    expect(markdownConversionUndoTransaction(state.apply(state.tr.insertText("!")))).toBeNull();
   });
 });

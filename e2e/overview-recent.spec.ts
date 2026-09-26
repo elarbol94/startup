@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test("recently opened can be added to the dashboard and reopens visited documents", async ({ page }) => {
   const credentials = { username: "admin", password: "super-secret-1" };
@@ -7,6 +8,7 @@ test("recently opened can be added to the dashboard and reopens visited document
   expect(response.ok()).toBe(true);
   await page.goto("/wiki");
   await page.getByRole("button", { name: "Dokument schreiben", exact: true }).click();
+  await submitNewDocumentTitle(page, "Recently opened document");
   await page.waitForURL(/\/wiki\/pages\/.+/);
   await expect(page.locator(".ProseMirror")).toBeVisible();
   const documentPath = new URL(page.url()).pathname;

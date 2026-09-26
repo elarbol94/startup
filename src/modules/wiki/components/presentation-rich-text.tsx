@@ -11,12 +11,14 @@ import { useCollaborationContext } from "../collaboration/ui";
 import { richExtensions, toDoc, fromDoc, type Content } from "../collaboration/rich-text";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { presentationLinkSchema } from "../lib/presentation";
 
 
 export function PresentationRichText({ content, onChange, disabled, elementId, inline = false, autoFocus = inline, label }: { label?: string; autoFocus?: boolean; inline?: boolean; elementId: string; content: Content; onChange: (content: Content) => void; disabled?: boolean }) {
   const collaboration = useCollaborationContext();
   const t = useTranslations("presentationStudio");
+  const [textPrompt, askText] = useTextPrompt();
   const current = useRef({ content, onChange });
   useEffect(() => { current.current = { content, onChange }; });
   const editor = useEditor({
@@ -47,12 +49,13 @@ export function PresentationRichText({ content, onChange, disabled, elementId, i
   return <div className="space-y-2">
     {!inline && <div className="flex flex-wrap gap-1">
       {(["bold", "italic", "underline"] as const).map((mark) => <Button key={mark} type="button" size="sm" variant="outline" disabled={disabled} onClick={() => editor?.chain().focus().toggleMark(mark).run()}>{t(mark)}</Button>)}
-      <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => {
-        const href = window.prompt(t("linkPrompt"), editor?.getAttributes("link").href ?? "https://");
+      <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={async () => {
+        const href = await askText({ title: t("link"), description: t("linkPrompt"), defaultValue: editor?.getAttributes("link").href ?? "https://" });
         if (href === null) return;
         if (!presentationLinkSchema.safeParse(href).success) return;
         if (!href) editor?.chain().focus().unsetLink().run(); else editor?.chain().focus().setLink({ href }).run();
       }}>{t("link")}</Button>
+      {textPrompt}
     </div>}
     <div className={inline ? "absolute -top-10 left-0 z-50 rounded bg-background shadow" : ""} onPointerDown={(event) => event.stopPropagation()}><SourcePassageButton editor={editor} /></div>
     <EditorContent editor={editor} />

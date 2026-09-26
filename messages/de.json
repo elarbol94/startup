@@ -2114,6 +2114,10 @@
     "hideDocumentDetails": "Dokumentdetails schließen",
     "pageTitle": "Titel",
     "rename": "Umbenennen",
+    "renameFailed": "Der Titel konnte nicht geändert werden.",
+    "newDocumentTitle": "Neues Dokument",
+    "newDocumentDescription": "Gib dem Dokument einen Titel. Du kannst ihn später jederzeit ändern.",
+    "checkpointLabel": "Name dieser Version (optional)",
     "deletePage": "Seite löschen",
     "searchPlaceholder": "Wiki durchsuchen…",
     "noResults": "Keine Treffer",
@@ -2261,7 +2265,6 @@
     "usedIn": "Verwendet in",
     "history": "Verlauf",
     "checkpoint": "Version merken",
-    "checkpointLabelPrompt": "Optionaler Name für diese Version:",
     "revisionKinds": {
       "autosave": "Automatischer Stand",
       "manual": "Gemerkte Version",
@@ -2361,6 +2364,7 @@
     "shortcuts": {
       "title": "Tastenkürzel",
       "description": "Klicke auf ein Kürzel und drücke anschließend Strg oder Cmd plus die gewünschte Taste.",
+      "tabKeys": "Tab und Umschalt+Tab wechseln zwischen Tabellenzellen (Tab in der letzten Zelle fügt eine Zeile an), rücken Listenpunkte ein und fügen im Text einen Tabulator ein. Um den Editor mit der Tastatur zu verlassen, drücke Esc und danach Tab.",
       "recording": "Taste drücken…",
       "requiresModifier": "Verwende Strg oder Cmd zusammen mit einer Taste.",
       "reserved": "Diese Taste ist reserviert.",
@@ -2716,7 +2720,10 @@
         "unsaved": "Nicht gespeichert",
         "offline": "Offline · lokal gesichert",
         "error": "Speichern fehlgeschlagen",
-        "retry": "Erneut versuchen"
+        "retry": "Erneut versuchen",
+        "offlineUnsaved": "Offline · Seite bis zum Speichern geöffnet lassen",
+        "lastSaved": "Zuletzt gespeichert: {time}",
+        "notSavedYet": "In dieser Sitzung noch nicht gespeichert"
       },
       "lease": {
         "locked": "Diese Seite wird bereits in einem anderen Fenster bearbeitet. Dein lokaler Entwurf bleibt erhalten.",
@@ -2724,7 +2731,7 @@
         "takeoverFailed": "Die Bearbeitung konnte nicht übernommen werden."
       },
       "paste": {
-        "imagesDropped": "Bilder aus dem eingefügten Inhalt wurden nicht übernommen. Verwende „Bild einfügen“, um sie hinzuzufügen.",
+        "imagesDropped": "{count, plural, one {# Bild aus dem eingefügten Inhalt konnte nicht übernommen werden. Verwende „Bild einfügen“, um es hinzuzufügen.} other {# Bilder aus dem eingefügten Inhalt konnten nicht übernommen werden. Verwende „Bild einfügen“, um sie hinzuzufügen.}}",
         "tooLarge": "Der eingefügte Inhalt ist zu groß für eine Seite. Bitte in kleineren Teilen einfügen."
       },
       "search": {
@@ -3021,6 +3028,17 @@
           "keywords": [
             "code",
             "programmieren"
+          ]
+        },
+        "table": {
+          "label": "Tabelle",
+          "description": "Leere Tabelle mit Kopfzeile einfügen",
+          "keywords": [
+            "tabelle",
+            "table",
+            "raster",
+            "spalten",
+            "zeilen"
           ]
         },
         "horizontalRule": {
@@ -3928,6 +3946,7 @@
       "recent": "Zuletzt verwendet",
       "context": "Passend zur Auswahl",
       "pageMargins": "Seitenränder",
+      "markdownHint": "Markdown-Kürzel: {syntax}",
       "aliases": {
         "bold": [
           "bold",

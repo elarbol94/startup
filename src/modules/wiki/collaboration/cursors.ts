@@ -16,7 +16,14 @@ export function collaborationCursors(provider: CollaborationClient) {
         key,
         state: { init: () => 0, apply: (_tr, value) => value + 1 },
         view(view) {
-          const unsubscribe = provider.subscribe(() => { if (!view.isDestroyed) view.dispatch(view.state.tr.setMeta(key, true)); });
+          // Redraw only when collaborators moved, and never from inside another
+          // dispatch: a nested dispatch re-enters the Yjs binding mid-update.
+          let shown = provider.people;
+          const unsubscribe = provider.subscribe(() => {
+            if (provider.people === shown) return;
+            shown = provider.people;
+            queueMicrotask(() => { if (!view.isDestroyed) view.dispatch(view.state.tr.setMeta(key, true)); });
+          });
           return {
             update(view) {
               const binding = ySyncPluginKey.getState(view.state)?.binding;

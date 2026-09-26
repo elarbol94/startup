@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
+import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { moveCalendarEvent } from "../actions";
 import {
   createCalendar,
@@ -88,6 +89,7 @@ export function CalendarClient({
   const t = useTranslations("calendar");
   const locale = useLocale();
   const router = useRouter();
+  const [textPrompt, askText] = useTextPrompt();
   const defaultCalendarId = workspace.calendars.find((calendar) => calendar.role === "owner")?.id
     ?? workspace.calendars.find((calendar) => calendar.role === "editor")?.id;
   const [pending, startTransition] = useTransition();
@@ -403,7 +405,7 @@ export function CalendarClient({
   }
 
   async function saveView() {
-    const name = window.prompt(t("viewName"));
+    const name = await askText({ title: t("saveView"), label: t("viewName"), required: true, maxLength: 100 });
     if (!name) return;
     await saveCalendarView({ name, view, filters });
     router.refresh();
@@ -646,6 +648,7 @@ export function CalendarClient({
         pending={pending}
         t={t}
       />
+      {textPrompt}
     </div>
   );
 }

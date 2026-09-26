@@ -18,6 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { WikiEditor } from "./wiki-editor";
+import { DocumentSaveStatus } from "./document-save-status";
 import { AttachmentPanel, type AttachmentPanelHandle } from "./attachment-panel";
 import { SvgGraphicsSection } from "./svg-graphics-section";
 import type { WikiEditorHandle } from "./wiki-editor";
@@ -35,6 +36,8 @@ import { diffDocumentSettings } from "../lib/revision-diff";
 import type { ContextDeadlineMarker, ContextTaskMarker } from "@/modules/tasks/types";
 import type { ProposalWorkspaceData } from "../lib/proposal";
 import { ContextPanel } from "@/modules/context/components/context-panel";
+import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
+import { InlinePageTitle } from "./inline-page-title";
 
 type PageRef = { id: string; title: string; slug: string };
 type SourceRef = CitationSource;
@@ -107,10 +110,12 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   const [supportingSourceOpen, setSupportingSourceOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [savedRevisionsOnly, setSavedRevisionsOnly] = useState(false);
-  const { setPanel, saveState } = useDocumentWorkspace();
+  const { setPanel } = useDocumentWorkspace();
+  const [textPrompt, askText] = useTextPrompt();
   const [supportingSourcesCollapsed, setSupportingSourcesCollapsed] = useState(true);
   const [selectedRevisionId, setSelectedRevisionId] = useState(research.revisions[0]?.id ?? "");
   const editorActions = useRef<WikiEditorHandle | null>(null);
+  const currentSlug = useRef(page.slug);
   const attachmentRef = useRef<AttachmentPanelHandle>(null); const supportingSourceSectionRef = useRef<HTMLElement>(null); const supportingSourceTriggerRef = useRef<HTMLButtonElement>(null);
   const selectedRevision = research.revisions.find((revision) => revision.id === selectedRevisionId) ?? research.revisions[0];
   const visibleRevisions = savedRevisionsOnly ? research.revisions.filter((revision) => revision.kind !== "autosave") : research.revisions;
@@ -146,7 +151,16 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
     setMetaSaved(true); setTimeout(() => setMetaSaved(false), 1600); router.refresh();
   }
 
-  async function rename() { const title = prompt(t("pageTitle"), page.title); if (!title?.trim()) return; const renamed = await renamePage(page.id, title.trim()); if (renamed.slug !== page.slug) router.replace(`/wiki/pages/${encodeURIComponent(renamed.slug)}`); else router.refresh(); }
+  // Swap the URL in place: navigating or refreshing under the new slug would remount the
+  // editor and drop its focus and undo history. The old slug keeps redirecting on reload.
+  async function rename(title: string) {
+    const renamed = await renamePage(page.id, title);
+    if (renamed.slug === currentSlug.current) { router.refresh(); return; }
+    currentSlug.current = renamed.slug;
+    window.history.replaceState(null, "", `/wiki/pages/${encodeURIComponent(renamed.slug)}${window.location.search}`);
+  }
+  async function newSubpage() { const title = await askText({ title: t("newSubpage"), label: t("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") }); if (!title) return; const child = await createPage({ title, parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }
+  async function createCheckpoint() { const label = await askText({ title: t("checkpoint"), label: t("checkpointLabel"), maxLength: 120, confirmLabel: t("checkpoint") }); if (label === null) return; await createPageCheckpoint(page.id, label); router.refresh(); }
   async function remove() { if (!confirm(common("confirmDeleteTitle"))) return; await deletePage(page.id); router.push("/wiki/inbox"); }
 
   const details = (<aside data-testid="note-metadata-sidebar" className="space-y-6">
@@ -171,13 +185,13 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
         <SvgGraphicsSection pageId={page.id} onInsert={(asset) => editorActions.current?.insertGraphic(asset)} />
         <EvidencePanel targetType="wikiPage" targetId={page.id} compact />
         <section ref={supportingSourceSectionRef}><button type="button" aria-expanded={!supportingSourcesCollapsed} onClick={() => setSupportingSourcesCollapsed((collapsed) => !collapsed)} className="flex w-full items-center gap-2 text-left text-sm font-medium"><ChevronDown className={`size-4 shrink-0 text-muted-foreground transition-transform ${supportingSourcesCollapsed ? "-rotate-90" : ""}`} /><BookMarked className="size-4 text-indigo-500" />{t("supportingSources")}</button>{!supportingSourcesCollapsed && <><div className="mt-2 flex gap-1"><Select open={supportingSourceOpen} onOpenChange={setSupportingSourceOpen} value={sourceToLink} onValueChange={(value) => setSourceToLink(value ?? "")}><SelectTrigger aria-label={t("chooseSource")} data-testid="supporting-source-picker" ref={supportingSourceTriggerRef} className="min-w-0 flex-1"><SelectValue placeholder={t("chooseSource")} /></SelectTrigger><SelectContent>{sources.filter((source) => !research.supportingSources.some((linked) => linked.id === source.id)).map((source) => <SelectItem key={source.id} value={source.id}>{source.title}</SelectItem>)}</SelectContent></Select><Button aria-label={t("linkSupportingSource")} title={t("linkSupportingSource")} size="icon" variant="outline" disabled={!sourceToLink} onClick={async () => { await linkSupportingSource(page.id, sourceToLink); setSourceToLink(""); router.refresh(); }}><Plus className="size-4" /></Button></div><div className="mt-2 space-y-1">{research.supportingSources.map((source) => <div key={source.id} className="group flex items-center gap-1 rounded-md border p-2 text-xs"><Link href={`/wiki/sources/${source.id}`} className="min-w-0 flex-1 truncate font-medium">{source.title}</Link><button type="button" aria-label={`${t("editor.link.remove")}: ${source.title}`} title={t("editor.link.remove")} onClick={async () => { await unlinkSupportingSource(page.id, source.id); router.refresh(); }} className="rounded-sm p-1 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 focus-visible:opacity-100"><X className="size-3" /></button></div>)}</div></>}</section>
-        <div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="ghost" size="sm" onClick={async () => { const label = prompt(t("checkpointLabelPrompt")) ?? ""; await createPageCheckpoint(page.id, label); router.refresh(); }}><Plus className="size-4" />{t("checkpoint")}</Button><Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)}><History className="size-4" />{t("history")}</Button></div>
+        <div className="flex justify-end gap-2 border-t pt-4"><Button type="button" variant="ghost" size="sm" onClick={() => void createCheckpoint()}><Plus className="size-4" />{t("checkpoint")}</Button><Button type="button" variant="outline" size="sm" onClick={() => setHistoryOpen(true)}><History className="size-4" />{t("history")}</Button></div>
       </aside>);
 
   return <div className="wiki-calm-document mx-auto min-h-dvh max-w-[112rem] px-3 py-4 md:px-6">
     <header className="mb-3 border-b border-border/60 pb-3">
-      <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-2"><Link href="/wiki" aria-label={t("backToWikiStart")} title={t("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link><div className="min-w-0"><button type="button" aria-label={`${t("rename")}: ${page.title}`} onClick={rename} className="max-w-4xl break-words text-left text-xl font-semibold tracking-tight hover:text-indigo-700 dark:hover:text-indigo-300">{page.title}</button>{!isFocused && meta && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" /><UserAttribution userId={meta.updatedBy} relation="updatedBy" /> · {format.dateTime(new Date(meta.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</p>}</div></div>
-        <div className="flex items-center gap-1"><span data-testid="document-save-status" role={saveState === "error" || saveState === "conflict" ? "alert" : "status"} className={`mr-2 text-xs ${saveState === "error" || saveState === "conflict" || saveState === "offline" ? "text-destructive" : "text-muted-foreground"}`}>{saveState === "idle" ? "" : saveState === "saving" ? t("saving") : saveState === "saved" ? t("saved") : saveState === "conflict" ? t("editConflict") : t(`editor.save.${saveState}`)}</span><PageHeaderActions onExport={(format, inline = false) => { void exportSavedDocument(page.id, format, inline, () => editorActions.current?.flushSave() ?? Promise.resolve(false), () => toast.error(t("document.exportSaveFailed"))); }} favorite={research.favorite} onNewSubpage={async () => { const title = prompt(t("pageTitle")); if (!title?.trim()) return; const child = await createPage({ title: title.trim(), parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }} onToggleFavorite={async () => { await toggleFavorite("page", page.id); router.refresh(); }} onVerify={() => void runVerify(6)} onDelete={remove} onHistory={() => setHistoryOpen(true)} /><FocusModeToggle compact={isFocused} /></div></div>
+      <div className="flex flex-wrap items-start justify-between gap-4"><div className="flex min-w-0 items-start gap-2"><Link href="/wiki" aria-label={t("backToWikiStart")} title={t("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link><div className="min-w-0"><InlinePageTitle title={page.title} onRename={rename} />{!isFocused && meta && <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><Clock3 className="size-3" /><UserAttribution userId={meta.updatedBy} relation="updatedBy" /> · {format.dateTime(new Date(meta.updatedAt), { dateStyle: "medium", timeStyle: "short" })}</p>}</div></div>
+        <div className="flex items-center gap-1"><DocumentSaveStatus /><PageHeaderActions onExport={(format, inline = false) => { void exportSavedDocument(page.id, format, inline, () => editorActions.current?.flushSave() ?? Promise.resolve(false), () => toast.error(t("document.exportSaveFailed"))); }} favorite={research.favorite} onNewSubpage={() => void newSubpage()} onToggleFavorite={async () => { await toggleFavorite("page", page.id); router.refresh(); }} onVerify={() => void runVerify(6)} onDelete={remove} onHistory={() => setHistoryOpen(true)} /><FocusModeToggle compact={isFocused} /></div></div>
     </header>
 
     <div className="w-full">
@@ -236,5 +250,6 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
         <DialogFooter><Button type="button" variant="outline" onClick={() => setHistoryOpen(false)}>{common("cancel")}</Button><Button type="button" disabled={!selectedRevision} onClick={async () => { if (!selectedRevision || !confirm(t("restoreRevisionConfirm"))) return; await restorePageRevision(selectedRevision.id); localStorage.removeItem(`wiki-draft:${page.id}`); location.reload(); }}>{t("restore")}</Button></DialogFooter>
       </DialogContent>
     </Dialog>
+    {textPrompt}
   </div>;
 }

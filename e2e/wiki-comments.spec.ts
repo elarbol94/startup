@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 async function tool(page: Page, name: string) {
@@ -52,6 +53,7 @@ test("inline images accept whole-image comments and keep their anchor after relo
 async function quickNote(page: Page, title: string, body: string) {
   await page.goto("/wiki/inbox");
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, title);
   const editor = page.locator(".ProseMirror");
   await expect(editor).toHaveAttribute("contenteditable", "true");
   await editor.focus();
@@ -61,7 +63,7 @@ async function quickNote(page: Page, title: string, body: string) {
   await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 25_000 });
   await page.reload();
   await expect(editor).toHaveAttribute("contenteditable", "true");
-  await expect(page.getByTestId("collaboration-status")).toContainText("Gespeichert");
+  await expect(page.getByTestId("document-save-status")).toContainText("Gespeichert");
 }
 
 test("selection comments stay beside their anchors and support replies and resolution", async ({ page }) => {

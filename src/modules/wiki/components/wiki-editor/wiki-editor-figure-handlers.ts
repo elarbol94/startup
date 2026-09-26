@@ -10,6 +10,7 @@ import type { FigureAssetDto } from "../../lib/figure-types";
 import { addUpload, removeUpload, uploadPosition } from "../figure-upload";
 import { figureAssetAttributes, type useFigureLibrary } from "../figure-library";
 import { imageNodeAttrs, isInlineImageFile } from "./wiki-editor-document-ops";
+import { insertBlockContent, resolveBlockInsertPosition } from "../../lib/block-insert-position";
 import type { ExistingImageAttachment, UploadedAttachment } from "./wiki-editor-types";
 
 export function createFigureHandlers({
@@ -35,8 +36,10 @@ export function createFigureHandlers({
   async function insertInlineImage(file: File) {
     await insertFigureFiles([file], toolbarSelection.current?.from ?? activeEditor.state.selection.from, figureTargetId);
   }
-  async function insertFigureFiles(files: File[], position: number, targetId = "") {
+  async function insertFigureFiles(files: File[], requestedPosition: number, targetId = "") {
     if (!activeEditor.isEditable) return;
+    // Paste/drop/upload into a table cell lands after the table instead of splitting it.
+    const position = resolveBlockInsertPosition(activeEditor.state.doc, requestedPosition, activeEditor.schema.nodes.commentableImage);
     const controller = new AbortController(); uploadControllers.current.add(controller);
     const id = crypto.randomUUID();
     const cancel = () => { controller.abort(); removeUpload(activeEditor, id); };
@@ -70,7 +73,7 @@ export function createFigureHandlers({
       activeEditor.state.doc.descendants((node, position) => {
         if (node.attrs.nodeId === figureTargetId && node.type.name === "commentableImage") activeEditor.view.dispatch(activeEditor.state.tr.setNodeMarkup(position, undefined, { ...node.attrs, assetId: asset.id, attachmentId: asset.attachmentId, src: asset.src }));
       });
-    } else toolbarChain().insertContent({ type: "commentableImage", attrs: { ...imageNodeAttrs({ id: asset.attachmentId, fileName: asset.fileName, mimeType: asset.mimeType }), ...figureAssetAttributes(asset) } }).run();
+    } else insertBlockContent(toolbarChain(), { type: "commentableImage", attrs: { ...imageNodeAttrs({ id: asset.attachmentId, fileName: asset.fileName, mimeType: asset.mimeType }), ...figureAssetAttributes(asset) } }).run();
   }
   async function editFigureArtwork(nodeId: string) {
     const node = (() => { let found: typeof activeEditor.state.doc | undefined; activeEditor.state.doc.descendants((item) => { if (item.attrs.nodeId === nodeId) found = item; }); return found; })();
@@ -89,7 +92,8 @@ export function createFigureHandlers({
     let existing: number | undefined;
     activeEditor.state.doc.descendants((node, pos) => { if (node.type.name === "figureList") existing = pos; });
     if (existing !== undefined) { (activeEditor.view.nodeDOM(existing) as HTMLElement | null)?.scrollIntoView({ block: "center" }); return; }
-    activeEditor.chain().focus().insertContentAt(toolbarSelection.current?.to ?? activeEditor.state.selection.to, { type: "figureList", attrs: { title: t("figures.list") } }).run();
+    const at = resolveBlockInsertPosition(activeEditor.state.doc, toolbarSelection.current?.to ?? activeEditor.state.selection.to, activeEditor.schema.nodes.figureList);
+    activeEditor.chain().focus().insertContentAt(at, { type: "figureList", attrs: { title: t("figures.list") } }).run();
     changeDocumentSettings({ ...documentSettings, figures: { ...documentSettings.figures, enabled: false } });
   }
 
@@ -115,7 +119,7 @@ export function createFigureHandlers({
    */
   function insertImageWithCaption(attachment: UploadedAttachment) {
     const attrs = imageNodeAttrs(attachment);
-    toolbarChain().insertContent({ type: "commentableImage", attrs }).run();
+    insertBlockContent(toolbarChain(), { type: "commentableImage", attrs }).run();
     setInlineImagePickerOpen(false);
     selectImageNode(String(attrs.nodeId));
   }

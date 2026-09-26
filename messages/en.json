@@ -2114,6 +2114,10 @@
     "hideDocumentDetails": "Close document details",
     "pageTitle": "Title",
     "rename": "Rename",
+    "renameFailed": "The title could not be changed.",
+    "newDocumentTitle": "New document",
+    "newDocumentDescription": "Give the document a title. You can change it at any time.",
+    "checkpointLabel": "Name for this version (optional)",
     "deletePage": "Delete page",
     "searchPlaceholder": "Search the wiki…",
     "noResults": "No results",
@@ -2261,7 +2265,6 @@
     "usedIn": "Used in",
     "history": "History",
     "checkpoint": "Save version",
-    "checkpointLabelPrompt": "Optional name for this version:",
     "revisionKinds": {
       "autosave": "Automatic checkpoint",
       "manual": "Saved version",
@@ -2361,6 +2364,7 @@
     "shortcuts": {
       "title": "Keyboard shortcuts",
       "description": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
+      "tabKeys": "Tab and Shift+Tab move between table cells (Tab in the last cell adds a row), indent list items and insert a tab in text. To leave the editor with the keyboard, press Esc and then Tab.",
       "recording": "Press a key…",
       "requiresModifier": "Use Ctrl or Cmd together with a key.",
       "reserved": "This key is reserved.",
@@ -2716,7 +2720,10 @@
         "unsaved": "Not saved",
         "offline": "Offline · saved locally",
         "error": "Save failed",
-        "retry": "Retry"
+        "retry": "Retry",
+        "offlineUnsaved": "Offline · keep this page open until saved",
+        "lastSaved": "Last saved: {time}",
+        "notSavedYet": "Not saved yet in this session"
       },
       "lease": {
         "locked": "This page is already being edited in another window. Your local draft remains safe.",
@@ -2724,7 +2731,7 @@
         "takeoverFailed": "Editing could not be taken over."
       },
       "paste": {
-        "imagesDropped": "Images from the pasted content were not included. Use \"Insert image\" to add them.",
+        "imagesDropped": "{count, plural, one {# image from the pasted content could not be imported. Use \"Insert image\" to add it.} other {# images from the pasted content could not be imported. Use \"Insert image\" to add them.}}",
         "tooLarge": "The pasted content is too large for one page. Please paste it in smaller parts."
       },
       "search": {
@@ -3022,6 +3029,17 @@
           "keywords": [
             "code",
             "programming"
+          ]
+        },
+        "table": {
+          "label": "Table",
+          "description": "Insert an empty table with a header row",
+          "keywords": [
+            "table",
+            "tabelle",
+            "grid",
+            "columns",
+            "rows"
           ]
         },
         "horizontalRule": {
@@ -3926,6 +3944,7 @@
       "recent": "Recently used",
       "context": "For your selection",
       "pageMargins": "Page margins",
+      "markdownHint": "Markdown shortcut: {syntax}",
       "aliases": {
         "bold": [
           "bold",

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
+import { isPageSlugTaken } from "./queries";
 import {
   contextLinks,
   evidenceLinks,
@@ -92,15 +93,22 @@ function uniquePageSlug(title: string) {
   const base = slugify(title);
   let slug = base;
   let suffix = 2;
-  while (db.select({ id: wikiPages.id }).from(wikiPages).where(eq(wikiPages.slug, slug)).get()) {
+  while (isPageSlugTaken(slug)) {
     slug = `${base}-${suffix++}`;
   }
   return slug;
 }
 
-export async function createQuickNote(locale: "de" | "en" = "de") {
+const quickNoteSchema = z.object({
+  title: z.string().trim().min(1).max(200),
+  locale: z.enum(["de", "en"]).default("de"),
+});
+
+// The title is asked for before creating, so abandoned drafts never pile up as
+// empty "Untitled note" pages.
+export async function createQuickNote(input: z.input<typeof quickNoteSchema>) {
   const currentUser = await requireUserOrThrow();
-  const title = locale === "de" ? "Unbenannte Notiz" : "Untitled note";
+  const { title, locale } = quickNoteSchema.parse(input);
   const row = db.insert(wikiPages).values({
     title,
     slug: uniquePageSlug(title),

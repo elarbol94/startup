@@ -48,11 +48,19 @@ export function DocumentPresentationLinks({ editor, pageId, slug, flush }: {
     return () => { cancelAnimationFrame(frame); controller.abort(); window.removeEventListener("focus", refresh); };
   }, [load]);
 
+  // Registered once per editor: re-registering reconfigures the editor, which tears down
+  // every plugin view (and so closes open menus such as the "/" block menu).
+  const badgeInputs = useRef({ links, t });
+  useEffect(() => {
+    badgeInputs.current = { links, t };
+    if (!editor.isDestroyed) editor.view.dispatch(editor.state.tr.setMeta(linksKey, "refresh").setMeta("addToHistory", false));
+  }, [editor, links, t]);
   useEffect(() => {
     editor.registerPlugin(new Plugin({
       key: linksKey,
       props: {
         decorations(state) {
+          const { links, t } = badgeInputs.current;
           const decorations: Decoration[] = [];
           state.doc.descendants((node, position) => {
             if (node.type.name !== "heading") return;
@@ -76,7 +84,7 @@ export function DocumentPresentationLinks({ editor, pageId, slug, flush }: {
       },
     }));
     return () => { if (!editor.isDestroyed) editor.unregisterPlugin(linksKey); };
-  }, [editor, links, t]);
+  }, [editor]);
 
   useEffect(() => {
     if (sectionId === null) return;

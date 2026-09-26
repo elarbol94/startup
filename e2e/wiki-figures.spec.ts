@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { submitNewDocumentTitle } from "./helpers/new-document";
 import { unzipSync, strFromU8 } from "fflate";
 import { PDFDocument } from "pdf-lib";
 import { pdfFigurePages } from "../src/modules/wiki/lib/document-pdf-engine";
@@ -16,6 +17,7 @@ async function note(page: Page) {
   await page.goto("/wiki/inbox");
   const lease = page.waitForRequest((request) => /\/api\/wiki\/pages\/[^/]+\/lease$/.test(request.url()), { timeout: 90_000 });
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await submitNewDocumentTitle(page, "Figure note");
   const request = await lease;
   const editor = page.locator(".ProseMirror"); await expect(editor).toHaveAttribute("contenteditable", "true");
   return { editor, id: request.url().split("/").at(-2)!, sessionId: request.postDataJSON().sessionId as string };

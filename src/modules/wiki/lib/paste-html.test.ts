@@ -46,6 +46,20 @@ describe("sanitizePastedHtml", () => {
     expect(hadImages).toBe(true);
   });
 
+  it("lists the removed image sources in order, entity-decoded", () => {
+    const { html, imageSources } = sanitizePastedHtml(`<p>a</p><img alt="x" src="https://example.com/a.png?w=1&amp;h=2"><p>b</p><IMG SRC='data:image/png;base64,AAAA'/><img src=blob:https://example.com/1>`);
+    expect(html).not.toMatch(/<img/i);
+    expect(imageSources).toEqual(["https://example.com/a.png?w=1&h=2", "data:image/png;base64,AAAA", "blob:https://example.com/1"]);
+  });
+
+  it("does not list the image of a wiki figure, which parses back from its data attributes", () => {
+    const { html, imageSources, hadImages } = sanitizePastedHtml('<figure data-commentable-image="" data-figure-attrs="{}"><img src="/api/files/a"><figcaption>Cap</figcaption></figure><img src="https://example.com/b.png">');
+    expect(html).toContain("data-figure-attrs");
+    expect(html).not.toContain("<img");
+    expect(imageSources).toEqual(["https://example.com/b.png"]);
+    expect(hadImages).toBe(true);
+  });
+
   it("marks a plain pasted table so it matches the wiki's table node", () => {
     const { html } = sanitizePastedHtml("<table><tr><th>A</th></tr><tr><td>1</td></tr></table>");
     expect(html).toContain('<table data-markdown-table="">');

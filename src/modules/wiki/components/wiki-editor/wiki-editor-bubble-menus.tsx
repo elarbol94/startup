@@ -1,7 +1,7 @@
 "use client";
 // Floating selection menus of the wiki editor: text formatting/comment actions and, in document
 // mode, markdown table editing. Used by wiki-editor.tsx.
-import type { Dispatch, SetStateAction } from "react";
+import type { ComponentProps, Dispatch, SetStateAction } from "react";
 import { useTranslations } from "next-intl";
 import type { Editor } from "@tiptap/react";
 import { BubbleMenu } from "@tiptap/react/menus";
@@ -9,6 +9,15 @@ import { NodeSelection } from "@tiptap/pm/state";
 import { AlignCenter, AlignLeft, AlignRight, Bold, ClipboardCheck, Columns2, Highlighter, Italic, Link2, MessageSquareText, Minus, Rows3, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { addMarkdownTableColumn, addMarkdownTableRow, deleteMarkdownTableColumn, deleteMarkdownTableRow, setMarkdownTableCellAlignment, toggleMarkdownTableHeader } from "../../lib/document-table";
+
+// Stable references: BubbleMenu dispatches an "updateOptions" transaction
+// whenever these props change identity, which inline values did on every
+// render of the editor.
+type ShouldShow = NonNullable<ComponentProps<typeof BubbleMenu>["shouldShow"]>;
+const TEXT_MENU_OPTIONS = { strategy: "fixed", flip: true, shift: true, offset: 8 } as const;
+const TABLE_MENU_OPTIONS = { strategy: "fixed", placement: "bottom", flip: true, shift: true, offset: 8 } as const;
+const showTextMenu: ShouldShow = ({ state }) => !state.selection.empty && !(state.selection instanceof NodeSelection);
+const showTableMenu: ShouldShow = ({ editor }) => editor.isActive("markdownTable");
 
 export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, setLinkEditorRequest, prepareComment, requestWikiTask }: {
   editor: Editor;
@@ -22,7 +31,7 @@ export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, set
   const tTasks = useTranslations("tasks");
   const activeEditor = editor;
   return <>
-  <BubbleMenu editor={editor} pluginKey="wikiTextCommentMenu" options={{ strategy: "fixed", flip: true, shift: true, offset: 8 }} shouldShow={({ state }) => !state.selection.empty && !(state.selection instanceof NodeSelection)} className="z-40 flex items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
+  <BubbleMenu editor={editor} pluginKey="wikiTextCommentMenu" options={TEXT_MENU_OPTIONS} shouldShow={showTextMenu} className="z-40 flex items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
     <Button type="button" size="icon-sm" variant={activeEditor.isActive("bold") ? "secondary" : "ghost"} aria-label={t("editor.toolbar.bold")} onClick={() => activeEditor.chain().focus().toggleBold().run()}><Bold className="size-4" /></Button>
     <Button type="button" size="icon-sm" variant={activeEditor.isActive("italic") ? "secondary" : "ghost"} aria-label={t("editor.toolbar.italic")} onClick={() => activeEditor.chain().focus().toggleItalic().run()}><Italic className="size-4" /></Button>
     <Button type="button" size="icon-sm" variant={activeEditor.isActive("link") ? "secondary" : "ghost"} aria-label={t("editor.link.button")} onClick={() => setLinkEditorRequest((value) => value + 1)}><Link2 className="size-4" /></Button>
@@ -31,7 +40,7 @@ export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, set
     <Button type="button" size="sm" variant="ghost" onClick={prepareComment}><MessageSquareText className="size-4" />{t("commentSelection")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => requestWikiTask(activeEditor)}><ClipboardCheck className="size-4" />{tTasks("createTask")}</Button>
   </BubbleMenu>
-  {documentMode && <BubbleMenu editor={editor} pluginKey="wikiDocumentTableMenu" options={{ strategy: "fixed", placement: "bottom", flip: true, shift: true, offset: 8 }} shouldShow={() => activeEditor.isActive("markdownTable")} className="z-40 flex flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
+  {documentMode && <BubbleMenu editor={editor} pluginKey="wikiDocumentTableMenu" options={TABLE_MENU_OPTIONS} shouldShow={showTableMenu} className="z-40 flex flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
     <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableRow(activeEditor)}><Rows3 />{t("document.table.addRow")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableColumn(activeEditor)}><Columns2 />{t("document.table.addColumn")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => toggleMarkdownTableHeader(activeEditor)}>{t("document.table.header")}</Button>

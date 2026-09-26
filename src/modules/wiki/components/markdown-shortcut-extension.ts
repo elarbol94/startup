@@ -1,4 +1,4 @@
-import { Extension, Mark, Node, mergeAttributes, type Editor } from "@tiptap/core";
+import { Extension, Mark, Node, markInputRule, markPasteRule, mergeAttributes, type Editor } from "@tiptap/core";
 import Bold from "@tiptap/extension-bold";
 import Code from "@tiptap/extension-code";
 import Italic from "@tiptap/extension-italic";
@@ -10,7 +10,10 @@ import {
   applyMarkdownShortcut,
   findMarkdownShortcutAtSelection,
   type MarkdownShortcutBoundary,
+  type MarkdownShortcutMark,
 } from "../lib/markdown-shortcuts";
+import { EditorTabKeymap } from "./wiki-editor/editor-tab-keymap";
+import { markMarkdownConversion } from "./wiki-editor/markdown-conversion-undo";
 
 const Subscript = Mark.create({
   name: "subscript",
@@ -155,6 +158,14 @@ const HeadingIds = Extension.create({
   },
 });
 
+/** Starts a chain whose transaction Backspace / Ctrl+Z can revert to the typed Markdown. */
+function conversion(editor: Editor, boundary: MarkdownShortcutBoundary) {
+  return editor.chain().command(({ tr }) => {
+    markMarkdownConversion(tr, { from: tr.selection.from, to: tr.selection.from, text: boundary === "space" ? " " : "" });
+    return true;
+  });
+}
+
 function paragraphWithText(transaction: Transaction, text: string) {
   const paragraph = transaction.doc.type.schema.nodes.paragraph;
   return paragraph.create(null, text ? transaction.doc.type.schema.text(text) : undefined);
@@ -162,7 +173,11 @@ function paragraphWithText(transaction: Transaction, text: string) {
 
 function replaceBlocks(transaction: Transaction, from: number, to: number, node: ProseMirrorNode) {
   const paragraph = paragraphWithText(transaction, "");
-  transaction.replaceWith(from, to, Fragment.fromArray([node, paragraph]));
+  const replacement = Fragment.fromArray([node, paragraph]);
+  // Never let a block shortcut (---, ![](), [^1]:) split a table cell into two tables.
+  const $from = transaction.doc.resolve(from);
+  if (!$from.parent.canReplace($from.index(), $from.index() + 1, replacement)) return false;
+  transaction.replaceWith(from, to, replacement);
   transaction.setSelection(TextSelection.create(transaction.doc, from + node.nodeSize + 1));
   return true;
 }
@@ -174,7 +189,7 @@ function convertClosingFence(editor: Editor) {
   const match = text.match(/(?:^|\n)(```|~~~)$/);
   if (!match) return false;
 
-  return editor.chain().command(({ tr }) => {
+  return conversion(editor, "enter").command(({ tr }) => {
     const blockStart = tr.selection.$from.before();
     tr.delete(tr.selection.from - match[0].length, tr.selection.from);
     const codeBlock = tr.doc.nodeAt(blockStart);
@@ -233,7 +248,7 @@ function convertTable(editor: Editor) {
   for (let index = 0; index < firstIndex; index += 1) from += parent.child(index).nodeSize;
   const start = from;
   const end = start + rows.reduce((size, row) => size + parent.child(row.index).nodeSize, 0);
-  return editor.chain().command(({ tr }) => {
+  return conversion(editor, "enter").command(({ tr }) => {
     tr.replaceWith(start, end, table);
     // Place the caret in the first empty data cell so users can continue typing a table naturally.
     const firstBodyParagraph = start + 1 + tableRows[0].nodeSize + 3;
@@ -242,7 +257,7 @@ function convertTable(editor: Editor) {
   }).run();
 }
 
-function convertImage(editor: Editor) {
+function convertImage(editor: Editor, boundary: MarkdownShortcutBoundary) {
   const { selection, schema } = editor.state;
   const { $from } = selection;
   if (!selection.empty || $from.parent.type.name !== "paragraph") return false;
@@ -255,25 +270,8 @@ function convertImage(editor: Editor) {
     alt: match[1],
     caption: match[1],
   });
-  return editor.chain().command(({ tr }) =>
+  return conversion(editor, boundary).command(({ tr }) =>
     replaceBlocks(tr, tr.selection.$from.before(), tr.selection.$from.after(), image)).run();
-}
-
-function convertHorizontalRule(editor: Editor) {
-  const { selection, schema } = editor.state;
-  const { $from } = selection;
-  if (
-    !selection.empty ||
-    $from.parent.type.name !== "paragraph" ||
-    $from.parent.textContent !== "---"
-  ) return false;
-  return editor.chain().command(({ tr }) =>
-    replaceBlocks(
-      tr,
-      tr.selection.$from.before(),
-      tr.selection.$from.after(),
-      schema.nodes.horizontalRule.create(),
-    )).run();
 }
 
 function convertFootnoteDefinition(editor: Editor) {
@@ -286,7 +284,7 @@ function convertFootnoteDefinition(editor: Editor) {
     { label: match[1] },
     schema.text(match[2]),
   );
-  return editor.chain().command(({ tr }) =>
+  return conversion(editor, "enter").command(({ tr }) =>
     replaceBlocks(tr, tr.selection.$from.before(), tr.selection.$from.after(), definition)).run();
 }
 
@@ -304,7 +302,7 @@ function convertDefinitionList(editor: Editor) {
     schema.nodes.definitionTerm.create(null, schema.text(previous.textContent)),
     schema.nodes.definitionDescription.create(null, schema.text(definition[1])),
   ]);
-  return editor.chain().command(({ tr }) => {
+  return conversion(editor, "enter").command(({ tr }) => {
     const currentStart = tr.selection.$from.before();
     return replaceBlocks(tr, currentStart - previous.nodeSize, tr.selection.$from.after(), list);
   }).run();
@@ -317,7 +315,7 @@ function convertHeadingId(editor: Editor, boundary: MarkdownShortcutBoundary) {
   const match = $from.parent.textContent.match(/\s+\{#([A-Za-z][\w-]*)\}$/);
   if (!match) return false;
 
-  return editor.chain().command(({ tr }) => {
+  return conversion(editor, boundary).command(({ tr }) => {
     const suffixStart = tr.selection.from - match[0].length;
     tr.delete(suffixStart, tr.selection.from);
     tr.setNodeMarkup(tr.selection.$from.before(), undefined, {
@@ -335,23 +333,27 @@ function convertHeadingId(editor: Editor, boundary: MarkdownShortcutBoundary) {
   }).run();
 }
 
+/** Marks whose TipTap input rules convert them while typing (see MarkdownHighlightRules). */
+const INPUT_RULE_MARKS = new Set<MarkdownShortcutMark>(["bold", "italic", "strike", "code", "highlight"]);
+
 function convertBlock(editor: Editor, boundary: MarkdownShortcutBoundary) {
   if (boundary === "enter" && convertClosingFence(editor)) return true;
-  if (boundary !== "enter") {
-    return convertHorizontalRule(editor) || convertImage(editor) || convertHeadingId(editor, boundary);
-  }
+  if (boundary !== "enter") return convertImage(editor, boundary) || convertHeadingId(editor, boundary);
   return convertTable(editor)
-    || convertHorizontalRule(editor)
-    || convertImage(editor)
+    || convertImage(editor, boundary)
     || convertFootnoteDefinition(editor)
     || convertDefinitionList(editor)
     || convertHeadingId(editor, boundary);
 }
 
 function convert(editor: Editor, boundary: MarkdownShortcutBoundary) {
+  if (!editor.isEditable) return false;
   if (convertBlock(editor, boundary)) return true;
-  if (!findMarkdownShortcutAtSelection(editor.state.tr)) return false;
-  return editor.chain().command(({ tr }) => applyMarkdownShortcut(tr, boundary)).run();
+  const match = findMarkdownShortcutAtSelection(editor.state.tr);
+  // Marks with a native input rule convert on their closing delimiter already. Skipping
+  // them here keeps an undone conversion ("**bold**" restored by Ctrl+Z) literal.
+  if (!match || (match.kind === "mark" && INPUT_RULE_MARKS.has(match.mark))) return false;
+  return conversion(editor, boundary).command(({ tr }) => applyMarkdownShortcut(tr, boundary)).run();
 }
 
 export const MarkdownShortcuts = Extension.create({
@@ -365,11 +367,28 @@ export const MarkdownShortcuts = Extension.create({
   },
 });
 
+const highlightInputRegex = /(?:^|\s)(==(?!\s+==)((?:[^=]+))==(?!\s+==))$/;
+const highlightPasteRegex = /(?:^|\s)(==(?!\s+==)((?:[^=]+))==(?!\s+==))/g;
+
+/** "==text==" highlights, attributed to the typing author like the toolbar's highlight. */
+export const MarkdownHighlightRules = Extension.create<{ createdBy: string | null }>({
+  name: "markdownHighlightRules",
+  addOptions: () => ({ createdBy: null }),
+  addInputRules() {
+    const type = this.editor.schema.marks.highlight;
+    return type ? [markInputRule({ find: highlightInputRegex, type, getAttributes: () => ({ createdBy: this.options.createdBy }) })] : [];
+  },
+  addPasteRules() {
+    const type = this.editor.schema.marks.highlight;
+    return type ? [markPasteRule({ find: highlightPasteRegex, type, getAttributes: () => ({ createdBy: this.options.createdBy }) })] : [];
+  },
+});
+
 export const MarkdownShortcutMarks = [
-  Bold.extend({ addInputRules: () => [] }),
-  Italic.extend({ addInputRules: () => [] }),
-  Strike.extend({ addInputRules: () => [] }),
-  Code.extend({ addInputRules: () => [] }),
+  Bold,
+  Italic,
+  Strike,
+  Code,
   Subscript,
   Superscript,
 ];
@@ -385,4 +404,5 @@ export const MarkdownDocumentExtensions = [
   MarkdownTableRow,
   MarkdownTableHeader,
   MarkdownTableCell,
+  EditorTabKeymap,
 ];
