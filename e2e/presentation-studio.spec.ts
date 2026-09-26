@@ -420,10 +420,10 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("48");
   await page.keyboard.press("Tab");
   await a.click();
-  await page.keyboard.press("Control+Alt+KeyC");
+  await page.keyboard.press("Control+Shift+C");
   await expect(page.getByText("Format kopiert.", { exact: true })).toBeVisible();
   await b.click();
-  await page.keyboard.press("Control+Alt+KeyV");
+  await page.keyboard.press("Control+Shift+V");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(48);
   expect((await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.text).toBe("Second idea");

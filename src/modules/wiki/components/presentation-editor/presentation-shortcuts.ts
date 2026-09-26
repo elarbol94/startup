@@ -7,11 +7,12 @@ import type { PresentationShapeKind } from "../../lib/presentation";
 export const presentationToolKeys: Record<string, string> = { t: "addText", r: "addRect", o: "addEllipse", l: "addLine", f: "addFrame" };
 
 /**
- * Ctrl/Cmd+Alt+C and +V copy and paste an object's format. Matched on the physical key,
- * because Option changes `event.key` on a Mac; AltGr (reported as Ctrl+Alt on Windows)
- * types characters and is left alone.
+ * Ctrl/Cmd+Shift+C and +V copy and paste an object's format, as in PowerPoint; Ctrl/Cmd+Alt+C
+ * and +V do the same. Matched on the physical key, because Option changes `event.key` on a
+ * Mac; AltGr (reported as Ctrl+Alt on Windows) types characters and is left alone.
  */
 export function formatShortcut(event: KeyboardEvent): string | undefined {
+  if (event.shiftKey && !event.altKey) return event.code === "KeyC" ? "copyFormat" : event.code === "KeyV" ? "pasteFormat" : undefined;
   if (!event.altKey || event.shiftKey || event.getModifierState?.("AltGraph")) return undefined;
   return event.code === "KeyC" ? "copyFormat" : event.code === "KeyV" ? "pasteFormat" : undefined;
 }
@@ -29,7 +30,7 @@ export function presentationShortcutLabels(isMac: boolean): Record<string, strin
     group: `${modifier}+G`, ungroup: `${modifier}+Shift+G`, undo: `${modifier}+Z`, redo: `${modifier}+Shift+Z / ${modifier}+Y`, save: `${modifier}+S`,
     deleteSelection: "Delete", editText: "Enter",
     front: `${modifier}+Shift+] / ${modifier}+Shift+↑`, back: `${modifier}+Shift+[ / ${modifier}+Shift+↓`, forward: `${modifier}+]`, backward: `${modifier}+[`,
-    copyFormat: `${modifier}+${alt}+C`, pasteFormat: `${modifier}+${alt}+V`,
+    copyFormat: `${modifier}+Shift+C / ${modifier}+${alt}+C`, pasteFormat: `${modifier}+Shift+V / ${modifier}+${alt}+V`,
     ...Object.fromEntries(Object.entries(presentationToolKeys).map(([key, id]) => [id, key.toUpperCase()])),
   };
 }

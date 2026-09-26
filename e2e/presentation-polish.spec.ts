@@ -70,10 +70,12 @@ test("inspector rounds geometry and untouched fields do not move the element", a
   expect(element).toMatchObject({ x: 100.123456, y: 50.987654, width: 200.04, height: 120.55 });
 });
 
-test("minimap sits bottom-right clear of the overview button and frame text and can be hidden", async ({ page }) => {
+test("minimap starts collapsed, sits bottom-right clear of the overview button and frame text and can be hidden", async ({ page }) => {
   await seedPresentation(page);
   await page.getByTestId("presentation-editor").getByRole("button", { name: "Übersicht", exact: true }).click();
   const minimap = page.locator(".react-flow__minimap");
+  await expect(minimap).toHaveCount(0);
+  await page.getByRole("button", { name: "Minikarte einblenden" }).click();
   await expect(minimap).toBeVisible();
   await page.waitForTimeout(900);
   const map = (await minimap.boundingBox())!, overview = (await page.getByTestId("presentation-editor").getByRole("button", { name: "Übersicht", exact: true }).boundingBox())!;
@@ -111,13 +113,20 @@ test("reloading does not show my previous load as a collaborator", async ({ page
   await expect(status.getByText("E2E Admin")).toHaveCount(0);
 });
 
-test("format and layer shortcuts use Ctrl+Alt and Ctrl+Shift+Arrow", async ({ page }) => {
+test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arrow", async ({ page }) => {
   const id = await seedPresentation(page);
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("Control+Shift+C");
-  await expect(page.getByText("Format kopiert.", { exact: true })).toHaveCount(0);
-  await page.keyboard.press("Control+Alt+KeyC");
   await expect(page.getByText("Format kopiert.", { exact: true })).toBeVisible();
+  await page.keyboard.press("Control+Alt+KeyC");
+  await expect(page.getByText("Format kopiert.", { exact: true }).first()).toBeVisible();
+  // Ctrl+Shift+V pastes the copied format (as in PowerPoint), never the copied objects.
+  const count = await page.locator(".react-flow__node").count();
+  await page.keyboard.press("Control+c");
+  await node(page, "b").click(); await canvas(page).focus();
+  await page.keyboard.press("Control+Shift+V");
+  await page.waitForTimeout(500);
+  await expect(page.locator(".react-flow__node")).toHaveCount(count);
   const order = async () => (await saved(page, id)).elements.map((e: { id: string }) => e.id) as string[];
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("Control+Shift+ArrowUp");

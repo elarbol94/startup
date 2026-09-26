@@ -118,7 +118,7 @@ function Editor({
   const { zoom: canvasZoom } = useViewport();
   const [contextPosition, setContextPosition] = useState<{ x: number; y: number } | null>(null);
   const [shortcutHelp, setShortcutHelp] = useState(false);
-  const [miniMapVisible, setMiniMapVisible] = useState(true);
+  const [miniMapVisible, setMiniMapVisible] = useState(false);
   const [insertPicker, setInsertPicker] = useState<"shape" | "chart" | "icon" | null>(null);
   const isMac = useSyncExternalStore(subscribePlatform, getMacPlatform, () => false);
   const placementClick = useRef(false);
