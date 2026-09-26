@@ -14,8 +14,8 @@ import { clockInVienna, formatElapsed } from "./time-utils";
 import { useTimeAction } from "./use-time-action";
 import { WorkFields } from "./work-fields";
 
-function fromEntry(entry: TimeEntryView | null): Assignment {
-  if (!entry) return emptyAssignment;
+function fromEntry(entry: TimeEntryView | null, presetProjectId = ""): Assignment {
+  if (!entry) return { ...emptyAssignment, projectId: presetProjectId };
   return { projectId: entry.projectId ?? "", taskId: entry.taskId ?? "", kind: entry.kind, note: entry.note };
 }
 
@@ -23,15 +23,18 @@ export function TimerCard({
   running,
   options,
   serverNow,
+  presetProjectId = "",
 }: {
   running: TimeEntryView | null;
   options: WorkOptions;
   /** Render time from the server, so the first client render hydrates identically. */
   serverNow: number;
+  /** Project a stopped timer starts on, when opened from a project page. */
+  presetProjectId?: string;
 }) {
   const t = useTranslations("time");
   const { pending, run } = useTimeAction();
-  const [assignment, setAssignment] = useState<Assignment>(() => fromEntry(running));
+  const [assignment, setAssignment] = useState<Assignment>(() => fromEntry(running, presetProjectId));
   const [breakMinutes, setBreakMinutes] = useState("0");
   const [now, setNow] = useState(serverNow);
   const runningId = running?.id ?? null;
@@ -40,7 +43,7 @@ export function TimerCard({
   const [syncedId, setSyncedId] = useState(runningId);
   if (syncedId !== runningId) {
     setSyncedId(runningId);
-    setAssignment(fromEntry(running));
+    setAssignment(fromEntry(running, presetProjectId));
     setBreakMinutes("0");
   }
 

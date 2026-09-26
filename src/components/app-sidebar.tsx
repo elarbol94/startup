@@ -60,6 +60,7 @@ import { moduleNav, navSectionAliases, type ModuleNavItem } from "@/modules/regi
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
+import { projectIdFromPath, withProjectParam } from "@/modules/projects/current-project";
 
 const NAVIGATION_ORDER_STORAGE_KEY = "app-navigation-order:v1";
 
@@ -223,6 +224,7 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
   const router = useRouter();
   const { openTaskCreator } = useTaskCreator();
   const { openDeadlineCreator } = useDeadlineCreator();
+  const currentProjectId = projectIdFromPath(usePathname());
 
   return (
     <DropdownMenu>
@@ -249,7 +251,12 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" className="w-60">
         <DropdownMenuGroup>
-          <DropdownMenuLabel>{t("quickCreate")}</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {t("quickCreate")}
+            {currentProjectId && (
+              <span className="block text-[11px] font-normal text-muted-foreground">{t("quickCreateInProject")}</span>
+            )}
+          </DropdownMenuLabel>
           <DropdownMenuItem
             onClick={() => {
               onNavigate?.();
@@ -263,7 +270,8 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
           <DropdownMenuItem
             onClick={() => {
               onNavigate?.();
-              requestAppNavigation("/calendar?new=event", () => router.push("/calendar?new=event"));
+              const href = withProjectParam("/calendar?new=event", currentProjectId);
+              requestAppNavigation(href, () => router.push(href));
             }}
           >
             <CalendarPlus className="mr-1 size-4" />

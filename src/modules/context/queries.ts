@@ -23,6 +23,7 @@ import {
   wikiPdfPages,
   wikiSources,
 } from "@/db/schema";
+import { knowledgeTargetTypes } from "./schema";
 import type { ContextEntityType, ContextItemDto, EntityContextDto } from "./types";
 import {
   canonicalEntityHref,
@@ -78,6 +79,8 @@ export function listEntityContext(
         and(
           eq(contextLinks.ownerType, subjectType),
           eq(contextLinks.ownerId, subjectId),
+          // Project tags on events and bookings have their own panel.
+          inArray(contextLinks.targetType, [...knowledgeTargetTypes]),
         ),
       )
       .orderBy(desc(contextLinks.updatedAt))

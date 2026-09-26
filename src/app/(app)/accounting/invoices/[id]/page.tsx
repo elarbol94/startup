@@ -11,6 +11,8 @@ import {
   listCustomers,
 } from "@/modules/accounting/invoice-queries";
 import { InvoiceEditor } from "@/modules/accounting/components/invoice-editor";
+import { LiveProjectLinks } from "@/modules/context/components/project-links-field";
+import { linkedProjects } from "@/modules/context/project-link-refs";
 import { InvoiceStatusBadge } from "@/modules/accounting/components/invoice-status-badge";
 import { InvoiceStatusActions } from "@/modules/accounting/components/invoice-status-actions";
 import { Button } from "@/components/ui/button";
@@ -76,6 +78,7 @@ export default async function InvoiceDetailPage({
           <InvoiceStatusActions id={invoice.id} status={invoice.status} />
         </div>
       </div>
+      <LiveProjectLinks targetType="invoice" targetId={invoice.id} initial={linkedProjects("invoice", invoice.id)} className="-mt-3" />
 
       {isDraft ? (
         <InvoiceEditor

@@ -1,5 +1,6 @@
 import { taskAssigneeFields } from "@/modules/projects/assignees";
 import { canonicalTaskHref, withWorkItemFocus } from "@/modules/context/routes";
+import { linkedProjectsFor } from "@/modules/context/project-link-refs";
 import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/core-schema";
@@ -211,6 +212,7 @@ export function listCalendarWorkspace(input: {
   const calendarById = new Map(
     accessible.map((calendar) => [calendar.id, calendar]),
   );
+  const projectsByEvent = linkedProjectsFor("calendarEvent", eventIds);
   const linkedHrefs = linkedTaskHrefs([
     ...new Set(
       eventRows
@@ -272,7 +274,8 @@ export function listCalendarWorkspace(input: {
         editable: calendar.role === "owner" || calendar.role === "editor",
         availability: event.availability,
         calendarId: event.calendarId,
-        projectId: null,
+        projectId: detailsHidden ? null : projectsByEvent.get(event.id)?.[0]?.id ?? null,
+        projects: detailsHidden ? [] : projectsByEvent.get(event.id) ?? [],
         assigneeId: detailsHidden ? null : event.createdBy,
         assigneeName: null,
         attendeeIds: detailsHidden ? [] : attendeesByEvent.get(event.id) ?? [],

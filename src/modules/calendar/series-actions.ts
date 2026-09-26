@@ -15,6 +15,7 @@ import {
   calendarReminders,
 } from "./schema";
 import { zonedParts } from "./date-utils";
+import { linkedProjects, syncProjectLinks } from "@/modules/context/project-link-refs";
 import {
   accessibleUserIds,
   datePattern,
@@ -209,6 +210,14 @@ export async function splitCalendarEventSeries(input: {
         )
         .run();
     }
+    // The future part of the series keeps the series' project tags unless changed.
+    syncProjectLinks(tx, {
+      targetType: "calendarEvent",
+      targetId: newId,
+      projectIds: data.projectIds ?? linkedProjects("calendarEvent", existing.id).map((project) => project.id),
+      userId: currentUser.id,
+      label: data.title,
+    });
     const reminderMinutes = [...new Set(data.reminderMinutes)];
     if (reminderMinutes.length > 0) {
       tx.insert(calendarReminders)

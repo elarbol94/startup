@@ -297,6 +297,7 @@
     "closeNavigation": "Hauptnavigation schließen",
     "new": "Neu",
     "quickCreate": "Neu erstellen",
+    "quickCreateInProject": "Aufgaben und Termine werden mit dem offenen Projekt verknüpft",
     "newTask": "Neue Aufgabe",
     "newEvent": "Neuer Termin",
     "newDeadline": "Neue Deadline"
@@ -1602,6 +1603,60 @@
     "resetFilters": "Filter zurücksetzen",
     "showAllReceipts": "Alle anzeigen ({count} weitere)",
     "showFewerReceipts": "Weniger anzeigen"
+  },
+  "projectLinks": {
+    "projects": "Projekte",
+    "addProject": "Projekt",
+    "addAnother": "Weiteres",
+    "search": "Projekt suchen…",
+    "noProjects": "Keine Projekte gefunden",
+    "archived": "Archiviert",
+    "remove": "{name} entfernen",
+    "loadError": "Projekte konnten nicht geladen werden.",
+    "saveError": "Projekte konnten nicht gespeichert werden.",
+    "preview": {
+      "archived": "Archiviertes Projekt",
+      "unavailable": "Keine Details verfügbar.",
+      "tasks": "{open} offen · {done} erledigt",
+      "overdue": "{count, plural, one {# Aufgabe überfällig} other {# Aufgaben überfällig}}",
+      "next": "Als Nächstes: {title} · {date}",
+      "manager": "Leitung: {name}",
+      "noManager": "Keine Projektleitung",
+      "targetEnd": "Zielende: {date}"
+    },
+    "pulse": {
+      "label": "Projektüberblick",
+      "open": "{count} offen",
+      "overdue": "{count} überfällig",
+      "allDone": "Alles erledigt",
+      "next": "{title} · {date}",
+      "hoursTeam": "{hours} h diesen Monat",
+      "hoursOwn": "{hours} h von dir diesen Monat",
+      "hoursTeamHint": "Vom Team diesen Monat erfasst – Klick startet die Zeiterfassung für dieses Projekt",
+      "hoursOwnHint": "Von dir diesen Monat erfasst – Klick startet die Zeiterfassung für dieses Projekt",
+      "knowledge": "{count, plural, one {# Dokument} other {# Dokumente}}",
+      "connections": "{count} verknüpft",
+      "fundingHint": "Förderprojekt öffnen"
+    },
+    "quickCreate": {
+      "new": "Neu",
+      "inProject": "Neu in {name}",
+      "task": "Aufgabe",
+      "event": "Termin",
+      "time": "Zeit erfassen",
+      "invoice": "Rechnung"
+    },
+    "connections": {
+      "title": "Verknüpft mit diesem Projekt",
+      "description": "Termine, Rechnungen, Buchungen und Kunden mit diesem Projekt.",
+      "empty": "Noch nichts verknüpft. Wähle bei einem Termin, einer Rechnung, Buchung oder einem Kunden unter „Projekte“ dieses Projekt aus.",
+      "events": "Termine",
+      "invoices": "Rechnungen",
+      "entries": "Buchungen",
+      "customers": "Kunden",
+      "recurring": "Serie",
+      "draft": "Entwurf"
+    }
   },
   "projects": {
     "mobileProjectsHeading": "Projekte",

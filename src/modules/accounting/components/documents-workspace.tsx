@@ -22,6 +22,7 @@ import {
 } from "@/modules/accounting/queries";
 import { Button } from "@/components/ui/button";
 import { InvoiceList, OverdueFilterTile } from "./invoice-list";
+import { linkedProjectsFor } from "@/modules/context/project-link-refs";
 import { ReceiptArchiveList } from "./receipt-archive-list";
 
 export async function DocumentsWorkspace({
@@ -41,6 +42,7 @@ export async function DocumentsWorkspace({
   const locale = await getLocale();
   const invoicePage = listInvoicesPage({ cursor, limit: 50 });
   const invoices = invoicePage.items;
+  const projectsByInvoice = linkedProjectsFor("invoice", invoices.map((invoice) => invoice.id));
   const user = await requireUser();
   const includePersonnel = user.role === "admin" || user.role === "personnel";
   const receiptPage = listReceiptDocumentsPage({
@@ -148,6 +150,7 @@ export async function DocumentsWorkspace({
                 status: invoice.status,
                 grossCents: invoice.grossCents,
                 createdBy: invoice.createdBy,
+                projects: projectsByInvoice.get(invoice.id) ?? [],
               }))}
             />
           </Suspense>

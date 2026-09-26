@@ -23,6 +23,8 @@ import {
   contextOwnerTypes,
   contextRelationTypes,
   contextTargetTypes,
+  knowledgeTargetTypes,
+  type KnowledgeTargetType,
 } from "./schema";
 import {
   listEntityContext,
@@ -43,13 +45,17 @@ const entitySchema = z.object({
 const linkSchema = z.object({
   ownerType: z.enum(contextOwnerTypes),
   ownerId: z.string().min(1),
-  targetType: z.enum(contextTargetTypes),
+  targetType: z.enum(knowledgeTargetTypes),
   targetId: z.string().max(500).default(""),
   relation: z.enum(contextRelationTypes).default("related"),
   route: z.string().min(1).max(1000),
   label: z.string().trim().min(1).max(300),
   anchorJson: z.string().max(20_000).default("{}"),
 });
+
+function isKnowledgeTarget(type: string): type is KnowledgeTargetType {
+  return (knowledgeTargetTypes as readonly string[]).includes(type);
+}
 
 function assertOwner(type: "project" | "task", id: string) {
   const exists =
@@ -150,6 +156,9 @@ export async function unlinkContext(linkId: string) {
     .where(eq(contextLinks.id, id))
     .get();
   if (!existing) return null;
+  // Project tags on events and bookings are edited with saveProjectLinks.
+  const targetType = existing.targetType;
+  if (!isKnowledgeTarget(targetType)) throw new Error("Not a knowledge link");
   db.transaction((tx) => {
     tx.delete(contextLinks).where(eq(contextLinks.id, id)).run();
     if (existing.ownerType === "task" && existing.relation === "origin") {
@@ -157,7 +166,7 @@ export async function unlinkContext(linkId: string) {
         .where(
           and(
             eq(taskContexts.taskId, existing.ownerId),
-            eq(taskContexts.type, existing.targetType),
+            eq(taskContexts.type, targetType),
             eq(taskContexts.entityId, existing.targetId),
           ),
         )
@@ -165,7 +174,7 @@ export async function unlinkContext(linkId: string) {
     }
   });
   revalidateContextRoutes();
-  return existing;
+  return { ...existing, targetType };
 }
 
 export async function restoreContextLink(

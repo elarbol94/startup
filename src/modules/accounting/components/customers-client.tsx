@@ -12,6 +12,10 @@ import {
 } from "@/modules/accounting/invoice-actions";
 import type { customers as customersTable } from "@/modules/accounting/schema";
 import { PageHeader } from "@/components/page-header";
+import { ProjectPicker } from "@/modules/context/components/project-links-field";
+import { saveProjectLinks } from "@/modules/context/project-link-actions";
+import type { ProjectRefDto } from "@/modules/context/project-link-refs";
+import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,11 +35,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-type Customer = typeof customersTable.$inferSelect & { invoiceCount: number };
+type Customer = typeof customersTable.$inferSelect & { invoiceCount: number; projects: ProjectRefDto[] };
 
 export function CustomersClient({ customers }: { customers: Customer[] }) {
   const t = useTranslations("invoices");
   const tCommon = useTranslations("common");
+  const tProjects = useTranslations("projectLinks");
   const router = useRouter();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -47,10 +52,12 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     email: "",
     notes: "",
   });
+  const [projects, setProjects] = useState<ProjectRefDto[]>([]);
   const [pending, setPending] = useState(false);
 
   function openDialog(customer: Customer | null) {
     setEditing(customer);
+    setProjects(customer?.projects ?? []);
     setForm({
       name: customer?.name ?? "",
       address: customer?.address ?? "",
@@ -65,7 +72,11 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     e.preventDefault();
     setPending(true);
     try {
-      await upsertCustomer({ ...form, id: editing?.id });
+      const { id } = await upsertCustomer({ ...form, id: editing?.id });
+      const projectIds = projects.map((project) => project.id);
+      if (projectIds.join() !== (editing?.projects ?? []).map((project) => project.id).join()) {
+        await saveProjectLinks({ targetType: "customer", targetId: id, projectIds });
+      }
       toast.success(tCommon("saved"));
       setDialogOpen(false);
       router.refresh();
@@ -126,6 +137,13 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
               <TableRow key={customer.id}>
                 <TableCell className="max-w-0 font-medium whitespace-normal sm:max-w-none">
                   <span className="break-words">{customer.name}</span>
+                  {customer.projects.length > 0 && (
+                    <span className="mt-1 flex flex-wrap gap-1 font-normal">
+                      {customer.projects.map((project) => (
+                        <ProjectChip key={project.id} project={project} size="xs" />
+                      ))}
+                    </span>
+                  )}
                   {customer.uid || customer.email ? (
                     <span className="mt-0.5 block truncate text-xs font-normal text-muted-foreground sm:hidden">
                       {[customer.uid, customer.email].filter(Boolean).join(" · ")}
@@ -205,6 +223,10 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                 />
               </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>{tProjects("projects")}</Label>
+              <ProjectPicker value={projects} onChange={setProjects} />
             </div>
             <Button type="submit" disabled={pending}>
               {tCommon("save")}

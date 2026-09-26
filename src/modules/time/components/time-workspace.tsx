@@ -9,7 +9,7 @@ import { SummaryCards } from "./time-workspace/summary-cards";
 import { TimerCard } from "./time-workspace/timer-card";
 import { WeekView } from "./time-workspace/week-view";
 
-export function TimeWorkspace({ data }: { data: TimeWorkspaceData }) {
+export function TimeWorkspace({ data, presetProjectId = "" }: { data: TimeWorkspaceData; presetProjectId?: string }) {
   const t = useTranslations("time");
   const [dialog, setDialog] = useState<EntryDialogState>(null);
   const options = { projects: data.projects, tasks: data.tasks };
@@ -23,7 +23,7 @@ export function TimeWorkspace({ data }: { data: TimeWorkspaceData }) {
         </div>
       </header>
 
-      <TimerCard running={data.running} options={options} serverNow={data.now} />
+      <TimerCard running={data.running} options={options} serverNow={data.now} presetProjectId={presetProjectId} />
 
       {!data.week.hasContract && (
         <p className="flex items-start gap-2 rounded-xl border border-dashed p-3 text-sm text-muted-foreground">
@@ -39,7 +39,7 @@ export function TimeWorkspace({ data }: { data: TimeWorkspaceData }) {
         days={data.week.days}
         entries={data.entries}
         now={data.now}
-        onCreate={(date) => setDialog({ mode: "create", date })}
+        onCreate={(date) => setDialog({ mode: "create", date, projectId: presetProjectId })}
         onEdit={(entry) => setDialog({ mode: "edit", entry })}
       />
 

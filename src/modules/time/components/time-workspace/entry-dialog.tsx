@@ -22,7 +22,7 @@ import { useTimeAction } from "./use-time-action";
 import { WorkFields } from "./work-fields";
 
 export type EntryDialogState =
-  | { mode: "create"; date: string }
+  | { mode: "create"; date: string; projectId?: string }
   | { mode: "edit"; entry: TimeEntryView }
   | null;
 
@@ -30,7 +30,7 @@ type FormState = Assignment & { workDate: string; start: string; end: string; br
 
 function initialForm(state: NonNullable<EntryDialogState>): FormState {
   if (state.mode === "create") {
-    return { workDate: state.date, start: "09:00", end: "17:00", breakMinutes: "30", projectId: "", taskId: "", kind: "work", note: "" };
+    return { workDate: state.date, start: "09:00", end: "17:00", breakMinutes: "30", projectId: state.projectId ?? "", taskId: "", kind: "work", note: "" };
   }
   const { entry } = state;
   return {
