@@ -25,7 +25,7 @@ test("exact geometry supports cancel, validation, undo, collaboration and saved 
   await x.fill("100.125"); await x.press("Enter");
   expect((await saved(page, id)).elements.find((e: { id: string }) => e.id === "a").x).toBe(100.125);
   await expect.poll(() => node(other, "a").evaluate(el => new DOMMatrix(getComputedStyle(el).transform).e)).toBe(100.125);
-  await x.fill("999"); await x.press("Escape"); await expect(x).toHaveValue("100.125");
+  await x.fill("999"); await x.press("Escape"); await expect(x).toHaveValue("100.1");
   await page.getByRole("checkbox", { name: "Seitenverhältnis sperren" }).check();
   const width = page.getByRole("spinbutton", { name: "Breite", exact: true });
   await width.fill("520"); await width.press("Enter");

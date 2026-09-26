@@ -7,6 +7,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import type { PresentationElement, PresentationShapeKind, presentationIconNames } from "../../lib/presentation";
 import type { PresentationRecord } from "../../presentation-queries";
+import { PRESENTATION_FRAME_SIZE } from "../../lib/presentation-frames";
 
 const MAX_IMAGE_SIDE = 480;
 
@@ -20,18 +21,24 @@ export function usePresentationInsertion({ addElement, viewportCenter, t, studio
   uploading: boolean;
   setUploading: Dispatch<SetStateAction<boolean>>;
 }) {
-  const addText = useCallback(() => {
-    const { x, y } = viewportCenter();
-    addElement({
-      id: createId(), type: "text", x: x - 160, y: y - 30, width: 320, height: 60, rotation: 0,
-      content: { text: t("presentations.newTextPlaceholder"), fontSize: 32, bold: false, color: "", align: "left" },
-    });
-  }, [addElement, t, viewportCenter]);
+  const newText = useCallback(({ x, y }: { x: number; y: number }): PresentationElement => ({
+    id: createId(), type: "text", x: x - 160, y: y - 30, width: 320, height: 60, rotation: 0,
+    content: { text: t("presentations.newTextPlaceholder"), fontSize: 32, bold: false, color: "", align: "left" },
+  }), [t]);
+  const addText = useCallback(() => addElement(newText(viewportCenter())), [addElement, newText, viewportCenter]);
+  /** Adds a text centred on a canvas point right away (no placement step) and returns its id. */
+  const addTextAt = useCallback((point: { x: number; y: number }) => {
+    const element = newText(point);
+    addElement(element, false);
+    return element.id;
+  }, [addElement, newText]);
 
   const addFrame = useCallback(() => {
     const { x, y } = viewportCenter();
+    const { width, height } = PRESENTATION_FRAME_SIZE;
+    // Named "Rahmen N" and added to the path when placed (frameInsertionEdit).
     addElement({
-      id: createId(), type: "frame", x: x - 320, y: y - 200, width: 640, height: 400, rotation: 0,
+      id: createId(), type: "frame", x: x - width / 2, y: y - height / 2, width, height, rotation: 0,
       content: { label: "", shape: "rect", color: "" },
     });
   }, [addElement, viewportCenter]);
@@ -103,5 +110,5 @@ export function usePresentationInsertion({ addElement, viewportCenter, t, studio
     [addElement, presentation.id, t, viewportCenter, setUploading],
   );
 
-  return { addText, addFrame, addShape, addStudioElement, uploadMedia, uploadImage };
+  return { addText, addTextAt, addFrame, addShape, addStudioElement, uploadMedia, uploadImage };
 }

@@ -104,16 +104,21 @@ export function usePresentationAutosave({
   }, [canEdit, presentation.id, rawDispatch]);
 
   useEffect(() => {
+    // Warn only while something would be lost: edits the transport has not had
+    // acknowledged (queued, in flight, or held offline), or a panel field still holding
+    // typed text it has not committed. With collaboration the canvas's dirty flag says
+    // nothing about the server, so it only counts without one.
     const warn = (event: BeforeUnloadEvent) => {
       const draft = document.activeElement;
-      const editing = draft instanceof HTMLInputElement || draft instanceof HTMLTextAreaElement;
-      if (!latestRef.current.canvas.dirty && status !== "saving" && !editing) return;
+      const editing = draft instanceof HTMLElement && draft.matches("[data-draft-pending]");
+      const unsynced = collaboration ? collaboration.hasPendingChanges : latestRef.current.canvas.dirty || status === "saving";
+      if (!unsynced && !editing) return;
       event.preventDefault();
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
-  }, [canvas.dirty, status, latestRef]);
+  }, [collaboration, status, latestRef]);
 
   return { persist, flush };
 }

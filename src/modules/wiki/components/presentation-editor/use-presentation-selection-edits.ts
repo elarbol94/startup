@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import { copyPresentationFormat, pastePresentationFormat, type PresentationFormat } from "../../lib/presentation-format";
 import { mutableSelection, selectionRoots } from "../../lib/presentation-interactions";
 import { duplicatePresentationTree, isPresentationElementLocked, presentationDescendants, reorderElement, type PresentationCanvasAction, type PresentationElement } from "../../lib/presentation";
+import { presentationRemovalSet, removePresentationElements } from "../../lib/presentation-frames";
+import { frameInsertionEdit } from "./use-presentation-frames";
 
 export function usePresentationSelectionEdits({
   elements, dispatch, disabled, t, commitElements, selection, formatClipboard, setFormatClipboard, setSelectedIds,
@@ -22,17 +24,18 @@ export function usePresentationSelectionEdits({
   setFormatClipboard: Dispatch<SetStateAction<PresentationFormat | null>>;
   setSelectedIds: Dispatch<SetStateAction<string[]>>;
 }) {
-  /** Deleting takes the steps that pointed at the gone elements with it. */
+  /** Deleting takes the steps that pointed at the gone elements with it. A section frame
+   * goes alone: its members stay where they are and are released to its parent. */
   const deleteSelection = useCallback(
     (ids: string[]) => {
       if (!ids.length) return;
-      const removed = presentationDescendants(elements, new Set(ids.filter((id) => !isPresentationElementLocked(elements, id))));
+      const removed = presentationRemovalSet(elements, ids);
       // One action, so deleting an element and the stops that pointed at it is one undo.
       dispatch({
         type: "edit",
         at: Date.now(),
         separate: true,
-        elements: (current) => current.filter((element) => !removed.has(element.id)),
+        elements: (current) => removePresentationElements(current, removed),
         steps: (current) => {
           const next = current.filter((step) => !removed.has(step.elementId));
           return next.length === current.length ? current : next;
@@ -51,7 +54,8 @@ export function usePresentationSelectionEdits({
       if (elements.length + included.size > 500) { toast.error(t("presentations.elementLimit")); return; }
       // Ids are minted here rather than inside the update, which has to stay pure.
       const copies = new Map([...included].map((id) => [id, createId()]));
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => duplicatePresentationTree(current, roots, copies) });
+      const added = elements.filter((element) => included.has(element.id)).map((element) => ({ ...element, id: copies.get(element.id)! }));
+      dispatch(frameInsertionEdit(added, current => duplicatePresentationTree(current, roots, copies), t));
       setSelectedIds([...roots].map((id) => copies.get(id)!));
     },
     [disabled, dispatch, elements, t, setSelectedIds],

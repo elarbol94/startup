@@ -38,7 +38,7 @@ export function PresentationAppearanceInspector({
       <summary className="mb-3 cursor-pointer text-sm font-semibold">{t("presentations.selectionTools.appearance")}</summary>
       <fieldset disabled={disabled || selectedLocked} className="min-w-0">
       <div className="flex items-center justify-between gap-1">
-        <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">{t(`presentations.elementTypes.${selected.type}`)}</h2>
+        <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">{t(`presentations.elementTypes.${selected.type === "frame" && selected.content.isGroup ? "group" : selected.type}`)}</h2>
         <div className="flex shrink-0 items-center">
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.bringToFront")} onClick={() => reorderSelected(selected.id, "front")}>
             <ArrowUpToLine className="size-4" />

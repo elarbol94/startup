@@ -35,6 +35,8 @@ test("insertion follows the cursor, commits only on click, and cancels with Esca
 
 test("minimap outlines enclosing frames and clicking a location centers the canvas", async ({ page }) => {
   await seed(page);
+  // The minimap starts collapsed so it never covers frame content.
+  await page.getByRole("button", { name: "Minikarte einblenden" }).click();
   const mini = page.getByTestId("presentation-minimap-object"); await expect(mini).toHaveCount(4);
   await expect(mini.first()).toHaveAttribute("fill", "none");
   const target = mini.nth(1), box = (await target.boundingBox())!;

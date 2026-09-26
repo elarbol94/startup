@@ -28,7 +28,7 @@ const designs: Record<(typeof slideTemplateIds)[number], Design> = {
 };
 
 /** Every visual is ordinary editable canvas content, shared by previews and saved decks. */
-function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original"): PresentationTemplate {
+function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original", untitled = false): PresentationTemplate {
   if (isSpatialTemplateId(id)) return buildSpatialTemplate(id, locale, title, paletteId === "original" ? undefined : presentationPalettes[paletteId]);
   const copy: TemplateCopy = presentationTemplateCopy[locale][id];
   const design = designs[id];
@@ -60,7 +60,8 @@ function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: 
 
   const cover = slide("cover", 0, 0, p.cover, de ? "Thema, Publikum und Ziel der Präsentation nennen. Platzhalter durch eigene Inhalte ersetzen; Quellen und Beispiele ergänzen." : "Introduce the topic, audience and goal. Replace prompts with your own content; add sources and examples.", de ? "Titel" : "Title");
   text(cover, "eyebrow", 64, 56, 700, 24, de ? "PERSPEKTIVEN  /  NÄCHSTE SCHRITTE" : "PERSPECTIVES  /  NEXT STEPS", 16, p.coverInk, true);
-  const coverTitle = text(cover, "title", 64, 156, 650, 250, title?.trim() || copy.title, title?.trim() ? Math.min(64, Math.floor(Math.sqrt(650 * 200 / (title.trim().length * 1.15)))) : 64, p.coverInk, !design.serif, design.serif);
+  // An untitled deck gets an obvious placeholder instead of the catalog's sample headline.
+  const coverTitle = text(cover, "title", 64, 156, 650, 250, title?.trim() || (untitled ? (de ? "[Titel]" : "[Title]") : copy.title), title?.trim() ? Math.min(64, Math.floor(Math.sqrt(650 * 200 / (title.trim().length * 1.15)))) : 64, p.coverInk, !design.serif, design.serif);
   // Stable title ID also makes existing editor links and selectors useful for new decks.
   coverTitle.id = `${id}-title`;
   text(cover, "subtitle", 68, 432, 585, 94, copy.subtitle, 25, p.coverInk);
@@ -143,7 +144,8 @@ function buildTemplate(id: PresentationTemplateId, locale: "de" | "en", title?: 
 
 export const presentationTemplates = Object.fromEntries(presentationTemplateIds.map((id) => [id, buildTemplate(id, "en")])) as Record<PresentationTemplateId, PresentationTemplate>;
 
-/** Fresh objects on each call: previewing or editing one deck never changes the catalog. */
-export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original"): PresentationTemplate {
-  return buildTemplate(template.id, locale, title, paletteId);
+/** Fresh objects on each call: previewing or editing one deck never changes the catalog.
+ * `untitled` asks for the template's placeholder title rather than its sample headline. */
+export function localizedPresentationTemplate(template: PresentationTemplate, locale: "de" | "en", title?: string, paletteId: PresentationPaletteId = "original", untitled = false): PresentationTemplate {
+  return buildTemplate(template.id, locale, untitled ? undefined : title, paletteId, untitled);
 }

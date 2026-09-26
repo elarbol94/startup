@@ -1,7 +1,8 @@
 import { expect, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
-export async function seedPresentation(page: Page, withMedia = false, authenticated = false, customElements?: unknown[]) {
+/** `options.steps` replaces the default single stop; `options.waitFor` is the node id awaited after load (null waits for nothing). */
+export async function seedPresentation(page: Page, withMedia = false, authenticated = false, customElements?: unknown[], options: { steps?: unknown[]; waitFor?: string | null } = {}) {
   if (!authenticated) {
     const credentials = { username: "admin", password: "super-secret-1" };
     let auth = await page.request.post("/api/auth/sign-in/username", { data: credentials });
@@ -28,11 +29,12 @@ export async function seedPresentation(page: Page, withMedia = false, authentica
     expect(upload.ok(), await upload.text()).toBe(true); const attachment = await upload.json();
     media.push({ id: "image", type: "image", parentId: "frame", x: 650, y: 350, width: 100, height: 100, rotation: 0, content: { attachmentId: attachment.id, alt: "Clipboard image" } });
   }
-  const patched = await page.request.patch(`/api/wiki/presentations/${id}`, { data: { ...source, elements: customElements ?? [...elements, ...media], steps: [{ id: "s1", elementId: "frame" }], expectedUpdatedAt: source.updatedAt, sessionId: "interaction-fixture" } });
+  const patched = await page.request.patch(`/api/wiki/presentations/${id}`, { data: { ...source, elements: customElements ?? [...elements, ...media], steps: options.steps ?? [{ id: "s1", elementId: "frame" }], expectedUpdatedAt: source.updatedAt, sessionId: "interaction-fixture" } });
   expect(patched.ok(), await patched.text()).toBe(true);
   await page.goto(`/wiki/presentations/${id}`);
   await expect(page.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
-  await expect(page.locator('.react-flow__node[data-id="a"]')).toBeVisible();
+  const waitFor = options.waitFor === undefined ? "a" : options.waitFor;
+  if (waitFor) await expect(page.locator(`.react-flow__node[data-id="${waitFor}"]`)).toBeVisible();
   return id as string;
 }
 

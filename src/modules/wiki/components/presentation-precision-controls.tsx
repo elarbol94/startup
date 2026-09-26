@@ -4,37 +4,44 @@ import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { canEditGeometry, containingPresentationFrame, frameAlignments, precisionFields, type GeometryField } from "../lib/presentation-precision";
+import { canEditGeometry, containingPresentationFrame, formatGeometryValue, frameAlignments, precisionFields, type GeometryField } from "../lib/presentation-precision";
 import { layoutRoots, type PresentationAlignment } from "../lib/presentation-layout";
 import { normalizeRotation, type PresentationElement } from "../lib/presentation";
+import { framePresetHeight, isSectionFrame, presentationFramePresets } from "../lib/presentation-frames";
 
 function GeometryInput({ value, field, label, onCommit }: {
   value: number; field: GeometryField; label: string; onCommit: (value: number) => boolean;
 }) {
   const t = useTranslations("wiki.presentations.precision");
   const inputId = useId();
-  const [draft, setDraft] = useState(String(value));
+  // Position and size are rounded for display; rotation keeps what the author typed.
+  const shown = field === "rotation" ? String(value) : formatGeometryValue(value);
+  const [draft, setDraft] = useState(shown);
   const [synced, setSynced] = useState(value);
   const [error, setError] = useState(false);
-  if (synced !== value) { setSynced(value); setDraft(String(value)); setError(false); }
+  const [edited, setEdited] = useState(false);
+  if (synced !== value) { setSynced(value); setDraft(shown); setError(false); setEdited(false); }
   const size = field === "width" || field === "height";
   const commit = () => {
     const raw = draft.trim();
+    // An untouched field shows a rounded value; committing it would move the element.
+    if (!edited || raw === shown) { setError(false); setDraft(shown); setEdited(false); return; }
+    setEdited(false);
     const number = Number(raw);
     const valid = raw !== "" && Number.isFinite(number)
       && (!size || (number >= 20 && number <= 20_000))
       && (field !== "rotation" || (number >= -360 && number <= 360));
     const accepted = valid && (number === value || onCommit(number));
     setError(!accepted);
-    setDraft(String(accepted ? field === "rotation" ? normalizeRotation(number) : number : value));
+    setDraft(accepted ? field === "rotation" ? String(normalizeRotation(number)) : formatGeometryValue(number) : shown);
   };
   return <div className="min-w-0 text-xs text-muted-foreground">
     <label htmlFor={inputId}>{label}</label>
     <Input id={inputId} aria-describedby={error ? `${inputId}-error` : undefined} type="number" step="any" min={size ? 20 : field === "rotation" ? -360 : undefined} max={size ? 20_000 : field === "rotation" ? 360 : undefined} value={draft} inputMode="decimal" className="mt-1 h-8" aria-invalid={error}
-      onChange={event => { setDraft(event.target.value); setError(false); }} onBlur={commit}
+      onChange={event => { setDraft(event.target.value); setError(false); setEdited(true); }} onBlur={commit}
       onKeyDown={event => {
         if (event.key === "Enter") { event.preventDefault(); commit(); }
-        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDraft(String(value)); setError(false); }
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); setDraft(shown); setError(false); setEdited(false); }
       }} />
     {error && <span id={`${inputId}-error`} role="alert" className="mt-1 block text-destructive">{t("invalid")}</span>}
   </div>;
@@ -61,6 +68,11 @@ export function PresentationPrecisionControls({ elements, selection, disabled, o
           onCommit={value => onGeometry(selected.id, field, value, proportional)} />)}
       </div>
       <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={proportional} onChange={event => setProportional(event.target.checked)} />{t("precision.proportional")}</label>
+      {isSectionFrame(selected) && <div role="group" aria-label={t("precision.aspect")} className="flex items-center gap-1">
+        <span className="mr-auto text-xs text-muted-foreground">{t("precision.aspect")}</span>
+        {presentationFramePresets.map(([preset]) => <Button key={preset} type="button" size="xs" variant="outline" aria-label={t("precision.aspectPreset", { preset })}
+          onClick={() => onGeometry(selected.id, "height", framePresetHeight(selected.width, preset), false)}>{preset}</Button>)}
+      </div>}
       <p className="text-xs text-muted-foreground">{t("precision.units")}</p>
     </fieldset>}
     {frame && <fieldset disabled={locked} className="space-y-2">

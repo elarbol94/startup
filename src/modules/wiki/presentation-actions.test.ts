@@ -53,6 +53,13 @@ describe("presentation saves and history", () => {
     expect(revisions(id)[0]).toMatchObject({ title: "Original", elements_json: previous.elements_json });
   });
 
+  it("keeps an untitled deck's name out of its template slides", async () => {
+    const { id } = await createPresentation({ title: "Ohne Titel", untitled: true, templateId: "pitch" });
+    expect(record(id).title).toBe("Ohne Titel");
+    expect(record(id).elements_json).not.toContain("Ohne Titel");
+    expect(record(id).elements_json).toContain("[Titel]");
+  });
+
   it("rejects an older canvas even after its tab obtains the lease again", async () => {
     const { id } = await createPresentation({ title: "Original" });
     const previous = record(id);

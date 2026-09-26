@@ -78,3 +78,37 @@ it("does not recover another account's pending content", async () => {
   expect(bob.doc.getText("text").toString()).toBe("Hello");
   expect(storage.size).toBe(1);
 });
+it("reports pending changes until the server acknowledges them", async () => {
+  const client = provider(); await client.start();
+  expect(client.hasPendingChanges).toBe(false);
+  hold = () => {};
+  client.doc.getText("text").insert(5, " queued");
+  expect(client.hasPendingChanges).toBe(true);
+  const release = hold!; hold = undefined; release();
+  expect(await client.flush()).toBe(true);
+  expect(client.hasPendingChanges).toBe(false); expect(client.status).toBe("saved");
+});
+it("keeps changes pending while a save fails and notifies listeners", async () => {
+  const client = provider(); await client.start();
+  const listener = vi.fn(); client.subscribe(listener);
+  loseResponse = true;
+  client.doc.getText("text").insert(5, " offline");
+  expect(await client.flush()).toBe(false);
+  expect(client.status).toBe("reconnecting"); expect(client.hasPendingChanges).toBe(true);
+  expect(listener).toHaveBeenCalled();
+  expect(await client.flush()).toBe(true); expect(client.hasPendingChanges).toBe(false);
+});
+it("hides this tab's previous load from presence but still shows other clients", async () => {
+  const session = new Map<string, string>();
+  vi.stubGlobal("sessionStorage", { getItem: (key: string) => session.get(key) ?? null, setItem: (key: string, value: string) => session.set(key, value) });
+  const listeners = new Map<string, (event: MessageEvent) => void>();
+  vi.stubGlobal("EventSource", class { addEventListener(type: string, listener: (event: MessageEvent) => void) { listeners.set(type, listener); } close() {} });
+  const first = provider(); await first.start(); first.stop();
+  const reloaded = provider(); await reloaded.start();
+  expect(reloaded.client).not.toBe(first.client);
+  const presence = [{ client: first.client, name: "alice", userId: "alice" }, { client: "other-tab", name: "alice", userId: "alice" }, { client: reloaded.client, name: "alice", userId: "alice" }];
+  listeners.get("presence")!({ data: JSON.stringify(presence) } as MessageEvent);
+  expect(reloaded.people.map(person => person.client)).toEqual(["other-tab"]);
+  // A live client is never retired, so a duplicated tab cannot hide it.
+  expect(JSON.parse(session.values().next().value!)).toEqual([first.client]);
+});

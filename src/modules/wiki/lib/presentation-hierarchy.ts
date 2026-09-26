@@ -1,7 +1,7 @@
 // Element ordering, duplication, frame nesting, locking and grouping on the presentation
 // canvas. Re-exported by presentation.ts.
-import { unionBounds } from "./presentation-geometry";
-import type { PresentationElement } from "./presentation-model";
+import { presentationCameraBounds, unionBounds } from "./presentation-geometry";
+import type { PresentationElement, PresentationFrameElement } from "./presentation-model";
 
 /**
  * Z-order is the order of the array: the last element of its band paints on top. Frames
@@ -98,4 +98,56 @@ export function duplicatePresentationTree(elements: PresentationElement[], ids: 
     ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: { fromId: idMap.get(element.content.connection.fromId) ?? element.content.connection.fromId, toId: idMap.get(element.content.connection.toId) ?? element.content.connection.toId } } } : {}),
   } as PresentationElement));
   return elements.length + copies.length <= 500 ? [...elements, ...copies] : elements;
+}
+
+const area = (element: PresentationElement) => element.width * element.height;
+
+/**
+ * The section frame under a canvas point: the smallest (by area) non-group frame whose
+ * axis-aligned bounds contain it. `exclude` drops those ids and everything inside them,
+ * `minArea` drops frames that are not larger than what is being dropped.
+ */
+export function frameAtPoint(
+  elements: PresentationElement[],
+  point: { x: number; y: number },
+  { exclude = [], minArea = 0 }: { exclude?: Iterable<string>; minArea?: number } = {},
+): PresentationFrameElement | null {
+  const excluded = presentationDescendants(elements, new Set(exclude));
+  let best: PresentationFrameElement | null = null;
+  for (const element of elements) {
+    if (element.type !== "frame" || element.content.isGroup || excluded.has(element.id) || area(element) <= minArea) continue;
+    const box = presentationCameraBounds(element);
+    if (point.x < box.x || point.x > box.x + box.width || point.y < box.y || point.y > box.y + box.height) continue;
+    if (!best || area(element) <= area(best)) best = element;
+  }
+  return best;
+}
+
+/**
+ * Frame membership follows where an element is dropped or created: its centre inside a
+ * section frame joins that frame, outside of every frame releases it. Only the given
+ * roots are considered; group children, locked elements, connectors (which follow their
+ * objects) and wiki-linked frames (whose parent is document structure) keep their parent.
+ */
+export function assignFrameMembership(elements: PresentationElement[], rootIds: Iterable<string>): PresentationElement[] {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const parents = new Map<string, string | undefined>();
+  for (const id of new Set(rootIds)) {
+    const element = byId.get(id);
+    if (!element || isPresentationElementLocked(elements, id) || (element.type === "frame" && element.source)
+      || (element.type === "shape" && element.content.connection)) continue;
+    const parent = element.parentId ? byId.get(element.parentId) : undefined;
+    if (parent?.type === "frame" && parent.content.isGroup) continue;
+    const target = frameAtPoint(elements, { x: element.x + element.width / 2, y: element.y + element.height / 2 }, { exclude: [id], minArea: area(element) });
+    if (target?.id !== element.parentId) parents.set(id, target?.id);
+  }
+  if (!parents.size) return elements;
+  return elements.map((element) => {
+    if (!parents.has(element.id)) return element;
+    const parentId = parents.get(element.id);
+    if (parentId) return { ...element, parentId };
+    const released = { ...element };
+    delete released.parentId;
+    return released;
+  });
 }

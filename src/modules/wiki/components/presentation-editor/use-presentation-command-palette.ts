@@ -5,6 +5,19 @@ import { useEffect, useEffectEvent, useRef, useState, type RefObject } from "rea
 import type { Editor as TiptapEditor } from "@tiptap/core";
 import { createDoubleShiftDetector } from "../../lib/command-search";
 
+/**
+ * The editor's selection as the browser shows it. ProseMirror reads caret moves made by
+ * native keys (End, arrows) on the next selectionchange, so right after such a key its
+ * model can still hold the previous selection.
+ */
+function domTextSelection(editor: TiptapEditor, range: Range | null) {
+  const { from, to } = editor.state.selection;
+  if (!range || !editor.view.dom.contains(range.startContainer) || !editor.view.dom.contains(range.endContainer)) return { from, to };
+  try {
+    return { from: editor.view.posAtDOM(range.startContainer, range.startOffset), to: editor.view.posAtDOM(range.endContainer, range.endOffset) };
+  } catch { return { from, to }; }
+}
+
 export function usePresentationCommandPalette(commandRoot: RefObject<HTMLDivElement | null>) {
   const commandFocus = useRef<HTMLElement | null>(null);
   const commandRange = useRef<Range | null>(null);
@@ -16,7 +29,7 @@ export function usePresentationCommandPalette(commandRoot: RefObject<HTMLDivElem
     commandRange.current = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
     const richEditor = (commandFocus.current as (HTMLElement & { editor?: TiptapEditor }) | null)?.editor;
     commandTextSelection.current = richEditor && !richEditor.isDestroyed
-      ? { editor: richEditor, from: richEditor.state.selection.from, to: richEditor.state.selection.to }
+      ? { editor: richEditor, ...domTextSelection(richEditor, commandRange.current) }
       : null;
     setCommandsOpen(true);
   };

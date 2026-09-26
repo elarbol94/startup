@@ -1,5 +1,6 @@
 "use client";
 import { UserIdentity } from "@/components/user-identity";
+import { cn } from "@/lib/utils";
 import { createContext, useContext, useEffect, useReducer, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CollaborationProvider, type CollaborationClient } from "./provider";
@@ -20,11 +21,14 @@ export function useCollaboration(kind: Kind, id: string, enabled = true) {
   return provider;
 }
 const ERROR_REASONS = new Set(["tooLarge", "invalid"]);
-/** Collaborators (and, unless a page shows its own save status, the connection state). */
-export function CollaborationStatus({ provider, showStatus = true }: { provider: CollaborationClient; showStatus?: boolean }) {
+/**
+ * Collaborators (and, unless a page shows its own save status, the connection state).
+ * `className` lets an editor that shows its own save state keep this one for assistive tech only (e.g. "sr-only").
+ */
+export function CollaborationStatus({ provider, showStatus = true, className }: { provider: CollaborationClient; showStatus?: boolean; className?: string }) {
   const t = useTranslations("collaboration");
   const reason = provider.status === "error" && provider.errorReason && ERROR_REASONS.has(provider.errorReason) ? provider.errorReason : null;
-  return <div className="flex flex-wrap items-center gap-2 text-xs" role="status" data-testid="collaboration-status">
+  return <div className={cn("flex flex-wrap items-center gap-2 text-xs", className)} role="status" data-testid="collaboration-status">
     {showStatus && <span className={reason ? "text-destructive" : undefined}>{reason ? t(`errorReasons.${reason}`) : t(provider.status)}</span>}
     {[...new Map(provider.people.map(person => [person.userId, person])).values()].map(person => <span className="rounded-full border px-2 py-1" key={person.userId}><UserIdentity userId={person.userId} name={person.name} />{person.selectedIds?.length ? ` · ${t("selected", { count: person.selectedIds.length })}` : ""}</span>)}
     {showStatus && !provider.recoveryAvailable && <span className="text-amber-700">{t("recoveryUnavailable")}</span>}

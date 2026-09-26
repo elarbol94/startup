@@ -22,6 +22,7 @@ export function PresentationSelectionTools({ elements, selection, disabled, arra
   const candidates = elements.filter(e => e.id !== source?.id && presentationObjectTools([e]).connect);
   const targetLabel = (element: PresentationElement) => {
     if (element.type === "text") return element.content.text.slice(0, 55) || t("elementTypes.text");
+    if (element.type === "frame" && element.content.isGroup) return element.content.label || t("elementTypes.group");
     if (element.type === "frame") {
       const heading = elements.find(child => child.parentId === element.id && child.type === "text");
       return element.content.label || (heading?.type === "text" && heading.content.text.slice(0, 55)) || t("elementTypes.frame");

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { mutableSelection, selectionRoots } from "../../lib/presentation-interactions";
 import { PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, isPresentationElementLocked, presentationAncestors, presentationCameraBounds, presentationDescendants, snapBounds, unionBounds, type PresentationCanvasAction, type PresentationElement, type SnapGuide } from "../../lib/presentation";
 import type { PresentationNode } from "../presentation-canvas";
+import { frameInsertionEdit } from "./use-presentation-frames";
 
 export function startDuplicateDrag(event: React.PointerEvent<HTMLDivElement>, {
   disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel, setSelectedIds, dispatch,
@@ -57,12 +58,13 @@ export function startDuplicateDrag(event: React.PointerEvent<HTMLDivElement>, {
   const cancel = () => clear();
   const finish = () => {
     clear();
-    if (!moved) { setSelectedIds(event.ctrlKey || event.metaKey ? (selectedIds.includes(targetId) ? selectedIds.filter(id => id !== targetId) : [...selectedIds, targetId]) : [targetId]); return; }
+    // Without movement it was a click: Ctrl/Cmd-click toggles in the canvas click handler.
+    if (!moved) { if (!(event.ctrlKey || event.metaKey)) setSelectedIds([targetId]); return; }
     try {
-      dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => {
+      dispatch(frameInsertionEdit(preview, current => {
         if (current.length + preview.length > 500 || source.some(e => !current.some(now => now.id === e.id) || isPresentationElementLocked(current, e.id))) throw new Error("Selection changed");
         return [...current, ...preview];
-      } });
+      }, t));
       setSelectedIds(roots.map(e => idMap.get(e.id)!));
     } catch { toast.error(t("presentations.commands.unavailable")); }
   };

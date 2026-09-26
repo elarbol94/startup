@@ -88,6 +88,8 @@ export class SocketCollaborationProvider implements CollaborationClient {
     return false;
   }
 
+  get hasPendingChanges() { return this.dirty; }
+
   private refresh() {
     if (this.denied) this.status = "denied";
     else if (!this.ready) this.status = "connecting";

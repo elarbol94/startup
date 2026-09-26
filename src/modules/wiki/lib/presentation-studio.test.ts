@@ -114,20 +114,20 @@ export function pptxFixture(extra = "") {
   });
 }
 describe("PowerPoint import", () => {
-  it("imports editable text, geometry, bold spans and frame hierarchy", () => {
-    const result = importPresentationPptx(pptxFixture(), "Deck");
+  it("imports editable text, geometry, bold spans and frame hierarchy", async () => {
+    const result = await importPresentationPptx(pptxFixture(), "Deck");
     expect(result.snapshot.steps).toHaveLength(1);
     expect(result.snapshot.elements[1]).toMatchObject({ type: "text", x: 96, y: 96, content: { text: "Hello PowerPoint", runs: [{ text: "Hello PowerPoint", bold: true }] } });
     expect(result.snapshot.elements[1].parentId).toBe(result.snapshot.elements[0].id);
   });
-  it("reports unsupported objects", () => {
-    expect(importPresentationPptx(pptxFixture("<p:graphicFrame/>"), "Deck").warnings).toContainEqual({ slide: 1, code: "unsupported" });
+  it("reports unsupported objects", async () => {
+    expect((await importPresentationPptx(pptxFixture("<p:graphicFrame/>"), "Deck")).warnings).toContainEqual({ slide: 1, code: "unsupported" });
   });
-  it("rejects malformed archives and XML entities", () => {
-    expect(() => importPresentationPptx(new Uint8Array([1, 2, 3]), "Deck")).toThrow();
-    expect(() => importPresentationPptx(zipSync({ "ppt/presentation.xml": xml('<!DOCTYPE doc [<!ENTITY x "bad">]><doc/>') }), "Deck")).toThrow(/entities/);
+  it("rejects malformed archives and XML entities", async () => {
+    await expect(importPresentationPptx(new Uint8Array([1, 2, 3]), "Deck")).rejects.toThrow();
+    await expect(importPresentationPptx(zipSync({ "ppt/presentation.xml": xml('<!DOCTYPE doc [<!ENTITY x "bad">]><doc/>') }), "Deck")).rejects.toThrow(/entities/);
   });
-  it("rejects decompression bombs before extracting", () => {
-    expect(() => importPresentationPptx(zipSync({ "ppt/bomb.xml": new Uint8Array(26 * 1024 * 1024) }), "Deck")).toThrow(/limit/);
+  it("rejects decompression bombs before extracting", async () => {
+    await expect(importPresentationPptx(zipSync({ "ppt/bomb.xml": new Uint8Array(26 * 1024 * 1024) }), "Deck")).rejects.toThrow(/limit/);
   });
 });

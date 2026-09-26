@@ -59,6 +59,16 @@ describe("localized, editable template layouts", () => {
     expect(english.elements[0].x).toBe(0);
     expect(JSON.stringify(presentationTemplates)).toBe(before);
   });
+
+  it("uses a bracketed placeholder instead of the sample headline for an untitled deck", () => {
+    const german = localizedPresentationTemplate(presentationTemplates.pitch, "de", "Ohne Titel", "original", true);
+    const english = localizedPresentationTemplate(presentationTemplates.report, "en", undefined, "original", true);
+    const spatial = localizedPresentationTemplate(presentationTemplates.topicmap, "de", "Ohne Titel", "original", true);
+    expect(german.elements.find((element) => element.id === "pitch-title")).toMatchObject({ content: { text: "[Titel]" } });
+    expect(english.elements.find((element) => element.id === "report-title")).toMatchObject({ content: { text: "[Title]" } });
+    expect(JSON.stringify(spatial.elements)).not.toContain("Ohne Titel");
+    expect(JSON.stringify(spatial.elements)).toContain("[Zentrale Idee]");
+  });
 });
 
 

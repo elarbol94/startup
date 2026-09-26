@@ -45,13 +45,14 @@ function revalidatePresentations(id?: string) {
   if (id) revalidatePath(`/wiki/presentations/${id}`);
 }
 
-export async function createPresentation(input: { title: string; templateId?: string; locale?: string; paletteId?: string }) {
+export async function createPresentation(input: { title: string; templateId?: string; locale?: string; paletteId?: string; untitled?: boolean }) {
   const currentUser = await requireUserOrThrow();
-  const { title, templateId, locale, paletteId } = z
-    .object({ title: titleSchema, templateId: templateIdSchema.optional(), paletteId: z.enum(presentationPaletteIds).default("original"), locale: z.enum(["de", "en"]).default("de") })
+  const { title, templateId, locale, paletteId, untitled } = z
+    .object({ title: titleSchema, templateId: templateIdSchema.optional(), paletteId: z.enum(presentationPaletteIds).default("original"), locale: z.enum(["de", "en"]).default("de"), untitled: z.boolean().optional() })
     .parse(input);
   // templateId is validated against the enum above, so this is always a known template.
-  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale, title, paletteId) : null;
+  // An untitled deck keeps its "untitled" name but the slides show the template's placeholder.
+  const template = templateId ? localizedPresentationTemplate(presentationTemplates[templateId], locale, title, paletteId, untitled) : null;
   const row = db
     .insert(wikiPresentations)
     .values({

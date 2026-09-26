@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { isPresentationElementLocked, presentationAncestors, presentationDescendants, presentationElementsSchema, type PresentationElement, type PresentationStep } from "./presentation";
+// Hit-testing for section frames lives with the frame hierarchy; re-exported for canvas interactions.
+export { frameAtPoint } from "./presentation-hierarchy";
 
 export const isLinearShape = (element: PresentationElement) => element.type === "shape" && ["line", "arrow", "doubleArrow"].includes(element.content.shape);
 export function adaptiveGridGap(zoom: number): number {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
+import type { Editor } from "@tiptap/react";
 import { ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
@@ -8,7 +9,7 @@ import { resizePresentationElement, isLinearShape, lineEndpoints, moveLineEndpoi
 import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
-import { PresentationContent } from "./presentation-content";
+import { PresentationContent, presentationTextStyle } from "./presentation-content";
 
 /**
  * The node types are shared by the editor and the player: what a reader sees while
@@ -28,6 +29,12 @@ export type PresentationNodeData = {
   onEndpointChange?: (element: PresentationElement) => void;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
+  /** A frame the dragged selection would join if dropped now. */
+  dropTarget?: boolean;
+  /** This text element is open in the inline editor. Owned by the editor, so shortcuts can enter it synchronously. */
+  editing?: boolean;
+  onEditingChange?: (id: string, editing: boolean) => void;
+  onTextEditorReady?: (id: string, editor: Editor) => void;
   [key: string]: unknown;
 };
 
@@ -83,10 +90,10 @@ function Resizer({ selected, data }: { selected: boolean; data: PresentationNode
 }
 
 function TextNode({ data, selected }: NodeProps<PresentationNode>) {
-  const [editing, setEditing] = useState(false);
   const element = data.element;
   if (element.type !== "text") return null;
   const { fontSize, bold, color, align } = element.content;
+  const setEditing = (editing: boolean) => data.onEditingChange?.(element.id, editing);
 
   return (
     <div
@@ -98,9 +105,18 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
       )}
     >
       <Resizer selected={Boolean(selected)} data={data} />
-      {editing && data.editable ? (
-        <div className="nodrag nopan nowheel h-full w-full cursor-text bg-background/95 p-1" style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }} onBlur={event => { if (!(event.relatedTarget as HTMLElement | null)?.closest?.("[data-editor-command-search]") && !event.currentTarget.contains(event.relatedTarget as globalThis.Node | null)) setEditing(false); }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
-          <PresentationRichText inline elementId={element.id} content={element.content} onChange={content => data.onRichTextChange?.(element.id, content)} />
+      {data.editing && data.editable ? (
+        // Same box and typography as the view below, so the text does not move on entering edit mode.
+        <div className={cn("nodrag nopan nowheel h-full w-full cursor-text bg-background/95", !color && "text-foreground")} style={presentationTextStyle(element.content)} onBlur={event => {
+          // Decided a frame later: remounting the editor (React's development double mount)
+          // drops focus for a moment and gives it back.
+          const surface = event.currentTarget;
+          requestAnimationFrame(() => {
+            const active = document.activeElement;
+            if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search]")) setEditing(false);
+          });
+        }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
+          <PresentationRichText inline elementId={element.id} content={element.content} onChange={content => data.onRichTextChange?.(element.id, content)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
         </div>
       ) : (
         <div
@@ -134,17 +150,23 @@ function ImageNode({ data, selected }: NodeProps<PresentationNode>) {
   );
 }
 
+/** Screen width of the band along a frame's outline that grabs and moves the frame. */
+const FRAME_EDGE_HIT = 12;
+
 function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
+  const { zoom } = useViewport();
   const element = data.element;
   if (element.type !== "frame") return null;
   const { label, shape, color } = element.content;
   return (
     <div
       inert={data.hidden || undefined}
+      data-drop-target={data.dropTarget || undefined}
       className={cn(
         "h-full w-full",
         data.editable && "cursor-move active:cursor-grabbing",
         data.editable && selected && "ring-2 ring-indigo-500/60",
+        data.dropTarget && "bg-indigo-500/5 ring-4 ring-indigo-500",
         shape !== "none" && "border-2",
         shape === "circle" && "rounded-full",
         shape === "rect" && "rounded-xl",
@@ -155,21 +177,25 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
       )}
       style={shape !== "none" && color ? { borderColor: color } : undefined}
     >
-      {/* Only the outline receives clicks. Its screen-sized hit area also works
-          for circular/rotated frames and does not cover nested objects. */}
+      {/* Only the outline and the label receive pointer events: they move the frame. A click
+          on the empty interior reaches the pane (which selects the frame) and a drag there
+          draws a marquee. The band is sized in screen pixels -- non-scaling-stroke ignores the
+          viewport's CSS scale -- and sits under the resize handles, so grabbing the edge
+          between two handles moves the frame. */}
       {!data.hidden && (
-        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden>
+        <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible" aria-hidden data-frame-edge>
           {shape === "circle" ? (
-            <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="none" stroke="transparent" strokeWidth={10} vectorEffect="non-scaling-stroke" pointerEvents="stroke" />
+            <ellipse cx="50%" cy="50%" rx="50%" ry="50%" fill="none" stroke="transparent" strokeWidth={FRAME_EDGE_HIT / zoom} pointerEvents="stroke" />
           ) : (
-            <rect width="100%" height="100%" rx={12} fill="none" stroke="transparent" strokeWidth={10} vectorEffect="non-scaling-stroke" pointerEvents="stroke" />
+            <rect width="100%" height="100%" rx={12} fill="none" stroke="transparent" strokeWidth={FRAME_EDGE_HIT / zoom} pointerEvents="stroke" />
           )}
         </svg>
       )}
       <Resizer selected={Boolean(selected)} data={data} />
       {label && (
         <span
-          className="pointer-events-none absolute -top-6 left-0 truncate text-sm font-medium"
+          data-frame-label
+          className="pointer-events-auto absolute -top-6 left-0 max-w-full truncate text-sm font-medium"
           style={{ color: color || undefined }}
         >
           {label}
@@ -264,6 +290,9 @@ export function elementsToNodes(
     onGestureStart?: () => void;
     onGestureEnd?: () => void;
     onTextChange?: (id: string, text: string) => void;
+    editingId?: string | null;
+    onEditingChange?: (id: string, editing: boolean) => void;
+    onTextEditorReady?: (id: string, editor: Editor) => void;
   onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onEndpointChange?: (element: PresentationElement) => void;
@@ -272,6 +301,7 @@ export function elementsToNodes(
     hiddenIds?: Set<string>;
     animationMs?: number;
     mediaUrl?: (id: string) => string;
+    dropTargetId?: string | null;
   },
 ): PresentationNode[] {
   return elements.map((element, index) => {
@@ -324,6 +354,10 @@ export function elementsToNodes(
         onResizeChange: options.onResizeChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
+        dropTarget: options.dropTargetId === element.id || undefined,
+        editing: element.type === "text" && options.editingId === element.id,
+        onEditingChange: options.onEditingChange,
+        onTextEditorReady: options.onTextEditorReady,
       },
     };
   });

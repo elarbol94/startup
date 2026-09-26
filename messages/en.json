@@ -71,6 +71,21 @@
       "externalMedia": "Slide {slide}: externally linked media was not fetched.",
       "missingMedia": "Slide {slide}: an image was missing or used an unsupported format.",
       "animations": "Slide {slide}: PowerPoint animations and transitions need to be recreated in the path.",
+      "table": "Slide {slide}: table imported as grouped text cells (no table features).",
+      "tableAsText": "Slide {slide}: large table imported as text.",
+      "chartSimplified": "Slide {slide}: chart simplified (first data series only, basic chart type, no axis or legend styling).",
+      "chartDropped": "Slide {slide}: this chart type is not supported and was omitted.",
+      "customShape": "Slide {slide}: custom shapes were imported as rectangles.",
+      "fillSimplified": "Slide {slide}: gradients, patterns or picture fills were imported as a plain colour.",
+      "fontSizes": "Slide {slide}: different font sizes within one text box were unified.",
+      "smartArt": "Slide {slide}: SmartArt was imported as individual shapes.",
+      "math": "Slide {slide}: equations were imported as text.",
+      "media": "Slide {slide}: video and audio were not imported.",
+      "imageCrop": "Slide {slide}: image cropping was not imported.",
+      "transform": "Slide {slide}: rotated or flipped groups and lines were simplified.",
+      "textTruncated": "Slide {slide}: very long text was shortened.",
+      "objectLimit": "Slide {slide}: the 500-object limit was reached; further objects were omitted.",
+      "fallback": "The file could only be read in simplified form: review layout, placeholders, tables and charts after import.",
       "none": "No unsupported content was detected. Review the presentation before using it."
     },
     "structure": "Structure",
@@ -215,11 +230,12 @@
     "notesSaved": "Notes saved",
     "notesConflict": "These notes changed elsewhere. Your draft is kept; reload to review the latest version.",
     "importPptx": "Import PowerPoint",
-    "importHint": "Import editable text, basic shapes and images from a .pptx file (up to 50 MB). Unsupported objects and effects are listed after import.",
+    "importHint": "Import text, shapes, images, tables, charts and speaker notes from a .pptx file (up to 50 MB). Each slide becomes a frame with a stop; anything simplified or omitted is listed per slide after import.",
     "importing": "Importing…",
     "importFailed": "Import failed. Use a valid, unencrypted .pptx within the size limit.",
     "importWarnings": "Import notes",
     "openImported": "Open imported presentation",
+    "noFileChosen": "No file chosen",
     "choosePptx": "Choose PowerPoint file",
     "previous": "Previous",
     "next": "Next",
@@ -3488,6 +3504,8 @@
     "editors": "Editors",
     "editorsHelp": "One person per line, as above. Leave empty if there are none.",
     "presentations": {
+      "uploadImage": "Upload image",
+      "documentTitle": "{title} – Presentation",
       "commands": {
         "title": "Presentation commands",
         "description": "Find an action. Your current object selection stays active.",
@@ -3521,6 +3539,7 @@
       "addText": "Text",
       "addImage": "Image",
       "addFrame": "Frame",
+      "frameName": "Frame {number}",
       "newTextPlaceholder": "New text",
       "overview": "Overview",
       "spotlight": "Spotlight cursor",
@@ -3634,6 +3653,7 @@
       },
       "elementTypes": {
         "text": "Text",
+        "group": "Group",
         "image": "Image",
         "frame": "Frame",
         "shape": "Shape",
@@ -3656,7 +3676,7 @@
         "unsaved": "Unsaved",
         "saving": "Saving…",
         "saved": "Saved",
-        "error": "Error"
+        "offline": "Offline – changes are kept locally"
       },
       "locked": "Someone else is editing this presentation. You can look around, but changes are not saved.",
       "lockedBy": "{name} is editing this presentation. You can look around, but changes are not saved.",
@@ -3739,6 +3759,8 @@
         "height": "Height",
         "rotation": "Rotation (degrees)",
         "proportional": "Lock aspect ratio",
+        "aspect": "Frame aspect ratio",
+        "aspectPreset": "Aspect ratio {preset}",
         "units": "Absolute canvas units. Size: 20–20,000. Enter or leave a field to apply; Escape cancels.",
         "alignFrame": "Align within parent frame",
         "invalid": "Value cannot be applied. Check size limits and group contents."
@@ -3754,7 +3776,8 @@
         "addConnector": "Add connector",
         "noTargets": "Add another object to create a connection.",
         "twoObjects": "Select exactly two independent objects to connect them.",
-        "multiSelectHint": "Shift-click another object to reveal alignment controls. Select three or more for equal spacing.",
+        "multiSelectHint": "Shift- or Ctrl/Cmd-click more objects (click again to remove them) to reveal alignment controls. Select three or more for equal spacing.",
+        "emptySelectionHint": "Click an object or drag a selection box on empty space. Shift- or Ctrl/Cmd-click adds or removes objects; clicking inside a frame selects the frame.",
         "panels": "Editor panels"
       },
       "format": {
@@ -3787,7 +3810,7 @@
         "detach": "Detach connector",
         "shortcutHelp": "Keyboard shortcuts",
         "clipboardError": "Could not use the clipboard. Allow clipboard access and copy valid presentation objects with accessible attachments.",
-        "gestureHelp": "Drag empty space to select; Shift adds to selection. Space+drag or middle-drag pans. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
+        "gestureHelp": "Drag empty space to select; Shift adds to selection. Shift- or Ctrl/Cmd-click adds or removes an object. Clicking inside a frame or on its name selects the frame; dragging its name or edge moves it. Mouse wheel and two-finger scroll pan, Ctrl/Cmd+wheel and pinch zoom; Space+drag or middle-drag also pans. Ctrl+Y or Ctrl+Shift+Z redoes. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
         "choose": "Choose an item",
         "bar": "Bar chart",
         "line": "Line chart",
@@ -3821,7 +3844,9 @@
         },
         "dashPattern": "Dash pattern",
         "placeHint": "Click to place · Escape cancels · Enter places in the center",
-        "minimapLabel": "Canvas overview"
+        "minimapLabel": "Canvas overview",
+        "minimapShow": "Show minimap",
+        "minimapHide": "Hide minimap"
       }
     },
     "figures": {

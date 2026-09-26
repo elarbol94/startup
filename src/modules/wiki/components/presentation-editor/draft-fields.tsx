@@ -24,6 +24,8 @@ export function DraftInput({
     <Input
       {...props}
       value={field.draft}
+      // Read by the editor's beforeunload guard: typed text that has not been committed yet.
+      data-draft-pending={field.draft !== value || undefined}
       onChange={(event) => field.setDraft(event.currentTarget.value)}
       onBlur={field.commit}
       // Enter commits only here: in a textarea it is part of the text.
@@ -46,6 +48,8 @@ export function DraftTextarea({
     <Textarea
       {...props}
       value={field.draft}
+      // Read by the editor's beforeunload guard: typed text that has not been committed yet.
+      data-draft-pending={field.draft !== value || undefined}
       onChange={(event) => field.setDraft(event.currentTarget.value)}
       onBlur={field.commit}
     />
