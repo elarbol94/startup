@@ -20,6 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
+import { ProjectChip, ProjectDot } from "@/modules/projects/components/project-chip";
 
 export type InvoiceListItem = {
   id: string;
@@ -29,6 +30,7 @@ export type InvoiceListItem = {
   status: string;
   grossCents: number;
   createdBy: string | null;
+  projects?: { id: string; name: string; color: string; archived: boolean }[];
 };
 
 export const INVOICE_STATUS_FILTERS = [
@@ -327,6 +329,16 @@ export function InvoiceList({
                         <p className="mt-0.5 line-clamp-2 text-sm break-words text-muted-foreground">
                           {invoice.customerName}
                         </p>
+                        {invoice.projects && invoice.projects.length > 0 && (
+                          <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+                            {invoice.projects.map((project) => (
+                              <span key={project.id} className="inline-flex min-w-0 items-center gap-1">
+                                <ProjectDot color={project.color} />
+                                <span className="truncate">{project.name}</span>
+                              </span>
+                            ))}
+                          </p>
+                        )}
                       </div>
                       <p className="shrink-0 font-semibold tabular-nums">
                         {formatCents(invoice.grossCents, locale)}
@@ -375,6 +387,13 @@ export function InvoiceList({
                         {invoice.customerName}
                         <br />
                         <UserAttribution userId={invoice.createdBy} relation="createdBy" />
+                        {invoice.projects && invoice.projects.length > 0 && (
+                          <span className="relative z-10 mt-1 flex flex-wrap gap-1">
+                            {invoice.projects.map((project) => (
+                              <ProjectChip key={project.id} project={project} size="xs" />
+                            ))}
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{dueDate(invoice)}</TableCell>
                       <TableCell>{statusBadge(invoice)}</TableCell>

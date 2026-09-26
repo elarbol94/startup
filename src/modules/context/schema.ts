@@ -16,8 +16,25 @@ export const contextTargetTypes = [
   "wikiSource",
   "pdf",
   "app",
+  "calendarEvent",
+  "invoice",
+  "accountingEntry",
+  "customer",
 ] as const;
 export type ContextTargetType = (typeof contextTargetTypes)[number];
+
+/** Wiki knowledge and app routes shown in the context panel. */
+export const knowledgeTargetTypes = ["wikiPage", "wikiSource", "pdf", "app"] as const;
+export type KnowledgeTargetType = (typeof knowledgeTargetTypes)[number];
+
+/** Records from other modules that can be tagged with projects (owner "project"). */
+export const projectLinkTargetTypes = [
+  "calendarEvent",
+  "invoice",
+  "accountingEntry",
+  "customer",
+] as const;
+export type ProjectLinkTargetType = (typeof projectLinkTargetTypes)[number];
 
 export const contextRelationTypes = ["origin", "related"] as const;
 export type ContextRelationType = (typeof contextRelationTypes)[number];

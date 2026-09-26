@@ -5,10 +5,17 @@ import { requireUser } from "@/lib/auth";
 import { getAppSettings } from "@/modules/settings/queries";
 import { listCustomers } from "@/modules/accounting/invoice-queries";
 import { InvoiceEditor } from "@/modules/accounting/components/invoice-editor";
+import { listProjectRefs } from "@/modules/context/project-link-refs";
 import { Button } from "@/components/ui/button";
 
-export default async function NewInvoicePage() {
+export default async function NewInvoicePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   await requireUser();
+  const { project } = await searchParams;
+  const presetProjects = project ? listProjectRefs().filter((ref) => ref.id === project) : [];
   const t = await getTranslations("invoices");
   const settings = getAppSettings();
   const customers = listCustomers();
@@ -33,6 +40,7 @@ export default async function NewInvoicePage() {
         initial={null}
         defaultVatRate={settings.kleinunternehmer ? 0 : settings.defaultVatRate}
         vatExempt={settings.kleinunternehmer}
+        presetProjects={presetProjects}
       />
     </div>
   );

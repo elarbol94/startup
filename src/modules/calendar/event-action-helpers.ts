@@ -39,6 +39,8 @@ export const eventInputSchema = z
     reminderMinutes: z.array(z.number().int().min(0).max(43_200)).max(8).default([]),
     expectedUpdatedAt: z.string().datetime().nullable().default(null),
     allowConflicts: z.boolean().default(false),
+    /** Project tags; left out, the saved tags stay as they are. */
+    projectIds: z.array(z.string().min(1).max(200)).max(20).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.allDay) {

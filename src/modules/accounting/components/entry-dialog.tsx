@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { deleteEntry, upsertEntry, type EntryInput } from "@/modules/accounting/actions";
+import { ProjectPicker, useProjectLinkDraft } from "@/modules/context/components/project-links-field";
 import type { EntryRow } from "@/modules/accounting/queries";
 import type { categories as categoriesTable, CategoryTemplate } from "@/modules/accounting/schema";
 import { formatCents, parseAmountToCents } from "@/lib/money";
@@ -187,6 +188,7 @@ export function EntryDialog({
   const t = useTranslations("accounting");
   const tf = useTranslations("accountingEntry");
   const tc = useTranslations("common");
+  const tp = useTranslations("projectLinks");
   const locale = useLocale();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -214,6 +216,7 @@ export function EntryDialog({
   const [isDuplicate, setIsDuplicate] = useState(false);
   const [persistedEntryId, setPersistedEntryId] = useState<string | null>(null);
   const [syncKey, setSyncKey] = useState<string | null>(null);
+  const projectLinks = useProjectLinkDraft("accountingEntry", entry?.id ?? null, [], open ? (entry?.id ?? "new") : null);
 
   const currentKey = open ? (entry?.id ?? "new") : null;
   if (syncKey !== currentKey) {
@@ -545,6 +548,7 @@ export function EntryDialog({
       };
       const { id } = await upsertEntry(input);
       setPersistedEntryId(id);
+      await projectLinks.persist(id).catch(() => toast.error(tp("saveError")));
       if (pendingFiles.length) {
         const failedFiles = await uploadFiles(id);
         if (failedFiles.length > 0) {
@@ -752,6 +756,8 @@ export function EntryDialog({
                   <div><FieldLabel htmlFor="entry-notes">{t("notes")}</FieldLabel><Textarea id="entry-notes" rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} maxLength={2000} /></div>
                   <div><FieldLabel htmlFor="receipt-files">{t("receipts")}</FieldLabel><div className="mt-1 flex flex-col gap-1">{existingAttachments.map((attachment) => <div key={attachment.id} className="flex items-center gap-2 text-sm"><Paperclip className="size-3.5" /><a className="min-w-0 flex-1 truncate hover:underline" href={`/api/files/${attachment.id}`} target="_blank" rel="noreferrer">{attachment.fileName}</a>{entry?.status !== "finalized" && <Button type="button" variant="ghost" size="icon-xs" aria-label={tc("delete")} onClick={() => void removeExistingAttachment(attachment.id)}><X className="size-3.5" /></Button>}</div>)}{pendingFiles.map((file, index) => <div key={`${file.name}-${index}`} className="flex items-center gap-2 text-sm text-[#73817c] dark:text-muted-foreground"><Upload className="size-3.5" /><span className="min-w-0 flex-1 truncate">{file.name}</span><Button type="button" variant="ghost" size="icon-xs" aria-label={tc("delete")} onClick={() => setPendingFiles((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X className="size-3.5" /></Button></div>)}</div><input id="receipt-files" ref={fileInputRef} type="file" accept="application/pdf,image/png,image/jpeg,image/webp,image/heic" multiple className="hidden" onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); setPendingFiles((current) => [...current, ...files]); event.currentTarget.value = ""; }} /><Button type="button" variant="outline" size="sm" className="mt-2" onClick={() => fileInputRef.current?.click()}><Upload className="size-4" />{t("uploadReceipt")}</Button></div>
                 </FormSection>
+
+                <div className="flex flex-col gap-1.5"><FieldLabel>{tp("projects")}</FieldLabel><ProjectPicker value={projectLinks.value} onChange={projectLinks.onChange} disabled={projectLinks.loading} /></div>
 
                 {entry && !isDuplicate && <EvidencePanel targetType="accountingEntry" targetId={entry.id} />}
 

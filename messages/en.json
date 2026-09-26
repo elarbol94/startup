@@ -297,6 +297,7 @@
     "closeNavigation": "Close main navigation",
     "new": "New",
     "quickCreate": "Create new",
+    "quickCreateInProject": "Tasks and events link to the open project",
     "newTask": "New task",
     "newEvent": "New event",
     "newDeadline": "New deadline"
@@ -1602,6 +1603,60 @@
     "resetFilters": "Reset filters",
     "showAllReceipts": "Show all ({count} more)",
     "showFewerReceipts": "Show fewer"
+  },
+  "projectLinks": {
+    "projects": "Projects",
+    "addProject": "Project",
+    "addAnother": "Add",
+    "search": "Search projects…",
+    "noProjects": "No projects found",
+    "archived": "Archived",
+    "remove": "Remove {name}",
+    "loadError": "Projects could not be loaded.",
+    "saveError": "Projects could not be saved.",
+    "preview": {
+      "archived": "Archived project",
+      "unavailable": "No details available.",
+      "tasks": "{open} open · {done} done",
+      "overdue": "{count, plural, one {# task overdue} other {# tasks overdue}}",
+      "next": "Next: {title} · {date}",
+      "manager": "Managed by {name}",
+      "noManager": "No project manager",
+      "targetEnd": "Target end: {date}"
+    },
+    "pulse": {
+      "label": "Project overview",
+      "open": "{count} open",
+      "overdue": "{count} overdue",
+      "allDone": "All done",
+      "next": "{title} · {date}",
+      "hoursTeam": "{hours} h this month",
+      "hoursOwn": "{hours} h by you this month",
+      "hoursTeamHint": "Logged by the team this month – click to track time for this project",
+      "hoursOwnHint": "Logged by you this month – click to track time for this project",
+      "knowledge": "{count, plural, one {# document} other {# documents}}",
+      "connections": "{count} linked",
+      "fundingHint": "Open funding project"
+    },
+    "quickCreate": {
+      "new": "New",
+      "inProject": "New in {name}",
+      "task": "Task",
+      "event": "Event",
+      "time": "Track time",
+      "invoice": "Invoice"
+    },
+    "connections": {
+      "title": "Linked to this project",
+      "description": "Events, invoices, bookings and customers tagged with this project.",
+      "empty": "Nothing linked yet. Pick this project under “Projects” on an event, invoice, booking or customer.",
+      "events": "Events",
+      "invoices": "Invoices",
+      "entries": "Bookings",
+      "customers": "Customers",
+      "recurring": "Series",
+      "draft": "Draft"
+    }
   },
   "projects": {
     "mobileProjectsHeading": "Projects",

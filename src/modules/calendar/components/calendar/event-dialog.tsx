@@ -34,6 +34,8 @@ import type { CalendarItem, CalendarWorkspace } from "../../types";
 import { cn } from "@/lib/utils";
 import type { CalendarConflict, EventDraft, ImportableDraftField } from "./calendar-types";
 import { AustrianDateInput, AustrianTimeInput } from "./austrian-date-time-inputs";
+import { ProjectPicker } from "@/modules/context/components/project-links-field";
+import { saveProjectLinks } from "@/modules/context/project-link-actions";
 
 export function EventDialog({
   eventOpen,
@@ -141,6 +143,12 @@ export function EventDialog({
               endAt: endAt!,
             },
       });
+      // Project tags belong to the whole series.
+      await saveProjectLinks({
+        targetType: "calendarEvent",
+        targetId: draft.id,
+        projectIds: draft.projects.map((project) => project.id),
+      });
       closeEventDialog();
       router.refresh();
       toast.success(t("eventSaved"));
@@ -168,6 +176,7 @@ export function EventDialog({
         draft.reminderMinutes === null ? [] : [draft.reminderMinutes],
       expectedUpdatedAt: draft.expectedUpdatedAt,
       allowConflicts,
+      projectIds: draft.projects.map((project) => project.id),
     };
     const result =
       draft.id &&
@@ -280,6 +289,14 @@ export function EventDialog({
                 placeholder={t("eventTitlePlaceholder")}
               />
             </label>
+            <div className="grid gap-1.5">
+              <span className="text-xs font-medium">{t("projects")}</span>
+              <ProjectPicker
+                value={draft.projects}
+                onChange={(projects) => setDraft({ ...draft, projects })}
+                options={workspace.projects.map((project) => ({ ...project, archived: false }))}
+              />
+            </div>
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

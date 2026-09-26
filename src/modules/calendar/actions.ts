@@ -13,6 +13,7 @@ import {
   calendarReminders,
 } from "./schema";
 import { validateRecurrenceRule } from "./recurrence";
+import { syncProjectLinks } from "@/modules/context/project-link-refs";
 import {
   accessibleUserIds,
   datePattern,
@@ -149,6 +150,15 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
         ),
       )
       .run();
+    if (data.projectIds) {
+      syncProjectLinks(tx, {
+        targetType: "calendarEvent",
+        targetId: id,
+        projectIds: data.projectIds,
+        userId: currentUser.id,
+        label: data.title,
+      });
+    }
     const reminderMinutes = [...new Set(data.reminderMinutes)];
     if (reminderMinutes.length > 0) {
       tx.insert(calendarReminders)
@@ -164,6 +174,7 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
   });
   revalidatePath("/calendar");
   revalidatePath("/");
+  if (data.projectIds) revalidatePath("/projects", "layout");
   return { status: "saved" as const, id, updatedAt: now.toISOString() };
 }
 

@@ -38,6 +38,8 @@ export type CalendarItem = {
   availability: "busy" | "free";
   calendarId: string | null;
   projectId: string | null;
+  /** Projects an event is tagged with (tasks carry `projectId` only). */
+  projects?: { id: string; name: string; color: string; archived: boolean }[];
   assigneeId: string | null;
   assigneeName: string | null;
   attendeeIds: string[];

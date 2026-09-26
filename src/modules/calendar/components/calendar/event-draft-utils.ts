@@ -2,7 +2,7 @@
 // Used by calendar-client.tsx.
 import { addDays, zonedParts } from "../../date-utils";
 import type { CalendarItem } from "../../types";
-import type { EventDraft } from "./calendar-types";
+import type { DraftProject, EventDraft } from "./calendar-types";
 
 function localDate(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -13,6 +13,7 @@ export function blankDraft(
   timezone: string,
   date = localDate(),
   hour = 9,
+  projects: DraftProject[] = [],
 ): EventDraft {
   const startHour = Math.min(23, Math.max(0, Math.trunc(hour)));
   const endHour = (startHour + 1) % 24;
@@ -32,6 +33,7 @@ export function blankDraft(
     availability: "busy",
     repeat: "none",
     attendeeIds: [],
+    projects,
     reminderMinutes: 15,
     expectedUpdatedAt: null,
     occurrenceKey: null,
@@ -84,6 +86,7 @@ export function itemDraft(
           ? "monthly"
           : "none",
     attendeeIds: item.attendeeIds,
+    projects: item.projects ?? [],
     reminderMinutes: 15,
     expectedUpdatedAt: item.updatedAt,
     occurrenceKey: item.occurrenceKey,

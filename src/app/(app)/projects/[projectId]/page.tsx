@@ -4,6 +4,12 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft, BookOpen, KanbanSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { listProjectConnections } from "@/modules/context/project-links";
+import { ProjectConnectionsPanel } from "@/modules/projects/components/project-connections-panel";
+import { ProjectPulseChips } from "@/modules/projects/components/project-pulse";
+import { ProjectQuickCreate } from "@/modules/projects/components/project-quick-create";
+import { getProjectPulse } from "@/modules/projects/pulse";
+import { todayInVienna } from "@/modules/time/queries";
 import { getBoard, getPortfolioSchedule, getProject, listMembers } from "@/modules/projects/queries";
 import { BoardClient } from "@/modules/projects/components/board-client";
 import { ProjectSettingsButton } from "@/modules/projects/components/project-dialog";
@@ -19,7 +25,7 @@ export default async function ProjectBoardPage({
   params: Promise<{ projectId: string }>;
   searchParams: Promise<{ view?: string }>;
 }) {
-  await requireUser();
+  const viewer = await requireUser();
   const [{ projectId }, query, t] = await Promise.all([
     params,
     searchParams,
@@ -30,6 +36,11 @@ export default async function ProjectBoardPage({
   const knowledgeView = query.view === "knowledge";
   const projectContext = knowledgeView
     ? listEntityContext("project", projectId)
+    : undefined;
+  const today = todayInVienna();
+  const pulse = getProjectPulse(projectId, today, viewer);
+  const connections = knowledgeView
+    ? listProjectConnections(projectId, viewer.id, today)
     : undefined;
 
   const { columns, tasksByColumn, subtasksByParent } = getBoard(projectId);
@@ -72,6 +83,9 @@ export default async function ProjectBoardPage({
               {project.description}
             </p>
           )}
+          <div className="mt-2">
+            <ProjectPulseChips projectId={projectId} pulse={pulse} />
+          </div>
         </div>
         <nav
           aria-label={t("projectView")}
@@ -102,6 +116,7 @@ export default async function ProjectBoardPage({
             {t("viewKnowledge")}
           </Link>
         </nav>
+        <ProjectQuickCreate projectId={projectId} projectName={project.name} />
         <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
       </header>
 
@@ -115,7 +130,10 @@ export default async function ProjectBoardPage({
             accentColor={project.color}
             initialContext={projectContext}
           />
-          <EvidencePanel targetType="project" targetId={projectId} />
+          <div className="grid gap-5">
+            <ProjectConnectionsPanel connections={connections!} today={today} />
+            <EvidencePanel targetType="project" targetId={projectId} />
+          </div>
         </div>
       ) : (
         <BoardClient

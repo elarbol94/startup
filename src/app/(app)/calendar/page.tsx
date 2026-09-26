@@ -28,6 +28,7 @@ export default async function CalendarPage({
     calendars?: string;
     query?: string;
     new?: string;
+    project?: string;
   }>;
 }) {
   const [currentUser, query, requestHeaders] = await Promise.all([
@@ -86,6 +87,7 @@ export default async function CalendarPage({
         query: query.query ?? "",
       }}
       openNewEvent={query.new === "event"}
+      presetProjectId={query.new === "event" ? query.project ?? null : null}
     />
   );
 }

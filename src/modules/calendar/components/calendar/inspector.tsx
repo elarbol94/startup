@@ -17,6 +17,7 @@ import { addDays } from "../../date-utils";
 import { formatAustrianDate } from "../../localized-date-time";
 import type { CalendarItem } from "../../types";
 import { CalendarItemPeople } from "./calendar-item-people";
+import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { SourceIcon } from "./source-icon";
 
 export function Inspector({
@@ -84,6 +85,13 @@ export function Inspector({
             <Repeat2 className="size-3.5 text-muted-foreground" />
             {t("recurring")}
           </p>
+        )}
+        {item.projects && item.projects.length > 0 && (
+          <div className="flex flex-wrap gap-1.5" aria-label={t("projects")}>
+            {item.projects.map((project) => (
+              <ProjectChip key={project.id} project={project} size="xs" />
+            ))}
+          </div>
         )}
         <CalendarItemPeople item={item} />
         {item.description && (

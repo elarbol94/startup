@@ -67,6 +67,14 @@ const subscribeToClock = (onStoreChange: () => void) => {
   return () => window.clearInterval(timer);
 };
 
+// New events start linked to the project they were opened from, or to the one
+// project the calendar is filtered to.
+function pickProjects(projects: CalendarWorkspace["projects"], projectIds: string[]) {
+  return projects
+    .filter((project) => projectIds.includes(project.id))
+    .map((project) => ({ ...project, archived: false }));
+}
+
 export function CalendarClient({
   currentUser,
   workspace,
@@ -76,6 +84,7 @@ export function CalendarClient({
   range,
   initialFilters,
   openNewEvent: shouldOpenNewEvent = false,
+  presetProjectId = null,
 }: {
   currentUser: { id: string; name: string };
   workspace: CalendarWorkspace;
@@ -85,6 +94,8 @@ export function CalendarClient({
   range: { from: string; to: string };
   initialFilters: FilterState;
   openNewEvent?: boolean;
+  /** Project a new event opened from a project page starts linked to. */
+  presetProjectId?: string | null;
 }) {
   const t = useTranslations("calendar");
   const locale = useLocale();
@@ -121,11 +132,14 @@ export function CalendarClient({
   const [manuallyEditedFields, setManuallyEditedFields] = useState<
     Set<ImportableDraftField>
   >(() => new Set());
+  const presetProjects = pickProjects(workspace.projects, presetProjectId ? [presetProjectId] : []);
   const [draft, setDraft] = useState<EventDraft>(() =>
     blankDraft(
       defaultCalendarId ?? "",
       workspace.preferences.timezone,
       date,
+      9,
+      presetProjects,
     ),
   );
   const [selected, setSelected] = useState<CalendarItem | null>(null);
@@ -187,6 +201,8 @@ export function CalendarClient({
         defaultCalendarId,
         workspace.preferences.timezone,
         date,
+        9,
+        pickProjects(workspace.projects, presetProjectId ? [presetProjectId] : []),
       ),
     );
     setImportUrl("");
@@ -198,8 +214,10 @@ export function CalendarClient({
   }, [
     date,
     defaultCalendarId,
+    presetProjectId,
     shouldOpenNewEvent,
     workspace.preferences.timezone,
+    workspace.projects,
   ]);
 
   function buildUrl(next: {
@@ -313,6 +331,7 @@ export function CalendarClient({
         workspace.preferences.timezone,
         day,
         hour,
+        pickProjects(workspace.projects, filters.projects.length === 1 ? filters.projects : []),
       ),
     );
     resetImport();

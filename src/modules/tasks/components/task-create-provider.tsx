@@ -53,11 +53,14 @@ import type {
 import { TaskProjectPlanner } from "./task-project-planner";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { canonicalTaskHref } from "@/modules/context/routes";
+import { projectIdFromPath } from "@/modules/projects/current-project";
 
 type OpenTaskOptions = {
   origin?: TaskOrigin;
   task?: EditableTask;
   initialTitle?: string;
+  /** Project for a new task; defaults to the project whose page is open. */
+  projectId?: string;
   showProjectSchedule?: boolean;
   onCreated?: (taskId: string) => void;
 };
@@ -119,7 +122,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
     setPriority(next.task?.priority ?? "medium");
     setDueDate(next.task?.dueDate ?? "");
     setStatus(next.task?.status ?? "open");
-    setProjectId(next.task?.projectId ?? NONE);
+    setProjectId(next.task ? next.task.projectId ?? NONE : next.projectId ?? projectIdFromPath(pathname) ?? NONE);
     setErrors({});
     setOpen(true);
     if (!options) {
@@ -127,7 +130,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
         .then(setOptions)
         .catch(() => toast.error(tCommon("error")));
     }
-  }, [options, tCommon]);
+  }, [options, pathname, tCommon]);
 
   useEffect(() => {
     if (!deepLinkedTaskId) {

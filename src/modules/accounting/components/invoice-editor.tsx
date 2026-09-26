@@ -15,6 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
+import { ProjectPicker, useProjectLinkDraft } from "@/modules/context/components/project-links-field";
+import type { ProjectRefDto } from "@/modules/context/project-link-refs";
 import {
   Select,
   SelectContent,
@@ -62,19 +64,24 @@ export function InvoiceEditor({
   initial,
   defaultVatRate,
   vatExempt,
+  presetProjects = [],
 }: {
   customers: CustomerRef[];
   initial: InvoiceEditorInitial;
   defaultVatRate: number;
   vatExempt: boolean;
+  /** Projects a new invoice starts linked to (saved invoices edit them in the page header). */
+  presetProjects?: ProjectRefDto[];
 }) {
   const t = useTranslations("invoices");
   const tAccounting = useTranslations("accounting");
   const tCommon = useTranslations("common");
+  const tProjects = useTranslations("projectLinks");
   const locale = useLocale();
   const router = useRouter();
 
   const today = toLocalIsoDate();
+  const projectLinks = useProjectLinkDraft("invoice", initial?.id ?? null, presetProjects);
   const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
   const [issueDate, setIssueDate] = useState(initial?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
@@ -150,6 +157,9 @@ export function InvoiceEditor({
         items: parsedItems as InvoiceItemInput[],
       };
       const { id } = await upsertInvoice(input);
+      if (!initial?.id) {
+        await projectLinks.persist(id).catch(() => toast.error(tProjects("saveError")));
+      }
       toast.success(tCommon("saved"));
       router.push(`/accounting/invoices/${id}`);
       router.refresh();
@@ -366,6 +376,13 @@ export function InvoiceEditor({
           maxLength={2000}
         />
       </div>
+
+      {!initial?.id && (
+        <div className="flex flex-col gap-2">
+          <Label>{tProjects("projects")}</Label>
+          <ProjectPicker value={projectLinks.value} onChange={projectLinks.onChange} />
+        </div>
+      )}
 
       {initial?.id && <EvidencePanel targetType="invoice" targetId={initial.id} />}
 

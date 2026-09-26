@@ -21,6 +21,8 @@ export type CalendarDraft = {
   visibility: "private" | "busy" | "company";
 };
 
+export type DraftProject = { id: string; name: string; color: string; archived: boolean };
+
 export type EventDraft = {
   id?: string;
   calendarId: string;
@@ -38,6 +40,7 @@ export type EventDraft = {
   availability: "busy" | "free";
   repeat: "none" | "daily" | "weekly" | "monthly";
   attendeeIds: string[];
+  projects: DraftProject[];
   reminderMinutes: number | null;
   expectedUpdatedAt: string | null;
   occurrenceKey: string | null;

@@ -40,7 +40,9 @@ export function useCalendarFilteredItems(
       }
       if (
         filters.projects.length > 0 &&
-        (!item.projectId || !filters.projects.includes(item.projectId))
+        !(item.projects?.map((project) => project.id) ?? [item.projectId]).some(
+          (projectId) => projectId && filters.projects.includes(projectId),
+        )
       ) {
         return false;
       }
