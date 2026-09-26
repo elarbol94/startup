@@ -27,8 +27,9 @@ test("dashboard board creates, moves, edits, filters and remembers the view", as
   await expect(board).toBeVisible();
   await expect(doing.getByRole("button", { name: title, exact: true })).toBeVisible();
 
-  // Pointer drag uses the handle; the status selector above covers keyboard/touch fallback.
-  const handle = await card.getByRole("button", { name: `${title} verschieben`, exact: true }).boundingBox();
+  // The whole card is draggable; the status selector above covers the non-drag fallback.
+  await expect(card).toHaveAttribute("aria-label", `${title} verschieben`);
+  const handle = await card.getByRole("button", { name: title, exact: true }).boundingBox();
   const destination = await todo.boundingBox();
   expect(handle).not.toBeNull(); expect(destination).not.toBeNull();
   await page.mouse.move(handle!.x + handle!.width / 2, handle!.y + handle!.height / 2);
