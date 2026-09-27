@@ -19,7 +19,7 @@ vi.mock("@/db", async () => {
 import { db, sqlite } from "@/db";
 import { networkContacts, networkOrganizations, networkTags, user } from "@/db/schema";
 import { quickCaptureContact, setNetworkContactVisibility, updateNetworkContact } from "./contact-actions";
-import { getMunicipalityNetwork, searchNetworkMunicipalities } from "./municipality-actions";
+import { getMunicipalityNetwork, getNetworkMapCounts, searchNetworkMunicipalities } from "./municipality-actions";
 import { updateNetworkOrganization } from "./organization-actions";
 
 const aaron = { id: "aaron", role: "member" };
@@ -94,6 +94,25 @@ describe("municipality section", () => {
     expect(theirs.residents.map((person) => person.name)).toEqual(["Anna"]);
     expect(theirs.organizations).toEqual([]);
     expect(await getMunicipalityNetwork("../etc")).toEqual({ residents: [], organizations: [] });
+  });
+
+  it("counts visible people per municipality for the map, each person once", async () => {
+    const anna = await capture({ name: "Anna", municipalityCode: TROFAIACH });
+    await setNetworkContactVisibility({ contactId: anna, visibility: "team" });
+    await capture({ name: "Sebastian", municipalityCode: TROFAIACH });
+    const mario = await capture({ name: "Mario", municipalityCode: TROFAIACH });
+    await updateNetworkContact({ id: mario, name: "Mario", organization: "Stadtgemeinde Trofaiach", municipalityCode: TROFAIACH });
+    await updateNetworkOrganization({ id: contactRow(mario).organizationId!, name: "Stadtgemeinde Trofaiach", municipalityCode: TROFAIACH });
+    const jonas = await capture({ name: "Jonas", municipalityCode: LEOBEN });
+    await updateNetworkContact({ id: jonas, name: "Jonas", organization: "Stadtgemeinde Trofaiach", municipalityCode: LEOBEN });
+
+    const byCode = (counts: Awaited<ReturnType<typeof getNetworkMapCounts>>) => Object.fromEntries(counts.map((count) => [count.code, count]));
+    expect(byCode(await getNetworkMapCounts())).toEqual({
+      [TROFAIACH]: { code: TROFAIACH, residents: 3, atOrganizations: 2, total: 4 },
+      [LEOBEN]: { code: LEOBEN, residents: 1, atOrganizations: 0, total: 1 },
+    });
+    as(colleague);
+    expect(await getNetworkMapCounts()).toEqual([{ code: TROFAIACH, residents: 1, atOrganizations: 0, total: 1 }]);
   });
 
   it("rejects an unknown municipality on an organisation", async () => {

@@ -523,6 +523,10 @@
       "failed": "Contacts could not be loaded.",
       "empty": "No one from the network lives here yet, and no organisation here is known.",
       "residents": "Live here"
+    },
+    "mapOverlay": {
+      "toggle": "Contacts",
+      "tooltip": "Network: {total, plural, one {# person} other {# people}}{atOrganizations, plural, =0 {} other { (# at an organisation here)}}"
     }
   },
   "municipalities": {

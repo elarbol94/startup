@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useNetworkMapOverlay } from "@/modules/network/components/use-network-map-overlay";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -77,6 +78,7 @@ const MunicipalityMap = dynamic(
 export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: MunicipalityMetricRecord[] }) {
   const t = useTranslations("municipalities");
   const tf = useTranslations("municipalityFilters");
+  const tn = useTranslations("network");
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
@@ -154,6 +156,9 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
     digitalProviderDescription, formatDigitalCostRange, digitalProviderCostDescription,
     renderDigitalCostMethodology, mapLabels,
   } = useWorkspaceLabels(digitalCostFormatter);
+  // Network contacts per municipality, drawn over any metric (see the network module).
+  const showNetwork = searchParams.get("network") === "1";
+  const networkOverlay = useNetworkMapOverlay(showNetwork, index?.municipalities ?? null);
   const results = useMemo(
     () => (index ? searchMunicipalities(index.municipalities, query) : []),
     [index, query],
@@ -543,6 +548,14 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
           chartChangeLabels={metric === "population" && populationView === "count" ? { previousYear: t("populationChangePreviousYear"), sinceFirstYear: t("populationChangeSinceFirstYear", { year: populationSeries.firstYear }) } : undefined}
           analysisDataset={analysisDataset}
           showMetricChart={Boolean(analysisDataset) || metric === "custom"}
+          markers={networkOverlay.markers}
+          markerTooltips={networkOverlay.markerTooltips}
+          overlayToggle={{
+            label: tn("mapOverlay.toggle"),
+            active: showNetwork,
+            loading: networkOverlay.loading,
+            onToggle: () => setParameter("network", showNetwork ? null : "1"),
+          }}
         />
       </section>
       <WorkspaceDetailsAside

@@ -21,7 +21,7 @@ import type { MunicipalityMapProps } from "./map-types";
 export function useMunicipalityMapInstance({
   austriaBounds, selected, onSelect, metric, metricValues, tooltipValues, labels,
   usePopulationClasses, scaleDomain, movementPalette, costMeasure, politicsView, digitalView,
-  peerMunicipalityCodes, personsFormatter,
+  peerMunicipalityCodes, personsFormatter, markerTooltips,
 }: Pick<
   MunicipalityMapProps,
   | "austriaBounds"
@@ -38,6 +38,7 @@ export function useMunicipalityMapInstance({
   | "politicsView"
   | "digitalView"
   | "peerMunicipalityCodes"
+  | "markerTooltips"
 > & { personsFormatter: Intl.NumberFormat }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
@@ -56,6 +57,7 @@ export function useMunicipalityMapInstance({
     tooltipValues,
     labels,
     colorInputs,
+    markerTooltips,
   });
   useEffect(() => {
     liveRef.current = {
@@ -66,6 +68,7 @@ export function useMunicipalityMapInstance({
       tooltipValues,
       labels,
       colorInputs,
+      markerTooltips,
     };
   });
 
@@ -233,7 +236,14 @@ export function useMunicipalityMapInstance({
           : `${live.labels.population}: ${personsFormatter.format(live.metricValues[properties.municipalityCode] ?? 0)}`;
       const location = document.createElement("span");
       location.textContent = `${properties.state} · ${live.labels.municipalityCode} ${properties.municipalityCode}`;
-      content.append(title, value, location);
+      content.append(title, value);
+      const overlayLine = live.markerTooltips?.[properties.municipalityCode];
+      if (overlayLine) {
+        const overlay = document.createElement("span");
+        overlay.textContent = overlayLine;
+        content.append(overlay);
+      }
+      content.append(location);
       popup.setLngLat(event.lngLat).setDOMContent(content).addTo(map);
     });
     map.on("mouseleave", FILL_LAYER_ID, () => {

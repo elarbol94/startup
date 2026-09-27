@@ -93,6 +93,12 @@ export type Labels = {
   selected: string;
 };
 
+/** A counted point drawn over the municipality fills, e.g. network contacts per municipality. */
+export type MapMarker = { code: string; lng: number; lat: number; count: number };
+
+/** An optional layer the user can switch on over any metric. */
+export type MapOverlayToggle = { label: string; active: boolean; loading?: boolean; onToggle: () => void };
+
 export type MunicipalityMapProps = {
   austriaBounds: MunicipalityBounds;
   selected: MunicipalityIndexItem | null;
@@ -160,6 +166,11 @@ export type MunicipalityMapProps = {
   chartChangeLabels?: { previousYear: string; sinceFirstYear: string };
   analysisDataset: MunicipalityDatasetRef | null;
   showMetricChart: boolean;
+  /** Circles drawn over the fills; null hides the overlay. */
+  markers?: MapMarker[] | null;
+  /** Extra tooltip line per municipality code while the overlay is shown. */
+  markerTooltips?: Record<string, string> | null;
+  overlayToggle?: MapOverlayToggle | null;
 };
 
 /** The selection controls shared by the desktop panel and the mobile display sheet. */
