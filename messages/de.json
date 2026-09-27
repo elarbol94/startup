@@ -287,6 +287,7 @@
     "projects": "Projekte",
     "wiki": "Wiki",
     "municipalities": "Gemeinden",
+    "network": "Netzwerk",
     "settings": "Einstellungen",
     "logout": "Abmelden",
     "navigationLabel": "Hauptnavigation",
@@ -301,6 +302,151 @@
     "newTask": "Neue Aufgabe",
     "newEvent": "Neuer Termin",
     "newDeadline": "Neue Deadline"
+  },
+  "network": {
+    "title": "Netzwerk",
+    "description": "Wen wir kennen, was angeboten wurde und wen man uns vorstellen könnte.",
+    "subnavLabel": "Netzwerk-Ansichten",
+    "contactsTab": "Personen",
+    "opportunitiesTab": "Offene Möglichkeiten",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "errors": {
+      "invalid": "Bitte die Eingaben prüfen.",
+      "notFound": "Dieser Kontakt existiert nicht mehr oder ist privat.",
+      "forbidden": "Das kann nur die Person, die den Kontakt angelegt hat."
+    },
+    "fields": {
+      "name": "Name",
+      "organization": "Organisation",
+      "role": "Funktion",
+      "relationship": "Beziehung",
+      "closeness": "Nähe",
+      "metContext": "Kennengelernt bei",
+      "metContextPlaceholder": "z. B. Party bei Lukas, Startup-Meetup Graz",
+      "email": "E-Mail",
+      "phone": "Telefon",
+      "linkedinUrl": "LinkedIn",
+      "notes": "Notizen",
+      "lastContactOn": "Letzter Kontakt",
+      "tags": "Tags",
+      "kind": "Art",
+      "status": "Status",
+      "summary": "Was wurde angeboten oder gesagt?",
+      "targetName": "Vorzustellende Person",
+      "targetOrganization": "Deren Organisation",
+      "targetContact": "Schon im Netzwerk als",
+      "nextStep": "Nächster Schritt",
+      "dueOn": "Nachfassen bis"
+    },
+    "relationships": {
+      "friend": "Freund:in",
+      "acquaintance": "Bekannte:r",
+      "professional": "Beruflich",
+      "event": "Auf Veranstaltung getroffen"
+    },
+    "closeness": {
+      "close": "Eng",
+      "known": "Bekannt",
+      "loose": "Lose"
+    },
+    "kinds": {
+      "intro": "Intro möglich",
+      "help": "Kann unterstützen",
+      "advice": "Rat",
+      "collaboration": "Mögliche Zusammenarbeit",
+      "info": "Notiz"
+    },
+    "statuses": {
+      "open": "Offen",
+      "asked": "Angefragt, wartet",
+      "done": "Erledigt",
+      "dropped": "Verworfen"
+    },
+    "visibility": {
+      "private": "Privat",
+      "team": "Mit dem Team geteilt",
+      "privateHint": "Nur du siehst diesen Kontakt.",
+      "teamHint": "Das ganze Team kann diesen Kontakt sehen und bearbeiten.",
+      "makeTeam": "Mit Team teilen",
+      "makePrivate": "Privat machen",
+      "madeTeam": "Kontakt ist jetzt mit dem Team geteilt",
+      "madePrivate": "Kontakt ist jetzt privat"
+    },
+    "quick": {
+      "button": "Erfassen",
+      "title": "Kontakt erfassen",
+      "description": "Wer war es und was wurde gesagt? Details können später folgen.",
+      "namePlaceholder": "z. B. Sebastian",
+      "target": "Hinzufügen zu",
+      "addTo": "Zu {name} hinzufügen",
+      "createNew": "Neue Person anlegen",
+      "note": "Was wurde gesagt?",
+      "notePlaceholder": "z. B. kennt jemanden beim Klimabündnis Österreich und könnte uns vorstellen",
+      "privateHint": "Neue Kontakte sind privat: Nur du siehst sie, bis du sie teilst.",
+      "existingHint": "Die Notiz wird beim bestehenden Kontakt als offene Möglichkeit ergänzt.",
+      "save": "Speichern",
+      "saved": "Für {name} gespeichert",
+      "open": "Öffnen"
+    },
+    "list": {
+      "search": "Suchen",
+      "searchPlaceholder": "Namen, Notizen, Organisationen, Themen durchsuchen…",
+      "empty": "Noch niemand erfasst. Nach dem nächsten Gespräch einfach auf „Erfassen“ tippen.",
+      "noMatches": "Keine Kontakte passen zu diesem Filter.",
+      "clearFilters": "Filter zurücksetzen",
+      "moreLeads": "+{count} weitere",
+      "lastContact": "Letzter Kontakt {date}",
+      "filteredCount": "{shown} von {total} Kontakten"
+    },
+    "opportunities": {
+      "intro": "Angebote und Intros, bei denen wir noch nachfassen sollten – dringendste zuerst.",
+      "showClosed": "Erledigte und verworfene zeigen",
+      "hideClosed": "Nur offene",
+      "empty": "Nichts offen. Erfasste Angebote und Intros erscheinen hier."
+    },
+    "contact": {
+      "back": "Alle Personen",
+      "edit": "Bearbeiten",
+      "editTitle": "Kontakt bearbeiten",
+      "editDescription": "Außer dem Namen ist alles optional.",
+      "unset": "Nicht angegeben",
+      "saved": "Kontakt gespeichert",
+      "markContacted": "Heute gesprochen",
+      "contactedToday": "Letzter Kontakt auf heute gesetzt",
+      "leadsTitle": "Möglichkeiten",
+      "noLeads": "Noch nichts notiert: Wobei könnte diese Person helfen?",
+      "introducedBy": "Vorgestellt über",
+      "delete": "Kontakt löschen",
+      "confirmDelete": "Zum endgültigen Löschen erneut klicken",
+      "deleted": "{name} gelöscht"
+    },
+    "lead": {
+      "add": "Hinzufügen",
+      "createTitle": "Neue Möglichkeit",
+      "editTitle": "Möglichkeit bearbeiten",
+      "description": "Was diese Person für uns tun könnte und was wir daraus machen.",
+      "summaryPlaceholder": "z. B. hat angeboten, beim Grafikdesign zu helfen",
+      "targetNamePlaceholder": "Name, falls bekannt",
+      "targetOrganizationPlaceholder": "z. B. Klimabündnis Österreich",
+      "noTargetContact": "Noch nicht",
+      "nextStepPlaceholder": "z. B. wegen Intro nachfragen",
+      "next": "Nächster Schritt: {step}",
+      "markAsked": "Angefragt",
+      "markDone": "Als erledigt markieren: {summary}",
+      "edit": "Möglichkeit bearbeiten",
+      "saved": "Möglichkeit gespeichert",
+      "delete": "Löschen",
+      "confirmDelete": "Wirklich löschen?",
+      "deleted": "Möglichkeit gelöscht"
+    },
+    "tags": {
+      "placeholder": "Mit Komma getrennt, z. B. Förderung, Design",
+      "suggestions": "Bekannte Tags",
+      "none": "Keine Tags",
+      "edit": "Tags bearbeiten",
+      "saved": "Tags gespeichert"
+    }
   },
   "municipalities": {
     "eyebrow": "Raum & Regionen",

@@ -477,6 +477,13 @@
       "when": 1790279284671,
       "tag": "0067_bug_report_agent_tag",
       "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "6",
+      "when": 1790528450838,
+      "tag": "0068_network_module",
+      "breakpoints": true
     }
   ]
 }

@@ -2,6 +2,7 @@ import {
   BookOpen,
   Calculator,
   CalendarDays,
+  Handshake,
   KanbanSquare,
   LayoutDashboard,
   MapPinned,
@@ -20,7 +21,7 @@ import {
 // `navSectionAliases`).
 export type ModuleNavItem = {
   /** Translation key under the `nav` namespace */
-  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities";
+  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network";
   href: string;
   icon: LucideIcon;
 };
@@ -34,6 +35,7 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "projects", href: "/projects", icon: KanbanSquare },
   { key: "wiki", href: "/wiki", icon: BookOpen },
   { key: "municipalities", href: "/municipalities/overview", icon: MapPinned },
+  { key: "network", href: "/network", icon: Handshake },
 ];
 
 /** Routes outside a section's own path that should highlight that section. */

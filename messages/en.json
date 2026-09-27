@@ -287,6 +287,7 @@
     "projects": "Projects",
     "wiki": "Wiki",
     "municipalities": "Municipalities",
+    "network": "Network",
     "settings": "Settings",
     "logout": "Sign out",
     "navigationLabel": "Main navigation",
@@ -301,6 +302,151 @@
     "newTask": "New task",
     "newEvent": "New event",
     "newDeadline": "New deadline"
+  },
+  "network": {
+    "title": "Network",
+    "description": "Who we know, what they offered and whom they could introduce us to.",
+    "subnavLabel": "Network views",
+    "contactsTab": "People",
+    "opportunitiesTab": "Open opportunities",
+    "save": "Save",
+    "cancel": "Cancel",
+    "errors": {
+      "invalid": "Please check your input.",
+      "notFound": "This contact no longer exists or is private.",
+      "forbidden": "Only the owner can do this."
+    },
+    "fields": {
+      "name": "Name",
+      "organization": "Organisation",
+      "role": "Role",
+      "relationship": "Relationship",
+      "closeness": "Closeness",
+      "metContext": "Where we met",
+      "metContextPlaceholder": "e.g. party at Lukas's, startup meetup Graz",
+      "email": "Email",
+      "phone": "Phone",
+      "linkedinUrl": "LinkedIn",
+      "notes": "Notes",
+      "lastContactOn": "Last contact",
+      "tags": "Tags",
+      "kind": "Type",
+      "status": "Status",
+      "summary": "What did they offer or say?",
+      "targetName": "Person to be introduced",
+      "targetOrganization": "Their organisation",
+      "targetContact": "Already in our network as",
+      "nextStep": "Next step",
+      "dueOn": "Follow up by"
+    },
+    "relationships": {
+      "friend": "Friend",
+      "acquaintance": "Acquaintance",
+      "professional": "Professional",
+      "event": "Met at an event"
+    },
+    "closeness": {
+      "close": "Close",
+      "known": "Know each other",
+      "loose": "Loose"
+    },
+    "kinds": {
+      "intro": "Intro possible",
+      "help": "Can help",
+      "advice": "Advice",
+      "collaboration": "Could collaborate",
+      "info": "Note"
+    },
+    "statuses": {
+      "open": "Open",
+      "asked": "Asked, waiting",
+      "done": "Done",
+      "dropped": "Dropped"
+    },
+    "visibility": {
+      "private": "Private",
+      "team": "Shared with the team",
+      "privateHint": "Only you can see this contact.",
+      "teamHint": "Everyone on the team can see and edit this contact.",
+      "makeTeam": "Share with team",
+      "makePrivate": "Make private",
+      "madeTeam": "Contact is now shared with the team",
+      "madePrivate": "Contact is now private"
+    },
+    "quick": {
+      "button": "Capture",
+      "title": "Capture a contact",
+      "description": "Who was it and what did they say? Details can follow later.",
+      "namePlaceholder": "e.g. Sebastian",
+      "target": "Add to",
+      "addTo": "Add to {name}",
+      "createNew": "Create a new person",
+      "note": "What did they say?",
+      "notePlaceholder": "e.g. knows someone at Klimabündnis Österreich and could introduce us",
+      "privateHint": "New contacts are private: only you can see them until you share them.",
+      "existingHint": "The note is added to the existing contact as an open opportunity.",
+      "save": "Save",
+      "saved": "Saved for {name}",
+      "open": "Open"
+    },
+    "list": {
+      "search": "Search",
+      "searchPlaceholder": "Search names, notes, organisations, topics…",
+      "empty": "No one captured yet. Use “Capture” after your next conversation.",
+      "noMatches": "No contacts match this filter.",
+      "clearFilters": "Clear filters",
+      "moreLeads": "+{count} more",
+      "lastContact": "Last contact {date}",
+      "filteredCount": "{shown} of {total} contacts"
+    },
+    "opportunities": {
+      "intro": "Offers and intros that still need a follow-up, soonest first.",
+      "showClosed": "Show done and dropped",
+      "hideClosed": "Only open ones",
+      "empty": "Nothing open. Captured offers and intros appear here."
+    },
+    "contact": {
+      "back": "All people",
+      "edit": "Edit",
+      "editTitle": "Edit contact",
+      "editDescription": "Everything except the name is optional.",
+      "unset": "Not set",
+      "saved": "Contact saved",
+      "markContacted": "Spoke today",
+      "contactedToday": "Last contact set to today",
+      "leadsTitle": "Opportunities",
+      "noLeads": "Nothing noted yet: what could this person help with?",
+      "introducedBy": "Introduced via",
+      "delete": "Delete contact",
+      "confirmDelete": "Click again to delete permanently",
+      "deleted": "{name} deleted"
+    },
+    "lead": {
+      "add": "Add",
+      "createTitle": "New opportunity",
+      "editTitle": "Edit opportunity",
+      "description": "What this person could do for us, and what we should do about it.",
+      "summaryPlaceholder": "e.g. offered to help with the graphic design",
+      "targetNamePlaceholder": "Name, if known",
+      "targetOrganizationPlaceholder": "e.g. Klimabündnis Österreich",
+      "noTargetContact": "Not yet",
+      "nextStepPlaceholder": "e.g. ask about the intro",
+      "next": "Next: {step}",
+      "markAsked": "Asked",
+      "markDone": "Mark done: {summary}",
+      "edit": "Edit opportunity",
+      "saved": "Opportunity saved",
+      "delete": "Delete",
+      "confirmDelete": "Really delete?",
+      "deleted": "Opportunity deleted"
+    },
+    "tags": {
+      "placeholder": "Comma-separated, e.g. Funding, Design",
+      "suggestions": "Known tags",
+      "none": "No tags",
+      "edit": "Edit tags",
+      "saved": "Tags saved"
+    }
   },
   "municipalities": {
     "eyebrow": "Places & regions",

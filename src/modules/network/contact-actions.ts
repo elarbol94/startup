@@ -1,0 +1,147 @@
+"use server";
+
+import { and, eq } from "drizzle-orm";
+import { db } from "@/db";
+import { requireUserOrThrow } from "@/lib/auth";
+import { localDateInZone } from "@/modules/calendar/date-utils";
+import { TIME_ZONE } from "@/modules/time/lib/entry-time";
+import {
+  contactFor,
+  fail,
+  removeUnusedTags,
+  replaceContactTags,
+  revalidateNetwork,
+  type NetworkActionResult,
+} from "./action-helpers";
+import { networkContacts, networkContactTags, networkLeads, networkTags } from "./schema";
+import {
+  contactSchema,
+  contactTagsSchema,
+  idSchema,
+  quickCaptureSchema,
+  visibilitySchema,
+  type ContactInput,
+  type QuickCaptureInput,
+} from "./validation";
+
+/**
+ * Quick capture right after a conversation: adds a new contact (private) or
+ * picks an existing one, records what they said as an open lead and merges
+ * the tags.
+ */
+export async function quickCaptureContact(input: QuickCaptureInput): Promise<NetworkActionResult<{ contactId: string }>> {
+  const viewer = await requireUserOrThrow();
+  const parsed = quickCaptureSchema.safeParse(input);
+  if (!parsed.success) return fail("invalid");
+  const data = parsed.data;
+
+  if (data.contactId) {
+    const access = contactFor(data.contactId, viewer, "edit");
+    if (!access.ok) return access;
+  }
+
+  const contactId = db.transaction((tx) => {
+    const id = data.contactId ?? tx
+      .insert(networkContacts)
+      .values({ ownerId: viewer.id, name: data.name, metContext: data.metContext })
+      .returning({ id: networkContacts.id })
+      .get().id;
+    if (data.contactId) {
+      tx.update(networkContacts).set({ updatedAt: new Date() }).where(eq(networkContacts.id, id)).run();
+    }
+    if (data.note) {
+      tx.insert(networkLeads).values({ contactId: id, kind: data.kind, summary: data.note, createdBy: viewer.id }).run();
+    }
+    if (data.tags.length) {
+      const current = data.contactId ? contactTagNames(tx, id) : [];
+      replaceContactTags(tx, id, [...current, ...data.tags], viewer.id);
+    }
+    return id;
+  });
+  revalidateNetwork();
+  return { ok: true, contactId };
+}
+
+function contactTagNames(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], contactId: string) {
+  return tx
+    .select({ name: networkTags.name })
+    .from(networkContactTags)
+    .innerJoin(networkTags, eq(networkTags.id, networkContactTags.tagId))
+    .where(eq(networkContactTags.contactId, contactId))
+    .all()
+    .map((row) => row.name);
+}
+
+export async function updateNetworkContact(input: ContactInput): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsed = contactSchema.safeParse(input);
+  if (!parsed.success) return fail("invalid");
+  const { id, ...values } = parsed.data;
+  const access = contactFor(id, viewer, "edit");
+  if (!access.ok) return access;
+  db.update(networkContacts).set({ ...values, updatedAt: new Date() }).where(eq(networkContacts.id, id)).run();
+  revalidateNetwork();
+  return { ok: true };
+}
+
+/** "Spoke to them today": sets the last contact date without opening the form. */
+export async function markNetworkContactContacted(id: string): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsedId = idSchema.safeParse(id);
+  if (!parsedId.success) return fail("invalid");
+  const access = contactFor(parsedId.data, viewer, "edit");
+  if (!access.ok) return access;
+  const now = new Date();
+  db.update(networkContacts)
+    .set({ lastContactOn: localDateInZone(now, TIME_ZONE), updatedAt: now })
+    .where(eq(networkContacts.id, access.contact.id))
+    .run();
+  revalidateNetwork();
+  return { ok: true };
+}
+
+export async function setNetworkContactVisibility(input: { contactId: string; visibility: string }): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsed = visibilitySchema.safeParse(input);
+  if (!parsed.success) return fail("invalid");
+  const access = contactFor(parsed.data.contactId, viewer, "manage");
+  if (!access.ok) return access;
+  db.update(networkContacts)
+    .set({ visibility: parsed.data.visibility, updatedAt: new Date() })
+    .where(eq(networkContacts.id, access.contact.id))
+    .run();
+  revalidateNetwork();
+  return { ok: true };
+}
+
+export async function setNetworkContactTags(input: { contactId: string; tags: string[] }): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsed = contactTagsSchema.safeParse(input);
+  if (!parsed.success) return fail("invalid");
+  const access = contactFor(parsed.data.contactId, viewer, "edit");
+  if (!access.ok) return access;
+  db.transaction((tx) => replaceContactTags(tx, access.contact.id, parsed.data.tags, viewer.id));
+  revalidateNetwork();
+  return { ok: true };
+}
+
+/** Removes the contact with its leads and tag links; leads elsewhere keep their free-text target. */
+export async function deleteNetworkContact(id: string): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsedId = idSchema.safeParse(id);
+  if (!parsedId.success) return fail("invalid");
+  const access = contactFor(parsedId.data, viewer, "manage");
+  if (!access.ok) return access;
+  const { contact } = access;
+  db.transaction((tx) => {
+    // Keep the name on leads that introduced this person so "Felix → friend" survives.
+    tx.update(networkLeads)
+      .set({ targetName: contact.name })
+      .where(and(eq(networkLeads.targetContactId, contact.id), eq(networkLeads.targetName, "")))
+      .run();
+    tx.delete(networkContacts).where(eq(networkContacts.id, contact.id)).run();
+    removeUnusedTags(tx);
+  });
+  revalidateNetwork();
+  return { ok: true };
+}
