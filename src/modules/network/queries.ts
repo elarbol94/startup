@@ -1,12 +1,12 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { canEditContact, canManageContact, visibleContactCondition, type NetworkViewer } from "./access";
 import type { LeadStatus } from "./constants";
 import { listContactLinks, type NetworkContactLink } from "./link-queries";
-import { compareLeads, isLeadActive, matchesSearch, normalizeText } from "./network-utils";
+import { compareLeads, isLeadActive, matchesSearch, normalizeText, type Suggestion } from "./network-utils";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 
 export type NetworkTag = { id: string; name: string };
@@ -278,4 +278,41 @@ export function listNetworkFollowUps(viewer: NetworkViewer, limit = 8) {
   const contactsById = new Map(listNetworkContactOptions(viewer).map((contact) => [contact.id, contact]));
   const leads = toLeadViews(rows, contactsById);
   return { leads: leads.slice(0, limit), total: leads.length };
+}
+
+/** Tags on contacts the viewer can see, most used first, for the tag input. */
+export function listNetworkTagSuggestions(viewer: NetworkViewer): Suggestion[] {
+  const rows = db
+    .select({ name: networkTags.name, contactId: networkContactTags.contactId })
+    .from(networkTags)
+    .innerJoin(networkContactTags, eq(networkContactTags.tagId, networkTags.id))
+    .innerJoin(networkContacts, eq(networkContacts.id, networkContactTags.contactId))
+    .where(visibleContactCondition(viewer.id))
+    .all();
+  const counts = new Map<string, number>();
+  for (const row of rows) counts.set(row.name, (counts.get(row.name) ?? 0) + 1);
+  return [...counts]
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count || normalizeText(a.value).localeCompare(normalizeText(b.value), "de"));
+}
+
+/**
+ * "Met at" values already used on visible contacts, most recently used first.
+ * Spellings that differ only in case or accents are one entry, shown as last written.
+ */
+export function listNetworkMetContextSuggestions(viewer: NetworkViewer): Suggestion[] {
+  const rows = db
+    .select({ value: networkContacts.metContext, updatedAt: networkContacts.updatedAt })
+    .from(networkContacts)
+    .where(and(visibleContactCondition(viewer.id), ne(networkContacts.metContext, "")))
+    .orderBy(desc(networkContacts.updatedAt))
+    .all();
+  const grouped = new Map<string, Suggestion>();
+  for (const row of rows) {
+    const key = normalizeText(row.value);
+    const entry = grouped.get(key);
+    if (entry) entry.count += 1;
+    else grouped.set(key, { value: row.value.trim(), count: 1 });
+  }
+  return [...grouped.values()];
 }

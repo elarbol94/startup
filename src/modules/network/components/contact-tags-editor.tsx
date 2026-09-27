@@ -6,11 +6,10 @@ import { toast } from "sonner";
 import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { setNetworkContactTags } from "../contact-actions";
-import { parseTagInput } from "../network-utils";
+import type { Suggestion } from "../network-utils";
 import type { NetworkTag } from "../queries";
-import { TagSuggestions } from "./tag-suggestions";
+import { PopularTags, TagInput } from "./tag-input";
 import { useNetworkAction } from "./use-network-action";
 
 export function ContactTagsEditor({
@@ -21,21 +20,21 @@ export function ContactTagsEditor({
 }: {
   contactId: string;
   tags: NetworkTag[];
-  suggestions: string[];
+  suggestions: Suggestion[];
   canEdit: boolean;
 }) {
   const t = useTranslations("network");
   const { pending, run } = useNetworkAction();
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState<string[]>([]);
 
   function start() {
-    setValue(tags.map((tag) => tag.name).join(", "));
+    setValue(tags.map((tag) => tag.name));
     setEditing(true);
   }
 
-  function save() {
-    run(() => setNetworkContactTags({ contactId, tags: parseTagInput(value) }), () => {
+  function save(next = value) {
+    run(() => setNetworkContactTags({ contactId, tags: next }), () => {
       toast.success(t("tags.saved"));
       setEditing(false);
     });
@@ -57,26 +56,20 @@ export function ContactTagsEditor({
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <Input
-          autoFocus
-          aria-label={t("fields.tags")}
-          value={value}
-          placeholder={t("tags.placeholder")}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              save();
-            }
-            if (event.key === "Escape") setEditing(false);
-          }}
-        />
-        <Button size="sm" disabled={pending} onClick={save}>{t("save")}</Button>
+    <div
+      className="space-y-2"
+      onKeyDown={(event) => {
+        if (event.key === "Escape") setEditing(false);
+      }}
+    >
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <TagInput autoFocus value={value} suggestions={suggestions} onChange={setValue} onSubmit={() => save()} />
+        </div>
+        <Button size="sm" disabled={pending} onClick={() => save()}>{t("save")}</Button>
         <Button size="sm" variant="outline" onClick={() => setEditing(false)}>{t("cancel")}</Button>
       </div>
-      <TagSuggestions value={value} suggestions={suggestions} onChange={setValue} />
+      <PopularTags value={value} suggestions={suggestions} onChange={setValue} />
     </div>
   );
 }

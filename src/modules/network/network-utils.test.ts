@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareLeads, isLeadOverdue, matchesSearch, normalizeText, parseTagInput } from "./network-utils";
+import { compareLeads, editDistance, isLeadOverdue, matchesSearch, normalizeText, parseTagInput, rankSuggestions } from "./network-utils";
 
 describe("tags", () => {
   it("splits, trims and de-duplicates case- and accent-insensitively", () => {
@@ -38,5 +38,36 @@ describe("leads", () => {
       { ...lead("open", "2026-10-01"), id: "sooner" },
     ];
     expect(leads.sort(compareLeads).map((item) => item.id)).toEqual(["sooner", "later", "undated-new", "undated-old", "done"]);
+  });
+});
+
+describe("suggestions", () => {
+  const known = [
+    { value: "Förderung", count: 5 },
+    { value: "Design", count: 3 },
+    { value: "Gemeinden", count: 2 },
+    { value: "Grafikdesign", count: 1 },
+    { value: "Geburtstagsparty Bernd Keuschnig", count: 1 },
+  ];
+  const values = (list: { value: string }[]) => list.map((entry) => entry.value);
+
+  it("offers everything in the given order when nothing is typed, minus what is already chosen", () => {
+    expect(values(rankSuggestions(known, "", { exclude: ["design"] }).matches)).toEqual(["Förderung", "Gemeinden", "Grafikdesign", "Geburtstagsparty Bernd Keuschnig"]);
+  });
+
+  it("ranks exact, prefix, word start and substring matches, ignoring case and accents", () => {
+    expect(values(rankSuggestions(known, "design").matches)).toEqual(["Design", "Grafikdesign"]);
+    expect(values(rankSuggestions(known, "ge").matches)).toEqual(["Gemeinden", "Geburtstagsparty Bernd Keuschnig"]);
+    expect(values(rankSuggestions(known, "bernd").matches)).toEqual(["Geburtstagsparty Bernd Keuschnig"]);
+    expect(rankSuggestions(known, "FORDERUNG").exact?.value).toBe("Förderung");
+  });
+
+  it("suggests close matches for typos only when nothing matches", () => {
+    const typo = rankSuggestions(known, "Förderug");
+    expect(typo.matches).toEqual([]);
+    expect(values(typo.closest)).toEqual(["Förderung"]);
+    expect(rankSuggestions(known, "Gemiende").closest.map((entry) => entry.value)).toEqual(["Gemeinden"]);
+    expect(rankSuggestions(known, "xyz").closest).toEqual([]);
+    expect(editDistance("kitten", "sitting")).toBe(3);
   });
 });

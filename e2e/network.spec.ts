@@ -21,12 +21,40 @@ test("captures a contact, follows up an opportunity and deletes the contact", as
   await dialog.getByLabel("Was wurde gesagt?").fill("Kennt jemanden beim Klimabündnis Österreich");
   await dialog.getByRole("button", { name: "Intro möglich" }).click();
   await dialog.getByLabel("Kennengelernt bei").fill("Party");
-  await dialog.getByLabel("Tags").fill("Nachhaltigkeit, Gemeinden");
+  await dialog.getByLabel("Tags", { exact: true }).fill("Nachhaltigkeit, Gemeinden");
   await expect(dialog.getByText("Neue Kontakte sind privat")).toBeVisible();
   await dialog.getByRole("button", { name: "Speichern" }).click();
   await expect(dialog).toHaveCount(0);
   const row = page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) });
   await expect(row).toContainText("Intro möglich: Kennt jemanden beim Klimabündnis Österreich");
+
+  // Known tags and places are suggested next time, ignoring case and accents; typos get a "did you mean".
+  await page.getByTestId("network-quick-capture").click();
+  dialog = page.getByRole("dialog", { name: "Kontakt erfassen" });
+  await dialog.getByLabel("Name").fill(`Neu ${name}`);
+  await dialog.getByLabel("Kennengelernt bei").click();
+  await expect(dialog.getByRole("option", { name: "Party" })).toBeVisible();
+  await dialog.getByLabel("Kennengelernt bei").fill("par");
+  await dialog.getByRole("option", { name: "Party" }).click();
+  await expect(dialog.getByLabel("Kennengelernt bei")).toHaveValue("Party");
+  const tags = dialog.getByLabel("Tags", { exact: true });
+  await tags.click();
+  await expect(dialog.getByRole("option", { name: /Nachhaltigkeit/ })).toBeVisible();
+  await expect(dialog.getByRole("option", { name: /Gemeinden/ })).toBeVisible();
+  await tags.fill("NACHHALT");
+  await tags.press("Enter");
+  await tags.fill("Gemiende");
+  await expect(dialog.getByText("Meintest du")).toBeVisible();
+  await dialog.getByRole("option", { name: /^Gemeinden/ }).click();
+  await tags.fill("Neues Thema");
+  await tags.press("Enter");
+  await expect(dialog.getByRole("button", { name: "Tag Nachhaltigkeit entfernen" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Tag Gemeinden entfernen" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Tag Neues Thema entfernen" })).toBeVisible();
+  await tags.press("Backspace");
+  await expect(dialog.getByRole("button", { name: "Tag Neues Thema entfernen" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+  await expect(dialog).toHaveCount(0);
 
   // Typing the same name again offers the existing contact instead of a duplicate.
   await page.getByTestId("network-quick-capture").click();

@@ -446,11 +446,13 @@
       "deleted": "Opportunity deleted"
     },
     "tags": {
-      "placeholder": "Comma-separated, e.g. Funding, Design",
+      "placeholder": "Pick or type a tag",
       "suggestions": "Known tags",
       "none": "No tags",
       "edit": "Edit tags",
-      "saved": "Tags saved"
+      "saved": "Tags saved",
+      "remove": "Remove tag {tag}",
+      "addMore": "Add tag…"
     },
     "task": {
       "create": "Make a task",
@@ -527,6 +529,10 @@
     "mapOverlay": {
       "toggle": "Contacts",
       "tooltip": "Network: {total, plural, one {# person} other {# people}}{atOrganizations, plural, =0 {} other { (# at an organisation here)}}"
+    },
+    "suggest": {
+      "create": "Create new tag “{value}”",
+      "didYouMean": "Did you mean"
     }
   },
   "municipalities": {
