@@ -1646,6 +1646,37 @@
       "time": "Track time",
       "invoice": "Invoice"
     },
+    "dependencies": {
+      "label": "Dependencies",
+      "waitingFor": "Waiting for",
+      "late": "late",
+      "blocks": "{count, plural, one {Blocks} other {Blocks #}}",
+      "viaTask": "Through the task “{title}”"
+    },
+    "activity": {
+      "label": "Project activity",
+      "today": "Today",
+      "yesterday": "Yesterday",
+      "empty": "No activity yet. New and finished tasks, logged time, links and schedule changes show up here.",
+      "more": "Load older activity",
+      "taskCreated": "created <title></title>",
+      "taskDone": "<title></title> done",
+      "time": "logged {hours} h",
+      "linked": "linked {type} <title></title>",
+      "schedule": "changed the schedule ({count, plural, one {# item} other {# items}})",
+      "scheduleReverted": "Schedule change undone ({count, plural, one {# item} other {# items}})",
+      "invoicePaid": "Invoice <title></title> paid",
+      "types": {
+        "wikiPage": "the document",
+        "wikiSource": "the source",
+        "pdf": "the PDF",
+        "app": "the page",
+        "calendarEvent": "the event",
+        "invoice": "the invoice",
+        "accountingEntry": "the booking",
+        "customer": "the customer"
+      }
+    },
     "connections": {
       "title": "Linked to this project",
       "description": "Events, invoices, bookings and customers tagged with this project.",
@@ -1695,6 +1726,7 @@
     "projectView": "Project view",
     "viewTasks": "Tasks",
     "viewKnowledge": "Knowledge",
+    "viewActivity": "Activity",
     "archivedTitle": "Project archived",
     "archivedDescription": "The board is read-only. Restore the project to edit tasks and columns.",
     "projectNotFound": "Project not found",

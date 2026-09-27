@@ -2,13 +2,17 @@ import { UserAttribution } from "@/components/user-identity";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { ArrowLeft, BookOpen, KanbanSquare } from "lucide-react";
+import { ArrowLeft, BookOpen, History, KanbanSquare } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { listProjectConnections } from "@/modules/context/project-links";
 import { ProjectConnectionsPanel } from "@/modules/projects/components/project-connections-panel";
 import { ProjectPulseChips } from "@/modules/projects/components/project-pulse";
 import { ProjectQuickCreate } from "@/modules/projects/components/project-quick-create";
 import { getProjectPulse } from "@/modules/projects/pulse";
+import { ACTIVITY_MAX, ACTIVITY_PAGE_SIZE, listProjectActivity } from "@/modules/projects/activity";
+import { getDependencyBadges } from "@/modules/projects/dependency-badges";
+import { ProjectActivityFeed } from "@/modules/projects/components/project-activity-feed";
+import { ProjectDependencyBadges } from "@/modules/projects/components/project-dependency-badges";
 import { todayInVienna } from "@/modules/time/queries";
 import { getBoard, getPortfolioSchedule, getProject, listMembers } from "@/modules/projects/queries";
 import { BoardClient } from "@/modules/projects/components/board-client";
@@ -23,7 +27,7 @@ export default async function ProjectBoardPage({
   searchParams,
 }: {
   params: Promise<{ projectId: string }>;
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; limit?: string }>;
 }) {
   const viewer = await requireUser();
   const [{ projectId }, query, t] = await Promise.all([
@@ -33,7 +37,8 @@ export default async function ProjectBoardPage({
   ]);
   const project = getProject(projectId);
   if (!project) notFound();
-  const knowledgeView = query.view === "knowledge";
+  const view = query.view === "knowledge" || query.view === "activity" ? query.view : "tasks";
+  const knowledgeView = view === "knowledge";
   const projectContext = knowledgeView
     ? listEntityContext("project", projectId)
     : undefined;
@@ -41,6 +46,11 @@ export default async function ProjectBoardPage({
   const pulse = getProjectPulse(projectId, today, viewer);
   const connections = knowledgeView
     ? listProjectConnections(projectId, viewer.id, today)
+    : undefined;
+  const dependencyBadges = getDependencyBadges(projectId, today);
+  const activityLimit = Math.min(ACTIVITY_MAX, Math.max(ACTIVITY_PAGE_SIZE, Number(query.limit) || ACTIVITY_PAGE_SIZE));
+  const activity = view === "activity"
+    ? listProjectActivity(projectId, viewer, activityLimit)
     : undefined;
 
   const { columns, tasksByColumn, subtasksByParent } = getBoard(projectId);
@@ -83,44 +93,48 @@ export default async function ProjectBoardPage({
               {project.description}
             </p>
           )}
-          <div className="mt-2">
+          <div className="mt-2 grid gap-1.5">
             <ProjectPulseChips projectId={projectId} pulse={pulse} />
+            <ProjectDependencyBadges badges={dependencyBadges} />
           </div>
         </div>
         <nav
           aria-label={t("projectView")}
           className="ml-auto flex rounded-lg border bg-muted/40 p-1"
         >
-          <Link
-            href={`/projects/${projectId}`}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              !knowledgeView
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <KanbanSquare className="size-4" />
-            {t("viewTasks")}
-          </Link>
-          <Link
-            href={`/projects/${projectId}?view=knowledge`}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              knowledgeView
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <BookOpen className="size-4" />
-            {t("viewKnowledge")}
-          </Link>
+          {([
+            { id: "tasks", href: `/projects/${projectId}`, icon: KanbanSquare, label: t("viewTasks") },
+            { id: "knowledge", href: `/projects/${projectId}?view=knowledge`, icon: BookOpen, label: t("viewKnowledge") },
+            { id: "activity", href: `/projects/${projectId}?view=activity`, icon: History, label: t("viewActivity") },
+          ] as const).map((tab) => (
+            <Link
+              key={tab.id}
+              href={tab.href}
+              aria-current={view === tab.id ? "page" : undefined}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                view === tab.id
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <tab.icon className="size-4" />
+              {tab.label}
+            </Link>
+          ))}
         </nav>
         <ProjectQuickCreate projectId={projectId} projectName={project.name} />
         <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
       </header>
 
-      {knowledgeView ? (
+      {activity ? (
+        <ProjectActivityFeed
+          items={activity.items}
+          hasMore={activity.hasMore}
+          moreHref={`/projects/${projectId}?view=activity&limit=${activityLimit + ACTIVITY_PAGE_SIZE}`}
+          today={today}
+        />
+      ) : knowledgeView ? (
         <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,0.55fr)]">
           <ContextPanel
             subjectType="project"

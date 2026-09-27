@@ -48,30 +48,36 @@ function linkedTargetIds(projectId: string, targetType: ProjectLinkTargetType) {
     .map((row) => row.targetId);
 }
 
-/** Calendar events stay hidden unless the viewer may read their details. */
-function visibleEvents(projectId: string, viewerId: string, today: string): ProjectConnectionItem[] {
-  const ids = linkedTargetIds(projectId, "calendarEvent");
-  if (ids.length === 0) return [];
+/**
+ * Linked calendar events whose details the viewer may read: confirmed, and not
+ * on a calendar the viewer only sees as "busy" (as in the calendar itself).
+ */
+export function visibleLinkedEvents(eventIds: string[], viewerId: string) {
+  if (eventIds.length === 0) return [];
   const rows = db
     .select({ event: calendarEvents, visibility: calendars.visibility })
     .from(calendarEvents)
     .innerJoin(calendars, eq(calendarEvents.calendarId, calendars.id))
-    .where(and(inArray(calendarEvents.id, ids), eq(calendarEvents.status, "confirmed")))
+    .where(and(inArray(calendarEvents.id, eventIds), eq(calendarEvents.status, "confirmed")))
     .all();
   const roles = new Map<string, ReturnType<typeof calendarRoleForUser>>();
-  const items = rows.flatMap(({ event, visibility }) => {
+  return rows.flatMap(({ event, visibility }) => {
     if (!roles.has(event.calendarId)) roles.set(event.calendarId, calendarRoleForUser(event.calendarId, viewerId));
     const role = roles.get(event.calendarId);
-    // Viewers of a "busy" calendar only see that time is taken, as in the calendar.
-    if (!role || (visibility === "busy" && role === "viewer")) return [];
+    return !role || (visibility === "busy" && role === "viewer") ? [] : [event];
+  });
+}
+
+function visibleEvents(projectId: string, viewerId: string, today: string): ProjectConnectionItem[] {
+  const items = visibleLinkedEvents(linkedTargetIds(projectId, "calendarEvent"), viewerId).map((event) => {
     const date = event.allDay ? event.startDate : event.startAt ? localDateInZone(event.startAt, event.timezone) : null;
-    return [{
+    return {
       id: event.id,
       title: event.title,
       href: `/calendar?view=week${date ? `&date=${date}` : ""}`,
       date,
       detail: event.recurrenceRule ? "recurring" : undefined,
-    }];
+    };
   });
   // Upcoming first (soonest on top), then the past (most recent on top).
   const upcoming = items.filter((item) => (item.date ?? "") >= today).sort((a, b) => (a.date ?? "").localeCompare(b.date ?? ""));
