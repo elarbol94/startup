@@ -55,15 +55,18 @@ export function LeadDialog({
   state,
   onClose,
   contacts,
+  organizationNames = [],
 }: {
   state: LeadDialogState;
   onClose: () => void;
   contacts: NetworkContactOption[];
+  /** Known organisations, suggested while typing the target organisation. */
+  organizationNames?: string[];
 }) {
   return (
     <Dialog open={state !== null} onOpenChange={(open) => !open && onClose()}>
       {state && (
-        <LeadForm key={state.mode === "edit" ? state.lead.id : `new-${state.contactId}`} state={state} onClose={onClose} contacts={contacts} />
+        <LeadForm key={state.mode === "edit" ? state.lead.id : `new-${state.contactId}`} state={state} onClose={onClose} contacts={contacts} organizationNames={organizationNames} />
       )}
     </Dialog>
   );
@@ -73,10 +76,12 @@ function LeadForm({
   state,
   onClose,
   contacts,
+  organizationNames,
 }: {
   state: NonNullable<LeadDialogState>;
   onClose: () => void;
   contacts: NetworkContactOption[];
+  organizationNames: string[];
 }) {
   const t = useTranslations("network");
   const id = useId();
@@ -140,8 +145,9 @@ function LeadForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${id}-target-org`}>{t("fields.targetOrganization")}</Label>
-            <Input id={`${id}-target-org`} maxLength={160} value={form.targetOrganization} placeholder={t("lead.targetOrganizationPlaceholder")} onChange={(event) => set({ targetOrganization: event.target.value })} />
+            <Input id={`${id}-target-org`} list={`${id}-organizations`} autoComplete="off" maxLength={160} value={form.targetOrganization} placeholder={t("lead.targetOrganizationPlaceholder")} onChange={(event) => set({ targetOrganization: event.target.value })} />
           </div>
+          <datalist id={`${id}-organizations`}>{organizationNames.map((name) => <option key={name} value={name} />)}</datalist>
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor={`${id}-target-contact`}>{t("fields.targetContact")}</Label>
             <select id={`${id}-target-contact`} className={selectClassName} value={form.targetContactId} onChange={(event) => set({ targetContactId: event.target.value })}>

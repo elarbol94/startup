@@ -53,21 +53,23 @@ function initialForm(contact: NetworkContactDetail): FormState {
 
 export function ContactEditDialog({
   contact,
+  organizationNames,
   open,
   onClose,
 }: {
   contact: NetworkContactDetail;
+  organizationNames: string[];
   open: boolean;
   onClose: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      {open && <ContactForm contact={contact} onClose={onClose} />}
+      {open && <ContactForm contact={contact} organizationNames={organizationNames} onClose={onClose} />}
     </Dialog>
   );
 }
 
-function ContactForm({ contact, onClose }: { contact: NetworkContactDetail; onClose: () => void }) {
+function ContactForm({ contact, organizationNames, onClose }: { contact: NetworkContactDetail; organizationNames: string[]; onClose: () => void }) {
   const t = useTranslations("network");
   const id = useId();
   const { pending, run } = useNetworkAction();
@@ -91,12 +93,13 @@ function ContactForm({ contact, onClose }: { contact: NetworkContactDetail; onCl
     );
   }
 
-  const field = (key: keyof FormState, options: { type?: string; maxLength?: number; placeholder?: string } = {}) => (
+  const field = (key: keyof FormState, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={`${id}-${key}`}>{t(`fields.${key}`)}</Label>
       <Input
         id={`${id}-${key}`}
         type={options.type ?? "text"}
+        list={options.list}
         maxLength={options.maxLength}
         placeholder={options.placeholder}
         value={form[key]}
@@ -117,7 +120,8 @@ function ContactForm({ contact, onClose }: { contact: NetworkContactDetail; onCl
             <Label htmlFor={`${id}-name`}>{t("fields.name")}</Label>
             <Input id={`${id}-name`} required maxLength={160} value={form.name} onChange={(event) => set({ name: event.target.value })} />
           </div>
-          {field("organization", { maxLength: 160 })}
+          {field("organization", { maxLength: 160, list: `${id}-organizations` })}
+          <datalist id={`${id}-organizations`}>{organizationNames.map((name) => <option key={name} value={name} />)}</datalist>
           {field("role", { maxLength: 160 })}
           <div className="space-y-1.5">
             <Label htmlFor={`${id}-relationship`}>{t("fields.relationship")}</Label>

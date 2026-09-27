@@ -11,11 +11,13 @@ import { LeadList } from "./lead-list";
 export function OpportunitiesView({
   leads,
   contacts,
+  organizationNames,
   includeClosed,
   today,
 }: {
   leads: NetworkLeadView[];
   contacts: NetworkContactOption[];
+  organizationNames: string[];
   includeClosed: boolean;
   today: string;
 }) {
@@ -37,7 +39,7 @@ export function OpportunitiesView({
       ) : (
         <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("opportunities.empty")}</div>
       )}
-      <LeadDialog state={dialog} onClose={() => setDialog(null)} contacts={contacts} />
+      <LeadDialog state={dialog} onClose={() => setDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );
 }

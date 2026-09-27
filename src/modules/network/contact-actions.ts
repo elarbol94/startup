@@ -14,6 +14,7 @@ import {
   revalidateNetwork,
   type NetworkActionResult,
 } from "./action-helpers";
+import { removeUnusedOrganizations, resolveOrganization } from "./organizations";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 import {
   contactSchema,
@@ -90,7 +91,14 @@ export async function updateNetworkContact(input: ContactInput): Promise<Network
   const { id, ...values } = parsed.data;
   const access = contactFor(id, viewer, "edit");
   if (!access.ok) return access;
-  db.update(networkContacts).set({ ...values, updatedAt: new Date() }).where(eq(networkContacts.id, id)).run();
+  db.transaction((tx) => {
+    const organization = resolveOrganization(tx, values.organization, viewer.id);
+    tx.update(networkContacts)
+      .set({ ...values, organization: organization?.name ?? "", organizationId: organization?.id ?? null, updatedAt: new Date() })
+      .where(eq(networkContacts.id, id))
+      .run();
+    removeUnusedOrganizations(tx);
+  });
   revalidateNetwork();
   return { ok: true };
 }
@@ -149,6 +157,7 @@ export async function deleteNetworkContact(id: string): Promise<NetworkActionRes
       .run();
     tx.delete(networkContacts).where(eq(networkContacts.id, contact.id)).run();
     removeUnusedTags(tx);
+    removeUnusedOrganizations(tx);
   });
   revalidateNetwork();
   return { ok: true };

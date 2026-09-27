@@ -21,3 +21,7 @@ export const activeLeadStatuses = ["open", "asked"] as const satisfies readonly 
 /** How we were in touch; logged on the contact's history. */
 export const interactionChannels = ["meeting", "call", "message", "email", "event", "other"] as const;
 export type InteractionChannel = (typeof interactionChannels)[number];
+
+/** Records elsewhere in the platform a contact can be linked to. */
+export const contactLinkTargetTypes = ["project", "fundingProject", "wikiPage"] as const;
+export type ContactLinkTargetType = (typeof contactLinkTargetTypes)[number];

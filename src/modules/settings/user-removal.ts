@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { and, eq, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { removeUnusedOrganizations } from "@/modules/network/organizations";
 import {
   account,
   networkContacts,
@@ -46,6 +47,7 @@ export function removeUserAccount(userId: string, adminId: string) {
     // reach; they leave with the account. Team contacts stay with the team.
     tx.delete(networkContacts).where(and(eq(networkContacts.ownerId, userId), eq(networkContacts.visibility, "private"))).run();
     tx.delete(networkTags).where(notInArray(networkTags.id, tx.selectDistinct({ id: networkContactTags.tagId }).from(networkContactTags))).run();
+    removeUnusedOrganizations(tx);
     return { error: null };
   }, { behavior: "immediate" });
 }

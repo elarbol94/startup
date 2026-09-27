@@ -38,6 +38,9 @@ export function LeadList({
         const active = isLeadActive(lead.status);
         const overdue = isLeadOverdue(lead, today);
         const target = lead.targetContact?.name || [lead.targetName, lead.targetOrganization].filter(Boolean).join(" · ");
+        const targetHref = lead.targetContact
+          ? `/network/${lead.targetContact.id}`
+          : lead.targetOrganizationId ? `/network/organizations/${lead.targetOrganizationId}` : null;
         return (
           <li key={lead.id} className="flex items-start gap-3 px-4 py-3">
             <Checkbox
@@ -60,9 +63,7 @@ export function LeadList({
                   {target && (
                     <span className="inline-flex items-center gap-1">
                       <ArrowRight className="size-3" />
-                      {lead.targetContact ? (
-                        <Link href={`/network/${lead.targetContact.id}`} className="hover:underline">{target}</Link>
-                      ) : target}
+                      {targetHref ? <Link href={targetHref} className="hover:underline">{target}</Link> : target}
                     </span>
                   )}
                   {lead.nextStep && <span>{t("lead.next", { step: lead.nextStep })}</span>}

@@ -314,7 +314,8 @@
     "errors": {
       "invalid": "Bitte die Eingaben prüfen.",
       "notFound": "Dieser Kontakt existiert nicht mehr oder ist privat.",
-      "forbidden": "Das kann nur die Person, die den Kontakt angelegt hat."
+      "forbidden": "Das kann nur die Person, die den Kontakt angelegt hat.",
+      "duplicate": "Eine andere Organisation heißt bereits so."
     },
     "fields": {
       "name": "Name",
@@ -337,7 +338,8 @@
       "targetOrganization": "Deren Organisation",
       "targetContact": "Schon im Netzwerk als",
       "nextStep": "Nächster Schritt",
-      "dueOn": "Nachfassen bis"
+      "dueOn": "Nachfassen bis",
+      "website": "Website"
     },
     "relationships": {
       "friend": "Freund:in",
@@ -474,6 +476,42 @@
     },
     "overview": {
       "empty": "Nichts offen. Erfasste Angebote und Intros erscheinen hier."
+    },
+    "organizationsTab": "Organisationen",
+    "organizations": {
+      "intro": "Wo wir jemanden kennen – oder jemanden, der uns vorstellen könnte.",
+      "empty": "Noch keine Organisationen. Sie erscheinen, sobald ein Kontakt oder ein Intro eine nennt.",
+      "people": "{count, plural, one {# Person} other {# Personen}}",
+      "intros": "{count, plural, one {# Intro} other {# Intros}}",
+      "back": "Alle Organisationen",
+      "sharedHint": "Organisationen sind mit dem Team geteilt; angezeigt werden nur Personen, die du sehen kannst.",
+      "peopleTitle": "Personen dort",
+      "noPeople": "Wir kennen dort noch niemanden.",
+      "introsTitle": "Wer uns vorstellen könnte",
+      "noIntros": "Noch hat niemand ein Intro angeboten.",
+      "saved": "Organisation gespeichert",
+      "editTitle": "Organisation bearbeiten",
+      "editDescription": "Eine Umbenennung ändert alle Kontakte und Intros, die sie nennen."
+    },
+    "links": {
+      "title": "Verknüpft mit",
+      "add": "Verknüpfen",
+      "empty": "Noch mit keinem Projekt, Förderprojekt oder Wiki-Dokument verknüpft.",
+      "remove": "Verknüpfung mit {title} entfernen",
+      "pickTitle": "Kontakt verknüpfen",
+      "pickDescription": "Projekte, Förderprojekte und Wiki-Dokumente, an denen diese Person beteiligt ist.",
+      "search": "Projekte, Förderprojekte, Wiki-Dokumente suchen…",
+      "searching": "Suche läuft…",
+      "noResults": "Nichts gefunden.",
+      "types": {
+        "project": "Projekt",
+        "fundingProject": "Förderprojekt",
+        "wikiPage": "Wiki-Dokument"
+      },
+      "panelTitle": "Kontakte aus dem Netzwerk",
+      "panelEmpty": "Noch keine Kontakte verknüpft.",
+      "chooseContact": "Kontakt auswählen…",
+      "openLeads": "{count, plural, one {# offene Möglichkeit} other {# offene Möglichkeiten}}"
     }
   },
   "municipalities": {

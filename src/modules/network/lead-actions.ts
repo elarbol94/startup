@@ -6,6 +6,7 @@ import { requireUserOrThrow } from "@/lib/auth";
 import { canViewContact, loadContact } from "./access";
 import { contactFor, fail, revalidateNetwork, type NetworkActionResult } from "./action-helpers";
 import { tasks } from "@/db/schema";
+import { removeUnusedOrganizations, resolveOrganization } from "./organizations";
 import { networkContacts, networkLeads } from "./schema";
 import { idSchema, leadSchema, leadStatusSchema, leadTaskLinkSchema, type LeadInput } from "./validation";
 
@@ -33,18 +34,20 @@ export async function saveNetworkLead(input: LeadInput): Promise<NetworkActionRe
   }
 
   const now = new Date();
-  let leadId: string;
-  if (existing) {
-    db.update(networkLeads).set({ ...data, updatedAt: now }).where(eq(networkLeads.id, existing.id)).run();
-    leadId = existing.id;
-  } else {
-    leadId = db
-      .insert(networkLeads)
-      .values({ ...data, createdBy: viewer.id })
-      .returning({ id: networkLeads.id })
-      .get().id;
-  }
-  db.update(networkContacts).set({ updatedAt: now }).where(eq(networkContacts.id, data.contactId)).run();
+  const leadId = db.transaction((tx) => {
+    const organization = resolveOrganization(tx, data.targetOrganization, viewer.id);
+    const values = { ...data, targetOrganization: organization?.name ?? "", targetOrganizationId: organization?.id ?? null };
+    let id: string;
+    if (existing) {
+      tx.update(networkLeads).set({ ...values, updatedAt: now }).where(eq(networkLeads.id, existing.id)).run();
+      id = existing.id;
+    } else {
+      id = tx.insert(networkLeads).values({ ...values, createdBy: viewer.id }).returning({ id: networkLeads.id }).get().id;
+    }
+    tx.update(networkContacts).set({ updatedAt: now }).where(eq(networkContacts.id, data.contactId)).run();
+    removeUnusedOrganizations(tx);
+    return id;
+  });
   revalidateNetwork();
   return { ok: true, id: leadId };
 }
@@ -70,7 +73,10 @@ export async function deleteNetworkLead(id: string): Promise<NetworkActionResult
   if (!lead) return fail("notFound");
   const access = contactFor(lead.contactId, viewer, "edit");
   if (!access.ok) return access;
-  db.delete(networkLeads).where(eq(networkLeads.id, lead.id)).run();
+  db.transaction((tx) => {
+    tx.delete(networkLeads).where(eq(networkLeads.id, lead.id)).run();
+    removeUnusedOrganizations(tx);
+  });
   revalidateNetwork();
   return { ok: true };
 }

@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { canEditContact, canManageContact, visibleContactCondition, type NetworkViewer } from "./access";
 import type { LeadStatus } from "./constants";
+import { listContactLinks, type NetworkContactLink } from "./link-queries";
 import { compareLeads, isLeadActive, matchesSearch, normalizeText } from "./network-utils";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 
@@ -131,6 +132,7 @@ export type NetworkLeadView = {
   summary: string;
   targetName: string;
   targetOrganization: string;
+  targetOrganizationId: string | null;
   /** Only set when the introduced contact is visible to the viewer. */
   targetContact: NetworkContactOption | null;
   status: LeadStatus;
@@ -154,7 +156,7 @@ function linkedTasks(rows: { taskId: string | null }[]) {
   );
 }
 
-function toLeadViews(
+export function toLeadViews(
   rows: (typeof networkLeads.$inferSelect)[],
   contactsById: Map<string, NetworkContactOption>,
 ): NetworkLeadView[] {
@@ -168,6 +170,7 @@ function toLeadViews(
     summary: lead.summary,
     targetName: lead.targetName,
     targetOrganization: lead.targetOrganization,
+    targetOrganizationId: lead.targetOrganizationId,
     targetContact: lead.targetContactId ? contactsById.get(lead.targetContactId) ?? null : null,
     status: lead.status,
     nextStep: lead.nextStep,
@@ -202,6 +205,7 @@ export type NetworkContactDetail = typeof networkContacts.$inferSelect & {
   /** Leads on other contacts that point at this one: "introduced by". */
   introducedBy: NetworkLeadView[];
   interactions: (typeof networkInteractions.$inferSelect)[];
+  links: NetworkContactLink[];
 };
 
 export function getNetworkContact(viewer: NetworkViewer, id: string): NetworkContactDetail | null {
@@ -234,6 +238,7 @@ export function getNetworkContact(viewer: NetworkViewer, id: string): NetworkCon
       .where(eq(networkInteractions.contactId, id))
       .orderBy(desc(networkInteractions.occurredOn), desc(networkInteractions.createdAt))
       .all(),
+    links: listContactLinks(id),
   };
 }
 
