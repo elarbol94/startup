@@ -58,7 +58,7 @@ SQLite database. Stop the normal development server before running it.
 - `src/instrumentation.ts` runs migrations/seeding and starts the wiki PDF worker.
   OCR requires Poppler and Tesseract; preserve documented local/Docker behavior.
 - Before writing Next.js code, read the relevant guide in
-  `node_modules/next/dist/docs/`. The project uses Next.js 16.2.10.
+  `node_modules/next/dist/docs/`. The project uses Next.js 16.3.6.
 
 ## Focused documentation
 
