@@ -7,12 +7,12 @@ test.describe.configure({ mode: "serial", timeout: 90_000 });
 async function login(page: Page) {
   const signup = await page.request.post("/api/auth/sign-up/email", { data: { name: "E2E Admin", username: "admin", displayUsername: "admin", email: "admin" + String.fromCharCode(64) + "example.com", password: "super-secret-1" } });
   if (!signup.ok() && signup.status() !== 422 && signup.status() !== 403) throw new Error("Signup failed " + signup.status() + ": " + await signup.text());
-  if (signup.ok()) { await page.goto("/"); await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible(); return; }
+  if (signup.ok()) { await page.goto("/"); await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible(); return; }
   await page.goto("/login");
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 function visibleTestId(page: Page, testId: string) {

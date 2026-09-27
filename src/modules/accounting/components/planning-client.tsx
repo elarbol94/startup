@@ -470,7 +470,7 @@ export function PlanningClient({
               <CardTitle>{t("monthlyPlanning")}</CardTitle>
               {emptyToggle}
             </CardHeader>
-            <div className="relative max-w-full overflow-x-auto overscroll-x-contain">
+            <div className="relative max-w-full overflow-x-auto overscroll-x-contain" data-testid="planning-grid">
               <table className="w-full border-separate border-spacing-0 text-sm [&_td]:border-b [&_th]:border-b">
                 <thead>
                   <tr className="text-xs text-muted-foreground">

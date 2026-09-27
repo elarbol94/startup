@@ -16,14 +16,14 @@ async function login(page: Page) {
   }
   if (signup.ok()) {
     await page.goto("/");
-    await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
     return;
   }
   await page.goto("/login");
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 async function expectWidth(locator: Locator, width: number) {

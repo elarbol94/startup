@@ -32,7 +32,7 @@ async function login(page: Page) {
   } else {
     await page.goto("/");
   }
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 test("calendar rail entry opens the Flow week and creates a timed event", async ({

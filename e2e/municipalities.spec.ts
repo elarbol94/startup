@@ -15,14 +15,14 @@ async function login(page: Page) {
   if (!signup.ok() && signup.status() !== 422 && signup.status() !== 403) throw new Error(`Signup failed ${signup.status()}: ${await signup.text()}`);
   if (signup.ok()) {
     await page.goto("/");
-    await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
     return;
   }
   await page.goto("/login");
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 test("municipality map works with local geometry when basemap tiles are unavailable", async ({ page }) => {
