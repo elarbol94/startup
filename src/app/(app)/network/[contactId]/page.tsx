@@ -3,7 +3,12 @@ import { requireUser } from "@/lib/auth";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import { ContactDetail } from "@/modules/network/components/contact-detail";
 import { listNetworkOrganizationNames } from "@/modules/network/organization-queries";
-import { getNetworkContact, listNetworkContactOptions, listNetworkTagNames } from "@/modules/network/queries";
+import {
+  getNetworkContact,
+  listNetworkContactOptions,
+  listNetworkMetContextSuggestions,
+  listNetworkTagSuggestions,
+} from "@/modules/network/queries";
 import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 
 export default async function NetworkContactPage({ params }: { params: Promise<{ contactId: string }> }) {
@@ -16,7 +21,8 @@ export default async function NetworkContactPage({ params }: { params: Promise<{
     <ContactDetail
       contact={contact}
       contacts={listNetworkContactOptions(viewer)}
-      tagSuggestions={listNetworkTagNames(viewer)}
+      tagSuggestions={listNetworkTagSuggestions(viewer)}
+      metContextSuggestions={listNetworkMetContextSuggestions(viewer)}
       organizationNames={listNetworkOrganizationNames(viewer)}
       today={localDateInZone(new Date(), TIME_ZONE)}
     />

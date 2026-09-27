@@ -446,11 +446,13 @@
       "deleted": "Möglichkeit gelöscht"
     },
     "tags": {
-      "placeholder": "Mit Komma getrennt, z. B. Förderung, Design",
+      "placeholder": "Tag auswählen oder eingeben",
       "suggestions": "Bekannte Tags",
       "none": "Keine Tags",
       "edit": "Tags bearbeiten",
-      "saved": "Tags gespeichert"
+      "saved": "Tags gespeichert",
+      "remove": "Tag {tag} entfernen",
+      "addMore": "Weiteres Tag…"
     },
     "task": {
       "create": "Aufgabe erstellen",
@@ -523,6 +525,14 @@
       "failed": "Die Kontakte konnten nicht geladen werden.",
       "empty": "Hier wohnt noch niemand aus dem Netzwerk, und keine Organisation hier ist bekannt.",
       "residents": "Wohnen hier"
+    },
+    "mapOverlay": {
+      "toggle": "Kontakte",
+      "tooltip": "Netzwerk: {total, plural, one {# Person} other {# Personen}}{atOrganizations, plural, =0 {} other { (# bei einer Organisation hier)}}"
+    },
+    "suggest": {
+      "create": "Neues Tag „{value}“ anlegen",
+      "didYouMean": "Meintest du"
     }
   },
   "municipalities": {

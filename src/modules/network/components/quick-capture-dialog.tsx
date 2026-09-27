@@ -21,15 +21,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { quickCaptureContact } from "../contact-actions";
 import { leadKinds, type LeadKind } from "../constants";
-import { normalizeText, parseTagInput } from "../network-utils";
+import { normalizeText, type Suggestion } from "../network-utils";
 import type { NetworkContactOption } from "../queries";
 import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
 import { selectClassName } from "./network-ui";
-import { TagSuggestions } from "./tag-suggestions";
+import { SuggestInput } from "./suggest-input";
+import { PopularTags, TagInput } from "./tag-input";
 import { useNetworkAction } from "./use-network-action";
 
-type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string; metToday: boolean; municipality: MunicipalityValue };
-const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: "", metToday: true, municipality: null };
+type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string[]; metToday: boolean; municipality: MunicipalityValue };
+const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, municipality: null };
 const NEW_CONTACT = "new";
 
 /**
@@ -37,7 +38,15 @@ const NEW_CONTACT = "new";
  * tags. Typing a known name offers to add to that contact instead of creating
  * a duplicate.
  */
-export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContactOption[]; tags: string[] }) {
+export function QuickCaptureDialog({
+  contacts,
+  tags,
+  metContexts,
+}: {
+  contacts: NetworkContactOption[];
+  tags: Suggestion[];
+  metContexts: Suggestion[];
+}) {
   const t = useTranslations("network");
   const router = useRouter();
   const { pending, run } = useNetworkAction();
@@ -70,7 +79,7 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
         note: form.note,
         kind: form.kind,
         metContext: existingId ? "" : form.metContext,
-        tags: parseTagInput(form.tags),
+        tags: form.tags,
         metToday: form.metToday,
         municipalityCode: existingId ? null : form.municipality?.code ?? null,
       }),
@@ -161,12 +170,13 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
             {!existingId && (
               <div className="space-y-1.5">
                 <Label htmlFor="network-quick-context">{t("fields.metContext")}</Label>
-                <Input
+                <SuggestInput
                   id="network-quick-context"
                   maxLength={300}
                   value={form.metContext}
+                  suggestions={metContexts}
                   placeholder={t("fields.metContextPlaceholder")}
-                  onChange={(event) => setForm({ ...form, metContext: event.target.value })}
+                  onChange={(metContext) => setForm((current) => ({ ...current, metContext }))}
                 />
               </div>
             )}
@@ -178,14 +188,8 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
             )}
             <div className="space-y-1.5">
               <Label htmlFor="network-quick-tags">{t("fields.tags")}</Label>
-              <Input
-                id="network-quick-tags"
-                autoComplete="off"
-                value={form.tags}
-                placeholder={t("tags.placeholder")}
-                onChange={(event) => setForm({ ...form, tags: event.target.value })}
-              />
-              <TagSuggestions value={form.tags} suggestions={tags} onChange={(tagsValue) => setForm({ ...form, tags: tagsValue })} />
+              <TagInput id="network-quick-tags" value={form.tags} suggestions={tags} onChange={(next) => setForm((current) => ({ ...current, tags: next }))} />
+              <PopularTags value={form.tags} suggestions={tags} onChange={(next) => setForm((current) => ({ ...current, tags: next }))} />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox checked={form.metToday} onCheckedChange={(checked) => setForm({ ...form, metToday: checked === true })} />

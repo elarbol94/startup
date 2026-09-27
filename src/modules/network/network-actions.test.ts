@@ -26,7 +26,14 @@ import {
   updateNetworkContact,
 } from "./contact-actions";
 import { saveNetworkLead, setNetworkLeadStatus } from "./lead-actions";
-import { getNetworkContact, listNetworkContacts, listNetworkLeads, listNetworkTagNames } from "./queries";
+import {
+  getNetworkContact,
+  listNetworkContacts,
+  listNetworkLeads,
+  listNetworkMetContextSuggestions,
+  listNetworkTagNames,
+  listNetworkTagSuggestions,
+} from "./queries";
 
 const aaron = { id: "aaron", role: "member" };
 const colleague = { id: "colleague", role: "member" };
@@ -105,6 +112,18 @@ describe("visibility", () => {
     as(admin);
     expect(await setNetworkContactVisibility({ contactId: id, visibility: "private" })).toEqual({ ok: true });
     expect(getNetworkContact(admin, id)).toBeNull();
+  });
+
+  it("suggests used tags by frequency and met-at places by recency, visible ones only", async () => {
+    await capture({ name: "A", tags: ["Design", "Förderung"], metContext: "Startup-Meetup Graz" });
+    await capture({ name: "B", tags: ["förderung"], metContext: "startup-meetup graz" });
+    await capture({ name: "C", tags: ["Förderung"], metContext: "Geburtstagsparty Bernd" });
+    expect(listNetworkTagSuggestions(aaron)).toEqual([{ value: "Förderung", count: 3 }, { value: "Design", count: 1 }]);
+    const contexts = listNetworkMetContextSuggestions(aaron);
+    expect(contexts.map((entry) => entry.count).sort()).toEqual([1, 2]);
+    expect(contexts.find((entry) => entry.count === 2)?.value.toLowerCase()).toBe("startup-meetup graz");
+    expect(listNetworkTagSuggestions(colleague)).toEqual([]);
+    expect(listNetworkMetContextSuggestions(colleague)).toEqual([]);
   });
 
   it("only suggests tags from contacts the viewer can see", async () => {

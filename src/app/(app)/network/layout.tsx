@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth";
 import { NetworkSubnav } from "@/modules/network/components/network-subnav";
 import { QuickCaptureDialog } from "@/modules/network/components/quick-capture-dialog";
-import { listNetworkContactOptions, listNetworkTagNames } from "@/modules/network/queries";
+import { listNetworkContactOptions, listNetworkMetContextSuggestions, listNetworkTagSuggestions } from "@/modules/network/queries";
 
 export default async function NetworkLayout({ children }: { children: React.ReactNode }) {
   const viewer = await requireUser();
@@ -19,7 +19,11 @@ export default async function NetworkLayout({ children }: { children: React.Reac
         actions={
           <>
             <NetworkSubnav />
-            <QuickCaptureDialog contacts={listNetworkContactOptions(viewer)} tags={listNetworkTagNames(viewer)} />
+            <QuickCaptureDialog
+              contacts={listNetworkContactOptions(viewer)}
+              tags={listNetworkTagSuggestions(viewer)}
+              metContexts={listNetworkMetContextSuggestions(viewer)}
+            />
           </>
         }
       />

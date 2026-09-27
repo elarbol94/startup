@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ArrowLeft, CalendarCheck, Lock, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
+import type { Suggestion } from "../network-utils";
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
 import { ContactEditDialog } from "./contact-edit-dialog";
 import { ContactLinks } from "./contact-links";
@@ -23,12 +24,14 @@ export function ContactDetail({
   contact,
   contacts,
   tagSuggestions,
+  metContextSuggestions,
   organizationNames,
   today,
 }: {
   contact: NetworkContactDetail;
   contacts: NetworkContactOption[];
-  tagSuggestions: string[];
+  tagSuggestions: Suggestion[];
+  metContextSuggestions: Suggestion[];
   organizationNames: string[];
   today: string;
 }) {
@@ -180,7 +183,7 @@ export function ContactDetail({
         </div>
       )}
 
-      <ContactEditDialog contact={contact} organizationNames={organizationNames} open={editing} onClose={() => setEditing(false)} />
+      <ContactEditDialog contact={contact} organizationNames={organizationNames} metContextSuggestions={metContextSuggestions} open={editing} onClose={() => setEditing(false)} />
       <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );

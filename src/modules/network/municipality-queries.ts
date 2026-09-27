@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull } from "drizzle-orm";
 import { db } from "@/db";
 import { visibleContactCondition, type NetworkViewer } from "./access";
 import { listNetworkOrganizations } from "./organization-queries";
@@ -56,4 +56,43 @@ export function getMunicipalityNetwork(viewer: NetworkViewer, municipalityCode: 
         .map((person) => ({ id: person.id, name: person.name, role: person.role, organization: person.organization, visibility: person.visibility })),
     })),
   };
+}
+
+export type MunicipalityContactCount = { code: string; residents: number; atOrganizations: number; total: number };
+
+/**
+ * For the map overlay: how many visible people the network has per
+ * municipality, counting those who live there and those at an organisation
+ * located there. A person counts once per municipality even if both apply.
+ */
+export function countNetworkContactsByMunicipality(viewer: NetworkViewer): MunicipalityContactCount[] {
+  const contacts = db
+    .select({ id: networkContacts.id, municipalityCode: networkContacts.municipalityCode, organizationId: networkContacts.organizationId })
+    .from(networkContacts)
+    .where(visibleContactCondition(viewer.id))
+    .all();
+  const organizationIds = [...new Set(contacts.flatMap((contact) => (contact.organizationId ? [contact.organizationId] : [])))];
+  const organizationMunicipality = new Map(
+    organizationIds.length
+      ? db
+          .select({ id: networkOrganizations.id, municipalityCode: networkOrganizations.municipalityCode })
+          .from(networkOrganizations)
+          .where(and(inArray(networkOrganizations.id, organizationIds), isNotNull(networkOrganizations.municipalityCode)))
+          .all()
+          .map((organization) => [organization.id, organization.municipalityCode!])
+      : [],
+  );
+  const counts = new Map<string, { residents: Set<string>; atOrganizations: Set<string> }>();
+  const entry = (code: string) => counts.get(code) ?? counts.set(code, { residents: new Set(), atOrganizations: new Set() }).get(code)!;
+  for (const contact of contacts) {
+    if (contact.municipalityCode) entry(contact.municipalityCode).residents.add(contact.id);
+    const workplace = contact.organizationId ? organizationMunicipality.get(contact.organizationId) : undefined;
+    if (workplace) entry(workplace).atOrganizations.add(contact.id);
+  }
+  return [...counts].map(([code, { residents, atOrganizations }]) => ({
+    code,
+    residents: residents.size,
+    atOrganizations: atOrganizations.size,
+    total: new Set([...residents, ...atOrganizations]).size,
+  }));
 }

@@ -19,7 +19,9 @@ import { updateNetworkContact } from "../contact-actions";
 import { contactClosenessLevels, contactRelationships } from "../constants";
 import type { NetworkContactDetail } from "../queries";
 import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
+import type { Suggestion } from "../network-utils";
 import { selectClassName } from "./network-ui";
+import { SuggestInput } from "./suggest-input";
 import { useNetworkAction } from "./use-network-action";
 
 type FormState = {
@@ -57,22 +59,34 @@ function initialForm(contact: NetworkContactDetail): FormState {
 export function ContactEditDialog({
   contact,
   organizationNames,
+  metContextSuggestions,
   open,
   onClose,
 }: {
   contact: NetworkContactDetail;
   organizationNames: string[];
+  metContextSuggestions: Suggestion[];
   open: boolean;
   onClose: () => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      {open && <ContactForm contact={contact} organizationNames={organizationNames} onClose={onClose} />}
+      {open && <ContactForm contact={contact} organizationNames={organizationNames} metContextSuggestions={metContextSuggestions} onClose={onClose} />}
     </Dialog>
   );
 }
 
-function ContactForm({ contact, organizationNames, onClose }: { contact: NetworkContactDetail; organizationNames: string[]; onClose: () => void }) {
+function ContactForm({
+  contact,
+  organizationNames,
+  metContextSuggestions,
+  onClose,
+}: {
+  contact: NetworkContactDetail;
+  organizationNames: string[];
+  metContextSuggestions: Suggestion[];
+  onClose: () => void;
+}) {
   const t = useTranslations("network");
   const id = useId();
   const { pending, run } = useNetworkAction();
@@ -141,7 +155,17 @@ function ContactForm({ contact, organizationNames, onClose }: { contact: Network
               {contactClosenessLevels.map((value) => <option key={value} value={value}>{t(`closeness.${value}`)}</option>)}
             </select>
           </div>
-          {field("metContext", { maxLength: 300, placeholder: t("fields.metContextPlaceholder") })}
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-metContext`}>{t("fields.metContext")}</Label>
+            <SuggestInput
+              id={`${id}-metContext`}
+              maxLength={300}
+              value={form.metContext}
+              suggestions={metContextSuggestions}
+              placeholder={t("fields.metContextPlaceholder")}
+              onChange={(metContext) => set({ metContext })}
+            />
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor={`${id}-municipality`}>{t("fields.municipality")}</Label>
             <MunicipalityPicker id={`${id}-municipality`} value={form.municipality} onChange={(municipality) => set({ municipality })} />

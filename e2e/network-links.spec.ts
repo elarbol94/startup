@@ -60,5 +60,15 @@ test("groups contacts by organisation and links them to a project", async ({ pag
   await detail.getByRole("link", { name: "Leoben", exact: true }).click();
   await expect(page).toHaveURL(/\/municipalities\/overview\?municipality=61108/);
   await expect(page.getByTestId("municipality-details").getByTestId("municipality-network-panel")).toContainText(name, { timeout: 60_000 });
+
+  // The map overlay draws the network's contacts per municipality over any metric.
+  const toggle = page.getByTestId("map-overlay-toggle").first();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(page).toHaveURL(/[?&]network=1/);
+  await expect(page.getByTestId("municipality-map")).toHaveAttribute("data-overlay-markers", /^[1-9]\d*$/);
+  await toggle.click();
+  await expect(page.getByTestId("municipality-map")).not.toHaveAttribute("data-overlay-markers", /.*/);
   expect(errors).toEqual([]);
 });
