@@ -8,12 +8,13 @@ import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import {
   contactFor,
   fail,
+  recordInteraction,
   removeUnusedTags,
   replaceContactTags,
   revalidateNetwork,
   type NetworkActionResult,
 } from "./action-helpers";
-import { networkContacts, networkContactTags, networkLeads, networkTags } from "./schema";
+import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 import {
   contactSchema,
   contactTagsSchema,
@@ -48,6 +49,16 @@ export async function quickCaptureContact(input: QuickCaptureInput): Promise<Net
       .get().id;
     if (data.contactId) {
       tx.update(networkContacts).set({ updatedAt: new Date() }).where(eq(networkContacts.id, id)).run();
+    }
+    if (data.metToday) {
+      // Several captures after one conversation should log it once.
+      const occurredOn = localDateInZone(new Date(), TIME_ZONE);
+      const logged = tx
+        .select({ id: networkInteractions.id })
+        .from(networkInteractions)
+        .where(and(eq(networkInteractions.contactId, id), eq(networkInteractions.occurredOn, occurredOn)))
+        .get();
+      if (!logged) recordInteraction(tx, { contactId: id, occurredOn, channel: "meeting", note: "", userId: viewer.id });
     }
     if (data.note) {
       tx.insert(networkLeads).values({ contactId: id, kind: data.kind, summary: data.note, createdBy: viewer.id }).run();
@@ -84,18 +95,15 @@ export async function updateNetworkContact(input: ContactInput): Promise<Network
   return { ok: true };
 }
 
-/** "Spoke to them today": sets the last contact date without opening the form. */
+/** "Spoke to them today": logs a conversation for today without opening a form. */
 export async function markNetworkContactContacted(id: string): Promise<NetworkActionResult> {
   const viewer = await requireUserOrThrow();
   const parsedId = idSchema.safeParse(id);
   if (!parsedId.success) return fail("invalid");
   const access = contactFor(parsedId.data, viewer, "edit");
   if (!access.ok) return access;
-  const now = new Date();
-  db.update(networkContacts)
-    .set({ lastContactOn: localDateInZone(now, TIME_ZONE), updatedAt: now })
-    .where(eq(networkContacts.id, access.contact.id))
-    .run();
+  const occurredOn = localDateInZone(new Date(), TIME_ZONE);
+  db.transaction((tx) => recordInteraction(tx, { contactId: access.contact.id, occurredOn, channel: "meeting", note: "", userId: viewer.id }));
   revalidateNetwork();
   return { ok: true };
 }

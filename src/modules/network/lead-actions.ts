@@ -5,8 +5,9 @@ import { db } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
 import { canViewContact, loadContact } from "./access";
 import { contactFor, fail, revalidateNetwork, type NetworkActionResult } from "./action-helpers";
+import { tasks } from "@/db/schema";
 import { networkContacts, networkLeads } from "./schema";
-import { idSchema, leadSchema, leadStatusSchema, type LeadInput } from "./validation";
+import { idSchema, leadSchema, leadStatusSchema, leadTaskLinkSchema, type LeadInput } from "./validation";
 
 function loadLead(id: string) {
   return db.select().from(networkLeads).where(eq(networkLeads.id, id)).get();
@@ -70,6 +71,22 @@ export async function deleteNetworkLead(id: string): Promise<NetworkActionResult
   const access = contactFor(lead.contactId, viewer, "edit");
   if (!access.ok) return access;
   db.delete(networkLeads).where(eq(networkLeads.id, lead.id)).run();
+  revalidateNetwork();
+  return { ok: true };
+}
+
+/** Links a task created from a lead's next step, so the lead can show its progress. */
+export async function linkNetworkLeadTask(input: { leadId: string; taskId: string }): Promise<NetworkActionResult> {
+  const viewer = await requireUserOrThrow();
+  const parsed = leadTaskLinkSchema.safeParse(input);
+  if (!parsed.success) return fail("invalid");
+  const lead = loadLead(parsed.data.leadId);
+  if (!lead) return fail("notFound");
+  const access = contactFor(lead.contactId, viewer, "edit");
+  if (!access.ok) return access;
+  const task = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, parsed.data.taskId)).get();
+  if (!task) return fail("invalid");
+  db.update(networkLeads).set({ taskId: task.id, updatedAt: new Date() }).where(eq(networkLeads.id, lead.id)).run();
   revalidateNetwork();
   return { ok: true };
 }

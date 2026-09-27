@@ -387,7 +387,8 @@
       "existingHint": "Die Notiz wird beim bestehenden Kontakt als offene Möglichkeit ergänzt.",
       "save": "Speichern",
       "saved": "Für {name} gespeichert",
-      "open": "Öffnen"
+      "open": "Öffnen",
+      "metToday": "Heute gesprochen"
     },
     "list": {
       "search": "Suchen",
@@ -413,7 +414,7 @@
       "unset": "Nicht angegeben",
       "saved": "Kontakt gespeichert",
       "markContacted": "Heute gesprochen",
-      "contactedToday": "Letzter Kontakt auf heute gesetzt",
+      "contactedToday": "Heutiges Gespräch eingetragen",
       "leadsTitle": "Möglichkeiten",
       "noLeads": "Noch nichts notiert: Wobei könnte diese Person helfen?",
       "introducedBy": "Vorgestellt über",
@@ -446,6 +447,33 @@
       "none": "Keine Tags",
       "edit": "Tags bearbeiten",
       "saved": "Tags gespeichert"
+    },
+    "task": {
+      "create": "Aufgabe erstellen",
+      "open": "Aufgabe offen",
+      "done": "Aufgabe erledigt",
+      "linked": "Aufgabe mit dieser Möglichkeit verknüpft"
+    },
+    "history": {
+      "title": "Verlauf",
+      "date": "Datum",
+      "channel": "Art",
+      "note": "Notiz",
+      "notePlaceholder": "Worum ging es? (optional)",
+      "add": "Eintragen",
+      "delete": "Eintrag löschen",
+      "empty": "Noch keine Gespräche eingetragen."
+    },
+    "channels": {
+      "meeting": "Gespräch",
+      "call": "Telefonat",
+      "message": "Nachricht",
+      "email": "E-Mail",
+      "event": "Veranstaltung",
+      "other": "Sonstiges"
+    },
+    "overview": {
+      "empty": "Nichts offen. Erfasste Angebote und Intros erscheinen hier."
     }
   },
   "municipalities": {
@@ -4856,6 +4884,7 @@
   },
   "overviewLayout": {
     "recentlyOpened": "Zuletzt geöffnet",
+    "network": "Netzwerk · Nachfassen",
     "recentHint": "Dein Verlauf in diesem Browser, zuletzt geöffnet zuerst.",
     "recentLoading": "Zuletzt geöffnete Inhalte werden geladen…",
     "recentFailed": "Der Verlauf konnte nicht geladen werden.",

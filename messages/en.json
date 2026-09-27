@@ -387,7 +387,8 @@
       "existingHint": "The note is added to the existing contact as an open opportunity.",
       "save": "Save",
       "saved": "Saved for {name}",
-      "open": "Open"
+      "open": "Open",
+      "metToday": "We talked today"
     },
     "list": {
       "search": "Search",
@@ -413,7 +414,7 @@
       "unset": "Not set",
       "saved": "Contact saved",
       "markContacted": "Spoke today",
-      "contactedToday": "Last contact set to today",
+      "contactedToday": "Today's conversation logged",
       "leadsTitle": "Opportunities",
       "noLeads": "Nothing noted yet: what could this person help with?",
       "introducedBy": "Introduced via",
@@ -446,6 +447,33 @@
       "none": "No tags",
       "edit": "Edit tags",
       "saved": "Tags saved"
+    },
+    "task": {
+      "create": "Make a task",
+      "open": "Task open",
+      "done": "Task done",
+      "linked": "Task linked to this opportunity"
+    },
+    "history": {
+      "title": "History",
+      "date": "Date",
+      "channel": "How",
+      "note": "Note",
+      "notePlaceholder": "What was it about? (optional)",
+      "add": "Log",
+      "delete": "Delete entry",
+      "empty": "No conversations logged yet."
+    },
+    "channels": {
+      "meeting": "Conversation",
+      "call": "Call",
+      "message": "Message",
+      "email": "Email",
+      "event": "Event",
+      "other": "Other"
+    },
+    "overview": {
+      "empty": "No open follow-ups. Captured offers and intros appear here."
     }
   },
   "municipalities": {
@@ -4854,6 +4882,7 @@
   },
   "overviewLayout": {
     "recentlyOpened": "Recently opened",
+    "network": "Network · follow-ups",
     "recentHint": "Your history in this browser, newest first.",
     "recentLoading": "Loading recent items…",
     "recentFailed": "Recent items could not be loaded.",

@@ -11,6 +11,7 @@ import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVis
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
 import { ContactEditDialog } from "./contact-edit-dialog";
 import { ContactTagsEditor } from "./contact-tags-editor";
+import { InteractionLog } from "./interaction-log";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
 import { dateOnly } from "./network-ui";
@@ -59,7 +60,7 @@ export function ContactDetail({
   ].filter((fact) => fact.value);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="network-contact-detail">
       <Link href="/network" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ArrowLeft className="size-4" />
         {t("contact.back")}
@@ -145,6 +146,8 @@ export function ContactDetail({
           <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("contact.noLeads")}</p>
         )}
       </section>
+
+      <InteractionLog contactId={contact.id} interactions={contact.interactions} canEdit={contact.canEdit} today={today} />
 
       {contact.introducedBy.length > 0 && (
         <section className="space-y-2">

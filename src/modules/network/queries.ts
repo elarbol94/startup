@@ -1,14 +1,15 @@
 import "server-only";
 
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or } from "drizzle-orm";
 import { db } from "@/db";
+import { tasks } from "@/db/schema";
 import { canEditContact, canManageContact, visibleContactCondition, type NetworkViewer } from "./access";
 import type { LeadStatus } from "./constants";
 import { compareLeads, isLeadActive, matchesSearch, normalizeText } from "./network-utils";
-import { networkContacts, networkContactTags, networkLeads, networkTags } from "./schema";
+import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 
 export type NetworkTag = { id: string; name: string };
-export type NetworkContactOption = { id: string; name: string; organization: string };
+export type NetworkContactOption = { id: string; name: string; organization: string; visibility: "private" | "team" };
 
 function tagsByContact(contactIds: string[]) {
   const map = new Map<string, NetworkTag[]>();
@@ -44,7 +45,12 @@ function visibleContacts(viewer: NetworkViewer) {
 /** Name options for autocomplete and for picking an introduced contact. */
 export function listNetworkContactOptions(viewer: NetworkViewer): NetworkContactOption[] {
   return db
-    .select({ id: networkContacts.id, name: networkContacts.name, organization: networkContacts.organization })
+    .select({
+      id: networkContacts.id,
+      name: networkContacts.name,
+      organization: networkContacts.organization,
+      visibility: networkContacts.visibility,
+    })
     .from(networkContacts)
     .where(visibleContactCondition(viewer.id))
     .orderBy(asc(networkContacts.name))
@@ -119,6 +125,8 @@ export type NetworkLeadView = {
   id: string;
   contactId: string;
   contactName: string;
+  /** Private contacts stay out of anything the team sees, such as task origins. */
+  contactVisibility: "private" | "team";
   kind: typeof networkLeads.$inferSelect.kind;
   summary: string;
   targetName: string;
@@ -128,17 +136,34 @@ export type NetworkLeadView = {
   status: LeadStatus;
   nextStep: string;
   dueOn: string | null;
+  /** The task made from this lead's next step, if any. */
+  task: { id: string; title: string; status: "open" | "done"; projectId: string | null } | null;
   createdAt: Date;
 };
+
+function linkedTasks(rows: { taskId: string | null }[]) {
+  const ids = [...new Set(rows.flatMap((row) => (row.taskId ? [row.taskId] : [])))];
+  if (!ids.length) return new Map<string, NonNullable<NetworkLeadView["task"]>>();
+  return new Map(
+    db
+      .select({ id: tasks.id, title: tasks.title, status: tasks.status, projectId: tasks.projectId })
+      .from(tasks)
+      .where(inArray(tasks.id, ids))
+      .all()
+      .map((task) => [task.id, task]),
+  );
+}
 
 function toLeadViews(
   rows: (typeof networkLeads.$inferSelect)[],
   contactsById: Map<string, NetworkContactOption>,
 ): NetworkLeadView[] {
+  const tasksById = linkedTasks(rows);
   return rows.sort(compareLeads).map((lead) => ({
     id: lead.id,
     contactId: lead.contactId,
     contactName: contactsById.get(lead.contactId)?.name ?? "",
+    contactVisibility: contactsById.get(lead.contactId)?.visibility ?? "private",
     kind: lead.kind,
     summary: lead.summary,
     targetName: lead.targetName,
@@ -147,6 +172,7 @@ function toLeadViews(
     status: lead.status,
     nextStep: lead.nextStep,
     dueOn: lead.dueOn,
+    task: lead.taskId ? tasksById.get(lead.taskId) ?? null : null,
     createdAt: lead.createdAt,
   }));
 }
@@ -175,6 +201,7 @@ export type NetworkContactDetail = typeof networkContacts.$inferSelect & {
   leads: NetworkLeadView[];
   /** Leads on other contacts that point at this one: "introduced by". */
   introducedBy: NetworkLeadView[];
+  interactions: (typeof networkInteractions.$inferSelect)[];
 };
 
 export function getNetworkContact(viewer: NetworkViewer, id: string): NetworkContactDetail | null {
@@ -201,6 +228,12 @@ export function getNetworkContact(viewer: NetworkViewer, id: string): NetworkCon
     tags: tagsByContact([id]).get(id) ?? [],
     leads: toLeadViews(leads, contactsById),
     introducedBy: toLeadViews(introductions, contactsById),
+    interactions: db
+      .select()
+      .from(networkInteractions)
+      .where(eq(networkInteractions.contactId, id))
+      .orderBy(desc(networkInteractions.occurredOn), desc(networkInteractions.createdAt))
+      .all(),
   };
 }
 
@@ -215,4 +248,27 @@ export function listNetworkTagNames(viewer: NetworkViewer) {
     .orderBy(asc(networkTags.normalizedName))
     .all()
     .map((row) => row.name);
+}
+
+/**
+ * Dashboard: active leads on the viewer's own contacts plus those the viewer
+ * captured on team contacts, so a shared contact does not flood everyone.
+ */
+export function listNetworkFollowUps(viewer: NetworkViewer, limit = 8) {
+  const rows = db
+    .select({ lead: networkLeads })
+    .from(networkLeads)
+    .innerJoin(networkContacts, eq(networkContacts.id, networkLeads.contactId))
+    .where(and(
+      inArray(networkLeads.status, ["open", "asked"]),
+      or(
+        eq(networkContacts.ownerId, viewer.id),
+        and(eq(networkContacts.visibility, "team"), eq(networkLeads.createdBy, viewer.id)),
+      ),
+    ))
+    .all()
+    .map((row) => row.lead);
+  const contactsById = new Map(listNetworkContactOptions(viewer).map((contact) => [contact.id, contact]));
+  const leads = toLeadViews(rows, contactsById);
+  return { leads: leads.slice(0, limit), total: leads.length };
 }

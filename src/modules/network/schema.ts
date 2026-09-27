@@ -6,11 +6,12 @@ import {
   contactClosenessLevels,
   contactRelationships,
   contactVisibilities,
+  interactionChannels,
   leadKinds,
   leadStatuses,
 } from "./constants";
 
-export { contactClosenessLevels, contactRelationships, contactVisibilities, leadKinds, leadStatuses };
+export { contactClosenessLevels, contactRelationships, contactVisibilities, interactionChannels, leadKinds, leadStatuses };
 
 /**
  * A person in the founders' network. Private to its owner unless shared with
@@ -99,4 +100,23 @@ export const networkContactTags = sqliteTable(
     tagId: text("tag_id").notNull().references(() => networkTags.id, { onDelete: "cascade" }),
   },
   (table) => [primaryKey({ columns: [table.contactId, table.tagId] }), index("network_contact_tags_tag_idx").on(table.tagId)],
+);
+
+/**
+ * One touchpoint with a contact: "met at the Gründerstammtisch", "called about
+ * the intro". The contact's `lastContactOn` follows the latest entry.
+ */
+export const networkInteractions = sqliteTable(
+  "network_interactions",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createId()),
+    contactId: text("contact_id").notNull().references(() => networkContacts.id, { onDelete: "cascade" }),
+    /** YYYY-MM-DD */
+    occurredOn: text("occurred_on").notNull(),
+    channel: text("channel", { enum: interactionChannels }).notNull().default("meeting"),
+    note: text("note").notNull().default(""),
+    createdBy: text("created_by").notNull().references(() => user.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [index("network_interactions_contact_date_idx").on(table.contactId, table.occurredOn)],
 );

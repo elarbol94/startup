@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,8 +27,8 @@ import { selectClassName } from "./network-ui";
 import { TagSuggestions } from "./tag-suggestions";
 import { useNetworkAction } from "./use-network-action";
 
-type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string };
-const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: "" };
+type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string; metToday: boolean };
+const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: "", metToday: true };
 const NEW_CONTACT = "new";
 
 /**
@@ -69,6 +70,7 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
         kind: form.kind,
         metContext: existingId ? "" : form.metContext,
         tags: parseTagInput(form.tags),
+        metToday: form.metToday,
       }),
       (result) => {
         toast.success(t("quick.saved", { name }), {
@@ -177,6 +179,10 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
               />
               <TagSuggestions value={form.tags} suggestions={tags} onChange={(tagsValue) => setForm({ ...form, tags: tagsValue })} />
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox checked={form.metToday} onCheckedChange={(checked) => setForm({ ...form, metToday: checked === true })} />
+              {t("quick.metToday")}
+            </label>
             <p className="text-xs text-muted-foreground">{existingId ? t("quick.existingHint") : t("quick.privateHint")}</p>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={close}>{t("cancel")}</Button>
