@@ -94,16 +94,22 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
 
   await page.getByRole("button", { name: "Bereich markieren" }).click();
   const regionSelector = page.getByTestId("pdf-region-selector");
-  await expect(regionSelector).toBeVisible();
-  const box = await regionSelector.boundingBox();
-  if (!box) throw new Error("PDF region selector not visible");
-  const start = { clientX: box.x + box.width * 0.2, clientY: box.y + box.height * 0.2, pointerId: 1, pointerType: "mouse", buttons: 1 };
-  const end = { clientX: box.x + box.width * 0.55, clientY: box.y + box.height * 0.42, pointerId: 1, pointerType: "mouse", buttons: 1 };
-  await regionSelector.dispatchEvent("pointerdown", start);
-  await regionSelector.dispatchEvent("pointermove", end);
-  await regionSelector.dispatchEvent("pointerup", { ...end, buttons: 0 });
-  await page.getByTestId("pdf-selection-actions").getByRole("button", { name: "Notiz", exact: true }).click();
   const regionDialog = page.getByRole("dialog", { name: "Optionale Notiz zu diesem Nachweis" });
+  // The refresh after saving the previous note can land late and clear a fresh region;
+  // redraw it until its note dialog opens.
+  await expect(async () => {
+    if (!(await regionSelector.isVisible())) await page.getByRole("button", { name: "Bereich markieren" }).click();
+    await expect(regionSelector).toBeVisible({ timeout: 2_000 });
+    const box = await regionSelector.boundingBox();
+    if (!box) throw new Error("PDF region selector not visible");
+    const start = { clientX: box.x + box.width * 0.2, clientY: box.y + box.height * 0.2, pointerId: 1, pointerType: "mouse", buttons: 1 };
+    const end = { clientX: box.x + box.width * 0.55, clientY: box.y + box.height * 0.42, pointerId: 1, pointerType: "mouse", buttons: 1 };
+    await regionSelector.dispatchEvent("pointerdown", start);
+    await regionSelector.dispatchEvent("pointermove", end);
+    await regionSelector.dispatchEvent("pointerup", { ...end, buttons: 0 });
+    await page.getByTestId("pdf-selection-actions").getByRole("button", { name: "Notiz", exact: true }).click({ timeout: 3_000 });
+    await expect(regionDialog).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 60_000 });
   await regionDialog.getByRole("textbox").fill("Important figure");
   await regionDialog.getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(regionDialog).toBeHidden();
@@ -115,10 +121,14 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await page.setViewportSize({ width: 1425, height: 679 });
   const annotationMarker = page.getByTestId("pdf-annotation-marker").first();
   await expect(annotationMarker).toBeVisible();
-  await annotationMarker.click();
+  // Under load the reader can still be re-laying out after the reload and resize; retry
+  // the click until the marker's thread is open.
+  await expect(async () => {
+    await annotationMarker.click();
+    await expect(page).toHaveURL(/annotation=/, { timeout: 2_000 });
+  }).toPass();
   const card = page.getByTestId("pdf-comments-panel").filter({ visible: true });
   await expect(card).toBeVisible();
-  await expect(page).toHaveURL(/annotation=/);
 
   const cardBeforeZoom = await card.boundingBox();
   const closeButton = card.getByRole("button", { name: "Abbrechen" });

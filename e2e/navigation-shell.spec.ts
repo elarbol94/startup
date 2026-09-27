@@ -44,6 +44,10 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expect(appSidebar).toBeVisible();
   await expect(researchSidebar).toBeVisible();
   await expectWidth(appSidebar, 56);
+  // The research panel starts expanded; collapsing it to the icon rail is remembered.
+  await expectWidth(researchSidebar, 208);
+  await researchSidebar.getByRole("button", { name: "Navigation einklappen" }).click();
+  await page.locator("[data-app-main]").hover();
   await expectWidth(researchSidebar, 56);
 
   await expect(appSidebar.getByRole("button", { name: "Wiki" })).toBeVisible();
@@ -58,30 +62,30 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
 
   await researchSidebar.hover();
   await expectWidth(appSidebar, 56);
-  await expectWidth(researchSidebar, 256);
+  await expectWidth(researchSidebar, 208);
   await page.locator("[data-app-main]").hover();
   await expectWidth(researchSidebar, 56);
   // The compact rail shows a search icon; hovering reveals the input.
   await researchSidebar.hover();
-  await expectWidth(researchSidebar, 256);
+  await expectWidth(researchSidebar, 208);
   const desktopResearchSearch = researchSidebar.getByRole("textbox", {
     name: "Dokumente und Quellen durchsuchen…",
   });
   await desktopResearchSearch.click();
-  await expectWidth(researchSidebar, 256);
+  await expectWidth(researchSidebar, 208);
   await expect(desktopResearchSearch).toBeFocused();
 
   await researchSidebar.getByRole("link", { name: "Dokumente", exact: true }).click();
   await expect(page).toHaveURL(/\/wiki\/pages$/);
   await expect(page.getByTestId("research-sidebar")).toHaveCount(1);
-  await expectWidth(researchSidebar, 256);
+  await expectWidth(researchSidebar, 208);
 
   await appSidebar.hover();
   await expectWidth(appSidebar, 240);
   await page.locator("[data-app-main]").hover();
   await expectWidth(appSidebar, 56);
   await researchSidebar.hover();
-  await expectWidth(researchSidebar, 256);
+  await expectWidth(researchSidebar, 208);
   await researchSidebar.getByRole("button", { name: "Schnelle Notiz" }).click();
   await submitNewDocumentTitle(page, "Focus mode note");
   await expect(page).toHaveURL(/\/wiki\/pages\/[^/]+$/);
