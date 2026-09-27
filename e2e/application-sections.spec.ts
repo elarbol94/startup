@@ -14,7 +14,7 @@ test("every application section is reachable from the keyboard navigation", asyn
     ["calendar", "/calendar"], ["accounting", "/accounting"],
     ["personnel", "/personnel"], ["documents", "/documents"],
     ["projects", "/projects"], ["wiki", "/wiki"],
-    ["municipalities", "/municipalities"], ["dashboard", "/"],
+    ["municipalities", "/municipalities"], ["network", "/network"], ["dashboard", "/"],
   ]) {
     await page.getByTestId("app-sidebar").locator(`[data-navigation-key="${key}"]`).press("Enter");
     await expect.poll(() => new URL(page.url()).pathname).toMatch(new RegExp(`^${route === "/" ? "/$" : route + "(?:/|$)"}`));

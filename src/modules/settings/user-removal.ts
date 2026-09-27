@@ -1,9 +1,18 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { eq, or, sql } from "drizzle-orm";
+import { and, eq, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
-import { account, session, user, userInvitations, userProfilePreferences } from "@/db/schema";
+import {
+  account,
+  networkContacts,
+  networkContactTags,
+  networkTags,
+  session,
+  user,
+  userInvitations,
+  userProfilePreferences,
+} from "@/db/schema";
 
 /** Keep the author row for business history; remove all account access atomically. */
 export function removeUserAccount(userId: string, adminId: string) {
@@ -33,6 +42,10 @@ export function removeUserAccount(userId: string, adminId: string) {
       eq(userInvitations.invitedBy, userId),
       sql`lower(${userInvitations.email}) = ${target.email.toLowerCase()}`,
     )).run();
+    // Private network contacts are personal notes about third parties that nobody else can
+    // reach; they leave with the account. Team contacts stay with the team.
+    tx.delete(networkContacts).where(and(eq(networkContacts.ownerId, userId), eq(networkContacts.visibility, "private"))).run();
+    tx.delete(networkTags).where(notInArray(networkTags.id, tx.selectDistinct({ id: networkContactTags.tagId }).from(networkContactTags))).run();
     return { error: null };
   }, { behavior: "immediate" });
 }

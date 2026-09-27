@@ -12,11 +12,13 @@ vi.mock("@/db", async () => {
   return { db, sqlite };
 });
 import { db, sqlite } from "@/db";
-import { account, session, user, userInvitations, userProfilePreferences, projects } from "@/db/schema";
+import { account, networkContacts, networkContactTags, networkLeads, networkTags, session, user, userInvitations, userProfilePreferences, projects } from "@/db/schema";
 import { removeUserAccount } from "./user-removal";
 import { listUsers } from "./queries";
 
 beforeEach(() => {
+  db.delete(networkContacts).run();
+  db.delete(networkTags).run();
   db.delete(projects).run();
   db.delete(user).run();
   const now = new Date();
@@ -79,4 +81,23 @@ it("rolls back all changes on a storage failure", () => {
 it("returns a missing-user error without affecting other accounts", () => {
   expect(removeUserAccount("missing", "admin")).toEqual({ error: "userNotFound" });
   expect(listUsers()).toHaveLength(2);
+});
+it("deletes the removed user's private network contacts but keeps shared ones", () => {
+  db.insert(networkContacts).values([
+    { id: "private", ownerId: "member", name: "Sebastian" },
+    { id: "shared", ownerId: "member", name: "Anna", visibility: "team" },
+    { id: "admins", ownerId: "admin", name: "Felix" },
+  ]).run();
+  db.insert(networkLeads).values({ contactId: "private", summary: "Knows someone at Klimabündnis", createdBy: "member" }).run();
+  db.insert(networkTags).values([
+    { id: "only-private", name: "Sustainability", normalizedName: "sustainability", createdBy: "member" },
+    { id: "shared-tag", name: "Design", normalizedName: "design", createdBy: "member" },
+  ]).run();
+  db.insert(networkContactTags).values([{ contactId: "private", tagId: "only-private" }, { contactId: "shared", tagId: "shared-tag" }]).run();
+
+  expect(removeUserAccount("member", "admin")).toEqual({ error: null });
+  expect(db.select({ id: networkContacts.id }).from(networkContacts).all().map((row) => row.id).sort()).toEqual(["admins", "shared"]);
+  expect(db.select().from(networkLeads).all()).toEqual([]);
+  expect(db.select({ id: networkTags.id }).from(networkTags).all()).toEqual([{ id: "shared-tag" }]);
+  expect(sqlite.pragma("foreign_key_check")).toEqual([]);
 });
