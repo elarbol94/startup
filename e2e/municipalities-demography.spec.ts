@@ -13,7 +13,7 @@ async function login(page: Page) {
     await page.locator("#password").fill("super-secret-1");
     await page.getByRole("button", { name: "Anmelden" }).click();
   }
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible({ timeout: 30_000 });
 }
 
 test("age structure state, details and chart are shareable and interactive", async ({ page }) => {

@@ -20,7 +20,7 @@ async function login(page: Page) {
     await page.waitForURL((url) => !url.pathname.startsWith("/login"));
   }
   await page.goto("/");
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 test("cost overview is shareable, sourced, gap-safe and charted", async ({ page }) => {

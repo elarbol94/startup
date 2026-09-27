@@ -84,7 +84,7 @@ test("plan a category and compare it with actual journal entries", async ({ page
   await page.goto("/accounting/planning?year=2026");
   await expect(page.getByRole("heading", { name: "Planung 2026" })).toBeVisible();
 
-  const julyPlan = page.getByLabel(/Software & Hosting.*Jul$/i);
+  const julyPlan = page.getByRole("textbox", { name: "Software & Hosting Juli", exact: true });
   await julyPlan.fill("100");
   await page.getByRole("button", { name: "Planung speichern" }).click();
   await expect(page.getByText("Gespeichert")).toBeVisible();
@@ -92,10 +92,11 @@ test("plan a category and compare it with actual journal entries", async ({ page
   const row = page.getByRole("row", { name: /Software & Hosting/ });
   await expect(row).toContainText("€ 100,00");
   await expect(row).toContainText("€ 120,00");
-  await expect(row).toContainText("€ 20,00");
+  // The variance (actual − plan) is shown as the sum cell's tooltip.
+  await expect(row.locator("td[title]")).toHaveAttribute("title", /€\s20,00$/);
 
   await page.reload();
-  await expect(page.getByLabel(/Software & Hosting.*Jul$/i)).toHaveValue("100,00");
+  await expect(page.getByRole("textbox", { name: "Software & Hosting Juli", exact: true })).toHaveValue("100,00");
 });
 
 test("keeps planning section headings fixed during horizontal scrolling", async ({ page }) => {
@@ -108,14 +109,13 @@ test("keeps planning section headings fixed during horizontal scrolling", async 
   await page.goto("/accounting/planning?year=2026");
   await expect(page.getByRole("heading", { name: "Planung 2026" })).toBeVisible();
 
-  const tableContainer = page.locator('div[data-slot="table-container"]');
+  const tableContainer = page.getByTestId("planning-grid");
   await expect(tableContainer).toBeVisible();
 
-  // Desktop and responsive table shells intentionally expose the same
-  // semantic section row; exercise the visible desktop instance.
+  // The mobile month view is hidden at this width; exercise the desktop grid.
   const expenseHeading = page.getByRole("row", { name: "Ausgaben" }).first();
-  const expenseLabel = expenseHeading.locator("td").first();
-  const monthInput = page.getByLabel("Miete Jan");
+  const expenseLabel = expenseHeading.locator("th").first();
+  const monthInput = page.getByRole("textbox", { name: "Software & Hosting Januar", exact: true });
 
   const before = {
     maxScroll: await tableContainer.evaluate(
@@ -267,7 +267,7 @@ test("language switcher changes the UI to English and back", async ({ page }) =>
   await userMenu.click();
   await page.getByText("Sprache").hover();
   await page.getByRole("menuitem", { name: "Englisch" }).click();
-  await expect(page.getByText("Welcome, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Welcome, E2E Admin!" })).toBeVisible();
 
   // Sidebar is translated too.
   await expect(page.getByRole("button", { name: "Accounting", exact: true })).toBeVisible();
@@ -324,7 +324,7 @@ test("plan personnel costs, preserve a scenario, and create a consolidated draft
   await expect(page.getByText(personName, { exact: true })).toBeVisible();
 
   await page.getByLabel("Personalkosten").getByRole("button", { name: "Übersicht", exact: true }).click();
-  await page.locator("#close-month").fill("2026-07");
+  await page.locator("#close-month").selectOption("2026-07");
   await page.getByRole("button", { name: "Monat als Sammelentwurf übergeben" }).click();
   await expect(page.getByText("Sammelentwurf erstellt")).toBeVisible();
 

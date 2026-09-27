@@ -8,7 +8,7 @@ async function login(page: Page) {
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible({ timeout: 30_000 });
 }
 
 async function quickNote(page: Page, title: string, body: string) {
@@ -482,7 +482,7 @@ test("proofing language persists and spelling and writing issues use distinct st
   const signup = await page.request.post("/api/auth/sign-up/email", { data: { name: "E2E Admin", username: "admin", displayUsername: "admin", email: "admin" + String.fromCharCode(64) + "example.com", password: "super-secret-1" } });
   if (signup.ok()) {
     await page.goto("/");
-    await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible({ timeout: 30_000 });
   } else {
     await login(page);
   }
