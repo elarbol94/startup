@@ -139,6 +139,8 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
 
   function openSupportingSourcePicker() {
     setPanel("details");
+    // The picker only renders while the section is expanded.
+    setSupportingSourcesCollapsed(false);
     setTimeout(() => {
       supportingSourceSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       setSupportingSourceOpen(true);

@@ -238,7 +238,8 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     {!embedded && <div className="contents" data-app-chrome>{navigation}</div>}
     <main data-app-main className={cn("rail-content-transition min-w-0 flex-1 duration-[220ms] motion-reduce:transition-none", !embedded && "md:pl-[var(--app-rail-width,3.5rem)]")}>
       <div ref={surface} className="min-w-0" data-workspace-root>
-        {!embedded && <div className="sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2" data-workspace-toolbar>
+        {/* The wiki's fixed research rail sets --research-rail-width; start the tab bar beside it. */}
+        {!embedded && <div className={cn("sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2", primaryVisible && "md:ml-[var(--research-rail-width,0px)]")} data-workspace-toolbar>
           <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts="Alt+Q Alt+Shift+Q" title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));

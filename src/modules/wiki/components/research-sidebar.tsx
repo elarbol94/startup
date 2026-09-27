@@ -444,7 +444,8 @@ export function ResearchSidebar({
         className={cn(
           "research-rail-transition fixed inset-y-0 left-[var(--app-rail-width,3.5rem)] z-30 hidden h-dvh shrink-0 flex-col border-r bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex",
           expanded ? "w-52" : "w-14",
-          collapsed && peeking && "shadow-xl",
+          // While peeking the rail overlays the page, including the sticky workspace tab bar (z-40).
+          collapsed && peeking && "z-[45] shadow-xl",
         )}
         onMouseEnter={() => { if (collapsed) setPeeking(true); }}
         onMouseLeave={() => setPeeking(false)}

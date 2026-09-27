@@ -29,11 +29,14 @@ test("municipality map works with local geometry when basemap tiles are unavaila
   await page.route("https://mapsneu.wien.gv.at/**", (route) => route.abort());
   await page.setViewportSize({ width: 390, height: 844 });
   await login(page);
-  await page.getByRole("button", { name: "Hauptnavigation öffnen" }).click();
   const municipalityNavigation = page
     .getByTestId("app-navigation-sheet")
     .getByRole("button", { name: "Gemeinden", exact: true });
-  await expect(municipalityNavigation).toBeVisible();
+  // The server-rendered header is visible before it hydrates; retry until the sheet opens.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Hauptnavigation öffnen" }).click();
+    await expect(municipalityNavigation).toBeVisible({ timeout: 2_000 });
+  }).toPass();
   await page.goto("/municipalities/overview");
   await page.setViewportSize({ width: 1280, height: 900 });
 

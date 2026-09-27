@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.describe.configure({ mode: "serial" });
@@ -26,8 +27,15 @@ async function quickNote(page: Page, title: string, body: string) {
   await expect(page.getByRole("button", { name: title })).toBeVisible();
 }
 
+// Two "Mehr" menus: the page actions in the header (first) and the editor toolbar's (last).
+// The toolbar renders after the header, so wait for it before picking the last one.
 async function openEditorMore(page: Page) {
+  await expect(page.getByRole("group", { name: "Text gestalten" })).toBeVisible();
   await page.getByRole("button", { name: "Mehr", exact: true }).last().click();
+}
+
+async function openPageMore(page: Page) {
+  await page.getByRole("button", { name: "Mehr", exact: true }).first().click();
 }
 
 async function openEditorCommand(page: Page, query: string) {
@@ -51,13 +59,17 @@ test("knowledge launchpad prioritizes search, writing, and sources", async ({ pa
   await login(page);
   await page.goto("/wiki");
 
-  await expect(page.getByRole("heading", { name: "Was möchtest du heute wissen?" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Dokument schreiben" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Quelle hinzufügen" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Weiterarbeiten" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Zuletzt gelesen" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Alle Dokumente" })).toHaveAttribute("href", "/wiki/pages");
-  await expect(page.getByRole("link", { name: "Alle Quellen" })).toHaveAttribute("href", "/wiki/sources");
+  const main = page.locator("main main");
+  await expect(main.getByRole("heading", { name: "Dein Wiki", level: 1 })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Dokument schreiben" })).toBeVisible();
+  await expect(main.getByRole("button", { name: "Quelle hinzufügen" })).toBeVisible();
+  await expect(main.getByRole("region", { name: "Wiki durchsuchen" })).toBeVisible();
+  for (const section of ["Dokumente", "Quellen", "Präsentationen", "Zuletzt geöffnet"]) {
+    await expect(main.getByRole("heading", { name: section, exact: true, level: 2 })).toBeVisible();
+  }
+  const viewAll = main.getByRole("link", { name: "Alle ansehen" });
+  await expect(viewAll.nth(0)).toHaveAttribute("href", "/wiki/pages");
+  await expect(viewAll.nth(1)).toHaveAttribute("href", "/wiki/sources");
 
   const search = page.getByRole("textbox", { name: "Dokumente und Quellen durchsuchen…" });
   await search.fill("Onboarding");
@@ -115,12 +127,13 @@ test("global writing style previews, cancels, persists across pages, and reaches
 
   await page.reload();
   await expect(page.locator(".wiki-editor-surface")).toHaveCSS("--wiki-line-height", "1.35");
-  await page.getByRole("button", { name: "Seite exportieren" }).click();
-  const htmlHref = await page.locator('a[href*="format=html"]').getAttribute("href");
-  expect(htmlHref).toBeTruthy();
-  const htmlResponse = await page.request.get(htmlHref!);
-  expect(htmlResponse.status()).toBe(200);
-  const html = await htmlResponse.text();
+  // Export saves first, then downloads the rendered file.
+  await openPageMore(page);
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "HTML", exact: true }).click(),
+  ]);
+  const html = await readFile(await download.path(), "utf8");
   expect(html).toContain("--line-height: 1.35");
   expect(html).toContain("--list-item-spacing: 0em");
 
@@ -175,17 +188,28 @@ test("document mode persists page layout, document blocks, templates, and PDF ex
   await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
 
   await page.reload();
+  // Document mode persists; the side panel is transient and reopens from the tools menu.
+  await expect(page.getByTestId("wiki-editor")).toHaveAttribute("data-document-mode", "true");
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Dokumentlayout", exact: true }).click();
   await expect(page.getByTestId("document-layout-panel")).toBeVisible();
   await expect(page.locator(".wiki-document-page-break")).toHaveCount(1);
   await expect(page.locator("[data-document-variable='applicant']")).toContainText("applicant");
 
   await page.getByTestId("document-layout-panel").getByRole("tab", { name: "Prüfung" }).click();
-  const href = await page.getByTestId("document-layout-panel").locator('a[href*="format=pdf"]').getAttribute("href");
-  expect(href).toBeTruthy();
-  const response = await page.request.get(href!);
+  // The preview saves first, POSTs the export and opens the PDF in a new tab.
+  const [response, preview] = await Promise.all([
+    page.waitForResponse((candidate) => candidate.url().includes("/export?format=pdf") && candidate.request().method() === "POST"),
+    page.waitForEvent("popup"),
+    page.getByTestId("document-layout-panel").getByRole("button", { name: "PDF-Vorschau" }).click(),
+  ]);
+  await preview.close();
   expect(response.status()).toBe(200);
-  expect(response.headers()["content-type"]).toContain("application/pdf");
-  expect((await response.body()).length).toBeGreaterThan(1_000);
+  // The page consumes that body as a blob, so fetch the same export again to inspect it.
+  const pdf = await page.request.post(response.url(), { data: {} });
+  expect(pdf.status()).toBe(200);
+  expect(pdf.headers()["content-type"]).toContain("application/pdf");
+  expect((await pdf.body()).length).toBeGreaterThan(1_000);
 });
 
 test("editor productivity tools support links, rich-text paste, search, outline, and writing statistics", async ({ page, context }) => {
@@ -219,9 +243,9 @@ test("editor productivity tools support links, rich-text paste, search, outline,
     data.setData("text/html", "<h1><strong>Plain external text</strong></h1>");
     target?.dispatchEvent(new ClipboardEvent("paste", { bubbles: true, cancelable: true, clipboardData: data }));
   });
-  await expect(editor.getByText("Plain external text", { exact: true })).toBeVisible();
-  await expect(editor.getByRole("heading", { name: "Plain external text" })).toHaveCount(0);
-  await expect(editor.locator("strong").filter({ hasText: "Plain external text" })).toHaveCount(0);
+  // Rich paste (b2a2471) keeps external headings and bold instead of flattening them.
+  await expect(editor.getByRole("heading", { level: 1, name: "Plain external text" })).toBeVisible();
+  await expect(editor.locator("h1 strong").filter({ hasText: "Plain external text" })).toHaveCount(1);
 
   await page.keyboard.press("ControlOrMeta+f");
   const search = page.getByTestId("editor-search-panel");
@@ -231,10 +255,13 @@ test("editor productivity tools support links, rich-text paste, search, outline,
   await search.getByPlaceholder("Ersetzen durch…").fill("Gamma");
   await search.getByRole("button", { name: "Alle ersetzen" }).click();
   await expect(editor).toContainText("Gamma beta Gamma");
-  await page.getByRole("button", { name: "Suchen und ersetzen" }).click();
+  // Search toggles from the editor's "Mehr" menu; the outline opens from "Werkzeuge".
+  await openEditorMore(page);
+  await page.getByRole("menuitem", { name: "Suchen und ersetzen" }).click();
   await expect(search).toBeHidden();
 
-  await page.getByRole("button", { name: "Dokumentgliederung" }).click();
+  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Dokumentgliederung", exact: true }).click();
   const outline = page.getByTestId("editor-outline");
   await expect(outline.getByRole("button", { name: "Imported heading" })).toBeVisible();
   await outline.getByRole("button", { name: "Imported heading" }).click();
@@ -286,7 +313,7 @@ test("internal links create backlinks and unified search finds content", async (
   await page.locator(".ProseMirror").click();
   await page.getByRole("button", { name: "Dokument verlinken" }).click();
   await page.getByRole("button", { name: "Onboarding" }).first().click();
-  await expect(page.getByText("Nicht gespeichert", { exact: true })).toBeVisible();
+  // Autosave is quick enough that the transient "Nicht gespeichert" state is not reliably observable.
   await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
   const onboardingHref = await page.locator(".ProseMirror").getByRole("link", { name: "Onboarding" }).getAttribute("href");
   expect(onboardingHref).toBeTruthy();
@@ -343,7 +370,7 @@ test("subpages remain nested and deletion is recoverable", async ({ page }) => {
   await login(page);
   await page.goto("/wiki/pages");
   await page.getByRole("link", { name: "Onboarding" }).last().click();
-  await openEditorMore(page);
+  await openPageMore(page);
   await page.getByRole("menuitem", { name: "Unterseite anlegen" }).click();
   const subpageDialog = page.getByRole("dialog", { name: "Unterseite anlegen" });
   await subpageDialog.getByLabel("Titel", { exact: true }).fill("Erster Arbeitstag");
@@ -354,7 +381,7 @@ test("subpages remain nested and deletion is recoverable", async ({ page }) => {
   await page.getByTestId("page-title-input").press("Enter");
   await expect(page.getByRole("button", { name: "Umbenennen: Tag Eins" })).toBeVisible();
   page.once("dialog", (dialog) => dialog.accept());
-  await openEditorMore(page);
+  await openPageMore(page);
   await page.getByRole("menuitem", { name: "Seite löschen" }).click();
   await expect(page).toHaveURL(/\/wiki\/inbox/, { timeout: 30_000 });
   await page.goto("/wiki/trash");

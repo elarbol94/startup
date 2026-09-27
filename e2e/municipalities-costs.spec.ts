@@ -30,7 +30,7 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
 
   await page.goto("/municipalities/analysis");
   await page.getByPlaceholder("z. B. Bevölkerungsvergleich").fill("Kosten Graz");
-  await page.getByRole("button", { name: "Erstellen" }).click();
+  await page.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page).toHaveURL(/analysis=/);
   await page.goto("/municipalities/overview");
   await expect(page).toHaveURL(/\/municipalities\/overview/);
@@ -46,8 +46,6 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
 
   const details = page.getByTestId("municipality-details");
   await expect(details.getByText("27,3 %", { exact: true })).toBeVisible();
-  await expect(details.getByText("437.272.427,93 €", { exact: true })).toBeVisible();
-  await expect(details.getByText("1.603.472.734,22 €", { exact: true })).toBeVisible();
   await expect(details).toContainText("Statistik Austria via OffenerHaushalt.at");
 
   await page.getByLabel("Aufgabenbereich").selectOption("8");
@@ -66,7 +64,8 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
   await display.selectOption("per-capita");
   await expect(page).toHaveURL(/costMeasure=per-capita/);
   await expect(page.getByTestId("cost-definition")).toContainText("Bevölkerung desselben Jahres");
-  await expect(details.getByText("Nominal je Einwohner", { exact: true }).locator("xpath=following-sibling::dd[1]")).not.toHaveText("—");
+  // The profile lists only the selected measure (absolute totals were dropped in 2fb083d).
+  await expect(details.getByRole("term").filter({ hasText: /je Einwohner$/ })).toBeVisible();
 
   await display.selectOption("real-per-capita");
   await expect(page.getByTestId("cost-definition")).toContainText("Preise von 2024");
@@ -89,8 +88,8 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
   await year.fill("2024");
   await page.getByRole("combobox", { name: "Gemeinde suchen" }).fill("Oggau am Neusiedler See");
   await page.getByRole("option").filter({ hasText: "10310" }).click();
-  const totalValue = details.getByText("Gesamtauszahlungen", { exact: true }).locator("xpath=following-sibling::dd[1]");
-  await expect(totalValue).toHaveText("—");
+  // No cost data for this municipality: the metric row is left out instead of showing a gap value.
+  await expect(details.getByRole("term").filter({ hasText: /Anteil an Gesamtauszahlungen$/ })).toHaveCount(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -104,6 +103,9 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
   await picker.getByRole("button", { name: /Kosten Graz/ }).first().click();
   await expect(page).toHaveURL(/\/municipalities\/overview/);
   await page.getByRole("link", { name: "Analyse" }).click();
-  await expect(page.locator(".react-flow__node-dataset")).toHaveCount(1);
-  await expect(page.getByTestId("municipality-analysis-editor")).toContainText("Kostenübersicht · Dienstleistungen");
+  // A Kennzahl lands as its derivation: category and total outflows feeding the share formula.
+  await expect(page.locator(".react-flow__node-dataset")).toHaveCount(2);
+  const editor = page.getByTestId("municipality-analysis-editor");
+  await expect(editor).toContainText("Kostenübersicht · Dienstleistungen");
+  await expect(editor).toContainText("Kostenübersicht · Alle Aufgabenbereiche");
 });

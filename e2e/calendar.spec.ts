@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 test.describe.configure({ mode: "serial" });
 
@@ -35,6 +35,18 @@ async function login(page: Page) {
   await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
+
+/** The rail only expands on hover once hydrated; re-enter it until it does. */
+async function expandAppSidebar(page: Page, appSidebar: Locator) {
+  await expect(async () => {
+    await page.mouse.move(1000, 500);
+    await appSidebar.hover();
+    await expect
+      .poll(async () => Math.round((await appSidebar.boundingBox())?.width ?? 0), { timeout: 2_000 })
+      .toBe(240);
+  }).toPass({ timeout: 20_000 });
+}
+
 test("calendar rail entry opens the Flow week and creates a timed event", async ({
   page,
 }) => {
@@ -42,13 +54,7 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
-  await appSidebar.hover();
-  await expect
-    .poll(
-      async () => Math.round((await appSidebar.boundingBox())?.width ?? 0),
-      { timeout: 10_000 },
-    )
-    .toBe(240);
+  await expandAppSidebar(page, appSidebar);
   await appSidebar.getByRole("button", { name: "Kalender" }).click();
   await expect(page).toHaveURL(/\/calendar/, { timeout: 30_000 });
   await expect(page.getByTestId("calendar-week-scroll")).toBeVisible();
@@ -102,11 +108,9 @@ test("global new-event shortcut opens and clears the calendar dialog state", asy
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
-  await appSidebar.hover();
-  await expect
-    .poll(async () => Math.round((await appSidebar.boundingBox())?.width ?? 0))
-    .toBe(240);
-  await appSidebar.getByRole("link", { name: "Termin" }).click();
+  await expandAppSidebar(page, appSidebar);
+  await appSidebar.getByRole("button", { name: "Neu", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Neuer Termin" }).click();
 
   await expect(page).toHaveURL(/\/calendar\?.*new=event/);
   await expect(page.getByRole("dialog", { name: "Neuer Termin" })).toBeVisible();

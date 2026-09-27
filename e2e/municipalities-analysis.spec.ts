@@ -42,7 +42,7 @@ test("municipality subpages route and transfer a dataset into a saved analysis",
   await expect(page.getByTestId("kennzahl-catalog")).toBeVisible();
   await page.getByRole("tab", { name: "Gespeicherte Analysen" }).click();
   await page.getByPlaceholder("z. B. Bevölkerungsvergleich").fill("Graz und Wien");
-  await page.getByRole("button", { name: "Erstellen" }).click();
+  await page.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page).toHaveURL(/analysis=/);
   await expect(page.getByTestId("municipality-analysis-editor")).toBeVisible();
 
@@ -120,7 +120,7 @@ test("a constant and a time shift keep the number typed into them", async ({ pag
 
   await page.goto("/municipalities/analysis");
   await page.getByPlaceholder("z. B. Bevölkerungsvergleich").fill("Konstanten");
-  await page.getByRole("button", { name: "Erstellen" }).click();
+  await page.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page.getByTestId("municipality-analysis-editor")).toBeVisible();
 
   await page.getByRole("tab", { name: "Bausteine" }).click();
@@ -151,7 +151,7 @@ test("studio aliases, dimensions, notes, quick add, layout, and panels persist",
 
   await page.goto("/municipalities/analysis");
   await page.getByPlaceholder("z. B. Bevölkerungsvergleich").fill("Studio Werkzeuge");
-  await page.getByRole("button", { name: "Erstellen" }).click();
+  await page.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page.getByTestId("municipality-analysis-editor")).toBeVisible();
 
   await page.keyboard.press("ControlOrMeta+KeyK");
