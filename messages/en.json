@@ -339,7 +339,9 @@
       "targetContact": "Already in our network as",
       "nextStep": "Next step",
       "dueOn": "Follow up by",
-      "website": "Website"
+      "website": "Website",
+      "municipality": "Lives in",
+      "organizationMunicipality": "Municipality"
     },
     "relationships": {
       "friend": "Friend",
@@ -512,6 +514,15 @@
       "panelEmpty": "No contacts linked yet.",
       "chooseContact": "Choose a contact…",
       "openLeads": "{count, plural, one {# open opportunity} other {# open opportunities}}"
+    },
+    "municipality": {
+      "placeholder": "Search municipality, e.g. Leoben",
+      "clear": "Remove {name}",
+      "panelTitle": "Network",
+      "loading": "Loading contacts…",
+      "failed": "Contacts could not be loaded.",
+      "empty": "No one from the network lives here yet, and no organisation here is known.",
+      "residents": "Live here"
     }
   },
   "municipalities": {

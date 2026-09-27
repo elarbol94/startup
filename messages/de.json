@@ -339,7 +339,9 @@
       "targetContact": "Schon im Netzwerk als",
       "nextStep": "Nächster Schritt",
       "dueOn": "Nachfassen bis",
-      "website": "Website"
+      "website": "Website",
+      "municipality": "Wohnort",
+      "organizationMunicipality": "Gemeinde"
     },
     "relationships": {
       "friend": "Freund:in",
@@ -512,6 +514,15 @@
       "panelEmpty": "Noch keine Kontakte verknüpft.",
       "chooseContact": "Kontakt auswählen…",
       "openLeads": "{count, plural, one {# offene Möglichkeit} other {# offene Möglichkeiten}}"
+    },
+    "municipality": {
+      "placeholder": "Gemeinde suchen, z. B. Leoben",
+      "clear": "{name} entfernen",
+      "panelTitle": "Netzwerk",
+      "loading": "Kontakte werden geladen…",
+      "failed": "Die Kontakte konnten nicht geladen werden.",
+      "empty": "Hier wohnt noch niemand aus dem Netzwerk, und keine Organisation hier ist bekannt.",
+      "residents": "Wohnen hier"
     }
   },
   "municipalities": {

@@ -16,6 +16,7 @@ import { InteractionLog } from "./interaction-log";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
 import { dateOnly } from "./network-ui";
+import { MunicipalityLink } from "./municipality-link";
 import { useNetworkAction } from "./use-network-action";
 
 export function ContactDetail({
@@ -55,6 +56,7 @@ export function ContactDetail({
   const facts = [
     { label: t("fields.relationship"), value: contact.relationship && t(`relationships.${contact.relationship}`) },
     { label: t("fields.closeness"), value: contact.closeness && t(`closeness.${contact.closeness}`) },
+    { label: t("fields.municipality"), value: contact.municipalityCode && <MunicipalityLink code={contact.municipalityCode} name={contact.municipalityName ?? contact.municipalityCode} /> },
     { label: t("fields.metContext"), value: contact.metContext },
     { label: t("fields.lastContactOn"), value: contact.lastContactOn && formatDate(contact.lastContactOn) },
     { label: t("fields.email"), value: contact.email && <a className="underline-offset-4 hover:underline" href={`mailto:${contact.email}`}>{contact.email}</a> },

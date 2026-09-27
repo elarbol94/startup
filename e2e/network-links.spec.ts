@@ -29,6 +29,9 @@ test("groups contacts by organisation and links them to a project", async ({ pag
   await detail.getByRole("button", { name: "Bearbeiten", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Kontakt bearbeiten" });
   await edit.getByLabel("Organisation", { exact: true }).fill(`Stadtgemeinde Leoben ${suffix}`);
+  await edit.getByLabel("Wohnort").fill("Leob");
+  await edit.getByRole("option", { name: /Leoben/ }).first().click();
+  await expect(edit.getByTestId("municipality-picker-value")).toHaveText("Leoben");
   await edit.getByRole("button", { name: "Speichern" }).click();
   await expect(edit).toHaveCount(0);
   const contactUrl = page.url();
@@ -51,5 +54,11 @@ test("groups contacts by organisation and links them to a project", async ({ pag
   const projectHref = await link.getAttribute("href");
   await page.goto(`${projectHref}?view=knowledge`);
   await expect(page.getByTestId("network-contacts-panel")).toContainText(name);
+
+  // Where the contact lives links into the municipality section, which lists them.
+  await page.goto(contactUrl);
+  await detail.getByRole("link", { name: "Leoben", exact: true }).click();
+  await expect(page).toHaveURL(/\/municipalities\/overview\?municipality=61108/);
+  await expect(page.getByTestId("municipality-details").getByTestId("municipality-network-panel")).toContainText(name, { timeout: 60_000 });
   expect(errors).toEqual([]);
 });

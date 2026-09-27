@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { updateNetworkContact } from "../contact-actions";
 import { contactClosenessLevels, contactRelationships } from "../constants";
 import type { NetworkContactDetail } from "../queries";
+import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
 import { selectClassName } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -33,6 +34,7 @@ type FormState = {
   linkedinUrl: string;
   notes: string;
   lastContactOn: string;
+  municipality: MunicipalityValue;
 };
 
 function initialForm(contact: NetworkContactDetail): FormState {
@@ -48,6 +50,7 @@ function initialForm(contact: NetworkContactDetail): FormState {
     linkedinUrl: contact.linkedinUrl,
     notes: contact.notes,
     lastContactOn: contact.lastContactOn ?? "",
+    municipality: contact.municipalityCode ? { code: contact.municipalityCode, name: contact.municipalityName ?? contact.municipalityCode } : null,
   };
 }
 
@@ -81,6 +84,7 @@ function ContactForm({ contact, organizationNames, onClose }: { contact: Network
     run(
       () => updateNetworkContact({
         ...form,
+        municipalityCode: form.municipality?.code ?? null,
         id: contact.id,
         relationship: (form.relationship || null) as (typeof contactRelationships)[number] | null,
         closeness: (form.closeness || null) as (typeof contactClosenessLevels)[number] | null,
@@ -93,7 +97,7 @@ function ContactForm({ contact, organizationNames, onClose }: { contact: Network
     );
   }
 
-  const field = (key: keyof FormState, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
+  const field = (key: Exclude<keyof FormState, "municipality">, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={`${id}-${key}`}>{t(`fields.${key}`)}</Label>
       <Input
@@ -138,6 +142,10 @@ function ContactForm({ contact, organizationNames, onClose }: { contact: Network
             </select>
           </div>
           {field("metContext", { maxLength: 300, placeholder: t("fields.metContextPlaceholder") })}
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-municipality`}>{t("fields.municipality")}</Label>
+            <MunicipalityPicker id={`${id}-municipality`} value={form.municipality} onChange={(municipality) => set({ municipality })} />
+          </div>
           {field("lastContactOn", { type: "date" })}
           {field("email", { type: "email", maxLength: 254 })}
           {field("phone", { type: "tel", maxLength: 60 })}
