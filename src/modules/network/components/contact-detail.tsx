@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
 import { ContactEditDialog } from "./contact-edit-dialog";
+import { ContactLinks } from "./contact-links";
 import { ContactTagsEditor } from "./contact-tags-editor";
 import { InteractionLog } from "./interaction-log";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
@@ -21,11 +22,13 @@ export function ContactDetail({
   contact,
   contacts,
   tagSuggestions,
+  organizationNames,
   today,
 }: {
   contact: NetworkContactDetail;
   contacts: NetworkContactOption[];
   tagSuggestions: string[];
+  organizationNames: string[];
   today: string;
 }) {
   const t = useTranslations("network");
@@ -71,7 +74,15 @@ export function ContactDetail({
           <div className="min-w-0">
             <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
             {(contact.role || contact.organization) && (
-              <p className="text-sm text-muted-foreground">{[contact.role, contact.organization].filter(Boolean).join(" · ")}</p>
+              <p className="text-sm text-muted-foreground">
+                {contact.role}
+                {contact.role && contact.organization && " · "}
+                {contact.organizationId ? (
+                  <Link href={`/network/organizations/${contact.organizationId}`} className="underline-offset-4 hover:text-foreground hover:underline">
+                    {contact.organization}
+                  </Link>
+                ) : contact.organization}
+              </p>
             )}
             <p className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
               {shared ? <UsersRound className="size-3.5" /> : <Lock className="size-3.5" />}
@@ -147,6 +158,8 @@ export function ContactDetail({
         )}
       </section>
 
+      <ContactLinks contactId={contact.id} links={contact.links} canEdit={contact.canEdit} />
+
       <InteractionLog contactId={contact.id} interactions={contact.interactions} canEdit={contact.canEdit} today={today} />
 
       {contact.introducedBy.length > 0 && (
@@ -165,8 +178,8 @@ export function ContactDetail({
         </div>
       )}
 
-      <ContactEditDialog contact={contact} open={editing} onClose={() => setEditing(false)} />
-      <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} />
+      <ContactEditDialog contact={contact} organizationNames={organizationNames} open={editing} onClose={() => setEditing(false)} />
+      <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );
 }

@@ -17,7 +17,7 @@ vi.mock("@/db", async () => {
 });
 
 import { db, sqlite } from "@/db";
-import { networkContacts, networkLeads, networkTags, user } from "@/db/schema";
+import { networkContacts, networkOrganizations, networkLeads, networkTags, user } from "@/db/schema";
 import {
   deleteNetworkContact,
   quickCaptureContact,
@@ -42,6 +42,7 @@ async function capture(input: Parameters<typeof quickCaptureContact>[0]) {
 beforeEach(() => {
   db.delete(networkContacts).run();
   db.delete(networkTags).run();
+  db.delete(networkOrganizations).run();
   db.delete(user).run();
   const now = new Date();
   db.insert(user).values([aaron, colleague, admin].map((viewer) => ({

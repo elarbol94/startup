@@ -21,6 +21,8 @@ export async function register() {
     await runMigrations();
     const { seedDefaults } = await import("./db/seed");
     seedDefaults();
+    const { backfillNetworkOrganizations } = await import("./modules/network/organizations");
+    backfillNetworkOrganizations();
     const { cleanupPerformanceEvents } = await import("./lib/performance");
     cleanupPerformanceEvents();
     await warmLanguageTool();

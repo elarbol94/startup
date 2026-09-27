@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
@@ -71,9 +71,12 @@ type Disbursement = FundingProjectControl["disbursements"][number];
 export function FundingProjectControlView({
   control,
   templates,
+  networkContacts,
 }: {
   control: FundingProjectControl;
   templates: Array<{ id: string; name: string }>;
+  /** Linked contacts from the network module, rendered on the project tab. */
+  networkContacts?: ReactNode;
 }) {
   const t = useTranslations("fundingProjects");
   const locale = useLocale();
@@ -153,6 +156,7 @@ export function FundingProjectControlView({
               <div className="sm:col-span-2 lg:col-span-3"><Fact label={t("fields.notes")} value={project.notes} /></div>
             </CardContent>
           </Card>
+          {networkContacts}
           <p className="text-xs text-muted-foreground">{t("templateDisclaimer")}</p>
         </TabsContent>
 

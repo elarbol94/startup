@@ -17,7 +17,7 @@ vi.mock("@/db", async () => {
 });
 
 import { db, sqlite } from "@/db";
-import { networkContacts, networkTags, tasks, user } from "@/db/schema";
+import { networkContacts, networkOrganizations, networkTags, tasks, user } from "@/db/schema";
 import { markNetworkContactContacted, quickCaptureContact, setNetworkContactVisibility, updateNetworkContact } from "./contact-actions";
 import { addNetworkInteraction, deleteNetworkInteraction } from "./interaction-actions";
 import { linkNetworkLeadTask, saveNetworkLead } from "./lead-actions";
@@ -41,6 +41,7 @@ beforeEach(() => {
   db.delete(tasks).run();
   db.delete(networkContacts).run();
   db.delete(networkTags).run();
+  db.delete(networkOrganizations).run();
   db.delete(user).run();
   const now = new Date();
   db.insert(user).values([aaron, colleague].map((viewer) => ({

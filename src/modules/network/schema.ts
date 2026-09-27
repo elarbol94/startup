@@ -4,6 +4,7 @@ import { user } from "@/db/core-schema";
 import { tasks } from "@/modules/projects/schema";
 import {
   contactClosenessLevels,
+  contactLinkTargetTypes,
   contactRelationships,
   contactVisibilities,
   interactionChannels,
@@ -11,7 +12,29 @@ import {
   leadStatuses,
 } from "./constants";
 
-export { contactClosenessLevels, contactRelationships, contactVisibilities, interactionChannels, leadKinds, leadStatuses };
+export { contactClosenessLevels, contactLinkTargetTypes, contactRelationships, contactVisibilities, interactionChannels, leadKinds, leadStatuses };
+
+/**
+ * An organisation people in the network belong to or could introduce us to.
+ * Created implicitly from the organisation typed on a contact or lead, so
+ * "Klimabündnis Österreich" is one record however often it is entered.
+ * Organisation names are not personal data; which ones a viewer sees still
+ * follows the contacts and leads visible to them.
+ */
+export const networkOrganizations = sqliteTable(
+  "network_organizations",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createId()),
+    name: text("name").notNull(),
+    normalizedName: text("normalized_name").notNull(),
+    website: text("website").notNull().default(""),
+    notes: text("notes").notNull().default(""),
+    createdBy: text("created_by").notNull().references(() => user.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [uniqueIndex("network_organizations_normalized_unique").on(table.normalizedName)],
+);
 
 /**
  * A person in the founders' network. Private to its owner unless shared with
@@ -25,8 +48,9 @@ export const networkContacts = sqliteTable(
     ownerId: text("owner_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     visibility: text("visibility", { enum: contactVisibilities }).notNull().default("private"),
     name: text("name").notNull(),
-    /** Free text for now ("Klimabündnis Österreich"); organisations get their own table later. */
+    /** Display name of the organisation, kept equal to the linked organisation's name. */
     organization: text("organization").notNull().default(""),
+    organizationId: text("organization_id").references(() => networkOrganizations.id, { onDelete: "set null" }),
     role: text("role").notNull().default(""),
     relationship: text("relationship", { enum: contactRelationships }),
     closeness: text("closeness", { enum: contactClosenessLevels }),
@@ -46,6 +70,7 @@ export const networkContacts = sqliteTable(
   (table) => [
     index("network_contacts_owner_name_idx").on(table.ownerId, table.name),
     index("network_contacts_visibility_idx").on(table.visibility),
+    index("network_contacts_organization_idx").on(table.organizationId),
   ],
 );
 
@@ -64,6 +89,7 @@ export const networkLeads = sqliteTable(
     summary: text("summary").notNull(),
     targetName: text("target_name").notNull().default(""),
     targetOrganization: text("target_organization").notNull().default(""),
+    targetOrganizationId: text("target_organization_id").references(() => networkOrganizations.id, { onDelete: "set null" }),
     targetContactId: text("target_contact_id").references((): AnySQLiteColumn => networkContacts.id, { onDelete: "set null" }),
     status: text("status", { enum: leadStatuses }).notNull().default("open"),
     nextStep: text("next_step").notNull().default(""),
@@ -78,6 +104,7 @@ export const networkLeads = sqliteTable(
   (table) => [
     index("network_leads_contact_idx").on(table.contactId),
     index("network_leads_status_due_idx").on(table.status, table.dueOn),
+    index("network_leads_target_organization_idx").on(table.targetOrganizationId),
   ],
 );
 
@@ -119,4 +146,26 @@ export const networkInteractions = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   },
   (table) => [index("network_interactions_contact_date_idx").on(table.contactId, table.occurredOn)],
+);
+
+/**
+ * Links a contact to a project, funding project or wiki page ("Maria is our
+ * contact at the SFG for this application"). Targets live in other modules,
+ * so there is no foreign key; links to deleted targets are ignored on read.
+ * A link is only ever shown to viewers who can see the contact.
+ */
+export const networkContactLinks = sqliteTable(
+  "network_contact_links",
+  {
+    id: text("id").primaryKey().$defaultFn(() => createId()),
+    contactId: text("contact_id").notNull().references(() => networkContacts.id, { onDelete: "cascade" }),
+    targetType: text("target_type", { enum: contactLinkTargetTypes }).notNull(),
+    targetId: text("target_id").notNull(),
+    createdBy: text("created_by").notNull().references(() => user.id),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+  },
+  (table) => [
+    uniqueIndex("network_contact_links_unique").on(table.contactId, table.targetType, table.targetId),
+    index("network_contact_links_target_idx").on(table.targetType, table.targetId),
+  ],
 );

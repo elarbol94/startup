@@ -314,7 +314,8 @@
     "errors": {
       "invalid": "Please check your input.",
       "notFound": "This contact no longer exists or is private.",
-      "forbidden": "Only the owner can do this."
+      "forbidden": "Only the owner can do this.",
+      "duplicate": "Another organisation already has this name."
     },
     "fields": {
       "name": "Name",
@@ -337,7 +338,8 @@
       "targetOrganization": "Their organisation",
       "targetContact": "Already in our network as",
       "nextStep": "Next step",
-      "dueOn": "Follow up by"
+      "dueOn": "Follow up by",
+      "website": "Website"
     },
     "relationships": {
       "friend": "Friend",
@@ -474,6 +476,42 @@
     },
     "overview": {
       "empty": "No open follow-ups. Captured offers and intros appear here."
+    },
+    "organizationsTab": "Organisations",
+    "organizations": {
+      "intro": "Where we know someone, or know someone who could introduce us.",
+      "empty": "No organisations yet. They appear as soon as a contact or an intro names one.",
+      "people": "{count, plural, one {# person} other {# people}}",
+      "intros": "{count, plural, one {# intro} other {# intros}}",
+      "back": "All organisations",
+      "sharedHint": "Organisations are shared with the team; the people listed are only those you can see.",
+      "peopleTitle": "People there",
+      "noPeople": "We don't know anyone there yet.",
+      "introsTitle": "Who could introduce us",
+      "noIntros": "No one has offered an intro yet.",
+      "saved": "Organisation saved",
+      "editTitle": "Edit organisation",
+      "editDescription": "Renaming updates every contact and intro that names it."
+    },
+    "links": {
+      "title": "Linked with",
+      "add": "Link",
+      "empty": "Not linked to any project, funding project or wiki page yet.",
+      "remove": "Remove link to {title}",
+      "pickTitle": "Link contact",
+      "pickDescription": "Projects, funding projects and wiki pages this person is involved in.",
+      "search": "Search projects, funding projects, wiki pages…",
+      "searching": "Searching…",
+      "noResults": "Nothing found.",
+      "types": {
+        "project": "Project",
+        "fundingProject": "Funding project",
+        "wikiPage": "Wiki page"
+      },
+      "panelTitle": "Contacts from the network",
+      "panelEmpty": "No contacts linked yet.",
+      "chooseContact": "Choose a contact…",
+      "openLeads": "{count, plural, one {# open opportunity} other {# open opportunities}}"
     }
   },
   "municipalities": {

@@ -4,6 +4,9 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { NetworkContactsPanel } from "@/modules/network/components/network-contacts-panel";
+import { listLinkedNetworkContacts } from "@/modules/network/link-queries";
+import { listNetworkContactOptions } from "@/modules/network/queries";
 import { listProjectConnections } from "@/modules/context/project-links";
 import { ProjectConnectionsPanel } from "@/modules/projects/components/project-connections-panel";
 import { ProjectPulseChips } from "@/modules/projects/components/project-pulse";
@@ -122,6 +125,12 @@ export default async function ProjectBoardPage({
           />
           <div className="grid gap-5">
             <ProjectConnectionsPanel connections={connections!} today={today} />
+            <NetworkContactsPanel
+              targetType="project"
+              targetId={projectId}
+              contacts={listLinkedNetworkContacts(viewer, "project", projectId)}
+              options={listNetworkContactOptions(viewer)}
+            />
             <EvidencePanel targetType="project" targetId={projectId} />
           </div>
         </div>
