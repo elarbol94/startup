@@ -43,7 +43,7 @@ The overview/bookings slice owns the accounting-local shell and its visual conve
 
 The parent integrator adds the links for all completed slices to the shared shell. A slice route must remain directly reachable before that wiring is merged.
 
-Route components follow the installed Next.js 16.2.10 conventions:
+Route components follow the installed Next.js 16.3.6 conventions:
 
 - `params` and `searchParams` are awaited promises.
 - Reads happen in Server Components or server-only query modules by default.

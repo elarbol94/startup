@@ -110,7 +110,8 @@ docker compose up --build -d
 Repeat Docker builds reuse dependency downloads and the Next.js production
 compilation cache. Keep Docker build caches between deployments to benefit;
 the first build still performs a full compilation. Production filesystem caching
-is experimental in Next.js 16.2.10 and can be disabled by setting
+is on by default in Next.js 16.3.6 (still configured under `experimental`) and
+can be disabled by setting
 `experimental.turbopackFileSystemCacheForBuild` to `false` in `next.config.ts`.
 Development caching and deployment commands are unchanged. Local worktrees and
 generated reports (`.worktrees/`, `output/`, `playwright-report/`, `test-results/`)
