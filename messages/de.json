@@ -301,7 +301,9 @@
     "quickCreateInProject": "Aufgaben und Termine werden mit dem offenen Projekt verknüpft",
     "newTask": "Neue Aufgabe",
     "newEvent": "Neuer Termin",
-    "newDeadline": "Neue Deadline"
+    "newDeadline": "Neue Deadline",
+    "newContact": "Neuer Kontakt",
+    "draft": "Entwurf"
   },
   "network": {
     "title": "Netzwerk",
@@ -392,7 +394,12 @@
       "save": "Speichern",
       "saved": "Für {name} gespeichert",
       "open": "Öffnen",
-      "metToday": "Heute gesprochen"
+      "metToday": "Heute gesprochen",
+      "continue": "Erfassung fortsetzen",
+      "close": "Schließen",
+      "discard": "Entwurf verwerfen",
+      "discarded": "Entwurf verworfen",
+      "draftRestored": "Dein Entwurf von vorhin ist noch da – weiter ausfüllen oder verwerfen."
     },
     "list": {
       "search": "Suchen",

@@ -53,8 +53,25 @@ test("captures a contact, follows up an opportunity and deletes the contact", as
   await expect(dialog.getByRole("button", { name: "Tag Neues Thema entfernen" })).toBeVisible();
   await tags.press("Backspace");
   await expect(dialog.getByRole("button", { name: "Tag Neues Thema entfernen" })).toHaveCount(0);
-  await dialog.getByRole("button", { name: "Abbrechen" }).click();
+
+  // Closing keeps the draft, also across a reload, until it is saved or discarded.
+  // The first Escape closes the open tag suggestions, the second the dialog.
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId("network-quick-capture")).toHaveText("Erfassung fortsetzen");
+  await page.reload();
+  await page.getByTestId("network-quick-capture").click();
+  dialog = page.getByRole("dialog", { name: "Kontakt erfassen" });
+  await expect(dialog.getByText("Dein Entwurf von vorhin ist noch da")).toBeVisible();
+  await expect(dialog.getByLabel("Name")).toHaveValue(`Neu ${name}`);
+  await expect(dialog.getByLabel("Kennengelernt bei")).toHaveValue("Party");
+  await expect(dialog.getByRole("button", { name: "Tag Gemeinden entfernen" })).toBeVisible();
+  await dialog.getByRole("button", { name: "Entwurf verwerfen" }).click();
+  await expect(dialog.getByLabel("Name")).toHaveValue("");
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.getByTestId("network-quick-capture")).toHaveText("Erfassen");
 
   // Typing the same name again offers the existing contact instead of a duplicate.
   await page.getByTestId("network-quick-capture").click();
@@ -127,5 +144,36 @@ test("captures a contact, follows up an opportunity and deletes the contact", as
   await detail.getByRole("button", { name: "Zum endgültigen Löschen erneut klicken" }).click();
   await expect(page).toHaveURL(/\/network$/);
   await expect(page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("adds a contact from the global Neu menu without opening the network section", async ({ page }) => {
+  test.setTimeout(120_000);
+  await loginAsAnyUser(page);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const name = `Christoph ${Date.now()}`;
+
+  await page.goto("/");
+  await page.getByTestId("app-sidebar").getByRole("button", { name: /^Neu( erstellen)?$/ }).click();
+  await page.getByRole("menuitem", { name: "Neuer Kontakt" }).click();
+  const dialog = page.getByRole("dialog", { name: "Kontakt erfassen" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByLabel("Was wurde gesagt?").fill("Hat selbst gegründet, kann beraten");
+  await dialog.getByRole("button", { name: "Rat" }).click();
+
+  // An interrupted capture is marked as a draft in the menu and comes back.
+  await dialog.getByRole("button", { name: "Schließen", exact: true }).last().click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByTestId("app-sidebar").getByRole("button", { name: /^Neu( erstellen)?$/ }).click();
+  await expect(page.getByRole("menuitem", { name: /Neuer Kontakt\s*Entwurf/ })).toBeVisible();
+  await page.getByRole("menuitem", { name: /Neuer Kontakt/ }).click();
+  await expect(dialog.getByLabel("Name")).toHaveValue(name);
+  await dialog.getByRole("button", { name: "Speichern" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.goto("/network");
+  await expect(page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) })).toContainText("Rat: Hat selbst gegründet");
   expect(errors).toEqual([]);
 });

@@ -301,7 +301,9 @@
     "quickCreateInProject": "Tasks and events link to the open project",
     "newTask": "New task",
     "newEvent": "New event",
-    "newDeadline": "New deadline"
+    "newDeadline": "New deadline",
+    "newContact": "New contact",
+    "draft": "Draft"
   },
   "network": {
     "title": "Network",
@@ -392,7 +394,12 @@
       "save": "Save",
       "saved": "Saved for {name}",
       "open": "Open",
-      "metToday": "We talked today"
+      "metToday": "We talked today",
+      "continue": "Continue capture",
+      "close": "Close",
+      "discard": "Discard draft",
+      "discarded": "Draft discarded",
+      "draftRestored": "Your draft from earlier is still here — carry on or discard it."
     },
     "list": {
       "search": "Search",

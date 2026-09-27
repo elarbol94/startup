@@ -1,10 +1,9 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -20,38 +19,47 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { quickCaptureContact } from "../contact-actions";
-import { leadKinds, type LeadKind } from "../constants";
+import { leadKinds } from "../constants";
 import { normalizeText, type Suggestion } from "../network-utils";
 import type { NetworkContactOption } from "../queries";
-import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
+
+export type QuickCaptureOptions = { contacts: NetworkContactOption[]; tags: Suggestion[]; metContexts: Suggestion[] };
+import { MunicipalityPicker } from "./municipality-picker";
+import type { CaptureDraft } from "./quick-capture-draft";
 import { selectClassName } from "./network-ui";
 import { SuggestInput } from "./suggest-input";
 import { PopularTags, TagInput } from "./tag-input";
 import { useNetworkAction } from "./use-network-action";
 
-type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string[]; metToday: boolean; municipality: MunicipalityValue };
-const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, municipality: null };
 const NEW_CONTACT = "new";
 
 /**
  * The 20-second capture after a conversation: who, what they said, a few
  * tags. Typing a known name offers to add to that contact instead of creating
- * a duplicate.
+ * a duplicate. Closing keeps the draft (see useCaptureDraft); only saving or
+ * discarding clears it.
  */
 export function QuickCaptureDialog({
-  contacts,
-  tags,
-  metContexts,
+  open,
+  onClose,
+  draft,
+  showDraftHint,
+  onDiscard,
+  options,
 }: {
-  contacts: NetworkContactOption[];
-  tags: Suggestion[];
-  metContexts: Suggestion[];
+  open: boolean;
+  onClose: () => void;
+  draft: CaptureDraft;
+  /** The dialog continues a draft from earlier. */
+  showDraftHint: boolean;
+  onDiscard: () => void;
+  options: QuickCaptureOptions;
 }) {
   const t = useTranslations("network");
   const router = useRouter();
   const { pending, run } = useNetworkAction();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState<FormState>(emptyForm);
+  const { form, setForm, clear, hasDraft } = draft;
+  const { contacts, tags, metContexts } = options;
 
   const matches = useMemo(() => {
     const key = normalizeText(form.name);
@@ -63,10 +71,6 @@ export function QuickCaptureDialog({
     : matches[0]?.id ?? NEW_CONTACT;
   const existingId = target === NEW_CONTACT ? null : target;
 
-  function close() {
-    setOpen(false);
-    setForm(emptyForm);
-  }
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
@@ -87,24 +91,26 @@ export function QuickCaptureDialog({
         toast.success(t("quick.saved", { name }), {
           action: { label: t("quick.open"), onClick: () => router.push(`/network/${result.contactId}`) },
         });
-        close();
+        clear();
+        onClose();
       },
     );
   }
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)} data-testid="network-quick-capture">
-        <Plus className="size-4" />
-        {t("quick.button")}
-      </Button>
-      <Dialog open={open} onOpenChange={(next) => (next ? setOpen(true) : close())}>
+      <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
         <DialogContent className="sm:max-w-lg">
           <form onSubmit={submit} className="space-y-4">
             <DialogHeader>
               <DialogTitle>{t("quick.title")}</DialogTitle>
               <DialogDescription>{t("quick.description")}</DialogDescription>
             </DialogHeader>
+            {showDraftHint && hasDraft && (
+              <p className="rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground" role="status">
+                {t("quick.draftRestored")}
+              </p>
+            )}
             <div className="space-y-1.5">
               <Label htmlFor="network-quick-name">{t("fields.name")}</Label>
               <Input
@@ -116,7 +122,7 @@ export function QuickCaptureDialog({
                 maxLength={160}
                 value={form.name}
                 placeholder={t("quick.namePlaceholder")}
-                onChange={(event) => setForm({ ...form, name: event.target.value, target: "" })}
+                onChange={(event) => setForm((current) => ({ ...current, name: event.target.value, target: "" }))}
               />
               <datalist id="network-contact-names">
                 {[...new Set(contacts.map((contact) => contact.name))].map((name) => <option key={name} value={name} />)}
@@ -126,7 +132,7 @@ export function QuickCaptureDialog({
                   aria-label={t("quick.target")}
                   className={selectClassName}
                   value={target}
-                  onChange={(event) => setForm({ ...form, target: event.target.value })}
+                  onChange={(event) => setForm((current) => ({ ...current, target: event.target.value }))}
                 >
                   {matches.map((contact) => (
                     <option key={contact.id} value={contact.id}>
@@ -145,7 +151,7 @@ export function QuickCaptureDialog({
                 maxLength={1000}
                 value={form.note}
                 placeholder={t("quick.notePlaceholder")}
-                onChange={(event) => setForm({ ...form, note: event.target.value })}
+                onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit();
                 }}
@@ -160,7 +166,7 @@ export function QuickCaptureDialog({
                       "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
                       form.kind === kind ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
                     )}
-                    onClick={() => setForm({ ...form, kind })}
+                    onClick={() => setForm((current) => ({ ...current, kind }))}
                   >
                     {t(`kinds.${kind}`)}
                   </button>
@@ -183,7 +189,7 @@ export function QuickCaptureDialog({
             {!existingId && (
               <div className="space-y-1.5">
                 <Label htmlFor="network-quick-municipality">{t("fields.municipality")}</Label>
-                <MunicipalityPicker id="network-quick-municipality" value={form.municipality} onChange={(municipality) => setForm({ ...form, municipality })} />
+                <MunicipalityPicker id="network-quick-municipality" value={form.municipality} onChange={(municipality) => setForm((current) => ({ ...current, municipality }))} />
               </div>
             )}
             <div className="space-y-1.5">
@@ -192,12 +198,17 @@ export function QuickCaptureDialog({
               <PopularTags value={form.tags} suggestions={tags} onChange={(next) => setForm((current) => ({ ...current, tags: next }))} />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.metToday} onCheckedChange={(checked) => setForm({ ...form, metToday: checked === true })} />
+              <Checkbox checked={form.metToday} onCheckedChange={(checked) => setForm((current) => ({ ...current, metToday: checked === true }))} />
               {t("quick.metToday")}
             </label>
             <p className="text-xs text-muted-foreground">{existingId ? t("quick.existingHint") : t("quick.privateHint")}</p>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={close}>{t("cancel")}</Button>
+              {hasDraft && (
+                <Button type="button" variant="ghost" className="text-muted-foreground sm:mr-auto" onClick={onDiscard}>
+                  {t("quick.discard")}
+                </Button>
+              )}
+              <Button type="button" variant="outline" onClick={onClose}>{t("quick.close")}</Button>
               <Button type="submit" disabled={pending || !form.name.trim()}>{t("quick.save")}</Button>
             </DialogFooter>
           </form>

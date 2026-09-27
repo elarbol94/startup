@@ -12,6 +12,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskCreateProvider } from "@/modules/tasks/components/task-create-provider";
 import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-create-provider";
+import { ContactCaptureProvider } from "@/modules/network/components/contact-capture-provider";
 
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
@@ -68,6 +69,7 @@ export default async function AppLayout({
     <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>
       <DeadlineCreateProvider>
+      <ContactCaptureProvider userId={currentUser.id}>
       <BugReportProvider>
       <style>{`
         [data-app-shell]:has([data-project-focus-root="true"]) > [data-app-chrome] {
@@ -87,6 +89,7 @@ export default async function AppLayout({
         </Suspense>
       }>{children}</AppWorkspace>
       </BugReportProvider>
+      </ContactCaptureProvider>
       </DeadlineCreateProvider>
     </TaskCreateProvider>
     </WikiNavigation>
