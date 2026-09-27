@@ -9,6 +9,7 @@ import { Database, Landmark, MapPinned, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MunicipalityDigitalPlatformsPanel } from "../municipality-digital-platforms-panel";
 import { MunicipalityPoliticsPanel } from "../municipality-politics-panel";
+import { MunicipalityNetworkPanel } from "@/modules/network/components/municipality-network-panel";
 import type { CostMeasureId, MunicipalityCostSeries } from "../../costs";
 import type { MunicipalityIndex, MunicipalityIndexItem } from "../../data";
 import type {
@@ -143,6 +144,7 @@ export function WorkspaceDetailsAside({
           </>
         )}
       </div>
+      {selected && <MunicipalityNetworkPanel key={selected.municipalityCode} municipalityCode={selected.municipalityCode} />}
       <div className="rounded-2xl border bg-muted/30 p-4 text-xs leading-5 text-muted-foreground">
         <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
           <Database className="size-4" />

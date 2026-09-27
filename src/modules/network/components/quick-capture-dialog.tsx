@@ -23,12 +23,13 @@ import { quickCaptureContact } from "../contact-actions";
 import { leadKinds, type LeadKind } from "../constants";
 import { normalizeText, parseTagInput } from "../network-utils";
 import type { NetworkContactOption } from "../queries";
+import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
 import { selectClassName } from "./network-ui";
 import { TagSuggestions } from "./tag-suggestions";
 import { useNetworkAction } from "./use-network-action";
 
-type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string; metToday: boolean };
-const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: "", metToday: true };
+type FormState = { name: string; target: string; note: string; kind: LeadKind; metContext: string; tags: string; metToday: boolean; municipality: MunicipalityValue };
+const emptyForm: FormState = { name: "", target: "", note: "", kind: "info", metContext: "", tags: "", metToday: true, municipality: null };
 const NEW_CONTACT = "new";
 
 /**
@@ -71,6 +72,7 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
         metContext: existingId ? "" : form.metContext,
         tags: parseTagInput(form.tags),
         metToday: form.metToday,
+        municipalityCode: existingId ? null : form.municipality?.code ?? null,
       }),
       (result) => {
         toast.success(t("quick.saved", { name }), {
@@ -166,6 +168,12 @@ export function QuickCaptureDialog({ contacts, tags }: { contacts: NetworkContac
                   placeholder={t("fields.metContextPlaceholder")}
                   onChange={(event) => setForm({ ...form, metContext: event.target.value })}
                 />
+              </div>
+            )}
+            {!existingId && (
+              <div className="space-y-1.5">
+                <Label htmlFor="network-quick-municipality">{t("fields.municipality")}</Label>
+                <MunicipalityPicker id="network-quick-municipality" value={form.municipality} onChange={(municipality) => setForm({ ...form, municipality })} />
               </div>
             )}
             <div className="space-y-1.5">

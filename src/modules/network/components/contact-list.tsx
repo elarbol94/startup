@@ -77,8 +77,8 @@ export async function ContactList({ data, query, tagId }: { data: Data; query: s
                       <UsersRound className="size-3.5 shrink-0 text-muted-foreground" aria-label={t("visibility.team")} />
                     )}
                   </div>
-                  {(contact.role || contact.organization) && (
-                    <div className="truncate text-xs text-muted-foreground">{[contact.role, contact.organization].filter(Boolean).join(" · ")}</div>
+                  {(contact.role || contact.organization || contact.municipalityName) && (
+                    <div className="truncate text-xs text-muted-foreground">{[contact.role, contact.organization, contact.municipalityName].filter(Boolean).join(" · ")}</div>
                   )}
                 </div>
                 <div className="min-w-0 space-y-0.5 text-sm">

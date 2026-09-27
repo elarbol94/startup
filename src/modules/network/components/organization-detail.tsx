@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, Globe, Lock, Pencil, UsersRound } from "lucide-react";
+import { ArrowLeft, Building2, Globe, Lock, MapPin, Pencil, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -22,6 +22,8 @@ import type { NetworkOrganizationDetail } from "../organization-queries";
 import type { NetworkContactOption } from "../queries";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
+import { MunicipalityLink } from "./municipality-link";
+import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
 import { useNetworkAction } from "./use-network-action";
 
 export function OrganizationDetail({
@@ -57,6 +59,12 @@ export function OrganizationDetail({
             {t("contact.edit")}
           </Button>
         </div>
+        {organization.municipalityCode && (
+          <p className="inline-flex items-center gap-1.5 text-sm">
+            <MapPin className="size-4 shrink-0 text-muted-foreground" />
+            <MunicipalityLink code={organization.municipalityCode} name={organization.municipalityName ?? organization.municipalityCode} />
+          </p>
+        )}
         {organization.website && (
           <a href={organization.website} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-sm break-all underline-offset-4 hover:underline">
             <Globe className="size-4 shrink-0 text-muted-foreground" />
@@ -123,11 +131,24 @@ function OrganizationForm({ organization, onClose }: { organization: NetworkOrga
   const t = useTranslations("network");
   const id = useId();
   const { pending, run } = useNetworkAction();
-  const [form, setForm] = useState({ name: organization.name, website: organization.website, notes: organization.notes });
+  const [form, setForm] = useState<{ name: string; website: string; notes: string; municipality: MunicipalityValue }>({
+    name: organization.name,
+    website: organization.website,
+    notes: organization.notes,
+    municipality: organization.municipalityCode
+      ? { code: organization.municipalityCode, name: organization.municipalityName ?? organization.municipalityCode }
+      : null,
+  });
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    run(() => updateNetworkOrganization({ id: organization.id, ...form }), () => {
+    run(() => updateNetworkOrganization({
+      id: organization.id,
+      name: form.name,
+      website: form.website,
+      notes: form.notes,
+      municipalityCode: form.municipality?.code ?? null,
+    }), () => {
       toast.success(t("organizations.saved"));
       onClose();
     });
@@ -147,6 +168,10 @@ function OrganizationForm({ organization, onClose }: { organization: NetworkOrga
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-website`}>{t("fields.website")}</Label>
           <Input id={`${id}-website`} type="url" maxLength={500} placeholder="https://…" value={form.website} onChange={(event) => setForm({ ...form, website: event.target.value })} />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor={`${id}-municipality`}>{t("fields.organizationMunicipality")}</Label>
+          <MunicipalityPicker id={`${id}-municipality`} value={form.municipality} onChange={(municipality) => setForm({ ...form, municipality })} />
         </div>
         <div className="space-y-1.5">
           <Label htmlFor={`${id}-notes`}>{t("fields.notes")}</Label>

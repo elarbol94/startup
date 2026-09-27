@@ -14,6 +14,7 @@ import {
   revalidateNetwork,
   type NetworkActionResult,
 } from "./action-helpers";
+import { municipalityColumns } from "./municipalities.server";
 import { removeUnusedOrganizations, resolveOrganization } from "./organizations";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 import {
@@ -41,11 +42,13 @@ export async function quickCaptureContact(input: QuickCaptureInput): Promise<Net
     const access = contactFor(data.contactId, viewer, "edit");
     if (!access.ok) return access;
   }
+  const municipality = municipalityColumns(data.contactId ? null : data.municipalityCode);
+  if (!municipality) return fail("invalid");
 
   const contactId = db.transaction((tx) => {
     const id = data.contactId ?? tx
       .insert(networkContacts)
-      .values({ ownerId: viewer.id, name: data.name, metContext: data.metContext })
+      .values({ ownerId: viewer.id, name: data.name, metContext: data.metContext, ...municipality })
       .returning({ id: networkContacts.id })
       .get().id;
     if (data.contactId) {
@@ -88,13 +91,15 @@ export async function updateNetworkContact(input: ContactInput): Promise<Network
   const viewer = await requireUserOrThrow();
   const parsed = contactSchema.safeParse(input);
   if (!parsed.success) return fail("invalid");
-  const { id, ...values } = parsed.data;
+  const { id, municipalityCode, ...values } = parsed.data;
   const access = contactFor(id, viewer, "edit");
   if (!access.ok) return access;
+  const municipality = municipalityColumns(municipalityCode);
+  if (!municipality) return fail("invalid");
   db.transaction((tx) => {
     const organization = resolveOrganization(tx, values.organization, viewer.id);
     tx.update(networkContacts)
-      .set({ ...values, organization: organization?.name ?? "", organizationId: organization?.id ?? null, updatedAt: new Date() })
+      .set({ ...values, ...municipality, organization: organization?.name ?? "", organizationId: organization?.id ?? null, updatedAt: new Date() })
       .where(eq(networkContacts.id, id))
       .run();
     removeUnusedOrganizations(tx);

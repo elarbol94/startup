@@ -498,6 +498,13 @@
       "when": 1790532397413,
       "tag": "0070_network_organizations_links",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "6",
+      "when": 1790534126621,
+      "tag": "0071_network_municipalities",
+      "breakpoints": true
     }
   ]
 }

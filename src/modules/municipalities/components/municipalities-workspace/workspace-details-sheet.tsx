@@ -11,6 +11,7 @@ import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { MunicipalityMetricChart } from "../municipality-metric-chart";
 import { MunicipalityDigitalPlatformsPanel } from "../municipality-digital-platforms-panel";
 import { MunicipalityPoliticsPanel } from "../municipality-politics-panel";
+import { MunicipalityNetworkPanel } from "@/modules/network/components/municipality-network-panel";
 import type { MunicipalityDatasetRef } from "../../analysis";
 import type { PopulationViewId } from "../../structure";
 import type { WorkspaceDetailsProps } from "./workspace-details-aside";
@@ -80,6 +81,8 @@ export function WorkspaceDetailsSheet({
                       : t("populationReference", { year })}
               </p>
             </div>
+
+            <MunicipalityNetworkPanel key={selected.municipalityCode} municipalityCode={selected.municipalityCode} />
 
             {history && (analysisDataset || metric === "custom") ? (
               <MunicipalityMetricChart

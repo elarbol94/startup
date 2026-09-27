@@ -29,11 +29,18 @@ export const networkOrganizations = sqliteTable(
     normalizedName: text("normalized_name").notNull(),
     website: text("website").notNull().default(""),
     notes: text("notes").notNull().default(""),
+    /** Where the organisation sits (Gemeindekennziffer), e.g. Stadtgemeinde Trofaiach → 61120. */
+    municipalityCode: text("municipality_code"),
+    /** Name at the time it was chosen, so the record still reads well if codes change. */
+    municipalityName: text("municipality_name"),
     createdBy: text("created_by").notNull().references(() => user.id),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   },
-  (table) => [uniqueIndex("network_organizations_normalized_unique").on(table.normalizedName)],
+  (table) => [
+    uniqueIndex("network_organizations_normalized_unique").on(table.normalizedName),
+    index("network_organizations_municipality_idx").on(table.municipalityCode),
+  ],
 );
 
 /**
@@ -62,6 +69,10 @@ export const networkContacts = sqliteTable(
     notes: text("notes").notNull().default(""),
     /** YYYY-MM-DD */
     lastContactOn: text("last_contact_on"),
+    /** Municipality the person lives in (Gemeindekennziffer); only the municipality, never an address. */
+    municipalityCode: text("municipality_code"),
+    /** Name at the time it was chosen, so the record still reads well if codes change. */
+    municipalityName: text("municipality_name"),
     /** Reserved for a later sync to an external CRM such as Twenty. */
     externalCrmId: text("external_crm_id"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
@@ -71,6 +82,7 @@ export const networkContacts = sqliteTable(
     index("network_contacts_owner_name_idx").on(table.ownerId, table.name),
     index("network_contacts_visibility_idx").on(table.visibility),
     index("network_contacts_organization_idx").on(table.organizationId),
+    index("network_contacts_municipality_idx").on(table.municipalityCode),
   ],
 );
 

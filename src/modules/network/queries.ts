@@ -66,6 +66,7 @@ export type NetworkContactListItem = {
   visibility: "private" | "team";
   isOwn: boolean;
   lastContactOn: string | null;
+  municipalityName: string | null;
   tags: NetworkTag[];
   /** Summaries of the leads that still need something, soonest first. */
   activeLeads: { id: string; summary: string; kind: string }[];
@@ -97,7 +98,7 @@ export function listNetworkContacts(viewer: NetworkViewer, filter: { query?: str
     const contactLeads = leads.get(contact.id) ?? [];
     if (filter.tagId && !contactTags.some((tag) => tag.id === filter.tagId)) continue;
     if (filter.query && !matchesSearch(filter.query, [
-      contact.name, contact.organization, contact.role, contact.metContext, contact.notes,
+      contact.name, contact.organization, contact.role, contact.metContext, contact.notes, contact.municipalityName,
       ...contactTags.map((tag) => tag.name),
       ...contactLeads.flatMap((lead) => [lead.summary, lead.targetName, lead.targetOrganization, lead.nextStep]),
     ])) continue;
@@ -109,6 +110,7 @@ export function listNetworkContacts(viewer: NetworkViewer, filter: { query?: str
       visibility: contact.visibility,
       isOwn: contact.ownerId === viewer.id,
       lastContactOn: contact.lastContactOn,
+      municipalityName: contact.municipalityName,
       tags: contactTags,
       activeLeads: contactLeads
         .filter((lead) => isLeadActive(lead.status))

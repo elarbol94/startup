@@ -11,6 +11,8 @@ import {
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_CONTACT } from "./network-utils";
 
 export const idSchema = z.string().min(1).max(100);
+/** A Gemeindekennziffer from the map section, or none. */
+export const municipalityCodeSchema = z.string().regex(/^\d{5}$/).nullish().transform((value) => value ?? null);
 const text = (max: number) => z.string().trim().max(max).default("");
 const optionalDate = z
   .string()
@@ -34,6 +36,7 @@ export const contactSchema = z.object({
   linkedinUrl: z.union([z.literal(""), z.string().trim().max(500).url().regex(/^https?:\/\//i)]).default(""),
   notes: text(20_000),
   lastContactOn: optionalDate,
+  municipalityCode: municipalityCodeSchema,
 });
 export type ContactInput = z.input<typeof contactSchema>;
 
@@ -61,6 +64,8 @@ export const quickCaptureSchema = z.object({
   tags: tagsSchema,
   /** Also log today's conversation, which sets the last-contact date. */
   metToday: z.boolean().default(false),
+  /** Where a new contact lives; ignored when adding to an existing contact. */
+  municipalityCode: municipalityCodeSchema,
 }).refine((value) => value.contactId || value.name, { path: ["name"] });
 export type QuickCaptureInput = z.input<typeof quickCaptureSchema>;
 
