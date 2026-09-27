@@ -11,6 +11,9 @@ import {
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { PROJECT_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
   DndContext,
   DragOverlay,
@@ -315,6 +318,10 @@ export function BoardClient({
     setTaskDialogOpen(true);
   }
 
+  useKeyboardShortcut(PROJECT_PAGE_SHORTCUTS.newTask, () => openNewTask(columns[0]?.id ?? ""), {
+    enabled: !readOnly && columns.length > 0,
+  });
+
   function openTask(task: BoardTaskDto) {
     setEditingTask(task);
     setNewTaskColumnId(task.columnId);
@@ -413,17 +420,19 @@ export function BoardClient({
         <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">{project.name}</h1>
           </>
         )}
-        <Button
-          size="sm"
-          className={hideHeader ? "" : "ml-auto"}
-          onClick={() => {
-            openNewTask(columns[0]?.id ?? "");
-          }}
-          disabled={readOnly || columns.length === 0}
-        >
-          <Plus className="size-4" />
-          {t("newTask")}
-        </Button>
+        <ShortcutTooltip label={t("newTask")} shortcut={PROJECT_PAGE_SHORTCUTS.newTask}>
+          <Button
+            size="sm"
+            className={hideHeader ? "" : "ml-auto"}
+            onClick={() => {
+              openNewTask(columns[0]?.id ?? "");
+            }}
+            disabled={readOnly || columns.length === 0}
+          >
+            <Plus className="size-4" />
+            {t("newTask")}
+          </Button>
+        </ShortcutTooltip>
       </div>
 
       <DndContext

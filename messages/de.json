@@ -1838,6 +1838,9 @@
   "projects": {
     "focusSearch": "Projekte und Aufgaben suchen",
     "keyboardShortcuts": "Tastenkürzel",
+    "redo": "Wiederholen",
+    "newSubtaskShortcut": "Unteraufgabe zur fokussierten/ausgewählten Aufgabe",
+    "rowShortcuts": "In einer ausgewählten Aufgabenzeile",
     "shortcutsHint": "Kürzel funktionieren, solange kein Textfeld fokussiert ist.",
     "mobileProjectsHeading": "Projekte",
     "mobileDeadlinesHeading": "Deadlines",

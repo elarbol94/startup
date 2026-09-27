@@ -32,6 +32,7 @@ import { MobileWorkBreakdown } from "./portfolio/mobile-work-breakdown";
 import { MobilePortfolioOverview } from "./mobile-portfolio-overview";
 import { DeleteTaskDialog } from "./portfolio/delete-task-dialog";
 import { PortfolioHeader, TimelineToolbar } from "./portfolio/portfolio-toolbar";
+import { useTimelineShortcuts } from "./portfolio/portfolio-shortcuts";
 import { ScheduleInspector } from "./portfolio/schedule-inspector";
 import {
   TimelineGridBackground,
@@ -110,6 +111,7 @@ export function PortfolioClient({
   );
   const [revealTaskId, setRevealTaskId] = useState<string | null>(null);
   const dayWidthRef = useRef(ZOOM_WIDTH.month);
+  const searchRef = useRef<HTMLInputElement>(null);
 
   // Local state, gestures and derived data, grouped by concern (see ./portfolio/use-*.ts).
   const { draggedRef, trackDragMovement, releaseDragFlag } = useDragClickGuard();
@@ -217,6 +219,19 @@ export function PortfolioClient({
     scheduleCommitPending, previewFrameRef, deadlinePreviewFrameRef, openTask,
   });
 
+  // Focus mode adds subtasks under the focused task, otherwise under the selected task row.
+  const subtaskParent = embedded ? null : focusedTask ?? selectedTask;
+  useTimelineShortcuts({
+    timelineVisible: view === "timeline" || Boolean(focusedTask),
+    viewSwitchEnabled: !embedded && !focusedTask,
+    searchEnabled: !focusedTask,
+    setView, setTimelineZoom, scrollToToday, fitTimelineView, setCriticalVisible, setLinesVisible,
+    focusSearch: () => searchRef.current?.focus(),
+    newSubtask: subtaskParent && !subtaskParent.isMilestone && !isDraftTask(subtaskParent.id)
+      ? () => newTask(subtaskParent.projectId, subtaskParent.id)
+      : null,
+  });
+
   // Everything a Gantt row needs; each row picks what it renders.
   const rowContext = {
     effectiveSchedule, focusedTask, totalWidth, tasksByProject, today, conflicts, critical, schedule,
@@ -256,7 +271,7 @@ export function PortfolioClient({
           {...{
             focusedTask, focusedProject, focusedSubtree, focusDependencies, schedule, enterTaskFocus,
             exitTaskFocus, copyFocusLink, fitTimelineView, scrollToToday, zoom, setTimelineZoom,
-            criticalVisible, setCriticalVisible,
+            criticalVisible, setCriticalVisible, newTask,
           }}
         />
       ) : (
@@ -273,7 +288,7 @@ export function PortfolioClient({
       {!focusedTask && (
         <TimelineToolbar
           {...{
-            embedded, view, setView, query, setQuery, searchResults, revealProject, enterTaskFocus,
+            embedded, view, setView, query, setQuery, searchRef, searchResults, revealProject, enterTaskFocus,
             schedule, owner, setOwner, health, setHealth, zoom, setTimelineZoom, fitTimelineView,
             scrollToToday, criticalVisible, setCriticalVisible, structurePending, tidyDependencyLines,
             linesVisible, setLinesVisible, structureDrag, structureDrop,
