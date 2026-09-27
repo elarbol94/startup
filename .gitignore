@@ -63,3 +63,6 @@ next-env.d.ts
 .playwright-cli/
 *.orig
 dist-scripts/
+
+# Host-local Compose settings (see README "Deployment")
+docker-compose.override.yml

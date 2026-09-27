@@ -138,6 +138,19 @@ sidecar, follow [docs/cloudflare-access.md](docs/cloudflare-access.md).
 The container stores everything under the `app_data` volume (`/data`):
 `app.db` (SQLite) + `uploads/`. Put Caddy or Traefik in front for TLS.
 
+If the volume was created outside Compose (for example restored from a backup),
+Compose warns that it "already exists but was not created by Docker Compose".
+Declare it external in a host-local `docker-compose.override.yml` (git-ignored,
+loaded automatically) instead of changing `docker-compose.yml`, which must still
+create the volume on fresh installs:
+
+```yaml
+volumes:
+  app_data:
+    external: true
+    name: management-platform_app_data
+```
+
 > **Windows note:** Docker Desktop needs the WSL 2 backend. If `docker` hangs,
 > install a WSL distribution first (`wsl --install`) and let Docker Desktop
 > finish its first-time setup.
