@@ -1646,6 +1646,37 @@
       "time": "Zeit erfassen",
       "invoice": "Rechnung"
     },
+    "dependencies": {
+      "label": "Abhängigkeiten",
+      "waitingFor": "Wartet auf",
+      "late": "verspätet",
+      "blocks": "{count, plural, one {Blockiert} other {Blockiert #}}",
+      "viaTask": "Über die Aufgabe „{title}“"
+    },
+    "activity": {
+      "label": "Projektaktivität",
+      "today": "Heute",
+      "yesterday": "Gestern",
+      "empty": "Noch keine Aktivität. Hier erscheinen neue und erledigte Aufgaben, erfasste Zeit, Verknüpfungen und Terminänderungen.",
+      "more": "Ältere Aktivität laden",
+      "taskCreated": "hat <title></title> angelegt",
+      "taskDone": "<title></title> erledigt",
+      "time": "hat {hours} h erfasst",
+      "linked": "hat {type} <title></title> verknüpft",
+      "schedule": "hat den Zeitplan geändert ({count, plural, one {# Eintrag} other {# Einträge}})",
+      "scheduleReverted": "Zeitplanänderung rückgängig gemacht ({count, plural, one {# Eintrag} other {# Einträge}})",
+      "invoicePaid": "Rechnung <title></title> bezahlt",
+      "types": {
+        "wikiPage": "das Dokument",
+        "wikiSource": "die Quelle",
+        "pdf": "das PDF",
+        "app": "die Seite",
+        "calendarEvent": "den Termin",
+        "invoice": "die Rechnung",
+        "accountingEntry": "die Buchung",
+        "customer": "den Kunden"
+      }
+    },
     "connections": {
       "title": "Verknüpft mit diesem Projekt",
       "description": "Termine, Rechnungen, Buchungen und Kunden mit diesem Projekt.",
@@ -1692,6 +1723,7 @@
     "projectView": "Projektansicht",
     "viewTasks": "Aufgaben",
     "viewKnowledge": "Wissen",
+    "viewActivity": "Aktivität",
     "archivedTitle": "Projekt archiviert",
     "archivedDescription": "Das Board ist schreibgeschützt. Stelle das Projekt wieder her, um Aufgaben und Spalten zu bearbeiten.",
     "projectNotFound": "Projekt nicht gefunden",

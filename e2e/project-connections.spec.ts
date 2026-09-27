@@ -76,3 +76,45 @@ test("a project links events and customers and shows them on its page", async ({
   await expect(connections.getByText("Testkunde Verbindung")).toBeVisible();
   await shot(page, "4-knowledge-connections");
 });
+
+test("dependency badges and the activity tab", async ({ page }) => {
+  await loginAsAnyUser(page);
+
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Neues Projekt" }).click();
+  await page.locator("#project-name").fill("Vorarbeit");
+  await page.locator("#project-planned-start").fill("2026-01-05");
+  await page.locator("#project-target-end").fill("2026-02-27");
+  await page.getByRole("button", { name: "Speichern" }).click();
+  await expect(page.locator('[data-row-kind="project"]').filter({ hasText: "Vorarbeit" })).toBeVisible();
+
+  // Make the project wait for "Vorarbeit".
+  const projectUrl = await openProject(page);
+  await page.getByRole("button", { name: "Projekteinstellungen" }).click();
+  await page.getByRole("menuitem", { name: "Projekt bearbeiten" }).click();
+  const settings = page.getByRole("dialog");
+  await settings.locator("#project-add-predecessor").click();
+  await page.getByRole("option", { name: "Projekt: Vorarbeit" }).click();
+  await settings.getByRole("button", { name: "Vorgänger hinzufügen" }).click();
+  await expect(settings.getByText("Vorarbeit")).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto(projectUrl);
+  const dependencies = page.getByLabel("Abhängigkeiten");
+  await expect(dependencies.getByText("Wartet auf")).toBeVisible();
+  await expect(dependencies.getByRole("link", { name: "Vorarbeit" })).toBeVisible();
+  await shot(page, "5-waiting-for");
+
+  // The predecessor shows whom it holds up.
+  await dependencies.getByRole("link", { name: "Vorarbeit" }).click();
+  await expect(page.getByLabel("Abhängigkeiten").getByText("Blockiert")).toBeVisible();
+  await expect(page.getByLabel("Abhängigkeiten").getByRole("link", { name: PROJECT })).toBeVisible();
+
+  // Activity lists what happened on the first project, grouped by day.
+  await page.goto(`${projectUrl}?view=activity`);
+  const feed = page.getByLabel("Projektaktivität");
+  await expect(feed.getByText("Heute")).toBeVisible();
+  await expect(feed.getByRole("link", { name: "Kickoff Verbindung" })).toBeVisible();
+  await expect(feed.getByText(/den Kunden/)).toBeVisible();
+  await shot(page, "6-activity");
+});
