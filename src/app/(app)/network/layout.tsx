@@ -3,11 +3,10 @@ import { Handshake } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { requireUser } from "@/lib/auth";
 import { NetworkSubnav } from "@/modules/network/components/network-subnav";
-import { QuickCaptureDialog } from "@/modules/network/components/quick-capture-dialog";
-import { listNetworkContactOptions, listNetworkMetContextSuggestions, listNetworkTagSuggestions } from "@/modules/network/queries";
+import { QuickCaptureButton } from "@/modules/network/components/contact-capture-provider";
 
 export default async function NetworkLayout({ children }: { children: React.ReactNode }) {
-  const viewer = await requireUser();
+  await requireUser();
   const t = await getTranslations("network");
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-4">
@@ -19,11 +18,7 @@ export default async function NetworkLayout({ children }: { children: React.Reac
         actions={
           <>
             <NetworkSubnav />
-            <QuickCaptureDialog
-              contacts={listNetworkContactOptions(viewer)}
-              tags={listNetworkTagSuggestions(viewer)}
-              metContexts={listNetworkMetContextSuggestions(viewer)}
-            />
+            <QuickCaptureButton />
           </>
         }
       />

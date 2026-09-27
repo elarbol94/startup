@@ -31,6 +31,7 @@ import {
   Plus,
   Search,
   Settings,
+  UserPlus,
   X,
 } from "lucide-react";
 import { useFocusMode } from "@/components/focus-mode";
@@ -62,6 +63,7 @@ import { requestAppNavigation } from "@/lib/app-navigation";
 import { moduleNav, navSectionAliases, type ModuleNavItem } from "@/modules/registry";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
+import { useContactCapture } from "@/modules/network/components/contact-capture-provider";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
 import { projectIdFromPath, withProjectParam } from "@/modules/projects/current-project";
 
@@ -233,6 +235,7 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
   const router = useRouter();
   const { openTaskCreator } = useTaskCreator();
   const { openDeadlineCreator } = useDeadlineCreator();
+  const { openContactCapture, hasDraft: contactDraft } = useContactCapture();
   const currentProjectId = projectIdFromPath(usePathname());
 
   return (
@@ -295,6 +298,17 @@ function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onNavigate
             <CalendarClock className="mr-1 size-4" />
             {t("newDeadline")}
             <DropdownMenuShortcut className={KEYBOARD_HINT_CLASS}><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.newDeadline} /></DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            data-testid="quick-create-contact"
+            onClick={() => {
+              onNavigate?.();
+              openContactCapture();
+            }}
+          >
+            <UserPlus className="mr-1 size-4" />
+            {t("newContact")}
+            {contactDraft && <DropdownMenuShortcut className="text-[11px] tracking-normal">{t("draft")}</DropdownMenuShortcut>}
           </DropdownMenuItem>
         </DropdownMenuGroup>
       </DropdownMenuContent>
