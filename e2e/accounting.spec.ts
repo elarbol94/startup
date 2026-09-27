@@ -16,7 +16,7 @@ import { test, expect } from "@playwright/test";
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 });
 
 test("create an entry and see it in ledger, report and CSV", async ({ page }) => {
@@ -25,7 +25,7 @@ test("create an entry and see it in ledger, report and CSV", async ({ page }) =>
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/accounting");
   await page.getByRole("button", { name: "Neuer Eintrag" }).click();
@@ -79,7 +79,7 @@ test("plan a category and compare it with actual journal entries", async ({ page
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/accounting/planning?year=2026");
   await expect(page.getByRole("heading", { name: "Planung 2026" })).toBeVisible();
@@ -103,7 +103,7 @@ test("keeps planning section headings fixed during horizontal scrolling", async 
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/accounting/planning?year=2026");
   await expect(page.getByRole("heading", { name: "Planung 2026" })).toBeVisible();
@@ -156,7 +156,7 @@ test("edit and delete the entry", async ({ page }) => {
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/accounting");
   await page.getByRole("row", { name: /Playwright Hosting/ }).click();
@@ -187,7 +187,7 @@ test("calculate, save, and duplicate automatic personnel costs", async ({ page }
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/accounting/bookings?year=2026&month=7");
   await page.getByRole("button", { name: "Neuer Eintrag" }).click();
@@ -258,7 +258,7 @@ test("language switcher changes the UI to English and back", async ({ page }) =>
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   // Open the user menu and switch to English.
   const userMenu = page
@@ -276,9 +276,9 @@ test("language switcher changes the UI to English and back", async ({ page }) =>
   await userMenu.click();
   await page.getByText("Language").hover();
   await page.getByRole("menuitem", { name: "German" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
   await page.reload();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 });
 
 test("plan personnel costs, preserve a scenario, and create a consolidated draft", async ({ page }) => {
@@ -294,7 +294,7 @@ test("plan personnel costs, preserve a scenario, and create a consolidated draft
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 
   await page.goto("/personnel");
   await expect(page.getByRole("heading", { name: "Personalkosten" })).toBeVisible();

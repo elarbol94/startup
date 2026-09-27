@@ -10,7 +10,7 @@ async function login(page: Page) {
   await page.locator("#username").fill("admin");
   await page.locator("#password").fill("super-secret-1");
   await page.getByRole("button", { name: "Anmelden" }).click();
-  await expect(page.getByText("Willkommen, E2E Admin!")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Willkommen, E2E Admin!" })).toBeVisible();
 }
 
 async function openProjectBoard(page: Page, projectName: string) {
@@ -47,7 +47,7 @@ test("create a project with default kanban columns", async ({ page }) => {
   await page.locator("#project-description").fill("Neue Firmenwebsite");
   await page.getByRole("button", { name: "Speichern" }).click();
 
-  await expect(page.getByText("Website Relaunch")).toBeVisible();
+  await expect(page.locator('[data-row-kind="project"]').filter({ hasText: "Website Relaunch" })).toBeVisible();
 
   // Open the board: the three default columns exist.
   await openProjectBoard(page, "Website Relaunch");
@@ -82,7 +82,7 @@ test("create, move (via dialog) and complete a task", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Aufgaben", exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("Landingpage bauen", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Landingpage bauen", exact: true })).toBeVisible();
 
   // Move it to "In Arbeit" via the dialog's column select.
   await page.goto("/projects");
