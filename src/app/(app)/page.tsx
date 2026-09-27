@@ -8,6 +8,10 @@ import { cardIds, type CardId } from "@/modules/tasks/overview-layout";
 import { getOverviewCollections } from "@/modules/tasks/overview-queries";
 import type { ReactNode } from "react";
 import { requireUser } from "@/lib/auth";
+import { localDateInZone } from "@/modules/calendar/date-utils";
+import { OverviewNetwork } from "@/modules/network/components/overview-network";
+import { listNetworkFollowUps } from "@/modules/network/queries";
+import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import {
   getPersonalWorkSummary,
   listDeadlineOverview,
@@ -65,6 +69,7 @@ export default async function DashboardPage({
   const collections = getOverviewCollections(user);
   const counts = { ...collections.counts, unreadNews: getUnreadNotificationCount(user.id) };
   const metricRecords = getOverviewMetricRecords(user.id, summary, collections);
+  const followUps = listNetworkFollowUps(user);
   const cards = Object.fromEntries(cardIds.map(id => [id, <OverviewMetric key={id} id={id} summary={summary} counts={counts} records={metricRecords[id]} />])) as Record<CardId, ReactNode>;
 
   return (
@@ -91,6 +96,7 @@ export default async function DashboardPage({
         presentations: <OverviewCollection kind="presentations" rows={collections.presentations} timezone={collections.timezone} />,
         recentlyOpened: <OverviewRecentlyOpened userId={user.id} />,
         projects: <OverviewCollection kind="projects" rows={collections.projects} timezone={collections.timezone} />,
+        network: <OverviewNetwork leads={followUps.leads} total={followUps.total} today={localDateInZone(new Date(), TIME_ZONE)} />,
       }} />
     </div>
   );

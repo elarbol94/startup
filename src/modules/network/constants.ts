@@ -17,3 +17,7 @@ export type LeadStatus = (typeof leadStatuses)[number];
 
 /** Leads that still need something from us; shown on the opportunities list. */
 export const activeLeadStatuses = ["open", "asked"] as const satisfies readonly LeadStatus[];
+
+/** How we were in touch; logged on the contact's history. */
+export const interactionChannels = ["meeting", "call", "message", "email", "event", "other"] as const;
+export type InteractionChannel = (typeof interactionChannels)[number];

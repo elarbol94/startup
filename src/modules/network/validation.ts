@@ -4,6 +4,7 @@ import {
   contactClosenessLevels,
   contactRelationships,
   contactVisibilities,
+  interactionChannels,
   leadKinds,
   leadStatuses,
 } from "./constants";
@@ -58,9 +59,21 @@ export const quickCaptureSchema = z.object({
   kind: z.enum(leadKinds).default("info"),
   metContext: text(300),
   tags: tagsSchema,
+  /** Also log today's conversation, which sets the last-contact date. */
+  metToday: z.boolean().default(false),
 }).refine((value) => value.contactId || value.name, { path: ["name"] });
 export type QuickCaptureInput = z.input<typeof quickCaptureSchema>;
 
 export const contactTagsSchema = z.object({ contactId: idSchema, tags: tagsSchema });
 export const visibilitySchema = z.object({ contactId: idSchema, visibility: z.enum(contactVisibilities) });
 export const leadStatusSchema = z.object({ id: idSchema, status: z.enum(leadStatuses) });
+
+export const interactionSchema = z.object({
+  contactId: idSchema,
+  occurredOn: z.string().trim().refine(isValidDate),
+  channel: z.enum(interactionChannels).default("meeting"),
+  note: text(1000),
+});
+export type InteractionInput = z.input<typeof interactionSchema>;
+
+export const leadTaskLinkSchema = z.object({ leadId: idSchema, taskId: idSchema });

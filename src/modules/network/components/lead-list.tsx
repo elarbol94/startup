@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { setNetworkLeadStatus } from "../lead-actions";
 import { isLeadActive, isLeadOverdue } from "../network-utils";
 import type { NetworkLeadView } from "../queries";
+import { LeadTaskButton } from "./lead-task-button";
 import { dateOnly } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -54,7 +55,7 @@ export function LeadList({
                 {showContact && <span className="text-muted-foreground"> · </span>}
                 <span className="text-muted-foreground">{t(`kinds.${lead.kind}`)}:</span> {lead.summary}
               </div>
-              {(target || lead.nextStep || lead.dueOn || lead.status !== "open") && (
+              {(target || lead.nextStep || lead.dueOn || lead.status !== "open" || lead.task) && (
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                   {target && (
                     <span className="inline-flex items-center gap-1">
@@ -72,6 +73,7 @@ export function LeadList({
                     </span>
                   )}
                   {lead.status !== "open" && <span className="rounded-full border px-1.5">{t(`statuses.${lead.status}`)}</span>}
+                  {lead.task && <LeadTaskButton lead={lead} />}
                 </div>
               )}
             </div>
@@ -81,6 +83,7 @@ export function LeadList({
                   {t("lead.markAsked")}
                 </Button>
               )}
+              {!lead.task && active && <LeadTaskButton lead={lead} />}
               <Button size="icon-sm" variant="ghost" aria-label={t("lead.edit")} onClick={() => onEdit(lead)}>
                 <Pencil />
               </Button>

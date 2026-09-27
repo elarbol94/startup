@@ -57,17 +57,46 @@ test("captures a contact, follows up an opportunity and deletes the contact", as
 
   // Detail page: tags, last contact, sharing.
   await intro.getByRole("link", { name }).click();
-  await expect(page.getByTestId("network-contact-name")).toHaveText(name);
-  await expect(page.getByText("Nur du siehst diesen Kontakt.")).toBeVisible();
-  await expect(page.getByText("Nachhaltigkeit", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Heute gesprochen" }).click();
-  await expect(page.getByRole("button", { name: "Heute gesprochen" })).toBeDisabled();
-  await page.getByRole("button", { name: "Mit Team teilen" }).click();
-  await expect(page.getByText("Das ganze Team kann diesen Kontakt sehen")).toBeVisible();
+  // Earlier routes stay mounted (hidden), so everything below is scoped to the contact page.
+  const detail = page.getByTestId("network-contact-detail");
+  await expect(detail.getByTestId("network-contact-name")).toHaveText(name);
+  await expect(detail.getByText("Nur du siehst diesen Kontakt.")).toBeVisible();
+  await expect(detail.getByText("Nachhaltigkeit", { exact: true })).toBeVisible();
+  // Quick capture logged today's conversation, so "spoke today" is already done.
+  await expect(detail.getByRole("button", { name: "Heute gesprochen" })).toBeDisabled();
+  const history = detail.getByTestId("network-interactions");
+  await expect(history.getByRole("listitem")).toHaveCount(1);
+  await detail.getByLabel("Art", { exact: true }).selectOption({ label: "Telefonat" });
+  await detail.getByLabel("Notiz", { exact: true }).fill("Wegen Intro nachgefragt");
+  await detail.getByRole("button", { name: "Eintragen" }).click();
+  await expect(history.getByRole("listitem")).toHaveCount(2);
+  await expect(history).toContainText("Telefonat: Wegen Intro nachgefragt");
+
+  // Turn the intro's next step into a regular task, linked back to the lead.
+  const contactUrl = page.url();
+  const leadRow = detail.getByTestId("network-lead-list").getByRole("listitem").filter({ hasText: "Klimabündnis" });
+  await leadRow.getByRole("button", { name: "Aufgabe erstellen" }).click();
+  const taskDialog = page.getByRole("dialog", { name: "Aufgabe erstellen" });
+  await expect(taskDialog.getByRole("textbox").first()).toHaveValue("Kennt jemanden beim Klimabündnis Österreich");
+  await taskDialog.getByRole("button", { name: "Aufgabe erstellen" }).click();
+  await expect(taskDialog).toHaveCount(0);
+  await expect(leadRow.getByRole("link", { name: "Aufgabe offen" })).toBeVisible();
+
+  // The dashboard can show open follow-ups.
+  await page.goto("/");
+  await page.getByRole("button", { name: "Layout anpassen" }).click();
+  await page.getByRole("button", { name: "Hinzufügen" }).click();
+  await page.getByRole("checkbox", { name: "Netzwerk · Nachfassen" }).check();
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Fertig" }).click();
+  await expect(page.getByTestId("overview-network")).toContainText(name);
+  await page.goto(contactUrl);
+  await detail.getByRole("button", { name: "Mit Team teilen" }).click();
+  await expect(detail.getByText("Das ganze Team kann diesen Kontakt sehen")).toBeVisible();
 
   // Delete needs a second click.
-  await page.getByRole("button", { name: "Kontakt löschen" }).click();
-  await page.getByRole("button", { name: "Zum endgültigen Löschen erneut klicken" }).click();
+  await detail.getByRole("button", { name: "Kontakt löschen" }).click();
+  await detail.getByRole("button", { name: "Zum endgültigen Löschen erneut klicken" }).click();
   await expect(page).toHaveURL(/\/network$/);
   await expect(page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) })).toHaveCount(0);
   expect(errors).toEqual([]);

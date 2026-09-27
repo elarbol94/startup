@@ -1,4 +1,4 @@
-export const sectionIds = ["tasks", "deadlines", "news", "calendar", "documents", "presentations", "projects", "recentlyOpened"] as const;
+export const sectionIds = ["tasks", "deadlines", "news", "calendar", "documents", "presentations", "projects", "recentlyOpened", "network"] as const;
 // "nextDeadline" was merged into "upcomingDeadlines" (count + next deadline as secondary line);
 // parseLayout maps stored "nextDeadline" entries onto the merged tile (see legacyCardIds).
 export const cardIds = ["openTasks", "overdue", "upcomingDeadlines", "eventsToday", "documentsCount", "presentationsCount", "projectsCount", "unreadNews"] as const;
