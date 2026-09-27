@@ -1,5 +1,5 @@
 // The app's keyboard shortcut map, in one place so tooltips, handlers and the clash test
-// (app-shortcuts.test.ts) agree. Notation is documented in lib/shortcuts.ts.
+// (lib/shortcuts.test.ts) agree. Notation is documented in lib/shortcuts.ts.
 //
 // Rules for new bindings:
 // - Global shortcuts with a modifier use Mod (Ctrl/⌘) + Shift or a key the browser does not
@@ -38,4 +38,29 @@ export const PROJECTS_PAGE_SHORTCUTS = {
   today: "T",
   search: "/",
   newProject: "N",
+  fitView: "Z",
+  criticalPath: "C",
+  dependencyLines: "L",
+  /** Adds a subtask under the focused task (focus mode) or the selected task row. */
+  newSubtask: "Shift+N",
+} as const;
+
+/**
+ * Keys handled by the focused Gantt row or the schedule undo listener rather than
+ * useKeyboardShortcut; listed here only so the help popover can show them.
+ */
+export const TIMELINE_KEY_HINTS = {
+  focusTask: "F",
+  outdentTask: "Alt+←",
+  indentTask: "Alt+→",
+  undo: "Mod+Z",
+  redo: "Mod+Shift+Z",
+} as const;
+
+/** The single project page (/projects/<id>). */
+export const PROJECT_PAGE_SHORTCUTS = {
+  viewTasks: "1",
+  viewKnowledge: "2",
+  viewActivity: "3",
+  newTask: "N",
 } as const;

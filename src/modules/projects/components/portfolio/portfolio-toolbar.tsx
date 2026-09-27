@@ -4,7 +4,7 @@
 
 import { UserIdentity } from "@/components/user-identity";
 
-import { useRef } from "react";
+import type { RefObject } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import {
   CalendarClock,
@@ -27,7 +27,7 @@ import type {
 import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { PROJECTS_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
@@ -48,6 +48,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
@@ -55,7 +56,7 @@ import { isTaskDone } from "@/modules/projects/schedule";
 import type { ProjectDialogState } from "../project-dialog";
 import type { EmbeddedProjectPlanner, SetState, Zoom } from "./portfolio-types";
 import { parseDate, projectRisk } from "./portfolio-utils";
-import { PortfolioShortcutList, useTimelineToolbarShortcuts } from "./portfolio-shortcuts";
+import { PortfolioShortcutList } from "./portfolio-shortcuts";
 import type { usePortfolioFocus } from "./use-portfolio-focus";
 import type { usePortfolioRows } from "./use-portfolio-rows";
 import type { useStructureDrag } from "./use-structure-drag";
@@ -114,6 +115,7 @@ export function TimelineToolbar({
   setView,
   query,
   setQuery,
+  searchRef,
   searchResults,
   revealProject,
   enterTaskFocus,
@@ -148,6 +150,7 @@ export function TimelineToolbar({
     setView: SetState<"timeline" | "projects">;
     query: string;
     setQuery: SetState<string>;
+    searchRef: RefObject<HTMLInputElement | null>;
     schedule: PortfolioSchedule;
     owner: string;
     setOwner: SetState<string>;
@@ -161,16 +164,6 @@ export function TimelineToolbar({
     setLinesVisible: SetState<boolean>;
   }) {
   const t = useTranslations("projects");
-  const searchRef = useRef<HTMLInputElement>(null);
-  useTimelineToolbarShortcuts({
-    enabled: true,
-    viewSwitchEnabled: !embedded,
-    view,
-    setView,
-    setTimelineZoom,
-    scrollToToday,
-    focusSearch: () => searchRef.current?.focus(),
-  });
   return (
     <div className="flex flex-wrap items-center gap-2 border-b pb-3">
       {!embedded && <div className={cn("flex w-full gap-1", view === "timeline" && "border-b pb-3")}>
@@ -275,15 +268,15 @@ export function TimelineToolbar({
             <DropdownMenu>
               <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label={t("viewOptions")}><Ellipsis className="size-4" /><span className="hidden sm:inline">{t("viewOptionsShort")}</span>{(criticalVisible || !linesVisible) && <span className="size-1.5 rounded-full bg-indigo-500" aria-hidden />}</Button>} />
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</DropdownMenuItem>
+                <DropdownMenuItem onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}<DropdownMenuShortcut><ShortcutKeys shortcut={PROJECTS_PAGE_SHORTCUTS.fitView} /></DropdownMenuShortcut></DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem checked={criticalVisible} onCheckedChange={(checked) => setCriticalVisible(Boolean(checked))}><GitBranch className="size-4" />{t("criticalPath")}</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem checked={linesVisible} onCheckedChange={(checked) => setLinesVisible(Boolean(checked))}><Spline className="size-4" />{t("dependencyLines")}</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={criticalVisible} onCheckedChange={(checked) => setCriticalVisible(Boolean(checked))}><GitBranch className="size-4" />{t("criticalPath")}<DropdownMenuShortcut><ShortcutKeys shortcut={PROJECTS_PAGE_SHORTCUTS.criticalPath} /></DropdownMenuShortcut></DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem checked={linesVisible} onCheckedChange={(checked) => setLinesVisible(Boolean(checked))}><Spline className="size-4" />{t("dependencyLines")}<DropdownMenuShortcut><ShortcutKeys shortcut={PROJECTS_PAGE_SHORTCUTS.dependencyLines} /></DropdownMenuShortcut></DropdownMenuCheckboxItem>
                 <DropdownMenuItem disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Popover><ShortcutTooltip label={t("timelineHelp")}><PopoverTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("timelineHelp")}><CircleHelp className="size-4" /></Button>} /></ShortcutTooltip>
-              <PopoverContent align="end" className="w-80 space-y-3 text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p><PortfolioShortcutList /></PopoverContent>
+              <PopoverContent align="end" className="max-h-[75vh] w-80 space-y-3 overflow-y-auto text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p><PortfolioShortcutList /></PopoverContent>
             </Popover>
           </div>
           {/* Screen-reader status stays visually hidden unless a structure drag is in progress; a visible wide line caused horizontal scroll on laptops. */}

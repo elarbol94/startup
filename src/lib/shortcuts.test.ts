@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS, PROJECTS_PAGE_SHORTCUTS } from "./app-shortcuts";
+import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS, PROJECT_PAGE_SHORTCUTS, PROJECTS_PAGE_SHORTCUTS, TIMELINE_KEY_HINTS } from "./app-shortcuts";
 import {
   ariaKeyShortcuts,
   isEditableTarget,
@@ -97,14 +97,16 @@ describe("display", () => {
 describe("app shortcut map", () => {
   const stepKey = (shortcut: string) => JSON.stringify(parseShortcut(shortcut));
 
-  it("has no duplicate bindings across global, navigation and /projects shortcuts", () => {
-    const all = [...Object.values(GLOBAL_SHORTCUTS), ...Object.values(NAVIGATION_SHORTCUTS), ...Object.values(PROJECTS_PAGE_SHORTCUTS)];
+  const pages = { projects: { ...PROJECTS_PAGE_SHORTCUTS, ...TIMELINE_KEY_HINTS }, project: PROJECT_PAGE_SHORTCUTS };
+
+  it.each(Object.entries(pages))("has no duplicate bindings across global, navigation and %s page shortcuts", (_, page) => {
+    const all = [...Object.values(GLOBAL_SHORTCUTS), ...Object.values(NAVIGATION_SHORTCUTS), ...Object.values(page)];
     expect(new Set(all.map(stepKey)).size).toBe(all.length);
   });
 
   it("never binds a single key that starts a navigation sequence", () => {
     const starters = new Set(Object.values(NAVIGATION_SHORTCUTS).map((shortcut) => JSON.stringify(parseShortcut(shortcut)[0])));
-    for (const shortcut of Object.values(PROJECTS_PAGE_SHORTCUTS)) {
+    for (const shortcut of Object.values(pages).flatMap((page) => Object.values(page))) {
       expect(starters.has(JSON.stringify(parseShortcut(shortcut)[0]))).toBe(false);
     }
   });

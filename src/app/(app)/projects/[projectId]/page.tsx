@@ -2,12 +2,13 @@ import { UserAttribution } from "@/components/user-identity";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { ArrowLeft, BookOpen, History, KanbanSquare } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { listProjectConnections } from "@/modules/context/project-links";
 import { ProjectConnectionsPanel } from "@/modules/projects/components/project-connections-panel";
 import { ProjectPulseChips } from "@/modules/projects/components/project-pulse";
 import { ProjectQuickCreate } from "@/modules/projects/components/project-quick-create";
+import { ProjectViewTabs } from "@/modules/projects/components/project-view-tabs";
 import { getProjectPulse } from "@/modules/projects/pulse";
 import { ACTIVITY_MAX, ACTIVITY_PAGE_SIZE, listProjectActivity } from "@/modules/projects/activity";
 import { getDependencyBadges } from "@/modules/projects/dependency-badges";
@@ -20,7 +21,6 @@ import { ProjectSettingsButton } from "@/modules/projects/components/project-dia
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { listEntityContext } from "@/modules/context/queries";
-import { cn } from "@/lib/utils";
 
 export default async function ProjectBoardPage({
   params,
@@ -98,31 +98,7 @@ export default async function ProjectBoardPage({
             <ProjectDependencyBadges badges={dependencyBadges} />
           </div>
         </div>
-        <nav
-          aria-label={t("projectView")}
-          className="ml-auto flex rounded-lg border bg-muted/40 p-1"
-        >
-          {([
-            { id: "tasks", href: `/projects/${projectId}`, icon: KanbanSquare, label: t("viewTasks") },
-            { id: "knowledge", href: `/projects/${projectId}?view=knowledge`, icon: BookOpen, label: t("viewKnowledge") },
-            { id: "activity", href: `/projects/${projectId}?view=activity`, icon: History, label: t("viewActivity") },
-          ] as const).map((tab) => (
-            <Link
-              key={tab.id}
-              href={tab.href}
-              aria-current={view === tab.id ? "page" : undefined}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                view === tab.id
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              <tab.icon className="size-4" />
-              {tab.label}
-            </Link>
-          ))}
-        </nav>
+        <ProjectViewTabs projectId={projectId} view={view} />
         <ProjectQuickCreate projectId={projectId} projectName={project.name} />
         <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
       </header>

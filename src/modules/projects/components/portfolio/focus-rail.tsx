@@ -11,6 +11,7 @@ import {
   GitBranch,
   LocateFixed,
   Minimize2,
+  Plus,
 } from "lucide-react";
 import type {
   PortfolioSchedule,
@@ -21,6 +22,8 @@ import type {
   FocusedTaskSubtree,
 } from "@/modules/projects/focus";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { PROJECTS_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +34,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { PortfolioDependency, SetState, Zoom } from "./portfolio-types";
 import type { usePortfolioFocus } from "./use-portfolio-focus";
+import type { useTaskTreeActions } from "./use-task-tree-actions";
 import type { useTimelineLayout } from "./use-timeline-layout";
 
 export function FocusRail({
@@ -48,11 +52,13 @@ export function FocusRail({
   setTimelineZoom,
   criticalVisible,
   setCriticalVisible,
+  newTask,
 }: Pick<
   ReturnType<typeof usePortfolioFocus>,
   "enterTaskFocus" | "exitTaskFocus" | "copyFocusLink"
 > &
-  Pick<ReturnType<typeof useTimelineLayout>, "fitTimelineView" | "scrollToToday"> & {
+  Pick<ReturnType<typeof useTimelineLayout>, "fitTimelineView" | "scrollToToday"> &
+  Pick<ReturnType<typeof useTaskTreeActions>, "newTask"> & {
     focusedTask: PortfolioTask;
     focusedProject: PortfolioSchedule["projects"][number];
     focusedSubtree: FocusedTaskSubtree<PortfolioTask> | null;
@@ -189,31 +195,44 @@ export function FocusRail({
               </DropdownMenuContent>
             </DropdownMenu>
           )}
+          {!focusedTask.isMilestone && (
+            <ShortcutTooltip label={t("newSubtask")} shortcut={PROJECTS_PAGE_SHORTCUTS.newSubtask}>
+              <Button size="sm" variant="outline" onClick={() => newTask(focusedTask.projectId, focusedTask.id)}><Plus className="size-4" />{t("newSubtask")}</Button>
+            </ShortcutTooltip>
+          )}
           <Button size="icon-sm" variant="ghost" onClick={copyFocusLink} aria-label={t("copyFocusLink")} title={t("copyFocusLink")}><Copy className="size-4" /></Button>
-          <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</Button>
-          <Button size="icon-sm" variant="ghost" className="hidden md:inline-flex" onClick={scrollToToday} aria-label={t("today")} title={t("today")}><LocateFixed className="size-4" /></Button>
+          <ShortcutTooltip label={t("fitView")} shortcut={PROJECTS_PAGE_SHORTCUTS.fitView}>
+            <Button size="sm" variant="outline" className="hidden md:inline-flex" onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}</Button>
+          </ShortcutTooltip>
+          <ShortcutTooltip label={t("today")} shortcut={PROJECTS_PAGE_SHORTCUTS.today}>
+            <Button size="icon-sm" variant="ghost" className="hidden md:inline-flex" onClick={scrollToToday} aria-label={t("today")}><LocateFixed className="size-4" /></Button>
+          </ShortcutTooltip>
           <div className="hidden rounded-md border p-0.5 md:flex">
             {(["week", "month", "quarter"] as const).map((option) => (
-              <Button
-                key={option}
-                size="xs"
-                variant={zoom === option ? "secondary" : "ghost"}
-                onClick={() => setTimelineZoom(option)}
-              >
-                {t(option)}
-              </Button>
+              <ShortcutTooltip key={option} label={t(option)} shortcut={PROJECTS_PAGE_SHORTCUTS[option]}>
+                <Button
+                  size="xs"
+                  variant={zoom === option ? "secondary" : "ghost"}
+                  aria-pressed={zoom === option}
+                  onClick={() => setTimelineZoom(option)}
+                >
+                  {t(option)}
+                </Button>
+              </ShortcutTooltip>
             ))}
           </div>
-          <Button
-            size="icon-sm"
-            variant={criticalVisible ? "secondary" : "ghost"}
-            className="hidden md:inline-flex"
-            onClick={() => setCriticalVisible((value) => !value)}
-            aria-label={t("criticalPath")}
-            title={t("criticalPath")}
-          >
-            <GitBranch className="size-4" />
-          </Button>
+          <ShortcutTooltip label={t("criticalPath")} shortcut={PROJECTS_PAGE_SHORTCUTS.criticalPath}>
+            <Button
+              size="icon-sm"
+              variant={criticalVisible ? "secondary" : "ghost"}
+              className="hidden md:inline-flex"
+              onClick={() => setCriticalVisible((value) => !value)}
+              aria-label={t("criticalPath")}
+              aria-pressed={criticalVisible}
+            >
+              <GitBranch className="size-4" />
+            </Button>
+          </ShortcutTooltip>
         </div>
       </div>
     </section>

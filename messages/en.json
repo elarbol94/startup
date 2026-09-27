@@ -1692,6 +1692,9 @@
   "projects": {
     "focusSearch": "Search projects and tasks",
     "keyboardShortcuts": "Keyboard shortcuts",
+    "redo": "Redo",
+    "newSubtaskShortcut": "Add subtask to focused/selected task",
+    "rowShortcuts": "On a selected task row",
     "shortcutsHint": "Shortcuts work while no text field is focused.",
     "mobileProjectsHeading": "Projects",
     "mobileDeadlinesHeading": "Deadlines",
