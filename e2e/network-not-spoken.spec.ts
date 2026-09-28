@@ -28,8 +28,8 @@ test("marks a new contact as not spoken yet and clears it once contacted", async
   const row = page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) });
   await expect(row.getByTestId("network-not-spoken-badge")).toBeVisible();
   await row.click();
-  await expect(page.getByTestId("network-contact-name")).toHaveText(name);
-  const detail = page.getByTestId("network-contact-detail");
+  await expect(page.getByTestId("network-contact-name").filter({ visible: true })).toHaveText(name);
+  const detail = page.getByTestId("network-contact-detail").filter({ visible: true });
   await expect(detail.getByTestId("network-not-spoken-badge")).toBeVisible();
 
   // Marking the contact as contacted clears the flag.
@@ -42,7 +42,7 @@ test("marks a new contact as not spoken yet and clears it once contacted", async
   // It can be set again by hand in the edit dialog.
   await page.goto("/network");
   await page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(name) }).click();
-  await page.getByRole("button", { name: "Bearbeiten" }).click();
+  await page.getByTestId("network-contact-detail").filter({ visible: true }).getByRole("button", { name: "Bearbeiten", exact: true }).click();
   const edit = page.getByRole("dialog", { name: "Kontakt bearbeiten" });
   await edit.getByRole("checkbox", { name: "Noch nicht gesprochen" }).click();
   await edit.getByRole("button", { name: "Speichern" }).click();

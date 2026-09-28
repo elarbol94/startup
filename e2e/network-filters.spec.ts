@@ -22,7 +22,7 @@ test("filters and sorts the contact list through the URL", async ({ page }) => {
 
   // Search narrows the list; alphabetical by default.
   await page.getByRole("searchbox", { name: "Suchen" }).fill(prefix);
-  await page.getByRole("button", { name: "Suchen" }).click();
+  await page.getByRole("search").getByRole("button", { name: "Suchen" }).click();
   await expect(page).toHaveURL(new RegExp(`q=${prefix}`));
   const rows = page.getByTestId("network-contact-list").getByRole("link");
   await expect(rows).toHaveCount(2);

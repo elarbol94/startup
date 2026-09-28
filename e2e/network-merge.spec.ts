@@ -30,7 +30,7 @@ test("offers a similar name in quick capture and merges the duplicate", async ({
   // Merge from the duplicate's page, keeping the original record.
   await page.goto("/network");
   await page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(duplicate) }).click();
-  await expect(page.getByTestId("network-contact-name")).toHaveText(duplicate);
+  await expect(page.getByTestId("network-contact-name").filter({ visible: true })).toHaveText(duplicate);
   await page.getByTestId("network-merge-open").click();
   const dialog = page.getByRole("dialog", { name: "Kontakte zusammenführen" });
   await dialog.getByLabel("Doppelter Kontakt").selectOption({ label: original });
@@ -40,13 +40,13 @@ test("offers a similar name in quick capture and merges the duplicate", async ({
   await expect(preview).toContainText("1 Möglichkeit");
   await dialog.getByRole("button", { name: "Endgültig zusammenführen" }).click();
 
-  await expect(page.getByTestId("network-contact-name")).toHaveText(original);
-  const detail = page.getByTestId("network-contact-detail");
+  await expect(page.getByTestId("network-contact-name").filter({ visible: true })).toHaveText(original);
+  const detail = page.getByTestId("network-contact-detail").filter({ visible: true });
   await expect(detail).toContainText(`Zusammengeführt aus ${duplicate}`);
   await expect(detail).toContainText(`Notiz zu ${original}`);
   await expect(detail).toContainText(`Notiz zu ${duplicate}`);
   await page.goto("/network");
-  await expect(page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(duplicate) })).toHaveCount(0);
+  await expect(page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(`^${duplicate}`) })).toHaveCount(0);
 
   expect(errors).toEqual([]);
 });
