@@ -20,6 +20,7 @@ import { contactClosenessLevels, contactRelationships } from "../constants";
 import type { NetworkContactDetail } from "../queries";
 import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
 import type { Suggestion } from "../network-utils";
+import { reconnectPresets } from "../reconnect-utils";
 import { selectClassName } from "./network-ui";
 import { SuggestInput } from "./suggest-input";
 import { useNetworkAction } from "./use-network-action";
@@ -36,6 +37,8 @@ type FormState = {
   linkedinUrl: string;
   notes: string;
   lastContactOn: string;
+  /** Days as a string for the select; "" means no reminder. */
+  reconnectEveryDays: string;
   municipality: MunicipalityValue;
 };
 
@@ -52,6 +55,7 @@ function initialForm(contact: NetworkContactDetail): FormState {
     linkedinUrl: contact.linkedinUrl,
     notes: contact.notes,
     lastContactOn: contact.lastContactOn ?? "",
+    reconnectEveryDays: contact.reconnectEveryDays ? String(contact.reconnectEveryDays) : "",
     municipality: contact.municipalityCode ? { code: contact.municipalityCode, name: contact.municipalityName ?? contact.municipalityCode } : null,
   };
 }
@@ -103,6 +107,7 @@ function ContactForm({
         relationship: (form.relationship || null) as (typeof contactRelationships)[number] | null,
         closeness: (form.closeness || null) as (typeof contactClosenessLevels)[number] | null,
         lastContactOn: form.lastContactOn || null,
+        reconnectEveryDays: form.reconnectEveryDays ? Number(form.reconnectEveryDays) : null,
       }),
       () => {
         toast.success(t("contact.saved"));
@@ -111,7 +116,7 @@ function ContactForm({
     );
   }
 
-  const field = (key: Exclude<keyof FormState, "municipality">, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
+  const field = (key: Exclude<keyof FormState, "municipality" | "reconnectEveryDays">, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={`${id}-${key}`}>{t(`fields.${key}`)}</Label>
       <Input
@@ -171,6 +176,20 @@ function ContactForm({
             <MunicipalityPicker id={`${id}-municipality`} value={form.municipality} onChange={(municipality) => set({ municipality })} />
           </div>
           {field("lastContactOn", { type: "date" })}
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-reconnectEveryDays`}>{t("reconnect.field")}</Label>
+            <select
+              id={`${id}-reconnectEveryDays`}
+              className={selectClassName}
+              value={form.reconnectEveryDays}
+              onChange={(event) => set({ reconnectEveryDays: event.target.value })}
+            >
+              <option value="">{t("reconnect.none")}</option>
+              {reconnectDayOptions(contact.reconnectEveryDays).map((days) => (
+                <option key={days} value={String(days)}>{t("reconnect.every", { days })}</option>
+              ))}
+            </select>
+          </div>
           {field("email", { type: "email", maxLength: 254 })}
           {field("phone", { type: "tel", maxLength: 60 })}
           <div className="sm:col-span-2">{field("linkedinUrl", { type: "url", maxLength: 500, placeholder: "https://www.linkedin.com/in/…" })}</div>
@@ -186,4 +205,10 @@ function ContactForm({
       </form>
     </DialogContent>
   );
+}
+
+/** The presets, plus a stored value that is not one of them so editing never changes it silently. */
+function reconnectDayOptions(current: number | null) {
+  const presets: number[] = [...reconnectPresets];
+  return current && !presets.includes(current) ? [...presets, current].sort((a, b) => a - b) : presets;
 }

@@ -9,6 +9,7 @@ import {
   leadStatuses,
 } from "./constants";
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_CONTACT } from "./network-utils";
+import { MAX_RECONNECT_DAYS, MIN_RECONNECT_DAYS } from "./reconnect-utils";
 
 export const idSchema = z.string().min(1).max(100);
 /** A Gemeindekennziffer from the map section, or none. */
@@ -37,6 +38,8 @@ export const contactSchema = z.object({
   notes: text(20_000),
   lastContactOn: optionalDate,
   municipalityCode: municipalityCodeSchema,
+  /** Keep-in-touch cadence in days; null (or omitted) means no reminder. */
+  reconnectEveryDays: z.number().int().min(MIN_RECONNECT_DAYS).max(MAX_RECONNECT_DAYS).nullish().transform((value) => value ?? null),
 });
 export type ContactInput = z.input<typeof contactSchema>;
 

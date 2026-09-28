@@ -505,6 +505,13 @@
       "when": 1790534126621,
       "tag": "0071_network_municipalities",
       "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "6",
+      "when": 1790577977432,
+      "tag": "0072_network_reconnect_cadence",
+      "breakpoints": true
     }
   ]
 }

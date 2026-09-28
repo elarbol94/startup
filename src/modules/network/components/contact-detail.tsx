@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
 import type { Suggestion } from "../network-utils";
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
+import { reconnectDueOn } from "../reconnect-utils";
 import { ContactEditDialog } from "./contact-edit-dialog";
 import { ContactLinks } from "./contact-links";
 import { ContactTagsEditor } from "./contact-tags-editor";
@@ -44,6 +45,14 @@ export function ContactDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const formatDate = (value: string) => format.dateTime(dateOnly(value), { dateStyle: "medium", timeZone: "UTC" });
   const shared = contact.visibility === "team";
+  const reconnectDue = reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays);
+  const reconnectFact = contact.reconnectEveryDays && reconnectDue !== null && [
+    t("reconnect.every", { days: contact.reconnectEveryDays }),
+    !reconnectDue ? t("reconnect.neverContacted")
+      : reconnectDue === today ? t("reconnect.dueToday")
+        : reconnectDue < today ? t("reconnect.dueSince", { date: formatDate(reconnectDue) })
+          : t("reconnect.nextOn", { date: formatDate(reconnectDue) }),
+  ].join(" · ");
 
   function remove() {
     if (!confirmDelete) {
@@ -62,6 +71,7 @@ export function ContactDetail({
     { label: t("fields.municipality"), value: contact.municipalityCode && <MunicipalityLink code={contact.municipalityCode} name={contact.municipalityName ?? contact.municipalityCode} /> },
     { label: t("fields.metContext"), value: contact.metContext },
     { label: t("fields.lastContactOn"), value: contact.lastContactOn && formatDate(contact.lastContactOn) },
+    { label: t("reconnect.field"), value: reconnectFact },
     { label: t("fields.email"), value: contact.email && <a className="underline-offset-4 hover:underline" href={`mailto:${contact.email}`}>{contact.email}</a> },
     { label: t("fields.phone"), value: contact.phone && <a className="underline-offset-4 hover:underline" href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a> },
     { label: t("fields.linkedinUrl"), value: contact.linkedinUrl && <a className="break-all underline-offset-4 hover:underline" href={contact.linkedinUrl} target="_blank" rel="noreferrer noopener">{contact.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}</a> },

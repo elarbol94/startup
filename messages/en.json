@@ -567,8 +567,22 @@
       "sorts": {
         "name": "Name (A–Z)",
         "lastContact": "Last contact",
-        "recent": "Recently added"
+        "recent": "Recently added",
+        "reconnect": "Reconnect (due first)"
       }
+    },
+    "reconnect": {
+      "title": "Reconnect",
+      "intro": "People you wanted to keep in touch with and have not spoken to for a while.",
+      "field": "Keep in touch",
+      "none": "No reminder",
+      "every": "Every {days} days",
+      "neverContacted": "No contact yet",
+      "dueSince": "Due since {date}",
+      "dueToday": "Due today",
+      "nextOn": "Next on {date}",
+      "lastContact": "Last contact {date}",
+      "markContactedFor": "Spoke to {name} today"
     }
   },
   "municipalities": {

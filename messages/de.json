@@ -567,8 +567,22 @@
       "sorts": {
         "name": "Name (A–Z)",
         "lastContact": "Letzter Kontakt",
-        "recent": "Zuletzt hinzugefügt"
+        "recent": "Zuletzt hinzugefügt",
+        "reconnect": "Wieder melden (fällig zuerst)"
       }
+    },
+    "reconnect": {
+      "title": "Wieder melden",
+      "intro": "Menschen, mit denen du in Kontakt bleiben wolltest und länger nicht gesprochen hast.",
+      "field": "In Kontakt bleiben",
+      "none": "Keine Erinnerung",
+      "every": "Alle {days} Tage",
+      "neverContacted": "Noch kein Kontakt",
+      "dueSince": "Fällig seit {date}",
+      "dueToday": "Heute fällig",
+      "nextOn": "Nächstes Mal am {date}",
+      "lastContact": "Zuletzt am {date}",
+      "markContactedFor": "Heute mit {name} gesprochen"
     }
   },
   "municipalities": {

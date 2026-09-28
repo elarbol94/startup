@@ -117,7 +117,11 @@ export function removeUnusedTags(tx: Transaction) {
   tx.delete(networkTags).where(notInArray(networkTags.id, used)).run();
 }
 
-/** The layout lists contacts for quick capture, so every network page depends on the data. */
+/**
+ * The layout lists contacts for quick capture, so every network page depends
+ * on the data; the dashboard shows follow-ups and people to reconnect with.
+ */
 export function revalidateNetwork() {
   revalidatePath("/network", "layout");
+  revalidatePath("/");
 }

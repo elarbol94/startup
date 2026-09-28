@@ -8,8 +8,9 @@ import {
   type ContactRelationship,
 } from "./constants";
 import { normalizeText } from "./network-utils";
+import { compareReconnectDue } from "./reconnect-utils";
 
-export const contactSorts = ["name", "lastContact", "recent"] as const;
+export const contactSorts = ["name", "lastContact", "recent", "reconnect"] as const;
 export type ContactSort = (typeof contactSorts)[number];
 
 /** `mine`: contacts the viewer owns; `team`: shared ones. Scope only ever narrows what is visible. */
@@ -112,7 +113,13 @@ export function networkFilterHref(current: ContactListFilter, patch: Partial<Con
   return search ? `/network?${search}` : "/network";
 }
 
-export type SortableContact = { id: string; name: string; lastContactOn: string | null; createdAt: Date };
+export type SortableContact = {
+  id: string;
+  name: string;
+  lastContactOn: string | null;
+  reconnectEveryDays: number | null;
+  createdAt: Date;
+};
 type Comparator = (a: SortableContact, b: SortableContact) => number;
 
 function byName(a: SortableContact, b: SortableContact) {
@@ -131,6 +138,8 @@ const comparators: Record<ContactSort, Comparator> = {
   name: () => 0,
   lastContact: byLastContact,
   recent: (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
+  // Never contacted (with a cadence) first, then due date; without a cadence last.
+  reconnect: compareReconnectDue,
 };
 
 /** Comparator for a sort; ties are broken by normalised name, then id, so the order is stable. */

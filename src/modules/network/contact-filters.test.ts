@@ -76,13 +76,13 @@ describe("networkFilterHref", () => {
 });
 
 describe("compareContacts", () => {
-  const contact = (id: string, name: string, lastContactOn: string | null, created: string): SortableContact =>
-    ({ id, name, lastContactOn, createdAt: new Date(created) });
+  const contact = (id: string, name: string, lastContactOn: string | null, created: string, reconnectEveryDays: number | null = null): SortableContact =>
+    ({ id, name, lastContactOn, reconnectEveryDays, createdAt: new Date(created) });
   const contacts = [
-    contact("4", "Zoe", null, "2026-01-04"),
-    contact("3", "Ärne", "2026-05-01", "2026-01-01"),
-    contact("2", "anna", "2026-03-01", "2026-01-03"),
-    contact("1", "Anna", "2026-03-01", "2026-01-03"),
+    contact("4", "Zoe", null, "2026-01-04", 30),
+    contact("3", "Ärne", "2026-05-01", "2026-01-01", 30),
+    contact("2", "anna", "2026-03-01", "2026-01-03", 90),
+    contact("1", "Anna", "2026-03-01", "2026-01-03", 90),
     contact("5", "Bert", null, "2026-01-02"),
   ];
   const order = (sort: Parameters<typeof compareContacts>[0]) =>
@@ -98,5 +98,10 @@ describe("compareContacts", () => {
 
   it("sorts by creation, newest first", () => {
     expect(order("recent")).toEqual(["4", "1", "2", "5", "3"]);
+  });
+
+  it("sorts by reconnect: never contacted first, then due date, without a cadence last", () => {
+    // Zoe: never contacted; Anna/anna due 2026-05-30 (tie → name, id); Ärne due 2026-05-31; Bert: no cadence.
+    expect(order("reconnect")).toEqual(["4", "1", "2", "3", "5"]);
   });
 });

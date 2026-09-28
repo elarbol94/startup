@@ -69,6 +69,8 @@ export const networkContacts = sqliteTable(
     notes: text("notes").notNull().default(""),
     /** YYYY-MM-DD */
     lastContactOn: text("last_contact_on"),
+    /** Keep-in-touch cadence in days (7–730); null means no reminder. */
+    reconnectEveryDays: integer("reconnect_every_days"),
     /** Municipality the person lives in (Gemeindekennziffer); only the municipality, never an address. */
     municipalityCode: text("municipality_code"),
     /** Name at the time it was chosen, so the record still reads well if codes change. */

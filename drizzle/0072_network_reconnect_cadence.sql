@@ -1,0 +1,1 @@
+ALTER TABLE `network_contacts` ADD `reconnect_every_days` integer;
