@@ -132,7 +132,15 @@ describe("cadence on the contact", () => {
 describe("reconnect sort of the contact list", () => {
   it("orders never contacted first, then due date, contacts without a cadence last", () => {
     const result = listNetworkContacts(aaron, { sort: "reconnect" });
-    // Clara (colleague's team contact) has a cadence and has never been contacted.
-    expect(ids(result.contacts)).toEqual(["theirs", "never", "overdue", "today", "tomorrow", "plain"]);
+    // Clara (colleague's team contact) has a cadence too, but only the owner's count: she sorts by name among those without.
+    expect(ids(result.contacts)).toEqual(["never", "overdue", "today", "tomorrow", "theirs", "plain"]);
+  });
+
+  it("gives list rows the next reconnect date for the viewer's own contacts only", () => {
+    const byId = new Map(listNetworkContacts(aaron, { sort: "reconnect" }).contacts.map((item) => [item.id, item.reconnectDueOn]));
+    expect(byId.get("never")).toBe("");
+    expect(byId.get("today")).toBe(today);
+    expect(byId.get("plain")).toBeNull();
+    expect(byId.get("theirs")).toBeNull();
   });
 });

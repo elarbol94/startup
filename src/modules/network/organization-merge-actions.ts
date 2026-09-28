@@ -4,9 +4,8 @@ import { eq } from "drizzle-orm";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import { requireAdmin } from "@/lib/auth";
-import { localDateInZone } from "@/modules/calendar/date-utils";
-import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import { fail, revalidateNetwork, type NetworkActionResult } from "./action-helpers";
+import { mergeNoteDate } from "./merge-note-date";
 import {
   mergeOrganizationsSchema,
   organizationMergePairSchema,
@@ -29,8 +28,8 @@ export async function getNetworkOrganizationMergePreview(input: { keepId: string
   const pair = loadOrganizationPair(db, parsed.data.keepId, parsed.data.mergeId);
   if (!pair.ok) return pair;
   const t = await getTranslations("network");
-  const today = localDateInZone(new Date(), TIME_ZONE);
-  return { ok: true, preview: organizationMergePreview(pair.keep, pair.merge, t, today) };
+  const mergedOn = await mergeNoteDate();
+  return { ok: true, preview: organizationMergePreview(pair.keep, pair.merge, t, mergedOn) };
 }
 
 /**
@@ -46,12 +45,12 @@ export async function mergeNetworkOrganizations(input: MergeOrganizationsInput):
   if (!parsed.success) return fail("invalid");
   const { keepId, mergeId, choices } = parsed.data;
   const t = await getTranslations("network");
-  const today = localDateInZone(new Date(), TIME_ZONE);
+  const mergedOn = await mergeNoteDate();
 
   const result = db.transaction((tx) => {
     const pair = loadOrganizationPair(tx, keepId, mergeId);
     if (!pair.ok) return pair;
-    const plan = planOrganizationMerge(pair.keep, pair.merge, choices, t, today);
+    const plan = planOrganizationMerge(pair.keep, pair.merge, choices, t, mergedOn);
     if (plan.blockers.length) return fail(plan.blockers[0]);
     applyOrganizationMerge(tx, keepId, mergeId, plan.values);
     return { ok: true as const };

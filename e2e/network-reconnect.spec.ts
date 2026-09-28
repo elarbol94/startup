@@ -31,6 +31,8 @@ test("sets a keep-in-touch cadence and clears the reminder by marking contacted"
   // The list can be sorted by who is due.
   await page.goto("/network?sort=reconnect");
   await expect(page.getByLabel("Sortierung")).toHaveValue("reconnect");
+  const row = page.getByTestId("network-contact-list").getByRole("link", { name: new RegExp(`^${name}`) });
+  await expect(row.getByTestId("network-reconnect-label")).toHaveText("Noch kein Kontakt");
 
   // It shows up under "Wieder melden" until marked as contacted.
   await page.goto("/network/opportunities");

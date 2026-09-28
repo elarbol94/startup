@@ -9,7 +9,7 @@ import { ContactRow } from "./contact-list/contact-row";
 type Data = ReturnType<typeof listNetworkContacts>;
 
 /** "My network": who we know and why they matter, searchable, filterable and sortable. */
-export async function ContactList({ data }: { data: Data }) {
+export async function ContactList({ data, today }: { data: Data; today: string }) {
   const t = await getTranslations("network");
   const { filter } = data;
   const filtered = isContactListFiltered(filter);
@@ -55,7 +55,7 @@ export async function ContactList({ data }: { data: Data }) {
       ) : (
         <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-contact-list">
           {data.contacts.map((contact) => (
-            <li key={contact.id}><ContactRow contact={contact} /></li>
+            <li key={contact.id}><ContactRow contact={contact} today={today} showUpcoming={filter.sort === "reconnect"} /></li>
           ))}
         </ul>
       )}

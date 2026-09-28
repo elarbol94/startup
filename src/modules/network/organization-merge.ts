@@ -54,7 +54,7 @@ function organizationMergeConflicts(keep: OrganizationRow, merge: OrganizationRo
  * go into the notes, except the name: the losing spelling is usually just a
  * variant of the same name, and the notes header names it anyway.
  */
-export function planOrganizationMerge(keep: OrganizationRow, merge: OrganizationRow, choices: OrganizationMergeChoices, t: NetworkTranslate, today: string) {
+export function planOrganizationMerge(keep: OrganizationRow, merge: OrganizationRow, choices: OrganizationMergeChoices, t: NetworkTranslate, mergedOn: string) {
   const values: Partial<OrganizationRow> = {};
   const discarded: string[] = [];
   for (const field of fields) {
@@ -66,7 +66,7 @@ export function planOrganizationMerge(keep: OrganizationRow, merge: Organization
   }
   const name = values.name ?? keep.name;
   const mergeNotes = merge.notes.trim();
-  const header = [t("merge.notesHeader", { name: merge.name, date: today }), discarded.join(", ")].filter(Boolean).join(" ");
+  const header = [t("merge.notesHeader", { name: merge.name, date: mergedOn }), discarded.join(", ")].filter(Boolean).join(" ");
   const notes = !discarded.length && !mergeNotes
     ? keep.notes
     : [keep.notes.trim(), [header, mergeNotes].filter(Boolean).join("\n")].filter(Boolean).join("\n\n");
@@ -81,14 +81,14 @@ const summary = (row: OrganizationRow): OrganizationClash => ({ id: row.id, name
  * included, but never names them. The notes limit is checked for the longest
  * possible outcome, so the action does not refuse a merge the preview allowed.
  */
-export function organizationMergePreview(keep: OrganizationRow, merge: OrganizationRow, t: NetworkTranslate, today: string): NetworkOrganizationMergePreview {
+export function organizationMergePreview(keep: OrganizationRow, merge: OrganizationRow, t: NetworkTranslate, mergedOn: string): NetworkOrganizationMergePreview {
   const conflicts = organizationMergeConflicts(keep, merge);
   const longest: OrganizationMergeChoices = Object.fromEntries(conflicts.map((conflict) => [
     conflict.key,
     // Keeping the shorter value discards the longer one into the notes.
     conflict.keep.length >= conflict.merge.length ? "merge" : "keep",
   ]));
-  const plan = planOrganizationMerge(keep, merge, longest, t, today);
+  const plan = planOrganizationMerge(keep, merge, longest, t, mergedOn);
   const contacts = db.select({ n: count() }).from(networkContacts).where(eq(networkContacts.organizationId, merge.id)).get()?.n ?? 0;
   const leads = db.select({ n: count() }).from(networkLeads).where(eq(networkLeads.targetOrganizationId, merge.id)).get()?.n ?? 0;
   return {

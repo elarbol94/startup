@@ -78,11 +78,11 @@ function resolveScalars(keep: ContactRow, merge: ContactRow, choices: MergeChoic
  * The surviving notes: its own, then "Merged from <name> on <date>:" with the
  * values that were not kept and the merged contact's notes, so nothing is lost.
  */
-function combinedNotes(keep: ContactRow, merge: ContactRow, discarded: { field: MergeField; value: string }[], t: NetworkTranslate, today: string) {
+function combinedNotes(keep: ContactRow, merge: ContactRow, discarded: { field: MergeField; value: string }[], t: NetworkTranslate, mergedOn: string) {
   const mergeNotes = merge.notes.trim();
   if (!discarded.length && !mergeNotes) return keep.notes;
   const values = discarded.map(({ field, value }) => `${t(field.label)}: ${formatMergeValue(t, field, value)}`).join(", ");
-  const header = [t("merge.notesHeader", { name: merge.name, date: today }), values].filter(Boolean).join(" ");
+  const header = [t("merge.notesHeader", { name: merge.name, date: mergedOn }), values].filter(Boolean).join(" ");
   return [keep.notes.trim(), [header, mergeNotes].filter(Boolean).join("\n")].filter(Boolean).join("\n\n");
 }
 
@@ -94,9 +94,9 @@ const linksOf = (tx: Database, contactId: string) => tx.select().from(networkCon
 export type MergePlan = ReturnType<typeof planMerge>;
 
 /** Everything the merge would write, computed the same way for the preview and the action. */
-export function planMerge(tx: Database, keep: ContactRow, merge: ContactRow, choices: MergeChoices, t: NetworkTranslate, today: string) {
+export function planMerge(tx: Database, keep: ContactRow, merge: ContactRow, choices: MergeChoices, t: NetworkTranslate, mergedOn: string) {
   const { values, discarded } = resolveScalars(keep, merge, choices);
-  const notes = combinedNotes(keep, merge, discarded, t, today);
+  const notes = combinedNotes(keep, merge, discarded, t, mergedOn);
   const keepTags = new Set(tagIdsOf(tx, keep.id));
   const newTags = tagIdsOf(tx, merge.id).filter((id) => !keepTags.has(id));
   const keepLinks = new Set(linksOf(tx, keep.id).map(linkKey));
@@ -114,7 +114,7 @@ const summary = (row: ContactRow): MergeContactSummary => ({ id: row.id, name: r
  * outcome (every conflict discarding its longer value), so whatever the user
  * then picks, the action does not refuse a merge the preview allowed.
  */
-export function mergePreview(viewer: NetworkViewer, keep: ContactRow, merge: ContactRow, t: NetworkTranslate, today: string): NetworkContactMergePreview {
+export function mergePreview(viewer: NetworkViewer, keep: ContactRow, merge: ContactRow, t: NetworkTranslate, mergedOn: string): NetworkContactMergePreview {
   const conflicts = mergeConflicts(keep, merge);
   const longest: MergeChoices = Object.fromEntries(conflicts.map((conflict) => {
     const field = mergeFieldByKey(conflict.key);
@@ -122,7 +122,7 @@ export function mergePreview(viewer: NetworkViewer, keep: ContactRow, merge: Con
     // Keeping the shorter value discards the longer one into the notes.
     return [conflict.key, length(conflict.keep) >= length(conflict.merge) ? "merge" : "keep"];
   }));
-  const plan = planMerge(db, keep, merge, longest, t, today);
+  const plan = planMerge(db, keep, merge, longest, t, mergedOn);
   const leads = db.select({ n: count() }).from(networkLeads).where(eq(networkLeads.contactId, merge.id)).get()?.n ?? 0;
   const interactions = db.select({ n: count() }).from(networkInteractions).where(eq(networkInteractions.contactId, merge.id)).get()?.n ?? 0;
   // Introductions noted on other contacts: only those the viewer can see are counted (all of them move).

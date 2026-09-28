@@ -8,6 +8,7 @@ import type { LeadStatus } from "./constants";
 import { compareContacts, defaultContactListFilter, type ContactListFilter, type NetworkFacet } from "./contact-filters";
 import { listContactLinks, type NetworkContactLink } from "./link-queries";
 import { compareLeads, isLeadActive, matchesSearch, normalizeText, type Suggestion } from "./network-utils";
+import { reconnectDueOn } from "./reconnect-utils";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
 
 export type NetworkTag = { id: string; name: string };
@@ -68,6 +69,8 @@ export type NetworkContactListItem = {
   isOwn: boolean;
   lastContactOn: string | null;
   notYetSpoken: boolean;
+  /** Next keep-in-touch date (see `reconnectDueOn`); only for the viewer's own contacts, like the reminders. */
+  reconnectDueOn: string | null;
   municipalityName: string | null;
   tags: NetworkTag[];
   /** Summaries of the leads that still need something, soonest first. */
@@ -142,7 +145,11 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     matching.push(contact);
   }
 
-  const items: NetworkContactListItem[] = matching.sort(compareContacts(filter.sort)).map((contact) => ({
+  // Keep-in-touch cadences are the owner's habit (see `listReconnectDue`), so other people's don't sort.
+  const sortable = (contact: (typeof matching)[number]) =>
+    contact.ownerId === viewer.id ? contact : { ...contact, reconnectEveryDays: null };
+  const compare = compareContacts(filter.sort);
+  const items: NetworkContactListItem[] = matching.sort((a, b) => compare(sortable(a), sortable(b))).map((contact) => ({
     id: contact.id,
     name: contact.name,
     organization: contact.organization,
@@ -151,6 +158,7 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     isOwn: contact.ownerId === viewer.id,
     lastContactOn: contact.lastContactOn,
     notYetSpoken: contact.notYetSpoken,
+    reconnectDueOn: contact.ownerId === viewer.id ? reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays) : null,
     municipalityName: contact.municipalityName,
     tags: tags.get(contact.id) ?? [],
     activeLeads: (leads.get(contact.id) ?? [])

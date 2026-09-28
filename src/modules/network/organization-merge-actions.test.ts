@@ -14,9 +14,12 @@ vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth", () => auth);
 vi.mock("next-intl/server", async () => {
-  const { createTranslator } = await import("next-intl");
+  const { createFormatter, createTranslator } = await import("next-intl");
   const { default: messages } = await import("../../../messages/en.json");
-  return { getTranslations: async (namespace: "network") => createTranslator({ locale: "en", messages, namespace }) };
+  return {
+    getTranslations: async (namespace: "network") => createTranslator({ locale: "en", messages, namespace }),
+    getFormatter: async () => createFormatter({ locale: "en" }),
+  };
 });
 vi.mock("@/db", async () => {
   const { default: Database } = await import("better-sqlite3");
@@ -51,7 +54,8 @@ const organization = (id: string, name: string, values: Partial<NewOrganization>
 const organizationRow = (id: string) => db.select().from(networkOrganizations).where(eq(networkOrganizations.id, id)).get();
 const contactRow = (id: string) => db.select().from(networkContacts).where(eq(networkContacts.id, id)).get()!;
 const leadRow = (id: string) => db.select().from(networkLeads).where(eq(networkLeads.id, id)).get()!;
-const today = () => localDateInZone(new Date(), TIME_ZONE);
+/** The merge note's date as the English formatter writes it, e.g. "Sep 28, 2026". */
+const today = () => new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${localDateInZone(new Date(), TIME_ZONE)}T12:00:00Z`));
 
 /** SFG (kept) with a team contact; "Steir. Wirtschaftsförderung" (merged) with a private contact of Aaron's and a lead of the colleague's. */
 function seed() {
