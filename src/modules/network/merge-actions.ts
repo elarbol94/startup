@@ -4,9 +4,8 @@ import { revalidatePath } from "next/cache";
 import { getTranslations } from "next-intl/server";
 import { db } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
-import { localDateInZone } from "@/modules/calendar/date-utils";
-import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import { fail, revalidateNetwork, type NetworkActionResult } from "./action-helpers";
+import { mergeNoteDate } from "./merge-note-date";
 import { mergeContactsSchema, mergePairSchema, type MergeContactsInput, type NetworkContactMergePreview } from "./merge-fields";
 import { applyMerge, authorizeMerge, mergePreview, planMerge } from "./merge-helpers";
 
@@ -21,8 +20,8 @@ export async function getNetworkContactMergePreview(input: { keepId: string; mer
   const access = authorizeMerge(parsed.data.keepId, parsed.data.mergeId, viewer);
   if (!access.ok) return access;
   const t = await getTranslations("network");
-  const today = localDateInZone(new Date(), TIME_ZONE);
-  return { ok: true, preview: mergePreview(viewer, access.keep, access.merge, t, today) };
+  const mergedOn = await mergeNoteDate();
+  return { ok: true, preview: mergePreview(viewer, access.keep, access.merge, t, mergedOn) };
 }
 
 /**
@@ -38,13 +37,13 @@ export async function mergeNetworkContacts(input: MergeContactsInput): Promise<N
   if (!parsed.success) return fail("invalid");
   const { keepId, mergeId, choices } = parsed.data;
   const t = await getTranslations("network");
-  const today = localDateInZone(new Date(), TIME_ZONE);
+  const mergedOn = await mergeNoteDate();
 
   // Authorised and planned inside the transaction, so nothing can change in between.
   const result = db.transaction((tx) => {
     const access = authorizeMerge(keepId, mergeId, viewer);
     if (!access.ok) return access;
-    const plan = planMerge(tx, access.keep, access.merge, choices, t, today);
+    const plan = planMerge(tx, access.keep, access.merge, choices, t, mergedOn);
     if (plan.blockers.length) return fail(plan.blockers[0]);
     applyMerge(tx, access.keep, access.merge, plan);
     return { ok: true as const, links: plan.movingLinks };
