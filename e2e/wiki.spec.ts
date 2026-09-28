@@ -160,58 +160,6 @@ test("global writing style previews, cancels, persists across pages, and reaches
   await dialog.getByRole("button", { name: "Abbrechen" }).click();
 });
 
-test("document mode persists page layout, document blocks, templates, and PDF export", async ({ page }) => {
-  await login(page);
-  await quickNote(page, "Funding application", "A structured project description.");
-
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  const panel = page.getByTestId("document-layout-panel");
-  await expect(panel).toBeHidden();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Dokumentlayout", exact: true }).click();
-  await expect(panel).toBeVisible();
-  await expect(page.getByTestId("wiki-editor")).toHaveAttribute("data-document-mode", "true");
-
-  await panel.getByLabel("Ausrichtung").click();
-  await page.getByRole("option", { name: "Querformat" }).click();
-  await panel.getByRole("tab", { name: "Inhalt" }).click();
-  await panel.getByRole("button", { name: "Seitenumbruch" }).click();
-  await expect(page.locator(".wiki-document-page-break")).toHaveCount(1);
-
-  await panel.getByPlaceholder("applicant").fill("Example Applicant");
-  await panel.getByRole("button", { name: "Feld applicant einfügen" }).click();
-  await expect(page.locator("[data-document-variable='applicant']")).toHaveCount(1);
-
-  await panel.getByLabel("Name der neuen Vorlage").fill("E2E application profile");
-  await panel.getByRole("button", { name: "Als Vorlage speichern" }).click();
-  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 10_000 });
-
-  await page.reload();
-  // Document mode persists; the side panel is transient and reopens from the tools menu.
-  await expect(page.getByTestId("wiki-editor")).toHaveAttribute("data-document-mode", "true");
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Dokumentlayout", exact: true }).click();
-  await expect(page.getByTestId("document-layout-panel")).toBeVisible();
-  await expect(page.locator(".wiki-document-page-break")).toHaveCount(1);
-  await expect(page.locator("[data-document-variable='applicant']")).toContainText("applicant");
-
-  await page.getByTestId("document-layout-panel").getByRole("tab", { name: "Prüfung" }).click();
-  // The preview saves first, POSTs the export and opens the PDF in a new tab.
-  const [response, preview] = await Promise.all([
-    page.waitForResponse((candidate) => candidate.url().includes("/export?format=pdf") && candidate.request().method() === "POST"),
-    page.waitForEvent("popup"),
-    page.getByTestId("document-layout-panel").getByRole("button", { name: "PDF-Vorschau" }).click(),
-  ]);
-  await preview.close();
-  expect(response.status()).toBe(200);
-  // The page consumes that body as a blob, so fetch the same export again to inspect it.
-  const pdf = await page.request.post(response.url(), { data: {} });
-  expect(pdf.status()).toBe(200);
-  expect(pdf.headers()["content-type"]).toContain("application/pdf");
-  expect((await pdf.body()).length).toBeGreaterThan(1_000);
-});
-
 test("editor productivity tools support links, rich-text paste, search, outline, and writing statistics", async ({ page, context }) => {
   await login(page);
   await quickNote(page, "Editor tools", "Alpha beta alpha");
@@ -332,7 +280,7 @@ test("internal links create backlinks and unified search finds content", async (
   await expect(page.getByRole("link", { name: /IT-Setup/ }).first()).toBeVisible();
 });
 
-test("create a source, cite it, and render the bibliography", async ({ page }) => {
+test("create a source and cite it", async ({ page }) => {
   test.setTimeout(120_000);
   const sourceTitle = `Knowledge Systems ${Date.now()}`;
   await login(page);
@@ -352,17 +300,10 @@ test("create a source, cite it, and render the bibliography", async ({ page }) =
   await page.locator(".ProseMirror").click();
   await page.getByRole("button", { name: "Quelle zitieren", exact: true }).click();
   await page.getByRole("button", { name: sourceTitle }).click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
+  await expect(page.locator(".ProseMirror .wiki-citation")).toHaveCount(1);
   await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 10_000 });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Literaturverzeichnis" })).toBeVisible();
-  const bibliography = page.locator("ol").filter({ hasText: sourceTitle });
-  await expect(bibliography).toContainText("Smith");
-  await expect(bibliography).toContainText("2026");
-  await expect(
-    page.locator("ol").getByText(sourceTitle, { exact: false }),
-  ).toBeVisible();
+  await expect(page.locator(".ProseMirror .wiki-citation")).toHaveCount(1);
 });
 
 test("subpages remain nested and deletion is recoverable", async ({ page }) => {

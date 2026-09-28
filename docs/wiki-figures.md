@@ -134,8 +134,8 @@ a PNG fallback), preserve rectangular wrapping and reversible crop geometry,
 and include caption, bookmark, reference and figure-list fields. Field refresh
 is enabled: Word calculates its own final page numbers when fields are updated.
 
-Word import retains embedded images and adjacent Caption/Beschriftung paragraphs.
-Full lossless Word page-layout interchange is not supported. Direct export API
+Full lossless Word page-layout interchange is not supported; use an office
+document (see [office-documents.md](office-documents.md)) when Word layout matters. Direct export API
 calls without a browser snapshot refresh server sources; unavailable or laptop
 sources require the explicit `allowSaved=1` option to use cached images.
 

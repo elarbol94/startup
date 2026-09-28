@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { CollaborationClient } from "../collaboration/provider";
 
-export type DocumentTool = "outline" | "comments" | "layout" | "details" | "image" | null;
+export type DocumentTool = "outline" | "comments" | "details" | "image" | null;
 const DocumentWorkspace = createContext<{
   panel: DocumentTool; setPanel: Dispatch<SetStateAction<DocumentTool>>;
   /** The page's live collaboration transport: the one source of its save status. */

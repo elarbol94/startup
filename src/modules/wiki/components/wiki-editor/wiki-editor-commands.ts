@@ -84,8 +84,7 @@ export function buildSlashCommands({
       setCommentsVisible(true);
       setCommentFocusRequest((value) => value + 1);
     }),
-    // The document layout panel's Content tab already has a target picker covering
-    // headings, figures, tables and annexes — open it rather than duplicating it here.
+    // The figure reference picker covers headings, figures, tables and annexes.
     slash("crossReference", "wiki", Link2, () => { rememberToolbarSelection(); setFigureReferenceOpen(true); }),
   ];
   return slashCommands;
@@ -110,20 +109,18 @@ function insertEmptyTable(editor: Editor) {
 
 /** Runs one configurable wiki shortcut action against the editor. */
 export function runWikiEditorAction(action: WikiShortcutAction, {
-  editor, t, currentUserId, documentMode, pageActions, changeSearchOpen, setOutlineOpen, prepareComment, setCommentsVisible,
-  changeDocumentMode, setTypographyOpen, setShortcutsOpen, openInlineImagePicker, setPageLinkOpen, setLinkEditorRequest,
+  editor, t, currentUserId, pageActions, changeSearchOpen, setOutlineOpen, prepareComment, setCommentsVisible,
+  setTypographyOpen, setShortcutsOpen, openInlineImagePicker, setPageLinkOpen, setLinkEditorRequest,
   setCitationOpen, setEvidenceOpen, prepareImageComment,
 }: {
   editor: Editor | null;
   t: WikiTranslator;
   currentUserId: string;
-  documentMode: boolean;
   pageActions: WikiEditorPageActions;
   changeSearchOpen: (open: boolean) => void;
   setOutlineOpen: (value: SetStateAction<boolean>) => void;
   prepareComment: () => void;
   setCommentsVisible: (value: SetStateAction<boolean>) => void;
-  changeDocumentMode: (enabled: boolean) => void;
   setTypographyOpen: SetFlag;
   setShortcutsOpen: SetFlag;
   openInlineImagePicker: () => void;
@@ -161,7 +158,6 @@ export function runWikiEditorAction(action: WikiShortcutAction, {
       case "outline": setOutlineOpen(true); break;
       case "inlineComment": prepareComment(); break;
       case "toggleComments": setCommentsVisible((value) => !value); break;
-      case "documentMode": changeDocumentMode(!documentMode); break;
       case "typography": setTypographyOpen(true); break;
       case "shortcuts": setShortcutsOpen(true); break;
       case "image": openInlineImagePicker(); break;
@@ -193,9 +189,9 @@ export function runWikiEditorAction(action: WikiShortcutAction, {
 
 /** Every command the double-Shift command search offers, with availability and ranking hints. */
 export function buildWikiEditorCommands({
-  t, activeEditor, slashCommands, shortcutLabel, executeEditorAction, insertFigureList, documentMode, changeDocumentMode, setPanel,
+  t, activeEditor, slashCommands, shortcutLabel, executeEditorAction, insertFigureList, setPanel,
   setGraphicsOpen, suggesting, setSuggesting, suggestionCounts, resolveSuggestions, proofingPicky, toggleProofingPicky, nextProofingIssue,
-  proofingRetry, changeProofingLanguage, pageId, flushSave, setTypographyFocus, setTypographyOpen, setMarginFocusRequest, currentUserId,
+  proofingRetry, changeProofingLanguage, pageId, flushSave, setTypographyFocus, setTypographyOpen, currentUserId,
 }: {
   t: WikiTranslator;
   activeEditor: Editor;
@@ -203,8 +199,6 @@ export function buildWikiEditorCommands({
   shortcutLabel: (action: WikiShortcutAction) => string;
   executeEditorAction: (action: WikiShortcutAction) => void;
   insertFigureList: () => void;
-  documentMode: boolean;
-  changeDocumentMode: (enabled: boolean) => void;
   setPanel: Dispatch<SetStateAction<DocumentTool>>;
   setGraphicsOpen: SetFlag;
   suggesting: boolean;
@@ -220,7 +214,6 @@ export function buildWikiEditorCommands({
   flushSave: () => Promise<boolean>;
   setTypographyFocus: Dispatch<SetStateAction<"bodySizePt" | "lineHeight" | undefined>>;
   setTypographyOpen: SetFlag;
-  setMarginFocusRequest: BumpRequest;
   currentUserId: string;
 }): EditorSearchCommand[] {
   const readOnlyActions = new Set(["search", "outline", "toggleComments", "typography", "shortcuts"]);
@@ -239,7 +232,6 @@ export function buildWikiEditorCommands({
       disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined, execute: () => command.execute(activeEditor) });
   }
   editorCommands.push({ id: "figureList", label: t("figures.insertList"), group: t("commandSearch.tools"), execute: insertFigureList, disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
-  editorCommands.push({ id: "layout", label: t("document.panelTitle"), group: t("commandSearch.tools"), execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); } });
   editorCommands.push({ id: "details", label: t("documentDetails"), group: t("commandSearch.tools"), execute: () => setPanel("details") });
   editorCommands.push({ id: "graphics", label: t("graphics.title"), group: t("commandSearch.tools"), execute: () => setGraphicsOpen(true), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
   editorCommands.push({ id: "suggestions", label: suggesting ? t("suggestions.leaveMode") : t("suggestions.enterMode"), group: t("commandSearch.tools"), execute: () => setSuggesting((value) => !value), disabledReason: !activeEditor.isEditable ? t("commandSearch.readOnly") : undefined });
@@ -267,14 +259,12 @@ export function buildWikiEditorCommands({
   for (const [id, field, label] of [["fontSize", "bodySizePt", "bodySize"], ["lineSpacing", "lineHeight", "lineHeight"]] as const) {
     editorCommands.push({ id, label: t(`editor.preferences.controls.${label}`), group: t("commandSearch.tools"), keywords: t.raw(`commandSearch.aliases.${id}`) as string[], execute: () => { setTypographyFocus(field); setTypographyOpen(true); } });
   }
-  editorCommands.push({ id: "pageMargins", label: t("commandSearch.pageMargins"), group: t("commandSearch.tools"), keywords: t.raw("commandSearch.aliases.pageMargins") as string[], execute: () => { if (!documentMode) changeDocumentMode(true); setPanel("layout"); setMarginFocusRequest((value) => value + 1); } });
   const recent = recentEditorCommands(readEditorStorage(`wiki-command-recent:${currentUserId}`));
   const marks: Record<string, string> = { bold: "bold", italic: "italic", underline: "underline", highlight: "highlight", strike: "strike", inlineCode: "code", bulletList: "bulletList", orderedList: "orderedList", taskList: "taskList", blockquote: "blockquote", codeBlock: "codeBlock" };
   for (const command of editorCommands) {
     if (marks[command.id]) command.active = activeEditor.isActive(marks[command.id]);
     if (/^heading[123]$/.test(command.id)) command.active = activeEditor.isActive("heading", { level: Number(command.id.at(-1)) });
     if (command.id === "suggestions") command.active = suggesting;
-    if (command.id === "documentMode") command.active = documentMode;
     if (command.id === "proofingPicky") command.active = proofingPicky;
     if (t.has(`commandSearch.aliases.${command.id}`)) command.keywords = [...(command.keywords ?? []), ...(t.raw(`commandSearch.aliases.${command.id}`) as string[])];
     const recentIndex = recent.indexOf(command.id);

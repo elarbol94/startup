@@ -76,7 +76,7 @@ Word documents are edited in an embedded ONLYOFFICE Docs editor (DOCX, real
 pages, track changes, co-editing); setup, versions, the workspace plugin and
 local development are in [docs/office-documents.md](docs/office-documents.md).
 
-For Wiki document saving, recovery, templates, Word import and validation,
+For Wiki page saving, recovery and validation,
 see [docs/wiki-documents.md](docs/wiki-documents.md). Image captions, references,
 figure lists and live laptop/server folder setup are covered in
 [docs/wiki-figures.md](docs/wiki-figures.md).

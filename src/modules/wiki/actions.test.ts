@@ -16,9 +16,9 @@ vi.mock("@/db", async () => {
 });
 
 import { sqlite } from "@/db";
-import { acquirePageEditLease, createPage, savePageContent } from "./actions";
-import { applyDocumentTemplate, savePageAsDocumentTemplate } from "./document-actions";
-import { DEFAULT_DOCUMENT_SETTINGS, serializeDocumentSettings } from "./lib/document-settings";
+import { createPage } from "./actions";
+import { savePageContentInternal, type saveSchema } from "./page-content-store";
+import type { z } from "zod";
 
 const content = (text: string) => JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text }] }] });
 async function makePage({ title }: { title: string }) {
@@ -26,9 +26,10 @@ async function makePage({ title }: { title: string }) {
   return sqlite.prepare("SELECT id FROM wiki_pages WHERE slug = ?").get(slug) as { id: string };
 }
 const sessionId = "editor-session-one";
+const savePageContent = async (input: z.infer<typeof saveSchema>) => savePageContentInternal(input, { id: "author" });
 const read = (id: string) => sqlite.prepare("SELECT content_json, content_version, document_mode FROM wiki_pages WHERE id = ?").get(id) as { content_json: string; content_version: number; document_mode: number };
 
-beforeEach(() => { sqlite.exec("DELETE FROM wiki_pages; DELETE FROM wiki_document_templates"); });
+beforeEach(() => { sqlite.exec("DELETE FROM wiki_pages"); });
 
 describe("document save integrity", () => {
   it("acknowledges retries after a lost response without a conflict or another revision", async () => {
@@ -51,26 +52,10 @@ describe("document save integrity", () => {
     await expect(savePageContent({ id: page.id, contentJson, expectedContentVersion: 1, editorSessionId: sessionId })).rejects.toThrow();
     expect(read(page.id)).toEqual(before);
   });
-  it("does not let retry handling bypass another editor's lease", async () => {
-    const page = await makePage({ title: "Lease" });
-    const input = { id: page.id, contentJson: content("Saved"), expectedContentVersion: 1, editorSessionId: sessionId };
-    await savePageContent(input);
-    await acquirePageEditLease({ pageId: page.id, sessionId: "another-editor" });
-    expect(await savePageContent(input)).toMatchObject({ saved: false, locked: true });
-  });
   it("saves text even when a cited source has since been removed", async () => {
     const page = await makePage({ title: "Missing citation" });
     const contentJson = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "citation", attrs: { items: [{ sourceId: "deleted-source" }], label: "[1]" } }] }] });
     expect(await savePageContent({ id: page.id, contentJson, expectedContentVersion: 1, editorSessionId: sessionId })).toMatchObject({ saved: true });
     expect(read(page.id).content_json).toBe(contentJson);
-  });
-  it("prepares templates without silently overwriting a page or bypassing its lease", async () => {
-    const page = await makePage({ title: "Templates" });
-    const { id } = await savePageAsDocumentTemplate({ pageId: page.id, name: "Current draft", description: "", includeContent: true, contentJson: content("Latest unsaved words"), documentSettingsJson: serializeDocumentSettings(DEFAULT_DOCUMENT_SETTINGS) });
-    const before = read(page.id);
-    await acquirePageEditLease({ pageId: page.id, sessionId: "another-editor" });
-    const template = await applyDocumentTemplate({ pageId: page.id, templateId: id, applyStarterContent: true });
-    expect(template.contentJson).toContain("Latest unsaved words");
-    expect(read(page.id)).toEqual(before);
   });
 });

@@ -1,5 +1,4 @@
 import type { TiptapNode } from "./tiptap";
-import { proposalStarterContent } from "./proposal";
 
 export const DOCUMENT_SETTINGS_VERSION = 1 as const;
 
@@ -117,15 +116,6 @@ export type DocumentSettingsV1 = {
     subject: string;
     keywords: string;
   };
-};
-
-export type DocumentTemplateDefinition = {
-  id: string;
-  name: string;
-  description: string;
-  settings: DocumentSettingsV1;
-  content: TiptapNode | null;
-  builtIn: boolean;
 };
 
 export type DocumentPreflightIssue = {
@@ -412,80 +402,6 @@ export function localizeDocumentSettings(
     },
   };
 }
-
-function withTheme(
-  id: DocumentThemeId,
-  patch: Partial<DocumentSettingsV1["theme"]>,
-  other: {
-    cover?: Partial<DocumentSettingsV1["cover"]>;
-    header?: Partial<DocumentSettingsV1["header"]>;
-    footer?: Partial<DocumentSettingsV1["footer"]>;
-  } = {},
-) {
-  const settings = cloneSettings(DEFAULT_DOCUMENT_SETTINGS);
-  settings.theme = { ...settings.theme, id, ...patch };
-  if (other.cover) settings.cover = { ...settings.cover, ...other.cover };
-  if (other.header) settings.header = { ...settings.header, ...other.header };
-  if (other.footer) settings.footer = { ...settings.footer, ...other.footer };
-  return settings;
-}
-
-export const BUILT_IN_DOCUMENT_TEMPLATES: DocumentTemplateDefinition[] = [
-  {
-    id: "formal-application",
-    name: "Formal application",
-    description: "Serif headings, restrained blue accents and generous A4 margins.",
-    settings: withTheme("formal", {}),
-    content: proposalStarterContent("funding"),
-    builtIn: true,
-  },
-  {
-    id: "project-report",
-    name: "Project report",
-    description: "Compact humanist typography for evidence-rich reports.",
-    settings: withTheme("report", {
-      bodyFont: "humanist",
-      headingFont: "humanist",
-      bodySizePt: 10,
-      lineHeight: 1.45,
-      accentColor: "#0F766E",
-    }, { cover: { eyebrow: "PROJECT REPORT" } }),
-    content: proposalStarterContent("project"),
-    builtIn: true,
-  },
-  {
-    id: "flexible-concept",
-    name: "Flexible concept",
-    description: "Open spacing and a strong editorial hierarchy for concept documents.",
-    settings: withTheme("concept", {
-      bodyFont: "serif",
-      headingFont: "system",
-      bodySizePt: 11,
-      lineHeight: 1.6,
-      accentColor: "#7C3AED",
-    }, { cover: { eyebrow: "CONCEPT" }, header: { right: "{date}" } }),
-    content: proposalStarterContent("business"),
-    builtIn: true,
-  },
-  {
-    id: "client-proposal", name: "Client proposal",
-    description: "A concise offer with outcomes, scope, timeline, investment and acceptance.",
-    settings: withTheme("concept", { headingFont: "humanist", accentColor: "#2563EB" }, { cover: { eyebrow: "PROPOSAL" } }),
-    content: proposalStarterContent("client"), builtIn: true,
-  },
-  {
-    id: "investor-memo", name: "Investor memo",
-    description: "A decision-focused narrative covering traction, market, team and the funding ask.",
-    settings: withTheme("report", { headingFont: "system", accentColor: "#7C3AED" }, { cover: { eyebrow: "INVESTMENT MEMO" } }),
-    content: proposalStarterContent("investor"), builtIn: true,
-  },
-  {
-    id: "partnership-proposal", name: "Partnership proposal",
-    description: "A practical joint plan with contributions, governance, work packages and commercials.",
-    settings: withTheme("formal", { accentColor: "#0F766E" }, { cover: { eyebrow: "PARTNERSHIP PROPOSAL" } }),
-    content: proposalStarterContent("partnership"), builtIn: true,
-  },
-];
 
 function nodeText(node: TiptapNode): string {
   if (node.text) return node.text;

@@ -35,7 +35,7 @@ Wiki pages synchronize over a WebSocket served by [Hocuspocus](https://github.co
   merged once and then removed.
 - The server holds open documents in memory and stores them through the existing
   room store: debounced (2 s, at most every 10 s while typing), immediately when
-  a tab asks (export, navigation, templates) and when the last person leaves.
+  a tab asks (export, navigation) and when the last person leaves.
   Heading IDs and the JSON projection, revisions and indexes are updated exactly
   as before, just far less often.
 - A store the server refuses (document too large, invalid content) is reported
@@ -104,10 +104,9 @@ account, session expiry and edit permission on every tick.
 Migration `0060_live_collaboration.sql` adds room, update and presence tables. Existing
 items are initialized from their JSON exactly once under a write transaction.
 Exports, search, document links and public presentation players continue reading
-existing JSON projections. Legacy whole-document saves are rejected after a room
-exists, preventing a stale browser from overwriting collaborative edits. Imports
-and templates enter through the current editor; restoration, renaming and speaker
-notes use the same shared state on the server.
+existing JSON projections. The collaboration server is the only writer of page
+content; the old whole-document save route no longer exists. Restoration, renaming
+and speaker notes use the same shared state on the server.
 
 Update bodies are limited to 4.1 MB, shared state to 8 MB, with existing document,
 presentation and media validations retained. These limits are not an editor-count

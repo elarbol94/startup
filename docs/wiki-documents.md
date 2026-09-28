@@ -1,8 +1,16 @@
 # Wiki document stability
 
+This file covers wiki pages in the TipTap editor. Word documents (pages with
+`document_engine = 'office'`) are edited in ONLYOFFICE; see
+[office-documents.md](office-documents.md). The TipTap editor no longer has a
+document mode: pagination, the paper canvas, the Layout panel, document
+templates and the Word importer were removed after all documents were converted.
+A page still flagged `document_mode` (for example one restored from the trash)
+opens as a normal wiki page and can be converted under **Settings → Documents**.
+
 ## Workspace tools
 
-The document opens with its utility panel closed. **Tools / Werkzeuge** opens Outline, Comments, Layout (in document mode), or Details in the same panel. Selecting an image opens its properties. Switching tools keeps comment drafts; on narrower screens the panel is a dismissible drawer. The mode switch is also under Tools. Save status appears beside the document title; export and history are in the header actions menu. Paper size, pagination and exported typography are independent of the workspace styling.
+The document opens with its utility panel closed. **Tools / Werkzeuge** opens Outline, Comments or Details in the same panel. Selecting an image opens its properties. Switching tools keeps comment drafts; on narrower screens the panel is a dismissible drawer. Save status appears beside the document title; export and history are in the header actions menu. Exported typography is independent of the workspace styling.
 
 For image insertion, captions, references, figure lists, live folder links and
 export behavior, see [wiki-figures.md](wiki-figures.md).
@@ -34,8 +42,8 @@ The document selection is retained. Search tolerates small typos when there are
 no exact matches and accepts German/English synonyms. Available commands for the
 current image, table or text selection rank first; recent commands follow for an
 empty search. The last eight command IDs are stored locally per user, without
-document text. Toggle commands display their current on/off state. Font size,
-line spacing and page margin commands focus their settings directly. Image/table commands explain the required
+document text. Toggle commands display their current on/off state. Font size and
+line spacing commands focus their settings directly. Image/table commands explain the required
 selection, and editing commands are unavailable when the document is read-only.
 Shift used for typing, selecting text or other shortcuts does not open search.
 Commands with a Markdown equivalent show it next to their name (for example
@@ -95,9 +103,7 @@ headings inside their linked frames, preserving your canvas arrangement. Existin
 decks can enable this in Document source; overlaps require a layout review.
 
 Collapsed sections hide their body, nested headings and internal page breaks through
-the next heading of the same or higher level. Hidden blocks and their pagination
-spacers do not reserve space. Revealing a section through a presentation link
-recalculates pagination without changing document content.
+the next heading of the same or higher level. Hidden blocks do not reserve space.
 
 ## Tasks and links
 
@@ -137,20 +143,8 @@ Regression coverage: `e2e/document-editor.spec.ts` and
   editor usable; undo the change and saving resumes. Only lost access locks it.
 - Exports wait for pending updates and stop if saving fails.
 - History restoration is a shared operation and preserves the replaced state.
-- Older whole-document save requests cannot overwrite an initialized shared item.
-
-## Templates and Word import
-
-Templates are prepared on the server and applied inside the editor. The normal
-save path handles history, shared updates, versions, citations, backlinks and search
-updates. Applying a template preserves existing text unless the author selects
-“Replace text with template content”. Saving a template captures the current
-editor content and layout, even before the autosave delay has elapsed.
-
-The Word importer preserves spaces around formatting, nested bold/italic marks,
-line breaks, nested lists, table paragraphs and unique heading targets. A failed
-or malformed import returns an ordinary error. If text changes or editing access
-is lost while an import runs, the result is rejected to preserve those edits.
+- The live collaboration server is the only writer of page content; the old
+  whole-document save (`PATCH /content`) and edit-lease routes were removed.
 
 ## Spelling and grammar
 
@@ -217,7 +211,7 @@ cannot measure LanguageTool's internal processing separately from that hop.
 
 Run `npm run check` for TypeScript, lint and the unit suite. Focused regression
 coverage is in `src/modules/wiki/actions.test.ts`, `lib/editor-draft.test.ts`,
-`lib/document-template.test.ts`, `lib/docx-import.test.ts`,
+`lib/docx-import.test.ts`,
 `lib/spellcheck.test.ts`, `lib/spellcheck-controller.test.ts`, and the spellcheck
 API route tests.
 
@@ -229,7 +223,7 @@ npm run e2e -- e2e/reliable-wiki-editor.spec.ts
 
 This uses the throwaway database configured by Playwright. The browser cases
 exercise delayed and lost save responses, stale recovery, layout-only recovery,
-export after typing, competing editors, paper layout and SVG version recovery.
+export after typing, competing editors, panels and zoom, and SVG version recovery.
 The SVG case delays preview loading to verify that an early label selection
 opens its editor once the preview arrives.
 Proofing cases use controlled service responses to exercise delayed checks,
@@ -242,20 +236,11 @@ The document PDF rendering smoke test is `npx tsx scripts/verify-document-pdf.ts
 
 ## Remaining improvements
 
-- Word interchange is not a lossless document-format conversion. Embedded images,
-  complex pagination, advanced layout and all citation/footnote semantics need
-  dedicated round-trip coverage and fuller import/export support. Use PDF for
-  layout-sensitive delivery.
+- The Word export of a wiki page is not a lossless conversion. For documents that
+  need Word layout, use an office document instead.
 - Very large documents and long offline sessions need extended performance and
   endurance testing; the regression suite does not establish an unlimited size
   or uptime guarantee.
-
-## Document pagination
-
-Page breaks are measured after the editor mounts and recalculated when its rendered
-layout changes, including late fonts, images, shared content and typography settings.
-Hidden or zero-width editors wait for measurable layout. Typing is debounced and
-IME composition is allowed to finish before pagination decorations are changed.
 
 ## Wiki home and navigation
 

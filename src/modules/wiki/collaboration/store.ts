@@ -84,7 +84,7 @@ function project(kind: Kind, id: string, doc: Y.Doc, viewer: Viewer) {
     parseEditorDocument(contentJson);
     const layout = doc.getMap("layout").toJSON();
     const row = db.select().from(wikiPages).where(eq(wikiPages.id, id)).get()!;
-    const result = savePageContentInternal({ id, contentJson, documentMode: layout.documentMode, documentSettingsJson: JSON.stringify(layout.settings), expectedContentVersion: row.contentVersion, editorSessionId: "collaboration-server" }, viewer, true);
+    const result = savePageContentInternal({ id, contentJson, documentMode: layout.documentMode, documentSettingsJson: JSON.stringify(layout.settings), expectedContentVersion: row.contentVersion, editorSessionId: "collaboration-server" }, viewer);
     if (!result.saved) throw new Error("Document save failed");
   } else {
     const snapshot = presentationSnapshotSchema.parse(presentationJSON(doc));

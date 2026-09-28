@@ -3,124 +3,9 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Plugin, PluginKey } from "@tiptap/pm/state";
 import { Decoration, DecorationSet } from "@tiptap/pm/view";
 import { ReactNodeViewRenderer } from "@tiptap/react";
-import type { DocumentPaginationBreak } from "../lib/document-pagination";
 import { figureNumberLabel, resolveCrossReferenceLabels } from "../lib/figure-caption";
 import { isFigure, numberedFigure, stripFigureNumber } from "../lib/figure";
-import { collapsedHeadingRanges } from "./collapsible-heading";
 import { TableOfContentsView } from "./table-of-contents-view";
-
-export type { DocumentPaginationBreak, DocumentPaginationBreakKind } from "../lib/document-pagination";
-
-const documentPaginationKey = new PluginKey<DocumentPaginationBreak[]>("documentPagination");
-
-export function setDocumentPaginationBreaks(editor: Editor, breaks: DocumentPaginationBreak[]) {
-  editor.view.dispatch(editor.state.tr.setMeta(documentPaginationKey, breaks));
-}
-
-export function getDocumentPaginationBreaks(editor: Editor) {
-  return documentPaginationKey.getState(editor.state) ?? [];
-}
-
-/**
- * Which page (1-indexed) a document position falls on, given the current break
- * list. A break's `page` is the page its own content starts on, so the position
- * is on the page of the latest break at or before it (or page 1 before any break).
- */
-export function pageForPosition(breaks: DocumentPaginationBreak[], position: number): number {
-  let page = 1;
-  let bestPosition = -1;
-  for (const item of breaks) {
-    if (item.position <= position && item.position > bestPosition) {
-      bestPosition = item.position;
-      page = item.page;
-    }
-  }
-  return page;
-}
-
-/**
- * Section-number label per heading ("1. ", "1.2 ", "1.2.3 "), mirroring the
- * CSS counters used for numbered headings in export (document-renderer.ts) and
- * the live editor canvas (.wiki-document-canvas[data-numbered-headings] in
- * globals.css). Only levels 1-3 are numbered there, so deeper headings get "".
- */
-export function numberHeadings(headings: Array<{ level: number }>): string[] {
-  const counters = [0, 0, 0];
-  return headings.map((heading) => {
-    const level = heading.level;
-    if (level < 1 || level > 3) return "";
-    counters[level - 1] += 1;
-    for (let index = level; index < 3; index += 1) counters[index] = 0;
-    const parts = counters.slice(0, level);
-    return level === 1 ? `${parts[0]}. ` : `${parts.join(".")} `;
-  });
-}
-
-export function samePaginationBreaks(left: DocumentPaginationBreak[], right: DocumentPaginationBreak[]) {
-  return left.length === right.length && left.every((item, index) => {
-    const other = right[index];
-    return item.position === other.position
-      && item.page === other.page
-      && item.kind === other.kind
-      && Math.abs(item.height - other.height) < 0.5;
-  });
-}
-
-const DocumentPagination = Extension.create({
-  name: "documentPagination",
-  addProseMirrorPlugins() {
-    return [new Plugin<DocumentPaginationBreak[]>({
-      key: documentPaginationKey,
-      state: {
-        init: () => [],
-        apply(transaction, breaks) {
-          const replacement = transaction.getMeta(documentPaginationKey) as DocumentPaginationBreak[] | undefined;
-          if (replacement) return replacement;
-          if (!transaction.docChanged) return breaks;
-          // Keep the spacers while text changes and only move them along with the
-          // document. Dropping them here collapsed the whole page stack until the
-          // next measurement, which made the document jump under the caret.
-          const mapped: DocumentPaginationBreak[] = [];
-          for (const item of breaks) {
-            const result = transaction.mapping.mapResult(item.position, -1);
-            if (result.deleted || mapped.some((existing) => existing.position === result.pos)) continue;
-            mapped.push({ ...item, position: result.pos });
-          }
-          return mapped;
-        },
-      },
-      props: {
-        decorations(state) {
-          const breaks = documentPaginationKey.getState(state) ?? [];
-          const hidden = collapsedHeadingRanges(state);
-          return DecorationSet.create(state.doc, breaks.filter((item) => !hidden.some(({ from, to }) => item.position >= from && item.position < to)).map((item) => Decoration.widget(item.position, () => {
-            const height = Math.max(0, item.height);
-            // Breaks inside a paragraph, code block or table need a spacer the
-            // surrounding formatting context accepts, so the element follows the kind.
-            const tag = item.kind === "listItem" ? "li" : item.kind === "inline" ? "span" : item.kind === "tableRow" ? "tr" : "div";
-            const spacer = document.createElement(tag);
-            spacer.className = "wiki-document-auto-page-break";
-            spacer.contentEditable = "false";
-            spacer.dataset.page = String(item.page);
-            spacer.setAttribute("aria-hidden", "true");
-            if (item.kind === "tableRow") {
-              const cell = document.createElement("td");
-              cell.colSpan = 100;
-              cell.style.height = `${height}px`;
-              cell.style.padding = "0";
-              cell.style.border = "0";
-              spacer.append(cell);
-            } else {
-              if (item.kind === "inline") spacer.style.display = "block";
-              spacer.style.height = `${height}px`;
-            }
-            return spacer;
-          }, { key: `page-${item.page}-${item.position}-${Math.round(item.height)}-${item.kind ?? "block"}`, side: -1 })));
-        },
-      },
-    })];
-  },
-});
 
 const PageBreak = Node.create({
   name: "pageBreak",
@@ -241,7 +126,6 @@ export type DocumentNumberingConfig = {
   numberFigures: boolean;
   numberTables: boolean;
   missingReferenceLabel?: string;
-  pageNumberStart?: number;
 };
 const DEFAULT_NUMBERING_CONFIG: DocumentNumberingConfig = { figureLabel: "Figure", tableLabel: "Table", numberFigures: false, numberTables: false };
 
@@ -471,7 +355,6 @@ export const DocumentExtensions = [
   AnnexMarker,
   SignatureBlock,
   DocumentBlockAttributes,
-  DocumentPagination,
   DocumentNumbering,
 ];
 

@@ -190,7 +190,7 @@ test("document sections and presentation elements support saved round trips and 
   await page.unroute(`**/api/wiki/collaboration/presentation/${presentationId}`);
 });
 
-test("collapsed document sections remove hidden media, nested headings and page-break spacing", async ({ page }) => {
+test("collapsed document sections hide media, nested headings and page breaks", async ({ page }) => {
   test.setTimeout(240_000);
   await login(page);
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
@@ -211,11 +211,6 @@ test("collapsed document sections remove hidden media, nested headings and page-
       { type: "paragraph", content: [{ type: "text", text: "Visible content" }] },
     ] });
   });
-  if (!await page.locator(".wiki-document-canvas").count()) {
-    await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-    await page.getByTestId("document-mode-toggle").click();
-  }
-  await expect(editor.locator(".wiki-document-auto-page-break").first()).toBeAttached();
   await editor.locator("#fold").click({ position: { x: 60, y: 12 } });
   await expect(editor.locator("#fold")).toHaveAttribute("data-collapsed", "true");
   await expect(editor.locator("#nested")).toBeHidden();
@@ -224,14 +219,12 @@ test("collapsed document sections remove hidden media, nested headings and page-
     const first = node.querySelector("#fold")!.getBoundingClientRect();
     return node.querySelector("#following")!.getBoundingClientRect().top - first.bottom;
   })).toBeLessThan(70);
-  await expect(editor.locator(".wiki-document-auto-page-break")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("collapsed-section.png") });
   // Click another point on the heading text so ProseMirror treats this as a
   // separate click even when a fast production render finishes within 500 ms.
   await editor.locator("#fold").click({ position: { x: 100, y: 12 } });
   await expect(editor.locator("#nested")).toBeVisible();
   await expect(editor.getByText("After the internal page break", { exact: true })).toBeVisible();
-  await expect(editor.locator(".wiki-document-auto-page-break").first()).toBeAttached();
 });
 
 test("heading structure changes require approval and preserve playback order through undo and reload", async ({ page }) => {

@@ -14,7 +14,7 @@ vi.mock("@/db", async () => {
   return { sqlite, db };
 });
 import { sqlite } from "@/db";
-import { createPage, savePageContent } from "../actions";
+import { createPage } from "../actions";
 import { createPresentation, savePresentation } from "../presentation-actions";
 import { applyRoomUpdate, authorize, loadRoom, replayRoom, roomExists } from "./store";
 import { documentJSON, encode, presentationJSON, patchPresentation } from "./codec";
@@ -23,7 +23,7 @@ const clone = (state: Uint8Array) => { const doc = new Y.Doc(); Y.applyUpdate(do
 async function page() { const { slug } = await createPage({ title: "Shared", parentId: null, proofingLanguage: "de-AT" }); return (sqlite.prepare("SELECT id FROM wiki_pages WHERE slug = ?").get(slug) as { id: string }).id; }
 beforeEach(() => { sqlite.exec("DELETE FROM wiki_collaboration_rooms; DELETE FROM wiki_pages; DELETE FROM wiki_presentations; UPDATE user SET removedAt = NULL, banned = 0"); });
 describe("durable collaboration", () => {
-  it("initializes exactly once, persists three writers and rejects legacy snapshots", async () => {
+  it("initializes exactly once and persists three writers", async () => {
     const id = await page(); const room = loadRoom("page", id); expect(loadRoom("page", id).state).toEqual(room.state);
     for (const userId of ["a", "b", "c"]) {
       const doc = clone(room.state); const paragraph = doc.getXmlFragment("body").get(0) as Y.XmlElement;
@@ -35,7 +35,6 @@ describe("durable collaboration", () => {
     expect(stored.sequence).toBe(3);
     const row = sqlite.prepare("SELECT content_json FROM wiki_pages WHERE id = ?").get(id) as { content_json: string };
     expect(JSON.parse(row.content_json)).toEqual(documentJSON(clone(stored.state)));
-    await expect(savePageContent({ id, contentJson: '{"type":"doc","content":[]}', expectedContentVersion: 1, editorSessionId: "old-browser-tab" })).rejects.toThrow("Reload");
   });
   it("acknowledges duplicate delivery without creating revisions and can replay from a compacted snapshot", async () => {
     const id = await page(); const room = loadRoom("page", id); const doc = clone(room.state);
