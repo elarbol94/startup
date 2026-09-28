@@ -8,7 +8,7 @@ import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { notifyOfficeMentions, officeMentionUsers } from "../../office/office-actions";
 import { OfficeInsertDialog } from "./office-insert-dialog";
-import { useOfficeBridge, type OfficeCommand } from "./use-office-bridge";
+import { useOfficeBridge, type OfficeCommand, type PluginEvent } from "./use-office-bridge";
 import { useOnlyofficeScript, type DocEditorInstance } from "./use-onlyoffice-script";
 
 export type OfficeEditorHandle = {
@@ -60,12 +60,13 @@ function followAppTheme(theme: "light" | "dark") {
  * co-editing state; `onSynced` reports whether local edits reached it, which
  * is not the same as the app having stored them (see useOfficeStatus).
  */
-export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
+export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPluginEvent }: {
   ref?: Ref<OfficeEditorHandle>;
   page: { id: string; slug: string; title: string };
   query: { insertEvidence?: string; task?: string; deadline?: string; officeAction?: string };
   onSynced: (synced: boolean) => void;
   onUnavailable: () => void;
+  onPluginEvent?: (event: PluginEvent) => void;
 }) {
   const t = useTranslations("officeDocuments");
   // The editor follows the app's appearance; it reloads when that changes.
@@ -80,7 +81,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
   const callbacks = useRef({ onSynced, onUnavailable });
   useEffect(() => { callbacks.current = { onSynced, onUnavailable }; });
   const script = useOnlyofficeScript(state.kind === "ready" ? state.data.apiUrl : null, attempt);
-  const bridge = useOfficeBridge(state.kind === "ready" ? state.data.bridgeId : null, page);
+  const bridge = useOfficeBridge(state.kind === "ready" ? state.data.bridgeId : null, page, onPluginEvent);
   const send = bridge.send;
 
   useImperativeHandle(ref, () => ({

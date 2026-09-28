@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -18,6 +18,10 @@ import { AttachmentPanel } from "../attachment-panel";
 import { EvidencePanel } from "../evidence-panel";
 import { InlinePageTitle } from "../inline-page-title";
 import { OfficeConnectionsPanel } from "./office-connections-panel";
+import { OfficeGrammarPanel } from "./office-grammar-panel";
+import type { OfficeCommand } from "./use-office-bridge";
+import { useOfficeGrammarController } from "./use-office-grammar-controller";
+import type { ProofingLanguage } from "./use-office-grammar";
 import { OfficeEditor, type OfficeEditorHandle } from "./office-editor";
 import { OfficeSaveBadge } from "./office-save-badge";
 import { OfficeVersionsDialog } from "./office-versions-dialog";
@@ -49,8 +53,10 @@ function useFitToViewport() {
 }
 
 /** Page chrome for office (DOCX) documents: header, editor, workspace side panels. */
-export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query, converted = false }: {
+export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query, converted = false, proofingLanguage = "de-AT" }: {
   page: PageRef;
+  /** Language for the grammar check (the page's proofing language). */
+  proofingLanguage?: ProofingLanguage;
   /** Converted from the old editor: its last version stays readable. */
   converted?: boolean;
   backlinks: PageRef[];
@@ -65,6 +71,8 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const locale = useLocale();
   const router = useRouter();
   const editor = useRef<OfficeEditorHandle>(null);
+  const send = useCallback((command: OfficeCommand) => editor.current?.send(command), []);
+  const grammar = useOfficeGrammarController(proofingLanguage, send);
   const [synced, setSynced] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -166,9 +174,12 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
               </div>
             </div>
           </div>
-          : <OfficeEditor key={editorKey} ref={editor} page={page} query={query} onSynced={(value) => { setSynced(value); if (value) void refresh(); }} onUnavailable={() => setUnavailable(true)} />}
+          : <OfficeEditor key={editorKey} ref={editor} page={page} query={query} onSynced={(value) => { setSynced(value); if (value) void refresh(); }} onUnavailable={() => setUnavailable(true)} onPluginEvent={grammar.onPluginEvent} />}
       </main>
-      {detailsOpen && !isFocused && <aside data-testid="office-document-details" className="max-h-full w-full space-y-6 overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+      {grammar.open && <aside data-testid="office-grammar" className="max-h-full w-full overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+        <OfficeGrammarPanel {...grammar.panel} />
+      </aside>}
+      {!grammar.open && detailsOpen && !isFocused && <aside data-testid="office-document-details" className="max-h-full w-full space-y-6 overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
         <OfficeConnectionsPanel pageId={page.id} refreshKey={status?.head.id ?? 0} onSelect={(kind, id) => editor.current?.send({ command: "select", kind, id })} />
         <ContextPanel subjectType="wikiPage" subjectId={page.id} subjectLabel={page.title} subjectHref={`/wiki/pages/${page.slug}`} compact hideSources />
         <AttachmentPanel entityType="wikiPage" entityId={page.id} initial={attachments} />

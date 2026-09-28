@@ -41,6 +41,7 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
       backlinks={getBacklinks(page.id)}
       favorite={isFavoritePage(page.id, currentUser.id)}
       converted={wasConverted(page.id)}
+      proofingLanguage={page.proofingLanguage}
       attachments={attachmentsList}
       query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline, officeAction: query.officeAction }}
     />;

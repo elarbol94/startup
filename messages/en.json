@@ -5381,6 +5381,21 @@
       "evidence": "PDF evidence",
       "jump": "Jump to the passage"
     },
-    "legacyVersion": "Version before the switch (old editor)"
+    "legacyVersion": "Version before the switch (old editor)",
+    "grammar": {
+      "title": "Spelling & grammar",
+      "recheck": "Check again",
+      "close": "Close",
+      "checking": "Checking with LanguageTool …",
+      "unavailable": "The check is not available right now.",
+      "clean": "No issues found.",
+      "jump": "Jump to the passage",
+      "remove": "(remove)",
+      "ignore": "Ignore",
+      "learn": "Add to dictionary",
+      "stale": "The text changed at this position – please check again.",
+      "learned": "Added “{word}” to the dictionary.",
+      "learnFailed": "The word could not be saved."
+    }
   }
 }

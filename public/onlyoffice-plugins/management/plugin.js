@@ -19,7 +19,7 @@
   // Own dictionary: the SDK loads translations asynchronously, after the toolbar is registered.
   var DE = {
     "Workspace": "Workspace", "Citation": "Zitat", "Update bibliography": "Literatur aktualisieren", "PDF evidence": "PDF-Nachweis",
-    "Wiki link": "Wiki-Link", "Task": "Aufgabe", "Deadline": "Frist", "Remove link": "Verknüpfung entfernen",
+    "Wiki link": "Wiki-Link", "Task": "Aufgabe", "Deadline": "Frist", "Remove link": "Verknüpfung entfernen", "Grammar": "Grammatik",
     "Select text first.": "Bitte zuerst Text markieren.", "Place the cursor in a link first.": "Bitte den Cursor zuerst in eine Verknüpfung setzen.",
     "Not found in the text.": "Im Text nicht gefunden.", "Citations updated.": "Zitate und Literaturverzeichnis aktualisiert.",
     "Done.": "Erledigt.", "Failed. Please try again.": "Fehlgeschlagen. Bitte erneut versuchen.", "Bibliography": "Literaturverzeichnis", "Page": "S.",
@@ -183,6 +183,51 @@
     });
   }
 
+  // --- Grammar check (LanguageTool through the app) ------------------------------
+
+  /** Non-empty paragraphs with their index in document order. */
+  function collectParagraphs() {
+    return command(function () {
+      var paragraphs = Api.GetDocument().GetAllParagraphs();
+      var result = [];
+      for (var i = 0; i < paragraphs.length; i++) {
+        var text = paragraphs[i].GetText().replace(/[\r\n]+$/, "");
+        if (text.trim()) result.push({ index: i, text: text });
+      }
+      return result;
+    });
+  }
+
+  /**
+   * Selects the checked text of an issue if the paragraph still reads the same
+   * there. Uses the editor's search (the n-th occurrence before `offset`):
+   * range positions count formatting boundaries, text offsets do not.
+   */
+  function selectIssue(message) {
+    Asc.scope.issue = { index: message.index, offset: message.offset, length: message.length, expected: message.expected };
+    return command(function () {
+      var issue = Asc.scope.issue;
+      var paragraph = Api.GetDocument().GetAllParagraphs()[issue.index];
+      if (!paragraph) return "stale";
+      var text = paragraph.GetText();
+      if (text.substr(issue.offset, issue.length) !== issue.expected) return "stale";
+      var occurrence = 0;
+      for (var at = text.indexOf(issue.expected); at >= 0 && at < issue.offset; at = text.indexOf(issue.expected, at + 1)) occurrence++;
+      var found = paragraph.Search(issue.expected, true) || [];
+      var range = found[occurrence];
+      if (!range || range.GetText() !== issue.expected) return "stale";
+      range.Select();
+      return "ok";
+    });
+  }
+
+  function replaceIssue(message) {
+    return selectIssue(message).then(function (result) {
+      if (result !== "ok") return result;
+      return method("PasteText", [message.replacement]).then(function () { return "ok"; });
+    });
+  }
+
   function run(message) {
     if (message.command === "insertCitation" || message.command === "insertEvidence" || message.command === "insertLink") {
       return outsideBibliography().then(function () { return apply(message); });
@@ -204,6 +249,11 @@
         // AddContentControl wraps the current selection; Lock 3 means "not locked".
         return method("AddContentControl", [2, { Tag: tag(message.kind, { id: message.id }), Lock: 3 }]);
       case "select": return selectTagged(message.kind, message.id);
+      case "collectParagraphs": return collectParagraphs().then(function (paragraphs) { post({ type: "paragraphs", paragraphs: paragraphs || [] }); });
+      case "selectIssue":
+        return selectIssue(message).then(function (result) { post({ type: "issueResult", id: message.id, result: result }); });
+      case "replaceIssue":
+        return replaceIssue(message).then(function (result) { post({ type: "issueResult", id: message.id, result: result, replaced: result === "ok" }); });
       default: return Promise.resolve();
     }
   }
@@ -234,13 +284,14 @@
       ["task", "Task", function () { request("task").catch(fail); }],
       ["deadline", "Deadline", function () { request("deadline").catch(fail); }],
       ["remove", "Remove link", function () { removeControlAtCursor().catch(fail); }],
+      ["grammar", "Grammar", function () { post({ type: "request", action: "grammar" }); }],
     ];
     buttons.forEach(function (entry, index) {
       var button = new Asc.ButtonToolbar(tab);
       button.text = tr(entry[1]);
       button.hint = tr(entry[1]);
       button.icons = icon(entry[0]);
-      button.separator = index === 2 || index === 4 || index === 6;
+      button.separator = index === 2 || index === 4 || index === 6 || index === 7;
       button.attachOnClick(entry[2]);
     });
     Asc.Buttons.registerToolbarMenu();
@@ -265,7 +316,7 @@
         var message = event.data || {};
         if (message.type !== "command") return;
         run(message).then(function () {
-          if (message.command !== "select") notify("success", tr("Done."));
+          if (["select", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
         }, function (error) {
           if (error && error.message === "bibliography") notify("info", tr("Place the cursor outside the bibliography."));
           else fail(error);
