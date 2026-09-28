@@ -2,7 +2,7 @@
 
 ## Workspace tools
 
-The editor separates the document header from its creation toolbar. **Path / Weg** opens a collapsible playback-order panel, including timing and speaker notes. Selecting an object keeps the canvas in focus; **Selection actions → Properties** or **Tools / Werkzeuge** opens Properties. Tools also opens Document sources, Design, Assets or Comments in the same right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures and pending source reviews remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates, document conversion and PowerPoint import.
+The editor separates the document header from its creation toolbar. **Path / Weg** opens a collapsible playback-order panel, including timing and speaker notes. Selecting an object keeps the canvas in focus; **Selection actions → Properties** or **Tools / Werkzeuge** opens Properties. Tools also opens Design, Assets or Comments in the same right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates and PowerPoint import.
 
 Presentations use an infinite canvas and an ordered path of camera stops and
 object animations. Content includes text, images, frames, shapes, icons, charts,
@@ -40,143 +40,10 @@ Existing presentations retain their saved design. No migration is required.
 
 ## Links to document sections
 
-New presentations created from a wiki page retain a source link on every heading
-frame. Objects inside a linked frame inherit its source unless they have their
-own link or explicitly remove it. Documents without headings link to the whole
-page. Headings inside lists and layout sections are included in the outline.
-
-Select an element and use **Document source → Open document section** to open the
-current document at its heading. Navigation waits for pending presentation edits,
-expands collapsed sections without editing the document and briefly highlights
-the target. **Back to
-presentation** restores the selected objects, camera position and active stop.
-Heading badges and **Linked presentations** in the document open the corresponding
-presentation element. **Back to document** restores the document selection and
-scroll position. Return positions are kept in bounded, per-tab browser storage;
-if storage is unavailable, ordinary section/element navigation still works.
-
-Use **Link to document section** or **Change link** for existing decks, imported
-presentations and individual elements. Choose a document and section (or the whole
-document). **Remove link** also stops inheritance; **Use parent link** restores it.
-These changes use the same save, undo, history and conflict checks as other canvas
-edits. Competing changes to a source reference are treated as a single conflict.
-
-Section identities survive heading renames and moves. Legacy headings get IDs
-when loaded/saved; newly inserted or pasted headings receive distinct identities.
-Deleted sections are reported as missing and can be relinked. Existing decks are
-not matched retrospectively by heading text; use the manual link picker.
-
-Frames linked directly to a document section follow its current heading by default,
-including links created before heading synchronization was added. Heading changes
-refresh when opening/returning to a presentation and during source checks. The editor
-saves updated labels through its normal lease and version checks. The authenticated
-player and presenter view also resolve current headings without requiring an editor
-save first. Public/offline copies retain saved titles and never fetch document sources.
-
-Editing a frame label manually keeps it as a custom title. Turn **Use document heading
-as frame title** back on to follow the source again. Child elements with inherited
-source links keep their own labels. Missing sections retain the last label. Automatic
-heading updates do not add canvas undo steps; undoing a manual title edit restores
-following the latest heading. Body content and review status remain independent.
-
-Document backlinks include only presentations the current user can access. Public
-players and reusable company templates exclude document source references.
-Presenter view opens a linked source in a separate tab, leaving the audience's
-presentation in place. Presenter view also shows a read-only source preview.
-
-### Source previews and review
-
-**Document source** shows a plain-text preview of the selected section (including
-its subsections), with image counts and a link to read the full document. Previews
-are limited to 2,000 characters; change detection compares the full section,
-including formatting and media references. Moving an unchanged section or
-collapsing a heading does not trigger a change. Edits outside the linked section
-do not affect its status. Checks refresh every 30 seconds while the tab is visible,
-on returning to the tab, and with **Refresh document sources**.
-
-The source panel lists links needing attention across the presentation; select one
-to focus its element. New generated presentations remember the source at creation.
-Older and manually assigned links show **Not reviewed yet** until you compare the
-preview with the presentation and choose **Mark source as reviewed**. Reviews of
-an inherited link apply to its parent frame and inheriting children; explicit links
-on other elements keep their own review status. Missing sections cannot be marked
-as reviewed. Failed checks remain visible and can be retried.
-
-Reviewing saves a content fingerprint through the normal canvas save, undo, history,
-lease and conflict handling. Reviewing never overwrites slide content or stores a
-document text copy in the canvas; automatic heading synchronization is separate. Fingerprints and source references are stripped from public
-players and reusable templates. Source previews are authenticated, uncached reads;
-wiki pages currently share workspace access. No database migration is required.
-Manually inserting arbitrary document sections into an existing deck remains a future addition.
-
-### Automatically adding subsections
-
-New presentations generated from documents enable **Automatically include new
-subsections** on their linked frames. After a document save, additions are checked
-when opening/returning to the editor and during the existing visible-tab source
-checks. New heading frames appear inside the linked parent's current canvas
-position, including any newly added nested headings. They use a sibling's frame
-style (or the parent's when there is no sibling). Document prose and images are
-not copied by these incremental updates. The playback path, notes and timing are
-preserved; use the existing path controls to add a separate stop when desired.
-
-Existing decks opt in through the selected frame's **Document source** panel.
-Changing the switch also applies to its currently linked, unlocked descendant
-frames. Enabling starts with the current outline, preserving sections already
-omitted from the presentation. Moving a frame on the canvas never breaks its link.
-
-Updates wait until pending edits have saved and typing, gestures and dialogs have
-finished. The editor searches for space within the parent and expands only the
-necessary containers. Existing content keeps its position. If expansion would
-collide with another section, a visible **Review new subsections** action opens
-current/proposed previews. Approval can move the affected section with its contents
-into free space; unrelated sections stay put. Approval rechecks both the document
-and the canvas and asks for a fresh review if either proposal changed. Locked,
-rotated, oversized or ambiguously linked containers remain pending with an
-explanation. Existing heading moves must be reviewed first.
-
-Successful additions show **Show** and **Undo**, without moving the camera or
-selection. Undo remains available in the notification until another canvas edit;
-the regular undo history also includes the addition as one separate edit. Section
-identities are remembered through undo, deletion and saved reloads, preventing
-removed frames from reappearing on the next source check. Ordinary source reviews
-do not approve pending additions. Disabling the switch pauses future additions;
-missing document sections retain their presentation content.
-
-Only editable presentation workspaces add frames, through the usual autosave,
-lease, optimistic version, conflict and history handling. Active players and
-exports never insert frames. Optional tracking data lives in the existing canvas
-JSON and is stripped from public copies and templates with other source metadata;
-no database migration is needed.
-
-### Approving heading structure changes
-
-Changing a document heading level (for example `##` to `#`) adds **Review structure
-change** in **Document source**. The review shows the old and new heading levels,
-parent frames, and affected objects. Dependent changes are approved together: a
-promoted heading can become the parent of sections that follow it. **Not now** keeps
-the proposal pending. **Mark source as reviewed** only acknowledges source content;
-it never approves structural changes.
-
-**Apply change** checks the current document and canvas again. If either structure
-or canvas changed during review, inspect the refreshed proposal and approve again.
-Approval moves existing frames with their contents, uses 60-unit spacing, and refits
-affected containers. Expanded containers that would collide with neighbours move
-with their contents into free space. Unrelated objects, playback order, notes,
-animations, object sizes, styling and custom titles are preserved. No frames are
-created or deleted. The change is one undo/redo step and uses normal save, history,
-lease and conflict handling. Open or reload playback after saving to see the approved
-layout; an already running presentation does not rearrange itself.
-
-New generated presentations record their approved heading structure. Older or
-manually linked frames offer an initial review with the previous level shown as
-**Not recorded**. No layout is silently accepted or changed. A missing or ambiguous
-parent link must be corrected before applying; locked objects must be unlocked.
-Rotated containers that need refitting and layouts outside size limits require
-manual adjustment. Missing source sections retain their current layout.
-
-Structure metadata is optional canvas JSON; no database migration is required.
-Public players and templates strip it together with the other source metadata.
+Presentations are no longer linked to document sections. The links belonged to
+the old wiki-page editor and were removed together with it (documents are now
+Word documents, see [office-documents.md](office-documents.md)). Link data that
+older presentations still carry is ignored and stripped from public copies.
 
 ## Editing and recovery
 
@@ -412,10 +279,6 @@ database described in the README and covers editing, autosave, restore, mobile
 layout, rotation, PDF notes, edit leases, live following, hierarchy, rich content,
 animations, simultaneous editors, roles, comments, company designs, public links,
 offline media and presenter previews/notes/timers.
-
-Document linking is covered by `npm run e2e -- e2e/document-presentation-links.spec.ts`
-(generation, heading rename, section expansion, canvas restoration, manual linking,
-backlinks, source previews, change detection, review persistence and failed-save navigation). No database migration is needed for links.
 
 Migration `0055_redundant_nebula.sql` adds access settings, membership, comments and
 the design library. Existing canvases remain backwards-compatible. Deploy through

@@ -23,15 +23,8 @@ import * as Y from "yjs";
 import { PresentationBridge } from "../collaboration/presentation-bridge";
 import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
 import { presentationJSON, decode, REMOTE } from "../collaboration/codec";
-import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
 import type { PresentationFormat } from "../lib/presentation-format";
 import { arrangePresentation, layoutRoots, presentationAlignments } from "../lib/presentation-layout";
-import { subsectionBaseline } from "../lib/presentation-subsections";
-import { applyStructureProposal } from "../lib/presentation-structure";
-import { PresentationSubsectionUpdates } from "./presentation-subsection-updates";
-import { PresentationSourcePanel } from "./presentation-source-panel";
-import { documentSectionHref, sourceKey, sourceReviewStatus, synchronizePresentationHeadings, preservePresentationHeadingOverride, type PresentationSourceDocument } from "../lib/presentation-source";
-import { readLinkedPosition, rememberLinkedPosition } from "../lib/linked-navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
@@ -54,7 +47,6 @@ import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentatio
 import { PresentationSelectionTools } from "./presentation-selection-tools";
 import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
-import { presentationValuesEqual } from "../lib/presentation-merge";
 import type { SaveState } from "./presentation-editor/presentation-editor-utils";
 import { DraftInput } from "./presentation-editor/draft-fields";
 import { SnapGuides } from "./presentation-editor/canvas-decorations";
@@ -105,7 +97,6 @@ function Editor({
   const collaboration = useCollaborationContext();
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
-  const linkText = useTranslations("documentPresentationLinks");
   const navigationQuery = useSearchParams();
   // Canvas geometry is already stored; viewport sizing is the readiness signal.
   const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
@@ -146,7 +137,7 @@ function Editor({
   const [lockedBy] = useState<string | null>(null);
   const leaseReady = !canEdit || !!collaboration?.ready;
   const [conflict] = useState(false);
-  const [activePanel, setActivePanel] = useState<"properties" | "sources" | "design" | "assets" | "comments" | null>(null);
+  const [activePanel, setActivePanel] = useState<"properties" | "design" | "assets" | "comments" | null>(null);
   const [pathOpen, setPathOpen] = useState(false);
   const [workspaceDialog, setWorkspaceDialog] = useState<"sharing" | "history" | "playback" | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
@@ -171,23 +162,6 @@ function Editor({
   const undo = bridge.undo;
   useEffect(() => bridge.connect(), [bridge]);
   const { elements, steps, guides, background, settings, title } = canvas;
-  const sourcePreviews = usePresentationSourcePreviews(elements.map((element) => element.source));
-  useEffect(() => {
-    if (disabled || sourcePreviews.error || synchronizePresentationHeadings(elements, sourcePreviews.previews) === elements) return;
-    let frame = 0;
-    const sync = () => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => {
-        // A source refresh must not replace a custom label still being typed.
-        // Blur commits that draft (and its override) before this next frame.
-        if (document.activeElement?.hasAttribute("data-linked-heading-title")) return;
-        dispatch({ type: "source-headings", elements: (current) => synchronizePresentationHeadings(current, sourcePreviews.previews) });
-      });
-    };
-    sync();
-    document.addEventListener("focusout", sync);
-    return () => { cancelAnimationFrame(frame); document.removeEventListener("focusout", sync); };
-  }, [disabled, elements, sourcePreviews.error, sourcePreviews.previews, dispatch]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const selectionKey = selectedIds.join(":");
   const [inspectedSelection, setInspectedSelection] = useState(selectionKey);
@@ -245,7 +219,7 @@ function Editor({
       commitElements((current) => {
         const source = current.find((element) => element.id === id);
         if (!source || isPresentationElementLocked(current, id)) return current;
-        let next = preservePresentationHeadingOverride(source, update(source));
+        let next = update(source);
         if (next.type === "text" && next.content !== source.content && next.width === source.width && next.height === source.height) next = growPresentationText(next);
         let result = current;
         if (next.rotation !== source.rotation) result = rotateElements(result, new Set([id]), next.rotation - source.rotation, { x: source.x + source.width / 2, y: source.y + source.height / 2 });
@@ -441,33 +415,23 @@ function Editor({
   );
 
   const requestedElement = navigationQuery.get("element");
-  const resumeToken = navigationQuery.get("resume");
-  const documentResumeToken = navigationQuery.get("documentResume");
   const appliedNavigation = useRef("");
   const appliedViewportEngine = useRef(viewportEngine);
   useEffect(() => {
-    if (!viewportEngine || !reactFlow.viewportInitialized || !viewportSized) return;
-    const navigationKey = `${presentation.id}:${requestedElement}:${resumeToken}`;
+    if (!viewportEngine || !reactFlow.viewportInitialized || !viewportSized || !requestedElement) return;
+    const navigationKey = `${presentation.id}:${requestedElement}`;
     if (appliedNavigation.current === navigationKey && appliedViewportEngine.current === viewportEngine) return;
     // Next can reactivate a cached editor with a recreated pan/zoom controller.
     // Restore once per controller, as well as once per destination.
     const timer = setTimeout(() => {
       appliedNavigation.current = navigationKey;
       appliedViewportEngine.current = viewportEngine;
-      const saved = readLinkedPosition(resumeToken);
-      if (saved?.kind === "presentation" && saved.id === presentation.id) {
-        setSelectedIds(saved.selectedIds.filter((id) => elements.some((element) => element.id === id)));
-        setActiveStepId(steps.some((step) => step.id === saved.activeStepId) ? saved.activeStepId : null);
-        void reactFlow.setViewport(saved.viewport);
-        if (saved.selectedIds.length) setActivePanel(requestedElement ? "sources" : "properties");
-      } else if (requestedElement) {
-        const target = elements.find((element) => element.id === requestedElement);
-        if (target) { setSelectedIds([target.id]); setActiveStepId(steps.find((step) => step.elementId === target.id)?.id ?? null); flyTo(target); setActivePanel("sources"); }
-        else { toast.error(linkText("missingElement")); void reactFlow.fitView({ padding: 0.2 }); }
-      } else if (resumeToken) void reactFlow.fitView({ padding: 0.2 });
+      const target = elements.find((element) => element.id === requestedElement);
+      if (target) { setSelectedIds([target.id]); setActiveStepId(steps.find((step) => step.elementId === target.id)?.id ?? null); flyTo(target); setActivePanel("properties"); }
+      else void reactFlow.fitView({ padding: 0.2 });
     }, 0);
     return () => clearTimeout(timer);
-  }, [elements, flyTo, linkText, viewportSized, presentation.id, reactFlow, requestedElement, resumeToken, steps, viewportEngine]);
+  }, [elements, flyTo, viewportSized, presentation.id, reactFlow, requestedElement, steps, viewportEngine]);
 
   const addStep = useCallback(() => {
     if (!selected || disabled) return;
@@ -520,7 +484,7 @@ function Editor({
     }
     paused.current = true;
     void flush().then(async (saved) => {
-      if (!saved) { tab?.close(); toast.error(linkText("saveFailed")); return; }
+      if (!saved) { tab?.close(); toast.error(t("presentations.leaveSaveFailed")); return; }
       if (!newTab) {
         // Hand the lease back before navigation so the next editor can claim it at once.
         await requestEditLease(presentation.id, sessionId, "release").catch(() => undefined);
@@ -528,28 +492,9 @@ function Editor({
       } else if (tab) {
         tab.location.href = href;
       }
-    }).catch(() => { tab?.close(); toast.error(linkText("saveFailed")); })
+    }).catch(() => { tab?.close(); toast.error(t("presentations.leaveSaveFailed")); })
       .finally(() => { paused.current = false; });
-  }, [flush, presentation.id, router, sessionId, t, linkText]);
-
-  function openDocument(document: PresentationSourceDocument, sectionId: string, restoreDocument = false) {
-    const token = rememberLinkedPosition({ kind: "presentation", id: presentation.id, viewport: reactFlow.getViewport(), selectedIds, activeStepId });
-    let href = documentSectionHref(document.slug, sectionId, presentation.id, selected?.id ?? requestedElement ?? "", token);
-    const previousDocument = readLinkedPosition(documentResumeToken);
-    if (restoreDocument && previousDocument?.kind === "document" && previousDocument.id === document.id && documentResumeToken) href += `&documentResume=${encodeURIComponent(documentResumeToken)}`;
-    flushThen(href, false);
-  }
-  async function returnToDocument() {
-    const saved = readLinkedPosition(documentResumeToken);
-    if (saved?.kind !== "document") return;
-    try {
-      const response = await fetch(`/api/wiki/presentation-sources?source=${encodeURIComponent(saved.id)}`, { cache: "no-store" });
-      if (!response.ok) throw new Error();
-      const result = await response.json();
-      if (!result.document) { toast.error(linkText("missingSource")); return; }
-      openDocument(result.document, saved.sectionId, true);
-    } catch { toast.error(linkText("loadFailed")); }
-  }
+  }, [flush, presentation.id, router, sessionId, t]);
 
   useEditorNavigation(flushThen, '[data-testid="presentation-editor"]');
   /** Flush even a clean canvas: a focused field may still hold an uncommitted draft.
@@ -577,24 +522,6 @@ function Editor({
     </div>
   );
 
-  const sourceAttention = elements.filter((element) => {
-    if (!element.source) return false;
-    const preview = sourcePreviews.previews.get(sourceKey(element.source));
-    return preview && (sourceReviewStatus(element.source, preview) !== "current" || (element.type === "frame" && preview.snapshot?.headingStructure && !presentationValuesEqual(element.source.approvedStructure, preview.snapshot.headingStructure)));
-  }).length;
-  const sourcePanel = (          <PresentationSourcePanel onSubsectionsChange={(enabled) => {
-            if (disabled || !selected?.source) return;
-            const descendants = presentationDescendants(elements, new Set([selected.id]));
-            commitElements((current) => current.map((element) => element.type === "frame" && descendants.has(element.id) && element.source?.pageId === selected.source!.pageId && !isPresentationElementLocked(current, element.id)
-              ? { ...element, source: { ...element.source, syncSubsections: enabled,
-                knownSectionIds: enabled ? [...new Set([...(element.source.knownSectionIds ?? []), ...subsectionBaseline(sourcePreviews.previews.get(sourceKey(element.source)))])] : element.source.knownSectionIds } } : element));
-          }} structureDisabled={disabled} onStructureApply={(expected, proposal) => {
-            if (disabled) return;
-            dispatch({ type: "edit", at: Date.now(), separate: true, elements: (current) => applyStructureProposal(current, expected, proposal) });
-            const target = proposal.elements.find((element) => element.id === (selected?.id ?? proposal.changes[0].elementId));
-            if (target) flyTo(target);
-          }} previews={sourcePreviews} elements={elements} selected={selected} disabled={disabled || Boolean(selected && isPresentationElementLocked(elements, selected.id))} onChange={(source) => { if (selected) updateElement(selected.id, (element) => ({ ...element, source })); }} onOpen={openDocument} onReview={(id, source) => updateElement(id, (element) => element.source?.pageId === source.pageId && element.source.sectionId === source.sectionId ? { ...element, source } : element)} onSelect={(id) => { setSelectedIds([id]); const element = elements.find((item) => item.id === id); if (element) flyTo(element); }} />
-);
   const libraryPanel = (          <PresentationLibraryPanel section={activePanel === "assets" ? "assets" : activePanel === "comments" ? "comments" : "design"} id={presentation.id} selectedId={selected?.id} canEdit={canEdit && !disabled} onSelect={(id) => { setSelectedIds([id]); const element = elements.find((element) => element.id === id); if (element) flyTo(element); }} flush={flush}
             onTheme={(theme) => { commitElements((current) => current.map((element) => element.type === "text" ? { ...element, content: { ...element.content, color: theme.foreground, font: theme.font } } : element.type === "frame" ? { ...element, content: { ...element.content, color: theme.accent } } : element)); dispatch({ type: "touch", background: theme.background }); }}
             onTemplate={(snapshot) => { dispatch({ type: "edit", at: Date.now(), elements: () => snapshot.elements, steps: () => snapshot.steps }); dispatch({ type: "touch", background: snapshot.background, settings: snapshot.settings }); setSelectedIds([]); }}
@@ -632,7 +559,7 @@ function Editor({
     { id: "redo", label: t("editor.toolbar.redo"), execute: () => dispatch({ type: "redo" }), disabledReason: disabled || !(undo ? undo.canRedo() : canvas.future.length) ? unavailable : undefined, group: commandText },
     { id: "overview", label: t("presentations.overview"), execute: () => { void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION }); }, group: commandText },
     { id: "path", label: t("presentations.path"), execute: () => { setPathOpen(value => !value); if (!window.matchMedia("(min-width: 1280px)").matches) setActivePanel(null); }, group: commandText },
-    ...(["properties", "sources", "design", "assets", "comments"] as const).map(panel => ({ id: panel, label: t(`workspace.${panel}`), execute: () => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }, group: commandText })),
+    ...(["properties", "design", "assets", "comments"] as const).map(panel => ({ id: panel, label: t(`workspace.${panel}`), execute: () => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }, group: commandText })),
     { id: "save", label: t("presentations.save"), execute: () => { void flush(); }, disabledReason: disabled ? unavailable : undefined, group: commandText },
     { id: "history", label: t("presentations.history"), execute: openHistory, group: commandText },
     { id: "playback", label: t("presentations.playbackSettings"), execute: () => setWorkspaceDialog("playback"), group: commandText },
@@ -678,7 +605,7 @@ function Editor({
       || (id === "group" && selectedRoots.length >= 2) || (id === "ungroup" && selectedRoots.some(e => e.type === "frame" && e.content.isGroup))
       || (id === "editText" && selected?.type === "text") || (id === "lock" && selection.some(e => !e.locked)) || (id === "unlock" && selection.some(e => e.locked))
       || (id.startsWith("align-") && selectedRoots.length >= 2) || (id === "connect" && !arrangementDisabled && selectedRoots.length === 2)
-      || (id === "detach" && selected?.type === "shape" && selected.content.connection) || (id === "sources" && selected && [selected, ...presentationAncestors(elements, selected.id)].some(e => e.source))
+      || (id === "detach" && selected?.type === "shape" && selected.content.connection)
     : ["addText", "addFrame", "addShape", "addChart", "addIcon", "addImage", "paste", "selectAll", "overview", "shortcutHelp"].includes(id));
   const handleKeyboard = useEffectEvent((event: KeyboardEvent) => {
     const scope = presentationKeyScope(event, commandRoot.current);
@@ -722,7 +649,6 @@ function Editor({
       {collaboration && <CollaborationStatus provider={collaboration} className="sr-only" />}
       <header className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background px-4 py-3">
         <PresentationDocumentTitle title={title} />
-        {documentResumeToken && <Button size="sm" variant="outline" onClick={() => void returnToDocument()}>{linkText("backDocument")}</Button>}
         <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
         <Link
           href={listHref}
@@ -837,18 +763,9 @@ function Editor({
         </Button>
 
         <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant={activePanel ? "secondary" : "ghost"} className="ml-auto" />}><PanelRight className="size-4" />{t("workspace.tools")}</DropdownMenuTrigger><DropdownMenuContent align="end">
-          {(["properties", "sources", "design", "assets", "comments"] as const).map((panel) => <DropdownMenuItem key={panel} onClick={() => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }}>{t(`workspace.${panel}`)}</DropdownMenuItem>)}
+          {(["properties", "design", "assets", "comments"] as const).map((panel) => <DropdownMenuItem key={panel} onClick={() => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }}>{t(`workspace.${panel}`)}</DropdownMenuItem>)}
         </DropdownMenuContent></DropdownMenu>
       </div>
-      <PresentationSubsectionUpdates elements={elements} previews={sourcePreviews} disabled={disabled} undoElements={canvas.past.at(-1)?.elements}
-        busy={canvas.dirty || canvas.failed || status === "saving" || Boolean(workspaceDialog)}
-        onReviewOpen={() => { setActivePanel(null); setPathOpen(false); }}
-        onApply={(expected, proposal) => {
-          if (disabled || paused.current || proposal.issue || latest.current.canvas.failed || !presentationValuesEqual(latest.current.canvas.elements, expected)) return false;
-          dispatch({ type: "edit", at: Date.now(), separate: true, elements: (current) => presentationValuesEqual(current, expected) ? proposal.elements : current });
-          return true;
-        }} onUndo={() => dispatch({ type: "undo" })} onShow={(id) => { const element = elements.find((item) => item.id === id); if (element) { setSelectedIds([id]); flyTo(element); } }} />
-      {(sourcePreviews.error || sourceAttention > 0) && <button type="button" onClick={() => setActivePanel("sources")} className="flex items-center gap-2 border-b bg-amber-50 px-4 py-2 text-left text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"><TriangleAlert className="size-3.5 shrink-0" /><span role="status">{sourcePreviews.error ? linkText("previewFailed") : linkText("needsReview", { count: sourceAttention })}</span></button>}
 
       {conflict && (
         <div role="alert" className="flex flex-wrap items-center gap-2 border-b bg-destructive/10 px-3 py-2 text-sm">
@@ -902,7 +819,7 @@ function Editor({
             elevateNodesOnSelect={false}
             className={styles.canvas}
             colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-            fitView={openedWithElements && !resumeToken && !requestedElement}
+            fitView={openedWithElements && !requestedElement}
             fitViewOptions={{ padding: 0.2 }}
             minZoom={0.02}
             maxZoom={8}
@@ -959,9 +876,8 @@ function Editor({
 
         <WorkspacePanel title={t(`workspace.${activePanel ?? "properties"}`)} open={activePanel !== null} onClose={() => setActivePanel(null)} className="h-full max-h-full overflow-y-auto">
           <select aria-label={t("presentations.selectionTools.panels")} value={activePanel ?? "properties"} onChange={event => setActivePanel(event.target.value as Exclude<typeof activePanel, null>)} className="mb-5 h-10 w-full rounded-lg border bg-background px-3 text-sm">
-            {(["properties", "sources", "design", "assets", "comments"] as const).map(panel => <option key={panel} value={panel}>{t(`workspace.${panel}`)}</option>)}
+            {(["properties", "design", "assets", "comments"] as const).map(panel => <option key={panel} value={panel}>{t(`workspace.${panel}`)}</option>)}
           </select>
-          <div hidden={activePanel !== "sources"}>{sourcePanel}</div>
           <div hidden={!["design", "assets", "comments"].includes(activePanel ?? "")}>{libraryPanel}</div>
           <div hidden={activePanel !== "properties"}>
           {selection.length > 0 && <PresentationSelectionTools key={selectionKey} elements={elements} selection={selection}

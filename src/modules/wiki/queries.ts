@@ -110,12 +110,3 @@ export function searchPages(query: string, limit = 10): WikiSearchResult[] {
   return rows;
 }
 
-/** Pages whose body is TipTap JSON (office documents are excluded), e.g. presentation sources. */
-export function listTiptapPagesFlat() {
-  return db
-    .select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug })
-    .from(wikiPages)
-    .where(and(isNull(wikiPages.deletedAt), eq(wikiPages.documentEngine, "tiptap")))
-    .orderBy(asc(wikiPages.title))
-    .all();
-}

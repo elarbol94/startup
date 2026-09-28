@@ -4,7 +4,7 @@ import { UserIdentity } from "@/components/user-identity";
 import { useState } from "react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { FileDown, FileText, MoreHorizontal, Play, Plus, Presentation, Search, Upload } from "lucide-react";
+import { FileDown, MoreHorizontal, Play, Plus, Presentation, Search, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
@@ -12,13 +12,13 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import type { PresentationListItem } from "../presentation-queries";
 import { PresentationScene } from "./presentation-scene";
 import { PresentationImport } from "./presentation-import";
-import { DeletePresentationButton, NewPresentationForm, NewPresentationFromWikiPage } from "./presentation-list-actions";
+import { DeletePresentationButton, NewPresentationForm } from "./presentation-list-actions";
 
-export function PresentationLibrary({ presentations, pages }: { presentations: PresentationListItem[]; pages: Array<{ id: string; title: string }> }) {
+export function PresentationLibrary({ presentations }: { presentations: PresentationListItem[] }) {
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
   const format = useFormatter();
-  const [creation, setCreation] = useState<"blank" | "document" | "import" | null>(null);
+  const [creation, setCreation] = useState<"blank" | "import" | null>(null);
   const [query, setQuery] = useState("");
   const visible = presentations.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
 
@@ -27,12 +27,10 @@ export function PresentationLibrary({ presentations, pages }: { presentations: P
         <Button variant="ghost" render={<Link href="/wiki/presentations/follow" />} nativeButton={false}>{t("presentations.joinLive")}</Button>
         <DropdownMenu><DropdownMenuTrigger render={<Button />}><Plus className="size-4" />{t("presentations.new")}</DropdownMenuTrigger><DropdownMenuContent align="end">
           <DropdownMenuItem onClick={() => setCreation("blank")}><Presentation />{t("workspace.blankOrTemplate")}</DropdownMenuItem>
-          <DropdownMenuItem disabled={!pages.length} onClick={() => setCreation("document")}><FileText />{t("presentations.fromWikiPage")}</DropdownMenuItem>
           <DropdownMenuItem onClick={() => setCreation("import")}><Upload />{studio("importPptx")}</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
     </>} />
     <NewPresentationForm hideTrigger open={creation === "blank"} onOpenChange={(open) => setCreation(open ? "blank" : null)} />
-    <NewPresentationFromWikiPage hideTrigger pages={pages} open={creation === "document"} onOpenChange={(open) => setCreation(open ? "document" : null)} />
     <PresentationImport hideTrigger open={creation === "import"} onOpenChange={(open) => setCreation(open ? "import" : null)} />
     {presentations.length > 0 && <div className="relative mb-6 max-w-sm"><Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} aria-label={t("workspace.searchPresentations")} placeholder={t("workspace.searchPresentations")} /></div>}
     {!presentations.length ? <div className="grid min-h-72 place-items-center rounded-2xl bg-muted/30 p-8 text-center"><div><Presentation className="mx-auto mb-4 size-9 text-muted-foreground/60" /><h2 className="font-medium">{t("presentations.empty")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("presentations.emptyDescription")}</p></div></div>

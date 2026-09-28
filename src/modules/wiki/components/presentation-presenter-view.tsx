@@ -1,13 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
 import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
 import { PresentationScene } from "./presentation-scene";
-import { documentSectionHref, presentationSource, synchronizePresentationHeadings, sourceKey, sourceReviewStatus } from "../lib/presentation-source";
 import { stepLabel, stepTarget } from "../lib/presentation";
 import { formatElapsed, parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
@@ -44,11 +42,9 @@ function SharedPresenterView({ presentation: initial, sessionId }: { presentatio
   const presentation = { ...initial, ...snapshot };
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
-  const linkText = useTranslations("documentPresentationLinks");
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);
   const { steps } = presentation;
-  const sourcePreviews = usePresentationSourcePreviews(presentation.elements.map((element) => element.source));
-  const elements = useMemo(() => synchronizePresentationHeadings(snapshot.elements, sourcePreviews.previews), [snapshot.elements, sourcePreviews.previews]);
+  const elements = snapshot.elements;
   const [index, setIndex] = useState(0);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [running, setRunning] = useState(true);
@@ -91,21 +87,6 @@ function SharedPresenterView({ presentation: initial, sessionId }: { presentatio
 
   const currentStep = steps[index] ?? null;
   const currentTarget = currentStep ? stepTarget(currentStep, elements) : null;
-  const source = currentTarget ? presentationSource(elements, currentTarget.id) : null;
-  const sourcePreview = source ? sourcePreviews.previews.get(sourceKey(source)) : undefined;
-  async function openSource() {
-    if (!source) return;
-    const tab = window.open("about:blank", "_blank");
-    if (!tab) { toast.error(t("presentations.popupBlocked")); return; }
-    try {
-      const response = await fetch(`/api/wiki/presentation-sources?source=${encodeURIComponent(source.pageId)}`, { cache: "no-store" });
-      if (!response.ok) throw new Error();
-      const result = await response.json();
-      if (!result.document) { tab.close(); toast.error(linkText("missingSource")); return; }
-      tab.opener = null;
-      tab.location.href = documentSectionHref(result.document.slug, source.sectionId);
-    } catch { tab.close(); toast.error(linkText("loadFailed")); }
-  }
   const nextStep = steps[index + 1] ?? null;
   const nextTarget = nextStep ? stepTarget(nextStep, elements) : null;
   const notesValue = currentStep?.notes ?? "";
@@ -158,11 +139,6 @@ function SharedPresenterView({ presentation: initial, sessionId }: { presentatio
           <h1 className="text-xl font-semibold">
             {currentTarget ? stepLabel(currentTarget, index) : t("presentations.missingStep")}
           </h1>
-          {source && <div className="mt-3 space-y-2 rounded-md border p-3" aria-label={linkText("preview")}>
-            <p className="text-xs font-medium" role="status">{sourcePreviews.error ? linkText("previewFailed") : sourcePreview ? linkText(sourceReviewStatus(source, sourcePreview)) : linkText("checkingSources")}</p>
-            {sourcePreview?.snapshot && <p className="max-h-36 overflow-y-auto whitespace-pre-wrap break-words text-xs">{sourcePreview.snapshot.text || linkText("emptyPreview")}{sourcePreview.snapshot.truncated ? "…" : ""}</p>}
-            <div className="flex flex-wrap gap-2"><Button size="sm" variant="outline" onClick={() => void openSource()}>{linkText("presenterSource")}</Button><Button size="sm" variant="ghost" onClick={sourcePreviews.refresh}>{linkText("refreshSources")}</Button></div>
-          </div>}
           {!currentStep && <p className="mt-4 text-sm text-muted-foreground">{t("presentations.noNotes")}</p>}
           {currentStep && <><textarea className="mt-3 min-h-28 w-full rounded-md border p-3 text-base" disabled={!editable} aria-label={t("presentations.speakerNotes")} value={notesValue} maxLength={5000} onChange={(event) => updateNotes(event.target.value)} onKeyDown={(event) => {
             if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "z") {

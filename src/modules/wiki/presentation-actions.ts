@@ -3,12 +3,11 @@
 import { roomExists, mutateRoom, wireRoom } from "./collaboration/store";
 import { patchPresentation, presentationJSON, patchMap, LOCAL } from "./collaboration/codec";
 import { z } from "zod";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
   user,
-  wikiPages,
   wikiPresentationEditLeases,
   wikiPresentationRevisions,
   wikiPresentations,
@@ -27,7 +26,6 @@ import {
   presentationStepsSchema,
   shouldSnapshotRevision,
 } from "./lib/presentation";
-import { presentationFromWikiPage } from "./lib/presentation-from-wiki";
 import { presentationTemplateIds, presentationTemplates, localizedPresentationTemplate } from "./lib/presentation-templates";
 import { requirePresentationAccess, presentationAccessSettings } from "./presentation-access";
 import { mergePresentation } from "./lib/presentation-merge";
@@ -62,48 +60,6 @@ export async function createPresentation(input: { title: string; templateId?: st
       ...(template
         ? { elementsJson: JSON.stringify(template.elements), pathJson: JSON.stringify(template.steps) }
         : {}),
-    })
-    .returning({ id: wikiPresentations.id })
-    .get();
-  revalidatePresentations();
-  return { id: row.id };
-}
-
-/**
- * Seeds a new presentation from a wiki page's heading outline instead of a built-in
- * template: same insert as `createPresentation`, just with `presentationFromWikiPage`
- * standing in for a static template.
- */
-export async function createPresentationFromWikiPage(input: { pageId: string; includeImages?: boolean }) {
-  const currentUser = await requireUserOrThrow();
-  const { pageId, includeImages } = z
-    .object({ pageId: idSchema, includeImages: z.boolean().optional() })
-    .parse(input);
-  const page = db
-    .select({ id: wikiPages.id, title: wikiPages.title, contentJson: wikiPages.contentJson, engine: wikiPages.documentEngine })
-    .from(wikiPages)
-    .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
-    .get();
-  if (!page) throw new Error("Page not found");
-  // Office documents are not linked to presentations.
-  if (page.engine !== "tiptap") throw new Error("Page not found");
-  // Same media rule as savePresentation: a deck can be published without login,
-  // so it must never pick up a non-wiki attachment referenced in the page JSON.
-  const { elements, steps } = presentationFromWikiPage(page, {
-    includeImages,
-    allowImage: (attachmentId) => {
-      const attachment = getAttachment(attachmentId);
-      return attachment?.entityType === "wikiPage" && attachment.mimeType.startsWith("image/");
-    },
-  });
-  const row = db
-    .insert(wikiPresentations)
-    .values({
-      title: page.title,
-      createdBy: currentUser.id,
-      updatedBy: currentUser.id,
-      elementsJson: JSON.stringify(elements),
-      pathJson: JSON.stringify(steps),
     })
     .returning({ id: wikiPresentations.id })
     .get();

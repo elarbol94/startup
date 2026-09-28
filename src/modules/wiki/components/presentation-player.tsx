@@ -23,8 +23,6 @@ import {
   presentationHiddenIds,
   type PresentationBounds,
 } from "../lib/presentation";
-import { usePresentationSourcePreviews } from "./use-presentation-source-previews";
-import { synchronizePresentationHeadings } from "../lib/presentation-source";
 import { parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import type { PresentationRecord } from "../presentation-queries";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
@@ -58,8 +56,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const [playing, setPlaying] = useState(false);
 
   const { steps, settings } = presentation;
-  const sourcePreviews = usePresentationSourcePreviews(presentation.elements.map((element) => element.source));
-  const elements = useMemo(() => synchronizePresentationHeadings(presentation.elements, sourcePreviews.previews), [presentation.elements, sourcePreviews.previews]);
+  const elements = presentation.elements;
   const cameraDuration = reducedMotion ? 0 : settings.cameraTransitionMs;
   const cameraEase = presentationCameraEasingFns[settings.cameraEasing];
 

@@ -36,7 +36,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   await page.getByRole("button", { name: "Text", exact: true }).click();
   await tool(page, "Eigenschaften");
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Saved when switching tools");
-  await tool(page, "Dokumentquellen");
+  await tool(page, "Design");
   await expect(page.getByRole("textbox", { name: "Text", exact: true })).not.toBeVisible();
   await expect.poll(async () => (await (await page.request.get(`/api/wiki/presentations/${id}`)).json()).elements.some((item: { content: { text?: string } }) => item.content.text === "Saved when switching tools")).toBe(true);
   await closePanel(page);

@@ -2,7 +2,6 @@
 // Re-exported by presentation.ts; used by the presentation editor and collaboration bridge.
 import { z } from "zod";
 import { maintainPresentationLayout } from "./presentation-layout";
-import { retainObservedPresentationSections } from "./presentation-source";
 import { mergePresentation, presentationValuesEqual } from "./presentation-merge";
 import { defaultPresentationSettings, presentationElementsSchema, presentationSettingsSchema, presentationStepsSchema, type PresentationElement, type PresentationSettings, type PresentationStep } from "./presentation-model";
 import { applyGeometryChanges, type PresentationGeometryChange, type SnapGuide } from "./presentation-transform";
@@ -57,7 +56,6 @@ export type PresentationCanvasAction =
   }
   | { type: "gesture-start" }
   | { type: "gesture-end" }
-  | { type: "source-headings"; elements: (current: PresentationElement[]) => PresentationElement[] }
   | { type: "undo" }
   | { type: "redo" }
   /** Marks the canvas clean, but only if it is still the one that was saved. */
@@ -123,7 +121,7 @@ function travelCanvas(state: PresentationCanvasState, direction: "undo" | "redo"
   return {
     ...state,
     ...snapshot,
-    elements: retainObservedPresentationSections(snapshot.elements, state.elements),
+    elements: snapshot.elements,
     guides: [],
     gestureActive: false,
     past: direction === "undo" ? source.slice(0, -1) : [...state.past, current],
@@ -161,14 +159,6 @@ export function presentationCanvasReducer(
         action.at,
         action.separate,
       );
-    case "source-headings": {
-      const elements = action.elements(state.elements);
-      if (elements === state.elements) return state;
-      // Linked headings follow their document, including when undoing a canvas
-      // edit. Keep custom-title overrides intact and do not add an undo step.
-      const update = (snapshot: PresentationSnapshot) => ({ ...snapshot, elements: action.elements(snapshot.elements) });
-      return { ...state, elements, past: state.past.map(update), future: state.future.map(update), dirty: true };
-    }
     case "geometry": {
       const result = applyGeometryChanges(state.elements, action.changes, action.tolerance, state.guides);
       const elements = action.membership ? assignFrameMembership(result.elements, action.membership) : result.elements;

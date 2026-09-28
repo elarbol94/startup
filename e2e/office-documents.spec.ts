@@ -221,13 +221,12 @@ test.describe("office documents (simulated document server)", () => {
     expect(await legacy.text()).toContain("Mondrakete");
   });
 
-  test("keeps office documents out of the TipTap and presentation paths", async ({ page }) => {
+  test("keeps office documents out of the removed live-editing and presentation-source paths", async ({ page }) => {
     await loginAsAnyUser(page);
     const pageId = await createDocument(page, "Office guard check");
     const legacy = await page.request.get(`/api/wiki/collaboration/page/${pageId}`);
     expect(legacy.ok()).toBe(false);
-    const list = await (await page.request.get("/api/wiki/presentation-sources")).json() as { documents: Array<{ id: string }> };
-    expect(list.documents.map((document) => document.id)).not.toContain(pageId);
-    expect(await (await page.request.get(`/api/wiki/presentation-sources?source=${pageId}`)).json()).toEqual({ document: null });
+    // The presentation source API was removed together with the old editor.
+    expect((await page.request.get("/api/wiki/presentation-sources")).ok()).toBe(false);
   });
 });

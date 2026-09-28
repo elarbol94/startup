@@ -52,7 +52,7 @@ export class PresentationBridge {
     if (next === previous) return;
     if (previous.gestureActive && ["edit", "geometry"].includes(action.type) && !presentationValuesEqual(snapshotOf(previous), snapshotOf(next))) this.gestureChanged = true;
     this.state = next;
-    if (this.provider && ["edit", "touch", "geometry", "source-headings"].includes(action.type)) {
+    if (this.provider && ["edit", "touch", "geometry"].includes(action.type)) {
       if (presentationValuesEqual(snapshotOf(previous), snapshotOf(next))) { this.notify(action); return; }
       patchPresentation(this.provider.doc, previous, next);
       const snapshot = presentationJSON(this.provider.doc);

@@ -19,12 +19,11 @@ vi.mock("@/db", async () => {
 });
 
 import { sqlite } from "@/db";
-import { acquirePresentationEditLease, createPresentationFromWikiPage, createPresentation, releasePresentationEditLease, renamePresentation, restorePresentationRevision, savePresentation } from "./presentation-actions";
+import { acquirePresentationEditLease, createPresentation, releasePresentationEditLease, renamePresentation, restorePresentationRevision, savePresentation } from "./presentation-actions";
 import { requireUserOrThrow } from "@/lib/auth";
 import { getAttachment } from "@/lib/files";
 import { changePresentationStudio } from "./presentation-studio";
 import { presentationIdForToken, presentationRole } from "./presentation-access";
-import { presentationSourcePreviews, documentPresentationLinks, getPresentationSourceDocument } from "./presentation-source-queries";
 import { getPresentation, listPresentationOverview } from "./presentation-queries";
 import { publicPresentation, renderPresentationHtml } from "./presentation-delivery";
 
@@ -182,52 +181,6 @@ describe("presentation studio access and collaboration", () => {
   });
 });
 
-
-describe("document links in presentation storage", () => {
-  it("generates stable source links, filters backlinks by access, and hides sources publicly", async () => {
-    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("document", "Source document", "source-document", JSON.stringify({ type: "doc", content: [{ type: "heading", attrs: { level: 1, id: "budget" }, content: [{ type: "text", text: "Budget" }] }] }));
-    const { id } = await createPresentationFromWikiPage({ pageId: "document" });
-    const deck = getPresentation(id, { id: "author" })!;
-    expect(deck.elements[0].source).toMatchObject({ pageId: "document", sectionId: "budget", reviewedFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) });
-    expect(documentPresentationLinks("document", { id: "other" })).toHaveLength(1);
-    await changePresentationStudio(id, { action: "access", restricted: true, coediting: false });
-    expect(documentPresentationLinks("document", { id: "other" })).toEqual([]);
-    expect(documentPresentationLinks("document", { id: "author" })[0].elementId).toBe(deck.elements[0].id);
-    const result = await changePresentationStudio(id, { action: "public", enabled: true });
-    const publicCopy = publicPresentation("token" in result ? result.token! : "")!;
-    expect(publicCopy.elements[0]).not.toHaveProperty("source");
-    await savePresentation({ ...deck, elements: deck.elements.map((element) => ({ ...element, source: null })) });
-    expect(documentPresentationLinks("document", { id: "author" })).toEqual([]);
-    await restorePresentationRevision({ revisionId: revisions(id)[0].id });
-    expect(documentPresentationLinks("document", { id: "author" })).toHaveLength(1);
-  });
-
-  it("resolves current document names and treats deletion as a missing source", () => {
-    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("renamed", "New title", "new-slug", JSON.stringify({ type: "doc", content: [] }));
-    expect(getPresentationSourceDocument("renamed")).toMatchObject({ title: "New title", slug: "new-slug", sections: [] });
-    sqlite.prepare("UPDATE wiki_pages SET deleted_at = 1 WHERE id = ?").run("renamed");
-    expect(getPresentationSourceDocument("renamed")).toBeNull();
-  });
-});
-
-it("resolves current source previews, persists reviews, and reports removed sections/pages", async () => {
-  const content = (text: string) => JSON.stringify({ type: "doc", content: [{ type: "heading", attrs: { level: 1, id: "section" }, content: [{ type: "text", text }] }] });
-  sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("preview-doc", "Preview", "preview", content("Before"));
-  const { id } = await createPresentationFromWikiPage({ pageId: "preview-doc" });
-  const deck = getPresentation(id, { id: "author" })!;
-  const reference = deck.elements[0].source!;
-  expect(presentationSourcePreviews([reference])[0].snapshot?.fingerprint).toBe(reference.reviewedFingerprint);
-  sqlite.prepare("UPDATE wiki_pages SET content_json = ? WHERE id = ?").run(content("After"), "preview-doc");
-  const current = presentationSourcePreviews([reference])[0].snapshot!;
-  expect(current.text).toBe("After"); expect(current.fingerprint).not.toBe(reference.reviewedFingerprint);
-  const result = await savePresentation({ ...deck, elements: deck.elements.map((element) => ({ ...element, source: { ...reference, reviewedFingerprint: current.fingerprint } })) });
-  expect(result).toMatchObject({ conflict: false });
-  expect(getPresentation(id, { id: "author" })!.elements[0].source?.reviewedFingerprint).toBe(current.fingerprint);
-  const missing = presentationSourcePreviews([{ ...reference, sectionId: "removed" }])[0];
-  expect(missing.document?.id).toBe("preview-doc"); expect(missing.snapshot).toBeNull();
-  sqlite.prepare("UPDATE wiki_pages SET deleted_at = 1 WHERE id = ?").run("preview-doc");
-  expect(presentationSourcePreviews([reference])[0]).toMatchObject({ document: null, snapshot: null });
-});
 
 describe("template palette creation", () => {
   it("persists exactly the palette shown by the localized preview", async () => {
