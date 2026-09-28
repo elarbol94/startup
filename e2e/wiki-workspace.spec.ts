@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { placeAtCenter } from "./helpers/presentation-fixture";
 
 test.use({ actionTimeout: 25_000, viewport: { width: 1440, height: 1000 } });
 test.describe.configure({ timeout: 240_000 });
@@ -34,6 +35,8 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(0);
   const id = new URL(page.url()).pathname.split("/").at(-1)!;
   await page.getByRole("button", { name: "Text", exact: true }).click();
+  // New objects are placed on the canvas first; Enter drops the text in the middle.
+  await placeAtCenter(page);
   await tool(page, "Eigenschaften");
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("Saved when switching tools");
   await tool(page, "Design");
