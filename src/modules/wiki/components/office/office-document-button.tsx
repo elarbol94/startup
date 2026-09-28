@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { createOfficeDocument, importOfficeDocument } from "../../office/office-actions";
 
-/** Creates a Word (ONLYOFFICE) document, blank or from an uploaded DOCX. */
+/** The one way to create a document: a blank Word (ONLYOFFICE) document or an uploaded DOCX. */
 export function OfficeDocumentButton({ parentId = null }: { parentId?: string | null }) {
   const t = useTranslations("officeDocuments");
   const common = useTranslations("common");
@@ -54,9 +54,9 @@ export function OfficeDocumentButton({ parentId = null }: { parentId?: string | 
 
   return <>
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button type="button" variant="outline" disabled={busy} />}><FilePlus2 className="size-4" />{t("wordDocument")}<ChevronDown className="size-3.5" /></DropdownMenuTrigger>
+      <DropdownMenuTrigger render={<Button type="button" disabled={busy} />}><FilePlus2 className="size-4" />{t("newDocumentMenu")}<ChevronDown className="size-3.5" /></DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onClick={() => void createBlank()}><FilePlus2 />{t("newDocument")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void createBlank()}><FilePlus2 />{t("blankDocument")}</DropdownMenuItem>
         <DropdownMenuItem onClick={() => fileInput.current?.click()}><FileUp />{t("uploadDocx")}</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

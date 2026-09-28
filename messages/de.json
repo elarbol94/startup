@@ -5199,8 +5199,9 @@
     "then": "dann"
   },
   "officeDocuments": {
-    "wordDocument": "Word-Dokument",
-    "newDocument": "Neues Word-Dokument",
+    "newDocumentMenu": "Neues Dokument",
+    "blankDocument": "Leeres Dokument",
+    "newDocument": "Neues Dokument",
     "newDocumentDescription": "Das Dokument wird im integrierten Office-Editor geöffnet. Den Titel kannst du später ändern.",
     "title": "Titel",
     "uploadDocx": "DOCX hochladen",
@@ -5238,13 +5239,25 @@
       "import": "Importiert",
       "conversion": "Umgestellt",
       "forcesave": "Zwischenstand",
-      "final": "Gespeichert",
+      "final": "Beim Schließen gespeichert",
       "restore": "Wiederhergestellt",
       "branch": "Nebenversion"
     },
+    "versionKindHints": {
+      "create": "Leeres Dokument beim Anlegen",
+      "import": "Hochgeladene DOCX-Datei",
+      "conversion": "Aus dem alten Editor übernommen",
+      "forcesave": "Mit „Version speichern“ oder automatisch alle paar Minuten gesichert",
+      "final": "Gespeichert, nachdem alle das Dokument geschlossen haben",
+      "restore": "Kopie einer älteren Version, die wiederhergestellt wurde",
+      "branch": "Später eingetroffene Änderungen, die nicht zur aktuellen Fassung wurden"
+    },
     "current": "aktuell",
     "unknownAuthor": "Unbekannt",
-    "downloadVersion": "Version herunterladen",
+    "downloadVersion": "Version als DOCX herunterladen",
+    "downloadVersionPdf": "Version als PDF herunterladen",
+    "backToDocuments": "Zurück zu den Dokumenten",
+    "deleteDocument": "Dokument löschen",
     "restore": "Wiederherstellen",
     "restoreConfirm": "Version {version} wiederherstellen? Alle Bearbeitenden werden kurz getrennt; ihr aktueller Stand wird vorher gespeichert.",
     "restored": "Version wiederhergestellt.",
@@ -5260,7 +5273,6 @@
     },
     "exportPdf": "Als PDF exportieren",
     "exportDocx": "Als DOCX exportieren",
-    "exportStoredPdf": "Gespeicherte Version als PDF",
     "checkpointStoredPdf": "Version gespeichert – PDF liegt unter Anhänge.",
     "insert": {
       "cite": {

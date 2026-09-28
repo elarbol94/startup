@@ -9,7 +9,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, BookMarked, Check, ChevronDown, Clock3, Download, Eye, FileText, History, Link2, MoreHorizontal, Plus, Star, Trash2, X } from "lucide-react";
-import { createPage, deletePage, renamePage } from "../actions";
+import { deletePage, renamePage } from "../actions";
+import { createOfficeDocument } from "../office/office-actions";
 import { createPageCheckpoint, linkSupportingSource, restorePageRevision, toggleFavorite, unlinkSupportingSource, updatePageResearchMeta, verifyPage } from "../research-actions";
 import { CITATION_STYLES, isCitationStyle, type CitationSource, type CitationStyle } from "../lib/citations";
 import { Button } from "@/components/ui/button";
@@ -157,7 +158,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
     currentSlug.current = renamed.slug;
     window.history.replaceState(null, "", `/wiki/pages/${encodeURIComponent(renamed.slug)}${window.location.search}`);
   }
-  async function newSubpage() { const title = await askText({ title: t("newSubpage"), label: t("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") }); if (!title) return; const child = await createPage({ title, parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" }); router.push("/wiki/pages/" + child.slug); }
+  async function newSubpage() { const title = await askText({ title: t("newSubpage"), label: t("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") }); if (!title) return; const child = await createOfficeDocument({ title, parentId: page.id, locale: locale === "en" ? "en" : "de" }); router.push("/wiki/pages/" + child.slug); }
   async function createCheckpoint() { const label = await askText({ title: t("checkpoint"), label: t("checkpointLabel"), maxLength: 120, confirmLabel: t("checkpoint") }); if (label === null) return; await createPageCheckpoint(page.id, label); router.refresh(); }
   async function remove() { if (!confirm(common("confirmDeleteTitle"))) return; await deletePage(page.id); router.push("/wiki/inbox"); }
 

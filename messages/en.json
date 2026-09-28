@@ -5197,8 +5197,9 @@
     "then": "then"
   },
   "officeDocuments": {
-    "wordDocument": "Word document",
-    "newDocument": "New Word document",
+    "newDocumentMenu": "New document",
+    "blankDocument": "Blank document",
+    "newDocument": "New document",
     "newDocumentDescription": "The document opens in the built-in office editor. You can change the title later.",
     "title": "Title",
     "uploadDocx": "Upload DOCX",
@@ -5236,13 +5237,25 @@
       "import": "Imported",
       "conversion": "Converted",
       "forcesave": "Checkpoint",
-      "final": "Saved",
+      "final": "Saved on close",
       "restore": "Restored",
       "branch": "Side version"
     },
+    "versionKindHints": {
+      "create": "Blank document when it was created",
+      "import": "Uploaded DOCX file",
+      "conversion": "Taken over from the old editor",
+      "forcesave": "Stored with “Save version” or automatically every few minutes",
+      "final": "Stored after everyone closed the document",
+      "restore": "Copy of an older version that was restored",
+      "branch": "Changes that arrived late and did not become the current version"
+    },
     "current": "current",
     "unknownAuthor": "Unknown",
-    "downloadVersion": "Download version",
+    "downloadVersion": "Download version as DOCX",
+    "downloadVersionPdf": "Download version as PDF",
+    "backToDocuments": "Back to documents",
+    "deleteDocument": "Delete document",
     "restore": "Restore",
     "restoreConfirm": "Restore version {version}? Everyone editing is briefly disconnected; their current state is saved first.",
     "restored": "Version restored.",
@@ -5258,7 +5271,6 @@
     },
     "exportPdf": "Export as PDF",
     "exportDocx": "Export as DOCX",
-    "exportStoredPdf": "Stored version as PDF",
     "checkpointStoredPdf": "Version saved – the PDF is under Attachments.",
     "insert": {
       "cite": {

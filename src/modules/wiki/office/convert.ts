@@ -24,10 +24,10 @@ const SUPPORTED_NODES = new Set([
   "doc", "paragraph", "text", "heading", "hardBreak", "blockquote", "bulletList", "orderedList", "listItem",
   "taskList", "taskItem", "commentableImage", "mermaidDiagram", "markdownTable", "markdownTableRow",
   "markdownTableHeader", "markdownTableCell", "pageBreak", "signatureBlock", "taskReference", "deadlineReference",
-  "pdfEvidence", "citation", "figureList", "crossReference", "documentVariable", "annexMarker",
+  "pdfEvidence", "citation", "figureList", "crossReference", "documentVariable", "annexMarker", "codeBlock",
 ]);
 /** Marks the exporter keeps; others are formatting that is lost (a warning, not a blocker). */
-const SUPPORTED_MARKS = new Set(["bold", "italic", "strike", "subscript", "superscript", "link", "comment"]);
+const SUPPORTED_MARKS = new Set(["bold", "italic", "strike", "subscript", "superscript", "link", "comment", "code"]);
 
 export type ConversionIssue = {
   severity: "blocking" | "warning";

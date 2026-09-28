@@ -42,7 +42,7 @@ async function main() {
   const { planConversion } = await import("@/modules/wiki/office/convert");
 
   const pages = db.select({ id: wikiPages.id, title: wikiPages.title }).from(wikiPages)
-    .where(and(isNull(wikiPages.deletedAt), eq(wikiPages.documentEngine, "tiptap"), eq(wikiPages.documentMode, true), values.page ? eq(wikiPages.id, values.page) : undefined))
+    .where(and(isNull(wikiPages.deletedAt), eq(wikiPages.documentEngine, "tiptap"), values.page ? eq(wikiPages.id, values.page) : undefined))
     .all();
   const out = path.resolve(values.out!);
   fs.mkdirSync(out, { recursive: true });

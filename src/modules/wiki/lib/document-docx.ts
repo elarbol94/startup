@@ -2,7 +2,7 @@ import {
   Document, HeadingLevel, type IParagraphOptions, Packer, PageBreak, Paragraph,
   Table, TableCell, TableRow, TextRun, WidthType, ImageRun, Bookmark, SimpleField,
   InternalHyperlink, TableOfContents, type ParagraphChild, type IFrameOptions,
-  ExternalHyperlink, CommentRangeStart, CommentRangeEnd, CommentReference,
+  ExternalHyperlink, CommentRangeStart, CommentRangeEnd, CommentReference, ShadingType,
 } from "docx";
 import sharp from "sharp";
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
@@ -14,6 +14,7 @@ import { collectAnnexes, collectHeadings, collectTables } from "./document-rende
 import { resolveCrossReferenceLabels } from "./figure-caption";
 import { documentFigures, figureCrop, figureWidth, hasFigureList, isFigure, stripFigureNumber, type FigureCrop } from "./figure";
 
+const CODE_FONT = "Consolas";
 const bookmark = (id: string) => `fig_${id.replace(/[^a-zA-Z0-9_]/g, "_")}`.slice(0, 40);
 type Block = Paragraph | Table | TableOfContents;
 type Context = {
@@ -78,7 +79,7 @@ function referenceRuns(node: TiptapNode, context: Context): ParagraphChild[] | n
 
 function textRuns(node: TiptapNode, context: Context): ParagraphChild[] {
   const marks = new Set((node.marks ?? []).map((mark) => mark.type));
-  const run = new TextRun({ text: node.text ?? "", bold: marks.has("bold"), italics: marks.has("italic"), strike: marks.has("strike"), subScript: marks.has("subscript"), superScript: marks.has("superscript") });
+  const run = new TextRun({ text: node.text ?? "", bold: marks.has("bold"), italics: marks.has("italic"), strike: marks.has("strike"), subScript: marks.has("subscript"), superScript: marks.has("superscript"), ...(marks.has("code") ? { font: CODE_FONT } : {}) });
   const href = String(node.marks?.find((mark) => mark.type === "link")?.attrs?.href ?? "");
   const link = href ? absoluteHref(href, context) : null;
   let children: ParagraphChild[] = [link ? new ExternalHyperlink({ link, children: [run] }) : run];
@@ -205,6 +206,11 @@ async function block(node: TiptapNode, context: Context): Promise<Block[]> {
     const id = String(node.attrs?.tableId || "");
     const caption = String(node.attrs?.caption || "");
     return caption ? [new Paragraph({ children: [new Bookmark({ id: bookmark(id), children: [new TextRun(context.labels.get(id) || caption)] }), new TextRun(`: ${caption}`)], style: "Caption", keepNext: true }), table] : [table];
+  }
+  if (node.type === "codeBlock") {
+    // One monospace, shaded paragraph per source line keeps indentation and line breaks.
+    const lines = (node.content || []).map((child) => child.text ?? "").join("").split("\n");
+    return lines.map((line) => new Paragraph({ spacing: { before: 0, after: 0 }, shading: { type: ShadingType.CLEAR, fill: "F2F2F2", color: "auto" }, children: [new TextRun({ text: line, font: CODE_FONT, size: 18 })] }));
   }
   if (node.type === "pageBreak") return [new Paragraph({ children: [new PageBreak()] })];
   if (node.type === "signatureBlock") return [new Paragraph({ spacing: { before: 720 }, children: [new TextRun("____________________________")]}), new Paragraph({ text: String(node.attrs?.name || "") })];

@@ -226,11 +226,13 @@ offsets would drift.
 
 ## Converting old-editor documents
 
-TipTap pages with document layout can be moved to the office editor. All
-production documents were converted on 2026-09-28, and the TipTap document mode
-(pagination, Layout panel, templates, Word import) has been removed. A page that
-still carries `document_mode` — for example one restored from the trash — opens
-as a plain wiki page and is listed under Settings → Word-Umstellung.
+Word documents are the only document type. Every "new" action (the
+**Neues Dokument** menu, quick notes in the inbox and sidebar, sub-documents and
+the empty-state button) creates an office document. Every remaining TipTap page,
+with or without the old document layout, is listed under Settings →
+Word-Umstellung and can be converted; converted Word documents stay listed as
+"Umgewandelt". Code blocks become shaded monospace paragraphs (one per line),
+inline code keeps a monospace font.
 
 **Dry run first.** Run it on a copy of the database and uploads. It is
 read-only and writes a report plus the DOCX files:

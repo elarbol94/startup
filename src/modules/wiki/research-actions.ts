@@ -11,7 +11,6 @@ import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
-import { isPageSlugTaken } from "./queries";
 import {
   contextLinks,
   evidenceLinks,
@@ -39,7 +38,7 @@ import { pdfSourcePurgeBlocker } from "./lib/pdf-evidence";
 import { sourceInputSchema } from "./lib/source-input";
 import { ensureTags, syncSourceFts, saveSourceRecord } from "./source-records";
 import type { CommentAnchor } from "./lib/comment-anchors";
-import { buildFtsQuery, extractText, parseStoredDocument, slugify } from "./lib/tiptap";
+import { buildFtsQuery, extractText, parseStoredDocument } from "./lib/tiptap";
 import { fuseRankings } from "./lib/search-ranking";
 import { searchSimilar } from "./lib/vector-store.server";
 import { getPageComments } from "./research-queries";
@@ -87,40 +86,6 @@ export async function createPageCheckpoint(pageId: string, label?: string) {
   }).returning({ id: wikiPageRevisions.id }).get();
   revalidateWiki();
   return { id: revision.id, created: true as const };
-}
-
-function uniquePageSlug(title: string) {
-  const base = slugify(title);
-  let slug = base;
-  let suffix = 2;
-  while (isPageSlugTaken(slug)) {
-    slug = `${base}-${suffix++}`;
-  }
-  return slug;
-}
-
-const quickNoteSchema = z.object({
-  title: z.string().trim().min(1).max(200),
-  locale: z.enum(["de", "en"]).default("de"),
-});
-
-// The title is asked for before creating, so abandoned drafts never pile up as
-// empty "Untitled note" pages.
-export async function createQuickNote(input: z.input<typeof quickNoteSchema>) {
-  const currentUser = await requireUserOrThrow();
-  const { title, locale } = quickNoteSchema.parse(input);
-  const row = db.insert(wikiPages).values({
-    title,
-    slug: uniquePageSlug(title),
-    status: "inbox",
-    citationLocale: locale === "de" ? "de-DE" : "en-US",
-    proofingLanguage: locale === "de" ? "de-AT" : "en-US",
-    createdBy: currentUser.id,
-    updatedBy: currentUser.id,
-  }).returning({ id: wikiPages.id, slug: wikiPages.slug }).get();
-  sqlite.prepare("INSERT INTO wiki_pages_fts (page_id, title, content_text) VALUES (?, ?, '')").run(row.id, title);
-  revalidateWiki();
-  return row;
 }
 
 const pageMetaSchema = z.object({

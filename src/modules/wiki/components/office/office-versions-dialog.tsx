@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { restoreOfficeVersion } from "../../office/office-actions";
 import type { OfficeVersionRow } from "../../office/queries";
 
-/** Stored office versions: download any of them, or restore one as the new head. */
+/** Stored office versions: download any of them as DOCX or PDF, or restore an older one as the new head. */
 export function OfficeVersionsDialog({ pageId, open, onOpenChange, onRestored }: {
   pageId: string; open: boolean; onOpenChange: (open: boolean) => void; onRestored: () => void;
 }) {
@@ -46,16 +46,16 @@ export function OfficeVersionsDialog({ pageId, open, onOpenChange, onRestored }:
       <DialogHeader><DialogTitle>{t("versions")}</DialogTitle><DialogDescription>{t("versionsDescription")}</DialogDescription></DialogHeader>
       {!versions ? <div className="grid place-items-center py-10"><Loader2 className="size-5 animate-spin text-muted-foreground" /></div>
         : <ul className="max-h-[60dvh] space-y-1 overflow-y-auto pr-1">
-          {versions.map((version, index) => <li key={version.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+          {versions.map((version, index) => { const current = index === 0 && version.kind !== "branch"; return <li key={version.id} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
             <div className="min-w-0 flex-1">
-              <p className="font-medium">v{version.version} · {t(`versionKinds.${version.kind}`)}{index === 0 && version.kind !== "branch" ? ` · ${t("current")}` : ""}</p>
+              <p className="font-medium" title={t(`versionKindHints.${version.kind}`)}>v{version.version} · {t(`versionKinds.${version.kind}`)}{current ? ` · ${t("current")}` : ""}</p>
               <p className="text-xs text-muted-foreground">{version.authorName ?? t("unknownAuthor")} · {format.dateTime(new Date(version.createdAt), { dateStyle: "medium", timeStyle: "short" })}</p>
             </div>
-            <a className="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent" href={`/api/wiki/office/${encodeURIComponent(pageId)}/export?format=docx&version=${encodeURIComponent(version.id)}`} aria-label={t("downloadVersion")} title={t("downloadVersion")}><Download className="size-4" /></a>
-            <Button type="button" size="icon-sm" variant="ghost" aria-label={t("restore")} title={t("restore")} disabled={restoring !== null} onClick={() => void restore(version)}>
+            {(["docx", "pdf"] as const).map((kind) => <a key={kind} className="inline-flex h-8 items-center gap-1 rounded-md px-2 text-xs hover:bg-accent" href={`/api/wiki/office/${encodeURIComponent(pageId)}/export?format=${kind}&version=${encodeURIComponent(version.id)}`} title={t(kind === "pdf" ? "downloadVersionPdf" : "downloadVersion")}><Download className="size-3.5" />{kind.toUpperCase()}</a>)}
+            {current ? <span className="w-8" /> : <Button type="button" size="icon-sm" variant="ghost" aria-label={t("restore")} title={t("restore")} disabled={restoring !== null} onClick={() => void restore(version)}>
               {restoring === version.id ? <Loader2 className="size-4 animate-spin" /> : <RotateCcw className="size-4" />}
-            </Button>
-          </li>)}
+            </Button>}
+          </li>; })}
         </ul>}
     </DialogContent>
   </Dialog>;

@@ -6,11 +6,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { requestAppNavigation } from "@/lib/app-navigation";
-import { createQuickNote } from "../research-actions";
+import { createOfficeDocument } from "../office/office-actions";
 
 /**
- * Asks for a title first and only then creates the note, so cancelling leaves
- * nothing behind. Render `dialog` once wherever the hook is used.
+ * Asks for a title first and only then creates the (Word) document, so
+ * cancelling leaves nothing behind. Render `dialog` once wherever the hook is used.
  */
 export function useQuickNoteCreator({ onCreated }: { onCreated?: () => void } = {}) {
   const t = useTranslations("wiki");
@@ -30,7 +30,7 @@ export function useQuickNoteCreator({ onCreated }: { onCreated?: () => void } = 
       requestAppNavigation("/wiki/pages", async () => {
         setCreating(true);
         try {
-          const note = await createQuickNote({ title, locale: locale === "en" ? "en" : "de" });
+          const note = await createOfficeDocument({ title, parentId: null, locale: locale === "en" ? "en" : "de" });
           onCreated?.();
           router.push(`/wiki/pages/${note.slug}`);
         } catch {

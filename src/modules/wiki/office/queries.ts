@@ -79,13 +79,14 @@ export function getOfficeConnections(pageId: string) {
 
 export type OfficeConnections = ReturnType<typeof getOfficeConnections>;
 
-/** TipTap pages with document layout (candidates for conversion) and converted ones. */
+/** Pages still in the old editor (candidates for conversion) and converted ones; new Word documents are left out. */
 export function listConversionCandidates() {
   return db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, engine: wikiPages.documentEngine, updatedAt: wikiPages.updatedAt })
     .from(wikiPages)
-    .where(and(isNull(wikiPages.deletedAt), eq(wikiPages.documentMode, true)))
+    .where(isNull(wikiPages.deletedAt))
     .orderBy(asc(wikiPages.title)).all()
-    .map((page) => ({ ...page, updatedAt: page.updatedAt.getTime(), converted: page.engine !== "tiptap" && hasConversionVersion(page.id) }));
+    .map((page) => ({ ...page, updatedAt: page.updatedAt.getTime(), converted: page.engine !== "tiptap" && hasConversionVersion(page.id) }))
+    .filter((page) => page.engine !== "office" || page.converted);
 }
 
 function hasConversionVersion(pageId: string) {

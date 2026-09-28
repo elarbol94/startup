@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { BookOpen, Plus } from "lucide-react";
-import { createPage } from "@/modules/wiki/actions";
+import { createOfficeDocument } from "@/modules/wiki/office/office-actions";
 import { Button } from "@/components/ui/button";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 
@@ -17,8 +17,8 @@ export function WikiEmptyState() {
   async function onCreate() {
     const title = await askText({ title: t("newDocumentTitle"), description: t("newDocumentDescription"), label: t("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") });
     if (!title) return;
-    const { slug } = await createPage({ title, parentId: null, proofingLanguage: locale === "en" ? "en-US" : "de-AT" });
-    router.push(`/wiki/${slug}`);
+    const { slug } = await createOfficeDocument({ title, parentId: null, locale: locale === "en" ? "en" : "de" });
+    router.push(`/wiki/pages/${slug}`);
     router.refresh();
   }
 

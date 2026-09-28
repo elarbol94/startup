@@ -67,12 +67,17 @@ describe("convertPageToOffice", () => {
   });
 
   it("leaves pages it cannot convert faithfully in the old editor", async () => {
-    page("p2", doc(p("Text"), { type: "codeBlock", content: [{ type: "text", text: "code" }] }));
+    page("p2", doc(p("Text"), { type: "horizontalRule" }));
     const result = await convertPageToOffice("p2", "u1", "https://app.example");
     expect(result).toMatchObject({ ok: false, reason: "notConvertible" });
     expect(row<{ document_engine: string; conversion_started_at: number | null }>("SELECT document_engine, conversion_started_at FROM wiki_pages WHERE id = 'p2'"))
       .toEqual({ document_engine: "tiptap", conversion_started_at: null });
     expect(row<{ n: number }>("SELECT count(*) AS n FROM wiki_office_versions").n).toBe(0);
+  });
+
+  it("converts code blocks line by line", async () => {
+    page("p5", doc(p("Setup"), { type: "codeBlock", content: [{ type: "text", text: "npm install\nnpm run dev" }] }));
+    expect(await convertPageToOffice("p5", "u1", "https://app.example")).toMatchObject({ ok: true });
   });
 
   it("refuses unresolved suggestions", async () => {

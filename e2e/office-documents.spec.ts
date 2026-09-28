@@ -104,8 +104,8 @@ function query<T>(sql: string, ...args: unknown[]) {
 
 async function createDocument(page: Page, title: string) {
   await page.goto("/wiki/pages");
-  await page.getByRole("button", { name: /Word-Dokument/ }).click();
-  await page.getByRole("menuitem", { name: "Neues Word-Dokument" }).click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Leeres Dokument" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Titel").fill(title);
   await dialog.getByRole("button", { name: "Erstellen" }).click();

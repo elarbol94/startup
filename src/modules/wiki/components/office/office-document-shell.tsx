@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFormatter, useLocale, useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Download, FileText, History, MoreHorizontal, PanelRight, Plus, Save, Smartphone, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, History, MoreHorizontal, PanelRight, Save, Smartphone, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { FocusModeToggle, useFocusMode } from "@/components/focus-mode";
 import { ContextPanel } from "@/modules/context/components/context-panel";
-import { createPage, deletePage, renamePage } from "../../actions";
+import { deletePage, renamePage } from "../../actions";
 import { toggleFavorite } from "../../research-actions";
 import { saveOfficeCheckpoint } from "../../office/office-actions";
 import { AttachmentPanel } from "../attachment-panel";
@@ -68,7 +67,6 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const tWiki = useTranslations("wiki");
   const common = useTranslations("common");
   const format = useFormatter();
-  const locale = useLocale();
   const router = useRouter();
   const editor = useRef<OfficeEditorHandle>(null);
   const send = useCallback((command: OfficeCommand) => editor.current?.send(command), []);
@@ -79,7 +77,6 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [checkpointing, setCheckpointing] = useState(false);
-  const [textPrompt, askText] = useTextPrompt();
   const currentSlug = useRef(page.slug);
   const { status, refresh } = useOfficeStatus(page.id, true);
   const { isFocused } = useFocusMode();
@@ -115,23 +112,16 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
     }
   }
 
-  async function newSubpage() {
-    const title = await askText({ title: tWiki("newSubpage"), label: tWiki("pageTitle"), required: true, maxLength: 200, confirmLabel: common("create") });
-    if (!title) return;
-    const child = await createPage({ title, parentId: page.id, proofingLanguage: locale === "en" ? "en-US" : "de-AT" });
-    router.push("/wiki/pages/" + child.slug);
-  }
-
   async function remove() {
     if (!confirm(common("confirmDeleteTitle"))) return;
     await deletePage(page.id);
-    router.push("/wiki/inbox");
+    router.push("/wiki/pages");
   }
 
   return <div ref={root} className="mx-auto flex h-dvh max-w-[120rem] flex-col px-3 py-3 md:px-6">
     <header className="mb-2 flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-2">
       <div className="flex min-w-0 items-start gap-2">
-        <Link href="/wiki" aria-label={tWiki("backToWikiStart")} title={tWiki("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link>
+        <Link href="/wiki/pages" aria-label={t("backToDocuments")} title={t("backToDocuments")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link>
         <div className="min-w-0">
           <InlinePageTitle title={page.title} onRename={rename} />
           {status && !isFocused && <p className="mt-0.5 text-xs text-muted-foreground">{t("storedAt", { version: status.head.version, time: format.dateTime(new Date(status.head.storedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>}
@@ -145,15 +135,13 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
           <DropdownMenuTrigger render={<Button variant="ghost" size="icon-sm" title={tWiki("editor.toolbar.more")} aria-label={tWiki("editor.toolbar.more")} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-60">
             <DropdownMenuItem onClick={() => setVersionsOpen(true)}><History />{t("versions")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => void newSubpage()}><Plus />{tWiki("newSubpage")}</DropdownMenuItem>
             <DropdownMenuItem onClick={async () => { await toggleFavorite("page", page.id); router.refresh(); }}><Star className={favorite ? "fill-indigo-400 text-indigo-500" : ""} />{tWiki("favorite")}</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => exportLive("pdf")}><Download />{t("exportPdf")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => exportLive("docx")}><FileText />{t("exportDocx")}</DropdownMenuItem>
-            <DropdownMenuItem render={<a href={exportStored("pdf")} />}><Download />{t("exportStoredPdf")}</DropdownMenuItem>
             {converted && <DropdownMenuItem render={<a href={`/api/wiki/pages/${encodeURIComponent(page.id)}/export?format=html&disposition=inline`} target="_blank" rel="noopener" />}><History />{t("legacyVersion")}</DropdownMenuItem>}
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void remove()}><Trash2 />{tWiki("deletePage")}</DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void remove()}><Trash2 />{t("deleteDocument")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
         <FocusModeToggle compact />
@@ -189,6 +177,5 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
     </div>
 
     <OfficeVersionsDialog pageId={page.id} open={versionsOpen} onOpenChange={setVersionsOpen} onRestored={() => { setEditorKey((value) => value + 1); void refresh(); router.refresh(); }} />
-    {textPrompt}
   </div>;
 }
