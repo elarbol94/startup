@@ -2,14 +2,13 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { wikiCommentThreads, wikiPageRevisions, wikiPageEditLeases, wikiPages } from "@/db/schema";
+import { wikiCommentThreads, wikiPageRevisions, wikiPages } from "@/db/schema";
 import { rebuildPageDerivedData, schedulePageIndex } from "./page-derived-data";
 import { isCommentAnchorOrphaned, type CommentAnchor } from "./lib/comment-anchors";
 import { extractCitations, extractCommentAnchors, extractCommentNodeIds, extractEvidenceAnnotationIds, extractInternalSlugs, extractText } from "./lib/tiptap";
 import { parseEditorDocument } from "./lib/editor-document";
 import { withDocumentSectionIds } from "./lib/document-sections";
 import { normalizeDocumentSettings, serializeDocumentSettings } from "./lib/document-settings";
-const LEASE_TIMEOUT_MS = 60_000;
 
 function contentSnapshotHash(contentJson: string, documentMode: boolean, documentSettingsJson: string) {
   return createHash("sha256")
@@ -33,7 +32,8 @@ export const saveSchema = z.object({
   editorSessionId: z.string().min(8).max(200),
 });
 
-export function savePageContentInternal(input: z.infer<typeof saveSchema>, user: { id: string }, collaborative = false) {
+/** Stores a TipTap page snapshot. Only the live collaboration store calls this. */
+export function savePageContentInternal(input: z.infer<typeof saveSchema>, user: { id: string }) {
   const data = saveSchema.parse(input);
 
   const page = db
@@ -46,13 +46,6 @@ export function savePageContentInternal(input: z.infer<typeof saveSchema>, user:
   if (!page) return { saved: false };
   // Office (DOCX) documents are stored by the office store only.
   if (page.documentEngine !== "tiptap") throw new Error("documentMovedToOffice");
-
-  const lease = db.select().from(wikiPageEditLeases).where(eq(wikiPageEditLeases.pageId, data.id)).get();
-  if (!collaborative && lease && lease.sessionId !== data.editorSessionId && Date.now() - lease.heartbeatAt.getTime() <= LEASE_TIMEOUT_MS) {
-    return { saved: false as const, locked: true as const, contentVersion: page.contentVersion };
-  }
-
-  if (!collaborative && sqlite.prepare("SELECT 1 FROM wiki_collaboration_rooms WHERE key = ?").get(`page:${data.id}`)) throw new Error("Reload to join live collaboration");
 
   const parsedDoc = parseEditorDocument(data.contentJson);
   const doc = withDocumentSectionIds(parsedDoc);

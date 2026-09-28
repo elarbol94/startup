@@ -226,7 +226,11 @@ offsets would drift.
 
 ## Converting old-editor documents
 
-TipTap pages with document layout can be moved to the office editor.
+TipTap pages with document layout can be moved to the office editor. All
+production documents were converted on 2026-09-28, and the TipTap document mode
+(pagination, Layout panel, templates, Word import) has been removed. A page that
+still carries `document_mode` — for example one restored from the trash — opens
+as a plain wiki page and is listed under Settings → Word-Umstellung.
 
 **Dry run first.** Run it on a copy of the database and uploads. It is
 read-only and writes a report plus the DOCX files:

@@ -3,12 +3,10 @@
 import type { ReactNode, RefObject } from "react";
 import type { ProofingLanguage } from "../../lib/spellcheck";
 import type { WikiProofingPrefsV1 } from "../../lib/wiki-proofing-prefs";
-import type { StoredDocumentTemplate } from "../../document-queries";
 import type { UserMarkColor } from "@/lib/user-mark-colors";
 import type { CommentThread } from "../comment-rail";
 import type { ContextDeadlineMarker, ContextTaskMarker } from "@/modules/tasks/types";
 import type { CitationSource, CitationStyle } from "../../lib/citations";
-import type { ProposalWorkspaceData } from "../../lib/proposal";
 import type { WikiTypographySettingsV1, WikiTypographyTemplate } from "../../lib/wiki-typography";
 
 export type PageRef = { id: string; title: string; slug: string };
@@ -33,9 +31,7 @@ export type WikiEditorProps = {
   initialContent: string;
   initialProofingLanguage: ProofingLanguage;
   initialProofingPrefs: WikiProofingPrefsV1;
-  initialDocumentMode: boolean;
   initialDocumentSettings: string;
-  documentTemplates: StoredDocumentTemplate[];
   allPages: PageRef[];
   sources: SourceRef[];
   users: Array<{ id: string; name: string; markColor: UserMarkColor }>;
@@ -46,7 +42,6 @@ export type WikiEditorProps = {
   currentUserId: string;
   contextTasks: ContextTaskMarker[];
   contextDeadlines: ContextDeadlineMarker[];
-  proposalData: ProposalWorkspaceData;
   focusTaskId?: string;
   focusDeadlineId?: string;
   pageActions: WikiEditorPageActions;

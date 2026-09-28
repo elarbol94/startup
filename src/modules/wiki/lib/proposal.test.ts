@@ -1,17 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { docxHtmlToTiptap } from "./docx-import";
 import { collectDocumentPreflightIssues, normalizeDocumentSettings } from "./document-settings";
-import { proposalSectionSnippet, proposalStarterContent, proposalTable } from "./proposal";
+import { proposalSectionSnippet, proposalTable } from "./proposal";
 import { renderDocumentHtml } from "./document-renderer";
 
 describe("proposal documents", () => {
-  it("creates structured proposal starters with editable tables", () => {
-    const document = proposalStarterContent("funding");
-    expect(document.type).toBe("doc");
-    expect(document.content?.some((node) => node.type === "markdownTable")).toBe(true);
-    expect(document.content?.filter((node) => node.type === "heading").every((node) => node.attrs?.id)).toBe(true);
-  });
-
   it("checks submission requirements and accepts proposal blocks", () => {
     const settings = normalizeDocumentSettings({
       submission: { maxWords: 2, requiredAnnexes: ["financials"], requireBudget: true, requireSignature: true, requireCitations: true },

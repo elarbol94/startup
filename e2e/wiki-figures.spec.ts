@@ -1,4 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
+import Database from "better-sqlite3";
+import path from "node:path";
 import { submitNewDocumentTitle } from "./helpers/new-document";
 import { unzipSync, strFromU8 } from "fflate";
 import { PDFDocument } from "pdf-lib";
@@ -15,25 +17,23 @@ async function note(page: Page) {
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { name: "Figure Editor", username: "figure-editor", displayUsername: "figure-editor", email: "figures@example.test", password: "super-secret-1" } });
   expect(response.ok()).toBeTruthy();
   await page.goto("/wiki/inbox");
-  const lease = page.waitForRequest((request) => /\/api\/wiki\/pages\/[^/]+\/lease$/.test(request.url()), { timeout: 90_000 });
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
   await submitNewDocumentTitle(page, "Figure note");
-  const request = await lease;
+  await page.waitForURL(/\/wiki\/pages\/[^/]+$/);
   const editor = page.locator(".ProseMirror"); await expect(editor).toHaveAttribute("contenteditable", "true");
-  return { editor, id: request.url().split("/").at(-2)!, sessionId: request.postDataJSON().sessionId as string };
+  return { editor, id: pageIdForSlug(new URL(page.url()).pathname.split("/").at(-1)!) };
 }
-async function loadDoc(page: Page, id: string, sessionId: string, content: unknown[]) {
+function pageIdForSlug(slug: string) {
+  const sqlite = new Database(path.resolve("data/e2e.db"), { readonly: true });
+  try { return (sqlite.prepare("SELECT id FROM wiki_pages WHERE slug = ?").get(decodeURIComponent(slug)) as { id: string }).id; }
+  finally { sqlite.close(); }
+}
+/** Replaces the document through the live editor, the same path as typing. */
+async function loadDoc(page: Page, content: unknown[]) {
+  await page.locator(".ProseMirror").evaluate((node, content) => {
+    (node as HTMLElement & { editor: import("@tiptap/core").Editor }).editor.commands.setContent({ type: "doc", content: content as import("@tiptap/core").JSONContent[] });
+  }, content);
   await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
-  const documentUrl = page.url();
-  await page.goto("/wiki/inbox");
-  await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "acquire", sessionId } });
-  const data = { editorSessionId: sessionId, expectedContentVersion: 1, documentMode: true, contentJson: JSON.stringify({ type: "doc", content }) };
-  let result = await (await page.request.patch(`/api/wiki/pages/${id}/content`, { data })).json();
-  if (result.conflict && result.contentVersion) result = await (await page.request.patch(`/api/wiki/pages/${id}/content`, { data: { ...data, expectedContentVersion: result.contentVersion } })).json();
-  expect(result).toMatchObject({ saved: true });
-  await page.request.post(`/api/wiki/pages/${id}/lease`, { data: { action: "release", sessionId } });
-  await page.evaluate((id) => localStorage.removeItem(`wiki-draft:${id}`), id);
-  await page.goto(documentUrl); await expect(page.locator(".ProseMirror")).toHaveAttribute("contenteditable", "true");
 }
 
 test("insert, caption, resize, wrap, crop and insert a live reference and figure list", async ({ page }, testInfo) => {
@@ -59,8 +59,6 @@ test("insert, caption, resize, wrap, crop and insert a live reference and figure
   await page.getByRole("button", { name: "Zuschnitt übernehmen", exact: true }).click();
   await expect(figure).toHaveAttribute("data-figure-wrap", "left");
   await page.getByTestId("figure-panel").getByRole("button", { name: "Fertig", exact: true }).click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Querverweis einfügen", exact: true }).click();
   await page.getByRole("dialog").getByRole("button", { name: /Abbildung 1: Umsatz nach Quartal/ }).click();
@@ -71,9 +69,6 @@ test("insert, caption, resize, wrap, crop and insert a live reference and figure
   await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=docx`); expect(response.ok(), await response.text()).toBeTruthy();
   const files = unzipSync(await response.body()); expect(Object.keys(files).some((name) => /word\/media\/.+\.svg$/.test(name))).toBeTruthy(); expect(strFromU8(files["word/document.xml"])).toContain("Umsatz nach Quartal");
-  const imported = await page.request.post("/api/wiki/docx/import", { multipart: { pageId: id, file: { name: "report.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: await response.body() } } });
-  expect(imported.ok(), await imported.text()).toBeTruthy();
-  const importedContent = JSON.stringify((await imported.json()).document); expect(importedContent).toContain("commentableImage"); expect(importedContent).toContain("/api/files/");
   await page.screenshot({ path: testInfo.outputPath("figure-editor.png"), fullPage: true });
   await page.reload(); await expect(editor.getByLabel("Bildunterschrift", { exact: true })).toHaveValue("Umsatz nach Quartal");
 });
@@ -97,13 +92,13 @@ test("a delayed upload keeps its mapped insertion location, and cancellation lea
   } finally { releaseSecond(); }
 });
 
-test("linked revisions update every instance without a text save; references and PDF links survive a cover", async ({ page }) => {
-  const { id, sessionId, editor } = await note(page);
+test("linked revisions update every instance; references and PDF links survive in the export", async ({ page }) => {
+  const { id, editor } = await note(page);
   const sourceResponse = await page.request.post(`/api/wiki/pages/${id}/figures`, { data: { action: "source", source: { kind: "laptop", name: "Plots" } } }); const sourceId = (await sourceResponse.json()).result.id;
   const response = await page.request.post(`/api/wiki/pages/${id}/figures`, { multipart: { sourceId, path: "revenue.svg", file: { name: "revenue.svg", mimeType: "image/svg+xml", buffer: artwork() } } });
   const linked = ((await response.json()) as FigureManifest).assets[0];
   const attrs = { assetId: linked.id, attachmentId: linked.attachmentId, src: linked.src, numbered: true, caption: "Abbildung 9: Umsatz", widthPercent: 50 };
-  await loadDoc(page, id, sessionId, [
+  await loadDoc(page, [
     { type: "paragraph", content: [{ type: "text", text: "Siehe " }, { type: "crossReference", attrs: { targetId: "first", label: "Old 99" } }] },
     { type: "commentableImage", attrs: { ...attrs, nodeId: "first" } }, { type: "paragraph", content: [{ type: "text", text: "Weitere Ergebnisse" }] },
     { type: "commentableImage", attrs: { ...attrs, nodeId: "second" } }, { type: "figureList", attrs: { title: "Abbildungsverzeichnis" } },
@@ -111,9 +106,8 @@ test("linked revisions update every instance without a text save; references and
   await expect(editor.locator(".wiki-document-cross-reference")).toHaveText("Abbildung 1");
   await expect(editor.locator(".wiki-figure-list-row")).toHaveCount(2);
   await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
-  let saves = 0; page.on("request", (request) => { if (request.url().endsWith(`/pages/${id}/content`)) saves++; });
   const updated = await page.request.post(`/api/wiki/pages/${id}/figures`, { multipart: { sourceId, path: "revenue.svg", assetId: linked.id, expectedVersion: "1", file: { name: "revenue.svg", mimeType: "image/svg+xml", buffer: artwork("#14845B") } } }); expect(updated.ok(), await updated.text()).toBeTruthy();
-  await expect(editor.locator("figure img").first()).toHaveAttribute("src", /v=2$/); await expect(editor.locator("figure img").last()).toHaveAttribute("src", /v=2$/); expect(saves).toBe(0);
+  await expect(editor.locator("figure img").first()).toHaveAttribute("src", /v=2$/); await expect(editor.locator("figure img").last()).toHaveAttribute("src", /v=2$/);
   await expect(editor.getByLabel("Bildunterschrift", { exact: true }).first()).toHaveValue("Umsatz");
   const pdfResponse = await page.request.get(`/api/wiki/pages/${id}/export?format=pdf&allowSaved=1`); expect(pdfResponse.ok(), await pdfResponse.text()).toBeTruthy();
   const pdf = await PDFDocument.load(await pdfResponse.body()); expect(pdf.getPageCount()).toBeGreaterThan(1);
@@ -167,12 +161,12 @@ test("native diagrams are numbered, editable and embedded in Word", async ({ pag
   const files = unzipSync(await response.body()); expect(Object.keys(files).some((name) => /word\/media\/.+\.svg$/.test(name))).toBeTruthy();
 });
 
-test("multi-page figure lists paginate and missing references offer repair", async ({ page }, testInfo) => {
-  const { editor, id, sessionId } = await note(page);
+test("long figure lists span several PDF pages and missing references offer repair", async ({ page }, testInfo) => {
+  const { editor, id } = await note(page);
   const response = await page.request.post(`/api/wiki/pages/${id}/figures`, { multipart: { file: { name: "chart.svg", mimeType: "image/svg+xml", buffer: artwork() } } });
   const image = ((await response.json()) as FigureManifest).assets[0];
   const figures = Array.from({ length: 45 }, (_, i) => ({ type: "commentableImage", attrs: { nodeId: `chart-${i}`, assetId: image.id, src: image.src, widthPercent: 10, caption: `Ergebnis ${i + 1}: Eine ausführliche Beschreibung der Messung und ihrer Datengrundlage im Projekt.` } }));
-  await loadDoc(page, id, sessionId, [{ type: "paragraph", content: [{ type: "crossReference", attrs: { targetId: "deleted", label: "Stale 99" } }] }, { type: "figureList", attrs: { title: "Abbildungsverzeichnis" } }, ...figures]);
+  await loadDoc(page, [{ type: "paragraph", content: [{ type: "crossReference", attrs: { targetId: "deleted", label: "Stale 99" } }] }, { type: "figureList", attrs: { title: "Abbildungsverzeichnis" } }, ...figures]);
   await expect(editor.locator(".wiki-figure-list-row")).toHaveCount(45);
   const reference = editor.locator(".wiki-document-cross-reference"); await expect(reference).toContainText("Verweisziel fehlt"); await reference.click();
   await page.getByRole("dialog").getByRole("button", { name: /Abbildung 1: Ergebnis 1:/ }).click();
@@ -244,27 +238,3 @@ test("clipboard copies get new identities, cut moves keep their identity, and dr
   await expect(figures).toHaveCount(4);
 });
 
-
-test("a floating figure and its caption stay inside a document page", async ({ page }) => {
-  const { editor, id, sessionId } = await note(page);
-  const uploaded = await page.request.post(`/api/wiki/pages/${id}/figures`, { multipart: { file: { name: "boundary.svg", mimeType: "image/svg+xml", buffer: artwork() } } });
-  const image = ((await uploaded.json()) as FigureManifest).assets[0];
-  await loadDoc(page, id, sessionId, [
-    { type: "paragraph", content: Array.from({ length: 39 }, (_, index) => [{ type: "text", text: `Line ${index + 1}: Results before the figure.` }, { type: "hardBreak" }]).flat() },
-    { type: "commentableImage", attrs: { nodeId: "boundary", assetId: image.id, src: image.src, widthPercent: 60, wrap: "left", caption: "Caption attached to the floating chart" } },
-    { type: "paragraph", content: [{ type: "text", text: "Following text flows beside the chart. ".repeat(16) }] },
-  ]);
-  const figure = editor.locator("figure[data-figure-view]");
-  await expect(figure.locator("img")).toHaveJSProperty("complete", true);
-  await expect.poll(() => figure.evaluate((element) => {
-    const canvas = element.closest(".wiki-document-canvas") as HTMLElement;
-    const body = canvas.querySelector(".ProseMirror")!;
-    const style = getComputedStyle(canvas);
-    const scale = canvas.getBoundingClientRect().width / 210;
-    const top = (element.getBoundingClientRect().top - body.getBoundingClientRect().top) / scale;
-    const height = element.getBoundingClientRect().height / scale;
-    const withinPage = top % 309;
-    const marginBottom = parseFloat(style.getPropertyValue("--document-margin-bottom"));
-    return withinPage >= 20 && withinPage + height <= 297 - marginBottom + .5;
-  }), { timeout: 30_000 }).toBe(true);
-});

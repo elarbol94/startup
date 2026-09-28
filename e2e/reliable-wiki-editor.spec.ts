@@ -65,8 +65,6 @@ test("edits made offline survive closing the tab and are stored after reconnecti
   await page.context().setOffline(true);
   await editor.press("End");
   await page.keyboard.insertText(" and offline words");
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
   await expect(page.getByTestId("document-save-status")).toContainText("Offline");
   const url = page.url();
   await page.close();
@@ -75,7 +73,6 @@ test("edits made offline survive closing the tab and are stored after reconnecti
   await reopened.goto(url);
   const reopenedEditor = reopened.locator(".ProseMirror");
   await expect(reopenedEditor).toContainText("Online words and offline words");
-  await expect(reopened.locator(".wiki-document-canvas")).toBeVisible();
   await saved(reopened);
   await expect.poll(() => storedContent(id)).toContain("and offline words");
 });
@@ -110,7 +107,8 @@ test("a legacy snapshot cannot overwrite a collaborative document", async ({ pag
   const contentJson = JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "Stale local words" }] }] });
   await page.evaluate(({ id, contentJson }) => localStorage.setItem(`wiki-draft:${id}`, JSON.stringify({ contentJson, baseContentVersion: 1 })), { id, contentJson });
   const stale = await page.request.patch(`/api/wiki/pages/${id}/content`, { data: { contentJson, expectedContentVersion: 1, editorSessionId: "legacy-session" } });
-  expect(stale.status()).toBe(400);
+  // The legacy snapshot route is gone; live collaboration is the only writer.
+  expect(stale.ok()).toBe(false);
   await page.reload();
   await expect(editor).toContainText("Original words");
 });
@@ -139,24 +137,6 @@ test("server saving still works when local recovery storage is unavailable", asy
   await saved(page);
   const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
   expect(await response.text()).toContain("Save without a local copy");
-});
-
-test("applying a template preserves current text by default and uses normal saving", async ({ page }) => {
-  await login(page);
-  const { editor, id } = await trackedNote(page);
-  await editor.fill("Keep these current words");
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Dokumentlayout", exact: true }).click();
-  const panel = page.getByTestId("document-layout-panel");
-  await panel.getByRole("tab").nth(1).click();
-  await expect(panel.getByLabel("Text durch Vorlageninhalt ersetzen")).not.toBeChecked();
-  await panel.getByRole("button", { name: "Vorlage anwenden", exact: true }).click();
-  await expect(page.getByTestId("document-save-status").getByText("Gespeichert", { exact: true })).toBeVisible();
-  const response = await page.request.get(`/api/wiki/pages/${id}/export?format=html`);
-  expect(await response.text()).toContain("Keep these current words");
-  await expect(editor).toContainText("Keep these current words");
 });
 
 test("collapsed research rail expands its search without covering content", async ({ page }) => {
@@ -207,7 +187,7 @@ test("a second editor joins automatically without taking over", async ({ browser
   } finally { await competingContext.close(); }
 });
 
-test("document paper keeps its physical aspect ratio and margin guides can be toggled", async ({ page }) => {
+test("side panels open from the tools menu and the page zooms with the keyboard and wheel", async ({ page }) => {
   test.setTimeout(240_000);
   await login(page);
   await createNote(page);
@@ -221,36 +201,18 @@ test("document paper keeps its physical aspect ratio and margin guides can be to
   await page.getByRole("menuitem", { name: "Kommentare", exact: true }).click();
   await expect(page.getByTestId("comment-rail")).toBeVisible();
   await page.getByRole("button", { name: "Seitenbereich schließen" }).click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Dokumentlayout", exact: true }).click();
-  const canvas = page.locator(".wiki-document-canvas");
-  const sheet = canvas.locator(".wiki-document-page-sheet").first();
-  await expect(sheet).toBeVisible();
-  const sheetBox = await sheet.boundingBox();
-  expect(sheetBox).not.toBeNull();
-  expect(sheetBox!.width / sheetBox!.height).toBeCloseTo(210 / 297, 2);
-  const guides = page.getByLabel("Seitenränder anzeigen");
-  await expect(guides).toBeChecked();
-  await guides.uncheck();
-  await expect(canvas).toHaveAttribute("data-margin-guides", "false");
-  await guides.check();
-  await expect(canvas).toHaveAttribute("data-margin-guides", "true");
+  const surface = page.locator(".wiki-editor-surface");
+  await page.locator(".ProseMirror").click();
   await page.keyboard.press("ControlOrMeta+0");
   await page.keyboard.press("ControlOrMeta++");
-  await expect(canvas).toHaveCSS("zoom", "1.1");
+  await expect(surface).toHaveCSS("zoom", "1.1");
   await page.keyboard.press("ControlOrMeta+0");
-  await page.locator(".wiki-document-workspace").dispatchEvent("wheel", { ctrlKey: true, deltaY: -100 });
-  await expect(canvas).toHaveCSS("zoom", "1.08");
-  await page.getByRole("button", { name: "Seitenbereich schließen", exact: true }).click();
+  await page.locator(".wiki-note-workspace").dispatchEvent("wheel", { ctrlKey: true, deltaY: -100 });
+  await expect(surface).toHaveCSS("zoom", "1.08");
   await page.getByRole("button", { name: "Mehr", exact: true }).last().click();
   await expect(page.getByRole("menuitem", { name: "Verkleinern" })).toHaveCount(0);
   await expect(page.getByRole("menuitem", { name: "Vergrößern" })).toHaveCount(0);
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  await expect(page.locator(".wiki-editor-surface")).toHaveCSS("zoom", "1.08");
 });
 
 test("SVG text updates live and previous versions can be restored", async ({ page }) => {
@@ -665,8 +627,4 @@ test("command search ranks selection, remembers commands and focuses settings", 
   await page.keyboard.press("Escape");
   await expect(page.getByTestId("wiki-typography-dialog")).toHaveCount(0);
   await expect(editor).toBeFocused();
-  await openSearch();
-  await search.fill("page margins");
-  await search.press("Enter");
-  await expect(page.getByTestId("document-margin-top")).toBeFocused();
 });

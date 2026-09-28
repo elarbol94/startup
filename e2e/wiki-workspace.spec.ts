@@ -56,17 +56,14 @@ test("document tools share one panel and retain drafts at desktop, tablet, and p
   await tool(page, "Kommentare");
   await expect(page.getByTestId("page-comment-input")).toHaveValue("Unsent review note");
   await closePanel(page);
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByTestId("document-mode-toggle").click();
-  await expect(page.locator(".wiki-document-canvas")).toBeVisible();
   for (const width of [1440, 1024, 390]) {
     await page.setViewportSize({ width, height: 1000 });
     await tool(page, "Kommentare");
     await expect(page.getByTestId("page-comment-input")).toHaveValue(width === 1440 ? "Unsent review note" : width === 1024 ? "Draft at 1440" : "Draft at 1024");
     await closePanel(page);
     await screenshot(page, `document-${width}`);
-    await tool(page, "Dokumentlayout");
-    await expect(page.getByTestId("document-layout-panel")).toBeVisible();
+    await tool(page, "Dokumentgliederung");
+    await expect(page.getByTestId("editor-outline")).toBeVisible();
     await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(1);
     if (width < 1280) await expect(page.getByRole("dialog")).toBeVisible();
     await screenshot(page, `document-tools-${width}`);

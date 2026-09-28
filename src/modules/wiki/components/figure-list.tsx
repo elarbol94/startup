@@ -4,23 +4,21 @@ import { Node, Extension } from "@tiptap/core";
 import { Plugin } from "@tiptap/pm/state";
 import { NodeViewWrapper, ReactNodeViewRenderer, type NodeViewProps } from "@tiptap/react";
 import { documentFigures } from "../lib/figure";
-import { getDocumentNumberingState, getDocumentPaginationBreaks, pageForPosition } from "./document-extension";
+import { getDocumentNumberingState } from "./document-extension";
 
 function FigureListRowView({ node, editor }: NodeViewProps) {
-  const [page, setPage] = useState(1);
   const [label, setLabel] = useState("");
   useEffect(() => {
     const update = () => {
       const numbering = getDocumentNumberingState(editor);
       setLabel(numbering?.labels.get(String(node.attrs.targetId)) ?? "");
-      setPage(pageForPosition(getDocumentPaginationBreaks(editor), numbering?.positions.get(String(node.attrs.targetId)) ?? 0) + (numbering?.config.pageNumberStart ?? 1) - 1);
     };
     update(); editor.on("transaction", update);
     return () => { editor.off("transaction", update); };
   }, [editor, node.attrs.targetId]);
   return <NodeViewWrapper as="li" className="wiki-figure-list-row" contentEditable={false}>
     <button type="button" onClick={() => { const pos = getDocumentNumberingState(editor)?.positions.get(String(node.attrs.targetId)); if (pos !== undefined) (editor.view.nodeDOM(pos) as HTMLElement | null)?.scrollIntoView({ block: "center", behavior: "smooth" }); }}>
-      <span>{label}: {String(node.attrs.caption || "")}</span><span className="wiki-figure-list-leader" /><span>{page}</span>
+      <span>{label}: {String(node.attrs.caption || "")}</span>
     </button>
   </NodeViewWrapper>;
 }

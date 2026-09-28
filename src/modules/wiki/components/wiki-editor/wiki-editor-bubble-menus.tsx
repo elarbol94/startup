@@ -19,9 +19,8 @@ const TABLE_MENU_OPTIONS = { strategy: "fixed", placement: "bottom", flip: true,
 const showTextMenu: ShouldShow = ({ state }) => !state.selection.empty && !(state.selection instanceof NodeSelection);
 const showTableMenu: ShouldShow = ({ editor }) => editor.isActive("markdownTable");
 
-export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, setLinkEditorRequest, prepareComment, requestWikiTask }: {
+export function WikiEditorBubbleMenus({ editor, currentUserId, setLinkEditorRequest, prepareComment, requestWikiTask }: {
   editor: Editor;
-  documentMode: boolean;
   currentUserId: string;
   setLinkEditorRequest: Dispatch<SetStateAction<number>>;
   prepareComment: () => void;
@@ -40,7 +39,7 @@ export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, set
     <Button type="button" size="sm" variant="ghost" onClick={prepareComment}><MessageSquareText className="size-4" />{t("commentSelection")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => requestWikiTask(activeEditor)}><ClipboardCheck className="size-4" />{tTasks("createTask")}</Button>
   </BubbleMenu>
-  {documentMode && <BubbleMenu editor={editor} pluginKey="wikiDocumentTableMenu" options={TABLE_MENU_OPTIONS} shouldShow={showTableMenu} className="z-40 flex flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
+  <BubbleMenu editor={editor} pluginKey="wikiDocumentTableMenu" options={TABLE_MENU_OPTIONS} shouldShow={showTableMenu} className="z-40 flex flex-wrap items-center gap-1 rounded-lg border bg-background p-1 shadow-lg">
     <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableRow(activeEditor)}><Rows3 />{t("document.table.addRow")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => addMarkdownTableColumn(activeEditor)}><Columns2 />{t("document.table.addColumn")}</Button>
     <Button type="button" size="sm" variant="ghost" onClick={() => toggleMarkdownTableHeader(activeEditor)}>{t("document.table.header")}</Button>
@@ -49,6 +48,6 @@ export function WikiEditorBubbleMenus({ editor, documentMode, currentUserId, set
     <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.image.alignRight")} onClick={() => setMarkdownTableCellAlignment(activeEditor, "right")}><AlignRight /></Button>
     <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.table.deleteRow")} onClick={() => deleteMarkdownTableRow(activeEditor)}><Trash2 /></Button>
     <Button type="button" size="icon-sm" variant="ghost" aria-label={t("document.table.deleteColumn")} onClick={() => deleteMarkdownTableColumn(activeEditor)}><Minus /></Button>
-  </BubbleMenu>}
+  </BubbleMenu>
   </>;
 }

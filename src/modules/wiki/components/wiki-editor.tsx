@@ -25,7 +25,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
 import { DOMParser as ProseMirrorDOMParser } from "@tiptap/pm/model";
-import { Bold, BookMarked, CalendarClock, Check, ClipboardCheck, CloudOff, Code, FileText, Heading3, Highlighter, ImagePlus, Italic, Keyboard, Layers3, Link2, List, ListOrdered, ListTree, ListTodo, MessageSquareText, Minus, MoreHorizontal, Paperclip, Pilcrow, Quote, Redo2, RotateCcw, ScissorsLineDashed, Search, Settings2, Strikethrough, Underline as UnderlineIcon, Undo2 } from "lucide-react";
+import { Bold, BookMarked, CalendarClock, Check, ClipboardCheck, CloudOff, Code, Heading3, Highlighter, ImagePlus, Italic, Keyboard, Layers3, Link2, List, ListOrdered, ListTree, ListTodo, MessageSquareText, Minus, MoreHorizontal, Paperclip, Pilcrow, Quote, Redo2, RotateCcw, ScissorsLineDashed, Search, Settings2, Strikethrough, Underline as UnderlineIcon, Undo2 } from "lucide-react";
 import { useDocumentWorkspace } from "./document-workspace";
 import { WorkspacePanel } from "./workspace-panel";
 import { addComment } from "../research-actions";
@@ -53,15 +53,13 @@ import { createSpellcheckExtension, type ProofingLanguage } from "../lib/spellch
 import { WikiProofingMenu, WikiProofingSuggestions, type OpenProofingIssue } from "./wiki-proofing";
 import { sanitizePastedHtml } from "../lib/paste-html";
 import { readEditorStorage, removeEditorStorage, writeEditorStorage } from "../lib/editor-draft";
-import { exportSavedDocument } from "../lib/editor-export";
 import { MermaidDiagram, MERMAID_PLACEHOLDER } from "./mermaid-extension";
 import { SuggestionDelete, SuggestionInsert, SuggestionMode } from "./suggestion-extension";
 import { acceptSuggestions, countSuggestions, rejectSuggestions } from "../lib/suggestions";
 import { DocumentExtensions, setDocumentNumberingConfig } from "./document-extension";
-import { DocumentLayoutPanel } from "./document-layout-panel";
 import { WikiTypographyDialog } from "./wiki-typography-dialog";
-import { collectDocumentPreflightIssues, localizeDocumentSettings, normalizeDocumentSettings, parseDocumentSettings, serializeDocumentSettings, type DocumentPreflightIssue, type DocumentSettingsV1 } from "../lib/document-settings";
-import { hasFigureList, isFigure, stripFigureNumber } from "../lib/figure";
+import { localizeDocumentSettings, normalizeDocumentSettings, parseDocumentSettings, type DocumentSettingsV1 } from "../lib/document-settings";
+import { hasFigureList } from "../lib/figure";
 import { CommentableImage, FigureIdentity, figureRepairs } from "./figure-extension";
 import { FigureUploads } from "./figure-upload";
 import { FigureList, FigureListEntry, FigureListSync } from "./figure-list";
@@ -75,26 +73,23 @@ import { normalizeWikiShortcut, WIKI_SHORTCUT_ACTIONS, type WikiShortcutAction }
 import { displayShortcut } from "../lib/shortcut-display";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
-import { formatBibliography } from "../lib/citations";
 import { SvgGraphicsPanel } from "./svg-graphics-panel";
-import type { CitationTarget, FigureCaption, SourceRef, TableCaption, WikiEditorProps } from "./wiki-editor/wiki-editor-types";
+import type { WikiEditorProps } from "./wiki-editor/wiki-editor-types";
 import { Citation, CommentMark, DeadlineReference, Highlight, PdfEvidence, TaskReference } from "./wiki-editor/wiki-editor-extensions";
 import { addThreadMark, backfillCommentNodeIds, isInlineImageFile, normalizeCitationLabels, normalizeInlineImageFile } from "./wiki-editor/wiki-editor-document-ops";
 import { LEGACY_TIPTAP_SHORTCUTS, WIKI_SHORTCUTS_KEY, loadEditorPreferences, loadWikiShortcutBindings } from "./wiki-editor/wiki-editor-preferences";
 import { DOCUMENT_ZOOM_KEY, loadDocumentZoom } from "./wiki-editor/document-zoom";
-import { documentCanvasLayout } from "./wiki-editor/document-canvas-layout";
+import { editorTypographyStyle } from "./wiki-editor/editor-surface-style";
 import { ToolbarButton, ToolbarGroup, ToolbarMenu } from "./wiki-editor/wiki-editor-toolbar-controls";
 import { ImageRegionSelector } from "./wiki-editor/image-region-selector";
 import { CitationPicker, EvidencePicker, PageLinkPicker } from "./wiki-editor/wiki-editor-pickers";
 import { WikiEditorBubbleMenus } from "./wiki-editor/wiki-editor-bubble-menus";
-import { DocumentBackMatter, DocumentFrontMatter } from "./wiki-editor/wiki-document-pages";
 import { buildSlashCommands, buildWikiEditorCommands, runWikiEditorAction } from "./wiki-editor/wiki-editor-commands";
 import { createWikiTypingExtension, WIKI_PASTE_RULE_EXTENSIONS } from "./wiki-editor/wiki-typing-extension";
 import { createFigureHandlers } from "./wiki-editor/wiki-editor-figure-handlers";
 import { insertBlockContent } from "../lib/block-insert-position";
 import { createWikiProofingHandlers } from "./wiki-editor/wiki-editor-proofing";
 import { useWikiProofingChecks } from "./wiki-editor/use-wiki-proofing-checks";
-import { useDocumentPagination } from "./wiki-editor/use-document-pagination";
 import { useDocumentZoomGestures } from "./wiki-editor/use-document-zoom-gestures";
 import { useContextReferenceSync } from "./wiki-editor/use-context-reference-sync";
 import { useEvidenceInsertion } from "./wiki-editor/use-evidence-insertion";
@@ -119,7 +114,7 @@ export function WikiEditor(props: WikiEditorProps) {
   const layout = collaboration.doc.getMap("layout").toJSON();
   return <CollaborationContext.Provider value={collaboration}>
     <CollaborationStatus provider={collaboration} showStatus={false} />
-    {collaboration.ready && <CollaborativeWikiEditor {...props} initialContent={JSON.stringify(documentJSON(collaboration.doc))} initialDocumentMode={layout.documentMode} initialDocumentSettings={JSON.stringify(layout.settings)} />}
+    {collaboration.ready && <CollaborativeWikiEditor {...props} initialContent={JSON.stringify(documentJSON(collaboration.doc))} initialDocumentSettings={JSON.stringify(layout.settings)} />}
   </CollaborationContext.Provider>;
 }
 
@@ -132,9 +127,7 @@ function CollaborativeWikiEditor({
   initialContent,
   initialProofingLanguage,
   initialProofingPrefs,
-  initialDocumentMode,
   initialDocumentSettings,
-  documentTemplates,
   allPages,
   sources,
   users,
@@ -144,7 +137,6 @@ function CollaborativeWikiEditor({
   comments,
   contextTasks,
   contextDeadlines,
-  proposalData,
   focusTaskId,
   focusDeadlineId,
   currentUserId,
@@ -159,14 +151,13 @@ function CollaborativeWikiEditor({
   const tCollaboration = useTranslations("collaboration");
   const t = useTranslations("wiki"); const tTasks = useTranslations("tasks"); const tDeadlines = useTranslations("deadlines"); const format = useFormatter(); const router = useRouter(); const searchParams = useSearchParams(); const externalSearchQuery = searchParams.get("search")?.trim() ?? ""; const { openTaskCreator } = useTaskCreator(); const { openDeadlineCreator } = useDeadlineCreator(); const [saveState, setSaveState] = useState<"idle" | "unsaved" | "saving" | "saved" | "offline" | "error" | "conflict">("idle");
   const { panel, setPanel } = useDocumentWorkspace();
-  function togglePanel(name: "comments" | "outline" | "layout", value: SetStateAction<boolean>) {
+  function togglePanel(name: "comments" | "outline", value: SetStateAction<boolean>) {
     setPanel((current) => (typeof value === "function" ? value(current === name) : value) ? name : current === name ? null : current);
   }
   const outlineOpen = panel === "outline";
   const commentsVisible = panel === "comments";
   const setOutlineOpen = (value: SetStateAction<boolean>) => togglePanel("outline", value);
   const setCommentsVisible = (value: SetStateAction<boolean>) => togglePanel("comments", value);
-  const setDocumentLayoutVisible = (value: SetStateAction<boolean>) => togglePanel("layout", value);
   const localizedInitialDocumentSettings = localizeDocumentSettings(
     parseDocumentSettings(initialDocumentSettings),
     citationLocale,
@@ -183,7 +174,6 @@ function CollaborativeWikiEditor({
   const [commentSubmitting, setCommentSubmitting] = useState(false);
   const commentSubmittingRef = useRef(false);
   const [typographyFocus, setTypographyFocus] = useState<"bodySizePt" | "lineHeight" | undefined>();
-  const [marginFocusRequest, setMarginFocusRequest] = useState(0);
   const [commandSearchOpen, setCommandSearchOpen] = useState(false);
   const [commandSearchCommands, setCommandSearchCommands] = useState<EditorSearchCommand[]>([]);
   const [pageLinkOpen, setPageLinkOpen] = useState(false); const [citationOpen, setCitationOpen] = useState(false); const [evidenceOpen, setEvidenceOpen] = useState(false); const [shortcutsOpen, setShortcutsOpen] = useState(false); const [linkEditorRequest, setLinkEditorRequest] = useState(0);
@@ -203,18 +193,11 @@ function CollaborativeWikiEditor({
   // explicit nudge to show the marks under the caret. It stays on the keystroke
   // path because it is cheap; the document-wide derived state does not.
   const [, refreshToolbarState] = useReducer((value: number) => value + 1, 0);
-  const [documentMode, setDocumentMode] = useState(initialDocumentMode);
   const [documentSettings, setDocumentSettings] = useState<DocumentSettingsV1>(() => localizedInitialDocumentSettings);
-  const [documentIssues, setDocumentIssues] = useState<DocumentPreflightIssue[]>([]);
-  const [documentPageCount, setDocumentPageCount] = useState(1);
   const [documentZoom, setDocumentZoom] = useState(loadDocumentZoom);
   const appliedZoom = useRef(documentZoom);
   const zoomAnchor = useRef<{ clientX: number; clientY: number; contentX: number; contentY: number } | null>(null);
   const captureZoomAnchorRef = useRef<(clientX: number, clientY: number) => void>(() => {});
-  const [figureCaptions, setFigureCaptions] = useState<FigureCaption[]>([]);
-  const [tableCaptions, setTableCaptions] = useState<TableCaption[]>([]);
-  const [citedSourceIds, setCitedSourceIds] = useState<string[]>([]);
-  const [citationTargets, setCitationTargets] = useState<CitationTarget[]>([]);
   const [typography, setTypography] = useState(() => normalizeWikiTypography(initialTypography));
   const [personalTypography, setPersonalTypography] = useState(() => normalizeWikiTypography(editableTypography));
   const [personalTypographyTemplates, setPersonalTypographyTemplates] = useState(typographyTemplates);
@@ -237,7 +220,7 @@ function CollaborativeWikiEditor({
   const [wikiShortcuts, setWikiShortcuts] = useState(loadWikiShortcutBindings);
   const [initialPreferences] = useState(loadEditorPreferences);
   const [statusVisible, setStatusVisible] = useState(initialPreferences.statusVisible); const [minimalToolbar, setMinimalToolbar] = useState(initialPreferences.minimalToolbar); const [typewriterMode, setTypewriterMode] = useState(initialPreferences.typewriterMode); const typewriterModeRef = useRef(initialPreferences.typewriterMode);
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const lastServerContent = useRef(initialContent); const documentModeRef = useRef(initialDocumentMode); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const maxSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncTimer = useRef<ReturnType<typeof setTimeout> | null>(null); const contentSyncEditor = useRef<Editor | null>(null); const liveEditor = useRef<Editor | null>(null); const contentSyncDirty = useRef(false); const flushContentSyncRef = useRef<() => void>(() => {}); const lastServerContent = useRef(initialContent); const documentSettingsRef = useRef(localizedInitialDocumentSettings); const pendingSave = useRef<string | null>(null); const persistContentRef = useRef<(json: string) => Promise<void>>(async () => {}); const conflictBlocked = useRef(false); const selection = useRef<{ from: number; to: number } | null>(null); const toolbarSelection = useRef<{ from: number; to: number } | null>(null); const imageInputRef = useRef<HTMLInputElement>(null); const editorRootRef = useRef<HTMLDivElement>(null); const commentRailRef = useRef<CommentRailHandle>(null);
   const [leaseState, setLeaseState] = useState<"checking" | "editable" | "locked">("checking");
   const leaseStateRef = useRef<"checking" | "editable" | "locked">("checking");
   const recoveryAvailable = collaboration.recoveryAvailable;
@@ -261,54 +244,20 @@ function CollaborativeWikiEditor({
   useEditorNavigation(leaveEditor, ".ProseMirror");
   const storageKey = `wiki-draft:${currentUserId}:${pageId}`; const preferencesKey = `wiki-editor-preferences`;
 
-  function currentSnapshot() {
-    return {
-      contentJson: liveEditor.current && !liveEditor.current.isDestroyed ? JSON.stringify(liveEditor.current.getJSON()) : pendingSave.current ?? lastServerContent.current,
-      documentMode: documentModeRef.current,
-      documentSettingsJson: serializeDocumentSettings(documentSettingsRef.current),
-    };
+  function currentContentJson() {
+    return liveEditor.current && !liveEditor.current.isDestroyed ? JSON.stringify(liveEditor.current.getJSON()) : pendingSave.current ?? lastServerContent.current;
   }
 
 
   function updateDerivedState(currentEditor: Editor) {
     setSuggestionCounts(countSuggestions(currentEditor.getJSON() as never));
     const items: OutlineItem[] = [];
-    const captions: FigureCaption[] = [];
-    const tables: TableCaption[] = [];
-    const citations = new Set<string>();
-    const targets = new Map<string, CitationTarget>();
     currentEditor.state.doc.descendants((node, position) => {
       if (node.type.name === "heading") items.push({ level: Number(node.attrs.level), text: node.textContent, position, id: String(node.attrs.id ?? `heading-${position}`) });
-      if (isFigure(node.type.name) && node.attrs.numbered !== false && node.attrs.includeInFigureIndex !== false) {
-        captions.push({ nodeId: String(node.attrs.nodeId ?? `figure-${position}`), caption: stripFigureNumber(String(node.attrs.caption || "")) });
-      }
-      if (node.type.name === "markdownTable" && node.attrs.includeInTableIndex !== false && String(node.attrs.caption ?? "").trim()) {
-        tables.push({ tableId: String(node.attrs.tableId ?? ("table-" + position)), caption: stripFigureNumber(String(node.attrs.caption || "")) });
-      }
-      if (node.type.name === "citation" && Array.isArray(node.attrs.items)) {
-        for (const item of node.attrs.items as Array<{ sourceId?: unknown; documentId?: unknown; annotationId?: unknown; locator?: unknown }>) {
-          if (typeof item.sourceId === "string") {
-            citations.add(item.sourceId);
-            if (!targets.has(item.sourceId)) {
-              targets.set(item.sourceId, {
-                sourceId: item.sourceId,
-                ...(typeof item.documentId === "string" && item.documentId ? { documentId: item.documentId } : {}),
-                ...(typeof item.annotationId === "string" && item.annotationId ? { annotationId: item.annotationId } : {}),
-                ...(typeof item.locator === "string" && item.locator ? { locator: item.locator } : {}),
-              });
-            }
-          }
-        }
-      }
     });
     setOutline(items);
-    setFigureCaptions(captions);
-    setTableCaptions(tables);
-    setCitedSourceIds([...citations]);
-    setCitationTargets([...targets.values()]);
     const cursor = currentEditor.state.selection.from;
     setActiveHeadingPosition([...items].reverse().find((item) => item.position < cursor)?.position ?? null);
-    setDocumentIssues(collectDocumentPreflightIssues(currentEditor.getJSON(), documentSettingsRef.current));
   }
 
   // Walking the document, serializing it and re-rendering the editor shell on
@@ -529,9 +478,7 @@ function CollaborativeWikiEditor({
     const layout = collaboration.doc.getMap("layout");
     const update = () => {
       const value = layout.toJSON();
-      documentModeRef.current = value.documentMode;
       documentSettingsRef.current = normalizeDocumentSettings(value.settings);
-      setDocumentMode(value.documentMode);
       setDocumentSettings(documentSettingsRef.current);
     };
     layout.observeDeep(update);
@@ -566,7 +513,6 @@ function CollaborativeWikiEditor({
     setProofingDictionary, setProofingDictionaryLoaded, setProofingCount, setSpellcheckIssue, setProofingStatus,
     ignoredProofingIssues, disabledProofingRuleIds, proofingRetry,
   });
-  useDocumentPagination({ editor, documentMode, documentSettings, documentZoom, typography, editorRootRef, setDocumentPageCount });
   useEffect(() => { void pageVersion; }, [pageVersion]);
   useEffect(() => { if (commentFocusRequest > 0) commentRailRef.current?.focusGeneralComment(); }, [commentFocusRequest]);
   useEffect(() => {
@@ -593,9 +539,8 @@ function CollaborativeWikiEditor({
       numberFigures: true,
       numberTables: documentSettings.tables.enabled,
       missingReferenceLabel: t("figures.missingReference"),
-      pageNumberStart: documentSettings.footer.pageNumberStart,
     });
-  }, [citationLocale, documentSettings.figures.enabled, documentSettings.tables.enabled, documentSettings.footer.pageNumberStart, editor, t]);
+  }, [citationLocale, documentSettings.figures.enabled, documentSettings.tables.enabled, editor, t]);
   useDocumentZoomGestures({ editor, editorRootRef, documentZoom, setDocumentZoom, appliedZoom, zoomAnchor, captureZoomAnchorRef });
   useEffect(() => { writeEditorStorage(WIKI_SHORTCUTS_KEY, JSON.stringify(wikiShortcuts)); }, [wikiShortcuts]);
   useEffect(() => {
@@ -607,8 +552,8 @@ function CollaborativeWikiEditor({
   }, []);
   function executeEditorAction(action: WikiShortcutAction) {
     runWikiEditorAction(action, {
-      editor, t, currentUserId, documentMode, pageActions, changeSearchOpen, setOutlineOpen, prepareComment, setCommentsVisible,
-      changeDocumentMode, setTypographyOpen, setShortcutsOpen, openInlineImagePicker, setPageLinkOpen, setLinkEditorRequest,
+      editor, t, currentUserId, pageActions, changeSearchOpen, setOutlineOpen, prepareComment, setCommentsVisible,
+      setTypographyOpen, setShortcutsOpen, openInlineImagePicker, setPageLinkOpen, setLinkEditorRequest,
       setCitationOpen, setEvidenceOpen, prepareImageComment,
     });
   }
@@ -715,15 +660,6 @@ function CollaborativeWikiEditor({
     collaboration.doc.transact(() => patchMap(collaboration.doc.getMap("layout"), { settings: documentSettingsRef.current }, { settings }), LOCAL);
     documentSettingsRef.current = settings;
     setDocumentSettings(settings);
-    setDocumentIssues(collectDocumentPreflightIssues(activeEditor.getJSON(), settings));
-    scheduleDocumentSave();
-  }
-  function changeDocumentMode(enabled: boolean) {
-    if (!activeEditor.isEditable) return;
-    collaboration.doc.transact(() => collaboration.doc.getMap("layout").set("documentMode", enabled), LOCAL);
-    documentModeRef.current = enabled;
-    setDocumentMode(enabled);
-    if (!enabled && panel === "layout") setPanel(null);
     scheduleDocumentSave();
   }
   function resolveSuggestions(accept: boolean) {
@@ -735,31 +671,7 @@ function CollaborativeWikiEditor({
 
   const imageSelection = activeEditor.state.selection;
   const panelImage = imageSelection instanceof NodeSelection && ["commentableImage", "pdfEvidence"].includes(imageSelection.node.type.name) ? imageSelection.node : null;
-  const layoutVisible = documentMode && panel === "layout";
-  const figureIndexVisible = documentMode && documentSettings.figures.enabled && !hasFigureList(activeEditor.getJSON()) && figureCaptions.length > 0;
-  const tableIndexVisible = documentMode && documentSettings.tables.enabled && tableCaptions.length > 0;
-  const bibliography = formatBibliography(
-    citedSourceIds.flatMap((sourceId) => {
-      const source = sources.find((candidate) => candidate.id === sourceId);
-      return source ? [source] : [];
-    }),
-    citationLocale,
-    citationStyle,
-  );
-  const bibliographyVisible = documentMode && documentSettings.bibliography.enabled && bibliography.length > 0;
-  function bibliographyHref(source: SourceRef) {
-    const target = citationTargets.find((item) => item.sourceId === source.id);
-    const documentId = target?.documentId || source.pdfDocumentId;
-    if (!documentId) return `/wiki/sources/${source.id}`;
-    const query = new URLSearchParams();
-    if (target?.locator && /^\d+$/.test(target.locator)) query.set("page", target.locator);
-    if (target?.annotationId) query.set("annotation", target.annotationId);
-    const suffix = query.size ? `?${query.toString()}` : "";
-    return `/wiki/sources/${source.id}/read/${documentId}${suffix}`;
-  }
-  const { coverPageCount, visibleDocumentPages, pageStackPosition, resolveDocumentText, documentCanvasStyle, editorTypographyStyle } = documentCanvasLayout({
-    documentSettings, documentPageCount, bibliographyVisible, figureIndexVisible, typography, documentZoom, pageTitle,
-  });
+  const editorStyle = editorTypographyStyle(typography, documentZoom);
   function openCommentComposer(anchor: CommentAnchor) {
     setPendingAnchor(anchor);
     requestAnimationFrame(() => setCommentOpen(true));
@@ -842,7 +754,7 @@ function CollaborativeWikiEditor({
     // Include edits made after the conflict was reported. The version check
     // still protects changes another editor made since that response.
     conflictBlocked.current = false;
-    await persistContent(currentSnapshot().contentJson);
+    await persistContent(currentContentJson());
   }
 
   const {
@@ -859,14 +771,12 @@ function CollaborativeWikiEditor({
     saving: proofingSaving || proofingDictionarySaving, onLanguage: (language: ProofingLanguage) => void changeProofingLanguage(language),
     onPicky: () => void toggleProofingPicky(), onRetry: () => proofingRetry.current(), onNext: nextProofingIssue };
   const unresolvedCommentCount = commentThreads.filter((thread) => !thread.resolvedAt).length;
-  const currentDocumentModeLabel = t(documentMode ? "document.documentMode" : "document.noteMode");
-  const nextDocumentModeLabel = t(documentMode ? "document.noteMode" : "document.documentMode");
 
   function buildEditorCommands(): EditorSearchCommand[] {
     return buildWikiEditorCommands({
-      t, activeEditor, slashCommands, shortcutLabel, executeEditorAction, insertFigureList, documentMode, changeDocumentMode, setPanel,
+      t, activeEditor, slashCommands, shortcutLabel, executeEditorAction, insertFigureList, setPanel,
       setGraphicsOpen, suggesting, setSuggesting, suggestionCounts, resolveSuggestions, proofingPicky, toggleProofingPicky, nextProofingIssue,
-      proofingRetry, changeProofingLanguage, pageId, flushSave, setTypographyFocus, setTypographyOpen, setMarginFocusRequest, currentUserId,
+      proofingRetry, changeProofingLanguage, pageId, flushSave, setTypographyFocus, setTypographyOpen, currentUserId,
     });
   }
   function closeCommandSearch() {
@@ -933,11 +843,8 @@ function CollaborativeWikiEditor({
     <ToolbarMenu label={t("workspace.tools")} icon={<Settings2 className="size-4" />} onPointerDown={rememberToolbarSelection}>
       <DropdownMenuItem onClick={() => setPanel("outline")}><ListTree />{t("editor.outline.title")}</DropdownMenuItem>
       <DropdownMenuItem onClick={() => setPanel("comments")}><MessageSquareText />{t("comments")}{unresolvedCommentCount > 0 && ` (${unresolvedCommentCount})`}</DropdownMenuItem>
-      {documentMode && <DropdownMenuItem onClick={() => setPanel("layout")}><FileText />{t("document.panelTitle")}</DropdownMenuItem>}
       {imageSelection instanceof NodeSelection && ["commentableImage", "pdfEvidence"].includes(imageSelection.node.type.name) && <DropdownMenuItem onClick={() => setPanel("image")}><ImagePlus />{t("figures.panelTitle")}</DropdownMenuItem>}
       <DropdownMenuItem onClick={() => setPanel("details")}><Settings2 />{t("documentDetails")}</DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem data-testid="document-mode-toggle" onClick={() => changeDocumentMode(!documentMode)}><FileText />{currentDocumentModeLabel} → {nextDocumentModeLabel}</DropdownMenuItem>
     </ToolbarMenu>
     <WikiProofingMenu {...proofingMenuProps} compact />
     <ToolbarMenu label={t("editor.toolbar.more")} icon={<MoreHorizontal className="size-4" />}>
@@ -977,7 +884,7 @@ function CollaborativeWikiEditor({
     <div
       data-wiki-command-scope
       ref={editorRootRef}
-      className={documentMode ? "wiki-document-workspace relative min-w-0 flex-1" : "wiki-note-workspace relative min-w-0 flex-1 overflow-x-auto px-4 py-8 md:px-10"}
+      className="wiki-note-workspace relative min-w-0 flex-1 overflow-x-auto px-4 py-8 md:px-10"
       onKeyDownCapture={(event) => {
         if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLocaleLowerCase() === "a") {
           event.preventDefault();
@@ -986,16 +893,9 @@ function CollaborativeWikiEditor({
         }
       }}
     >
-      <WikiEditorBubbleMenus editor={activeEditor} documentMode={documentMode} currentUserId={currentUserId} setLinkEditorRequest={setLinkEditorRequest} prepareComment={prepareComment} requestWikiTask={requestWikiTask} />
-      <div
-        className={`wiki-editor-surface${documentMode ? " wiki-document-canvas" : ""}`}
-        data-margin-guides={documentSettings.page.showMarginGuides ? "true" : "false"}
-        data-numbered-headings={documentMode && documentSettings.page.numberedHeadings ? "true" : "false"}
-        style={documentMode ? documentCanvasStyle : editorTypographyStyle}
-      >
-        <DocumentFrontMatter documentMode={documentMode} documentSettings={documentSettings} pageTitle={pageTitle} visibleDocumentPages={visibleDocumentPages} documentPageCount={documentPageCount} coverPageCount={coverPageCount} pageStackPosition={pageStackPosition} resolveDocumentText={resolveDocumentText} />
-        <EditorContent editor={editor} data-testid="wiki-editor" data-document-mode={documentMode ? "true" : "false"} />
-        <DocumentBackMatter documentSettings={documentSettings} bibliography={bibliography} bibliographyVisible={bibliographyVisible} bibliographyHref={bibliographyHref} figureIndexVisible={figureIndexVisible} figureCaptions={figureCaptions} tableIndexVisible={tableIndexVisible} tableCaptions={tableCaptions} />
+      <WikiEditorBubbleMenus editor={activeEditor} currentUserId={currentUserId} setLinkEditorRequest={setLinkEditorRequest} prepareComment={prepareComment} requestWikiTask={requestWikiTask} />
+      <div className="wiki-editor-surface" style={editorStyle}>
+        <EditorContent editor={editor} data-testid="wiki-editor" />
       </div>
       {spellcheckIssue && <WikiProofingSuggestions selected={spellcheckIssue} onClose={() => setSpellcheckIssue(null)}
         onReplace={replaceCurrentProofingIssue} onReplaceAll={replaceAllCurrentProofingIssue} onIgnore={ignoreCurrentProofingIssue}
@@ -1003,36 +903,11 @@ function CollaborativeWikiEditor({
         editable={activeEditor.isEditable} busy={proofingDictionarySaving} />}
       <CommentAnchorOverlay comments={commentThreads} editor={editor} rootRef={editorRootRef} activeThreadId={activeThreadId} onActiveThreadChange={(id) => { commentRailRef.current?.activateThread(id); setPanel("comments"); }} />
     </div>
-    <WorkspacePanel title={panel === "outline" ? t("editor.outline.title") : panel === "comments" ? t("comments") : panel === "layout" ? t("document.panelTitle") : panel === "image" ? t("figures.panelTitle") : t("documentDetails")} open={panel !== null} onClose={() => setPanel(null)} className="sticky top-16 max-h-[calc(100dvh-5rem)] overflow-y-auto">
+    <WorkspacePanel title={panel === "outline" ? t("editor.outline.title") : panel === "comments" ? t("comments") : panel === "image" ? t("figures.panelTitle") : t("documentDetails")} open={panel !== null} onClose={() => setPanel(null)} className="sticky top-16 max-h-[calc(100dvh-5rem)] overflow-y-auto">
     <div hidden={panel !== "details"}>{details}</div>
     <div hidden={!outlineOpen}><EditorOutlineSheet embedded editor={activeEditor} items={outline} activePosition={activeHeadingPosition} open={outlineOpen} onOpenChange={setOutlineOpen} /></div>
     <div hidden={panel !== "image"}>{panelImage && <FigurePanel key={String(panelImage.attrs.nodeId)} editor={activeEditor} node={panelImage} onComment={prepareImageComment} />}</div>
     <div hidden={!commentsVisible}><CommentRail embedded ref={commentRailRef} visible={commentsVisible} onVisibleChange={setCommentsVisible} pageId={pageId} comments={commentThreads} currentUserId={currentUserId} editor={editor} editorRootRef={editorRootRef} activeThreadId={activeThreadId} onActiveThreadChange={setActiveThreadId} /></div>
-    <div hidden={!layoutVisible}>{documentMode && <DocumentLayoutPanel marginFocusRequest={marginFocusRequest} embedded
-      pageId={pageId}
-      editor={activeEditor}
-      settings={documentSettings}
-      onApplyTemplate={(settings, contentJson) => {
-        if (!activeEditor.isEditable) return;
-        collaboration.doc.transact(() => patchMap(collaboration.doc.getMap("layout"), { documentMode: documentModeRef.current, settings: documentSettingsRef.current }, { documentMode: true, settings }), LOCAL);
-        documentModeRef.current = true;
-        setDocumentMode(true);
-        documentSettingsRef.current = settings;
-        setDocumentSettings(settings);
-        if (contentJson) activeEditor.commands.setContent(JSON.parse(contentJson));
-        scheduleDocumentSave();
-      }}
-      onExport={(format, inline = false) => { void exportSavedDocument(pageId, format, inline, flushSave, () => toast.error(t("document.exportSaveFailed"))); }}
-      onSettingsChange={changeDocumentSettings}
-      templates={documentTemplates}
-      issues={documentIssues}
-      outline={outline}
-      figureCount={figureCaptions.length}
-      tableCount={tableCaptions.length}
-      proposalData={proposalData}
-      onOpenTypographySettings={() => setTypographyOpen(true)}
-      onClose={() => setDocumentLayoutVisible(false)}
-    />}</div>
     </WorkspacePanel>
   </div>
   {statusVisible && <footer data-testid="editor-writing-status" className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t px-1 pt-2 text-[11px] text-muted-foreground">

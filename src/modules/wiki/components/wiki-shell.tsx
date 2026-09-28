@@ -26,7 +26,6 @@ import { EvidencePanel } from "./evidence-panel";
 import type { CommentThread } from "./comment-rail";
 import { FocusModeToggle, useFocusMode } from "@/components/focus-mode";
 import type { UserMarkColor } from "@/lib/user-mark-colors";
-import type { StoredDocumentTemplate } from "../document-queries";
 import type { WikiTypographySettingsV1, WikiTypographyTemplate } from "../lib/wiki-typography";
 import type { ProofingLanguage } from "../lib/spellcheck";
 import type { WikiProofingPrefsV1 } from "../lib/wiki-proofing-prefs";
@@ -34,7 +33,6 @@ import { extractText, parseStoredDocument } from "../lib/tiptap";
 import { RevisionDiffView } from "./revision-diff-view";
 import { diffDocumentSettings } from "../lib/revision-diff";
 import type { ContextDeadlineMarker, ContextTaskMarker } from "@/modules/tasks/types";
-import type { ProposalWorkspaceData } from "../lib/proposal";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
 import { InlinePageTitle } from "./inline-page-title";
@@ -66,13 +64,12 @@ export function WikiShell(props: ComponentProps<typeof WikiShellContent>) {
   return <DocumentWorkspaceProvider key={props.page.id}><WikiShellContent {...props} /></DocumentWorkspaceProvider>;
 }
 
-function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, sources, research, comments, currentUserId, users, attachments, documentTemplates, typography, editableTypography, typographyTemplates, proofingPrefs, tasks, deadlines, focusTaskId, focusDeadlineId, insertEvidenceId, proposalData, allTags, meta }: {
-  page: { id: string; title: string; slug: string; contentJson: string; status: "inbox" | "working" | "evergreen"; citationLocale: string; citationStyle: CitationStyle; verifiedUntil: string | null; proofingLanguage: ProofingLanguage; version: number; contentVersion: number; documentMode: boolean; documentSettingsJson: string; createdBy: string };
+function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, sources, research, comments, currentUserId, users, attachments, typography, editableTypography, typographyTemplates, proofingPrefs, tasks, deadlines, focusTaskId, focusDeadlineId, insertEvidenceId, allTags, meta }: {
+  page: { id: string; title: string; slug: string; contentJson: string; status: "inbox" | "working" | "evergreen"; citationLocale: string; citationStyle: CitationStyle; verifiedUntil: string | null; proofingLanguage: ProofingLanguage; version: number; contentVersion: number; documentSettingsJson: string; createdBy: string };
   backlinks: PageRef[]; unlinkedMentions?: PageRef[]; allPages: PageRef[]; sources: SourceRef[];
   research: { tags: Array<{ id: string; name: string; color: string }>; supportingSources: Array<{ id: string; title: string; issuedDate: string; relation: string }>; favorite: boolean; revisions: Array<{ id: string; version: number; contentVersion: number; contentHash: string; label: string | null; kind: string; createdAt: Date; createdBy: string; createdByName: string; contentJson: string; documentSettingsJson: string }> };
   comments: CommentThread[]; currentUserId: string; users: Array<{ id: string; name: string; markColor: UserMarkColor }>;
   attachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string }>;
-  documentTemplates: StoredDocumentTemplate[];
   typography: WikiTypographySettingsV1;
   editableTypography: WikiTypographySettingsV1;
   typographyTemplates: WikiTypographyTemplate[];
@@ -82,7 +79,6 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
   focusTaskId?: string;
   insertEvidenceId?: string;
   focusDeadlineId?: string;
-  proposalData: ProposalWorkspaceData;
   allTags: Array<{ id: string; name: string }>;
   meta: { updatedAt: number; updatedBy: string; updatedByName: string } | null;
 }) {
@@ -207,7 +203,7 @@ function WikiShellContent({ page, backlinks, unlinkedMentions = [], allPages, so
             <Button type="button" size="xs" variant="ghost" className="ml-auto" onClick={() => void runVerify(6)}>{t("verifyAgain")}</Button>
           </div>
         )}
-        <WikiEditor details={details} key={page.id} actionsRef={editorActions} focused={isFocused} pageId={page.id} pageTitle={page.title} pageSlug={page.slug} pageVersion={page.version} pageContentVersion={page.contentVersion} initialContent={page.contentJson} initialProofingLanguage={page.proofingLanguage} initialProofingPrefs={proofingPrefs} initialDocumentMode={page.documentMode} initialDocumentSettings={page.documentSettingsJson} initialTypography={typography} editableTypography={editableTypography} typographyTemplates={typographyTemplates} isPrimaryAuthor={page.createdBy === currentUserId} documentTemplates={documentTemplates} allPages={allPages} sources={sources} users={users} citationLocale={citationLocale} citationStyle={citationStyle} insertEvidenceId={insertEvidenceId} comments={comments} contextTasks={tasks} contextDeadlines={deadlines} focusTaskId={focusTaskId} focusDeadlineId={focusDeadlineId} proposalData={proposalData} currentUserId={currentUserId} pageActions={{ addAttachment: openAttachmentPicker, linkSupportingSource: openSupportingSourcePicker }} />
+        <WikiEditor details={details} key={page.id} actionsRef={editorActions} focused={isFocused} pageId={page.id} pageTitle={page.title} pageSlug={page.slug} pageVersion={page.version} pageContentVersion={page.contentVersion} initialContent={page.contentJson} initialProofingLanguage={page.proofingLanguage} initialProofingPrefs={proofingPrefs} initialDocumentSettings={page.documentSettingsJson} initialTypography={typography} editableTypography={editableTypography} typographyTemplates={typographyTemplates} isPrimaryAuthor={page.createdBy === currentUserId} allPages={allPages} sources={sources} users={users} citationLocale={citationLocale} citationStyle={citationStyle} insertEvidenceId={insertEvidenceId} comments={comments} contextTasks={tasks} contextDeadlines={deadlines} focusTaskId={focusTaskId} focusDeadlineId={focusDeadlineId} currentUserId={currentUserId} pageActions={{ addAttachment: openAttachmentPicker, linkSupportingSource: openSupportingSourcePicker }} />
         {!isFocused && backlinks.length > 0 && <section className="mt-8 border-t pt-5"><h2 className="mb-3 flex items-center gap-2 text-sm font-medium"><Link2 className="size-4 text-indigo-500" />{t("backlinks")}</h2><div className="flex flex-wrap gap-2">{backlinks.map((item) => <Link key={item.id} href={`/wiki/pages/${item.slug}`} className="rounded-md border px-2 py-1 text-sm hover:bg-accent">{item.title}</Link>)}</div></section>}
         {!isFocused && unlinkedMentions.length > 0 && <section className="mt-6"><h2 className="mb-1 flex items-center gap-2 text-sm font-medium"><Link2 className="size-4 text-muted-foreground" />{t("unlinkedMentions")}</h2><p className="mb-3 text-xs text-muted-foreground">{t("unlinkedMentionsHint")}</p><div className="flex flex-wrap gap-2">{unlinkedMentions.map((item) => <Link key={item.id} href={`/wiki/pages/${item.slug}`} className="rounded-md border border-dashed px-2 py-1 text-sm text-muted-foreground hover:bg-accent hover:text-foreground">{item.title}</Link>)}</div></section>}
       </section>

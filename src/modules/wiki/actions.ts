@@ -1,11 +1,10 @@
 "use server";
 
-import { saveSchema, savePageContentInternal } from "./page-content-store";
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
-import { contextLinks, wikiPageEditLeases, wikiPages } from "@/db/schema";
+import { contextLinks, wikiPages } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
 import { indexText, removeFromIndex } from "./lib/vector-store.server";
 
@@ -45,58 +44,6 @@ function syncFts(pageId: string, title: string, contentText: string) {
     .run(pageId, title, contentText);
 }
 
-const leaseSchema = z.object({
-  pageId: z.string().min(1),
-  sessionId: z.string().min(8).max(200),
-  takeover: z.boolean().optional(),
-});
-
-const LEASE_TIMEOUT_MS = 60_000;
-
-export async function acquirePageEditLease(input: z.infer<typeof leaseSchema>) {
-  const currentUser = await requireUserOrThrow();
-  const data = leaseSchema.parse(input);
-  const now = new Date();
-  const lease = db.select().from(wikiPageEditLeases).where(eq(wikiPageEditLeases.pageId, data.pageId)).get();
-  const expired = !lease || now.getTime() - lease.heartbeatAt.getTime() > LEASE_TIMEOUT_MS;
-  if (lease && !expired && lease.sessionId !== data.sessionId && !data.takeover) {
-    return { editable: false as const, expiresAt: lease.heartbeatAt.getTime() + LEASE_TIMEOUT_MS };
-  }
-  db.insert(wikiPageEditLeases)
-    .values({ pageId: data.pageId, sessionId: data.sessionId, userId: currentUser.id, acquiredAt: now, heartbeatAt: now })
-    .onConflictDoUpdate({
-      target: wikiPageEditLeases.pageId,
-      set: { sessionId: data.sessionId, userId: currentUser.id, acquiredAt: now, heartbeatAt: now },
-    })
-    .run();
-  return { editable: true as const, expiresAt: now.getTime() + LEASE_TIMEOUT_MS };
-}
-
-export async function heartbeatPageEditLease(input: Omit<z.infer<typeof leaseSchema>, "takeover">) {
-  const currentUser = await requireUserOrThrow();
-  const data = leaseSchema.omit({ takeover: true }).parse(input);
-  const updated = db.update(wikiPageEditLeases)
-    .set({ heartbeatAt: new Date() })
-    .where(and(
-      eq(wikiPageEditLeases.pageId, data.pageId),
-      eq(wikiPageEditLeases.sessionId, data.sessionId),
-      eq(wikiPageEditLeases.userId, currentUser.id),
-    ))
-    .returning({ pageId: wikiPageEditLeases.pageId })
-    .get();
-  return { editable: Boolean(updated) };
-}
-
-export async function releasePageEditLease(input: Omit<z.infer<typeof leaseSchema>, "takeover">) {
-  const currentUser = await requireUserOrThrow();
-  const data = leaseSchema.omit({ takeover: true }).parse(input);
-  db.delete(wikiPageEditLeases).where(and(
-    eq(wikiPageEditLeases.pageId, data.pageId),
-    eq(wikiPageEditLeases.sessionId, data.sessionId),
-    eq(wikiPageEditLeases.userId, currentUser.id),
-  )).run();
-  return { released: true as const };
-}
 
 const createSchema = z.object({
   title: z.string().min(1).max(200),
@@ -210,10 +157,6 @@ export async function renamePage(id: string, title: string) {
   // No revalidatePath here: it would re-render the old URL inside the action response,
   // whose redirect to the new slug remounts the open editor. The caller refreshes instead.
   return { slug: nextSlug };
-}
-
-export async function savePageContent(input: z.infer<typeof saveSchema>) {
-  return savePageContentInternal(input, await requireUserOrThrow());
 }
 
 export async function searchWiki(query: string) {
