@@ -14,7 +14,7 @@ vi.mock("@/db", async () => {
   for (const file of ["0051_wiki_presentations.sql", "0052_wiki_presentation_history.sql", "0055_redundant_nebula.sql", "0060_live_collaboration.sql"]) {
     sqlite.exec(readFileSync(`drizzle/${file}`, "utf8"));
   }
-  sqlite.exec("CREATE TABLE wiki_pages (id TEXT PRIMARY KEY, title TEXT NOT NULL, slug TEXT NOT NULL, content_json TEXT NOT NULL, deleted_at INTEGER)");
+  sqlite.exec("CREATE TABLE wiki_pages (id TEXT PRIMARY KEY, title TEXT NOT NULL, slug TEXT NOT NULL, content_json TEXT NOT NULL, document_engine TEXT NOT NULL DEFAULT 'tiptap', deleted_at INTEGER)");
   return { sqlite, db: drizzle(sqlite) };
 });
 
@@ -185,7 +185,7 @@ describe("presentation studio access and collaboration", () => {
 
 describe("document links in presentation storage", () => {
   it("generates stable source links, filters backlinks by access, and hides sources publicly", async () => {
-    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages VALUES (?, ?, ?, ?, NULL)").run("document", "Source document", "source-document", JSON.stringify({ type: "doc", content: [{ type: "heading", attrs: { level: 1, id: "budget" }, content: [{ type: "text", text: "Budget" }] }] }));
+    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("document", "Source document", "source-document", JSON.stringify({ type: "doc", content: [{ type: "heading", attrs: { level: 1, id: "budget" }, content: [{ type: "text", text: "Budget" }] }] }));
     const { id } = await createPresentationFromWikiPage({ pageId: "document" });
     const deck = getPresentation(id, { id: "author" })!;
     expect(deck.elements[0].source).toMatchObject({ pageId: "document", sectionId: "budget", reviewedFingerprint: expect.stringMatching(/^[a-f0-9]{64}$/) });
@@ -203,7 +203,7 @@ describe("document links in presentation storage", () => {
   });
 
   it("resolves current document names and treats deletion as a missing source", () => {
-    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages VALUES (?, ?, ?, ?, NULL)").run("renamed", "New title", "new-slug", JSON.stringify({ type: "doc", content: [] }));
+    sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("renamed", "New title", "new-slug", JSON.stringify({ type: "doc", content: [] }));
     expect(getPresentationSourceDocument("renamed")).toMatchObject({ title: "New title", slug: "new-slug", sections: [] });
     sqlite.prepare("UPDATE wiki_pages SET deleted_at = 1 WHERE id = ?").run("renamed");
     expect(getPresentationSourceDocument("renamed")).toBeNull();
@@ -212,7 +212,7 @@ describe("document links in presentation storage", () => {
 
 it("resolves current source previews, persists reviews, and reports removed sections/pages", async () => {
   const content = (text: string) => JSON.stringify({ type: "doc", content: [{ type: "heading", attrs: { level: 1, id: "section" }, content: [{ type: "text", text }] }] });
-  sqlite.prepare("INSERT OR REPLACE INTO wiki_pages VALUES (?, ?, ?, ?, NULL)").run("preview-doc", "Preview", "preview", content("Before"));
+  sqlite.prepare("INSERT OR REPLACE INTO wiki_pages (id, title, slug, content_json, deleted_at) VALUES (?, ?, ?, ?, NULL)").run("preview-doc", "Preview", "preview", content("Before"));
   const { id } = await createPresentationFromWikiPage({ pageId: "preview-doc" });
   const deck = getPresentation(id, { id: "author" })!;
   const reference = deck.elements[0].source!;

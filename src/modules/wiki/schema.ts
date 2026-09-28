@@ -99,6 +99,9 @@ export const wikiCategories = sqliteTable(
   ],
 );
 
+export const wikiDocumentEngines = ["tiptap", "converting", "office"] as const;
+export type WikiDocumentEngine = (typeof wikiDocumentEngines)[number];
+
 export const wikiPages = sqliteTable(
   "wiki_pages",
   {
@@ -121,6 +124,9 @@ export const wikiPages = sqliteTable(
     documentMode: integer("document_mode", { mode: "boolean" }).notNull().default(false),
     documentSettingsJson: text("document_settings_json").notNull().default(""),
     documentTemplateId: text("document_template_id").references(() => wikiDocumentTemplates.id, { onDelete: "set null" }),
+    /** Which editor owns the body: TipTap/Yjs, or an ONLYOFFICE DOCX (see office/). */
+    documentEngine: text("document_engine", { enum: wikiDocumentEngines }).notNull().default("tiptap"),
+    conversionStartedAt: integer("conversion_started_at", { mode: "timestamp_ms" }),
     version: integer("version").notNull().default(1),
     contentVersion: integer("content_version").notNull().default(1),
     /** Who last confirmed this page is still accurate, and until when. */

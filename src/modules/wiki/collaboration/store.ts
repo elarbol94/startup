@@ -30,7 +30,21 @@ export function authorize(kind: Kind, id: string, viewer: Viewer, sessionId?: st
     if (!login || login.expiresAt.getTime() <= Date.now()) throw new Error("Access denied");
   }
   if (kind === "presentation") requirePresentationAccess(id, account, "edit");
-  else if (!db.select({ id: wikiPages.id }).from(wikiPages).where(and(eq(wikiPages.id, id), isNull(wikiPages.deletedAt))).get()) throw new Error("Page unavailable");
+  else {
+    const page = db.select({ engine: wikiPages.documentEngine }).from(wikiPages).where(and(eq(wikiPages.id, id), isNull(wikiPages.deletedAt))).get();
+    if (!page) throw new Error("Page unavailable");
+    requireTiptapEngine(page.engine);
+  }
+}
+/**
+ * Office (DOCX) documents are edited in ONLYOFFICE; no TipTap/Yjs path may
+ * read or write their body. Connected clients are closed by the socket sweep.
+ */
+export function requireTiptapEngine(engine: string) {
+  if (engine !== "tiptap") throw new DocumentMovedToOfficeError();
+}
+export class DocumentMovedToOfficeError extends Error {
+  constructor() { super("documentMovedToOffice: page unavailable"); }
 }
 function sourceDocument(kind: Kind, id: string) {
   const doc = new Y.Doc();
@@ -49,6 +63,10 @@ function sourceDocument(kind: Kind, id: string) {
 export function loadRoom(kind: Kind, id: string): Room {
   return sqlite.transaction(() => {
     const key = roomKey(kind, id);
+    if (kind === "page") {
+      const page = sqlite.prepare("SELECT document_engine AS engine FROM wiki_pages WHERE id = ?").get(id) as { engine: string } | undefined;
+      if (page) requireTiptapEngine(page.engine);
+    }
     let row = sqlite.prepare("SELECT * FROM wiki_collaboration_rooms WHERE key = ?").get(key) as Room | undefined;
     if (!row) {
       const doc = sourceDocument(kind, id);

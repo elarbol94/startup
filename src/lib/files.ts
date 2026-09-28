@@ -61,28 +61,52 @@ export async function saveAttachment(options: {
 export function saveAttachmentBuffer(options: {
   file: File; entityType: AttachmentEntityType; entityId: string; userId: string; buffer: Buffer;
 }) {
-  const { file, entityType, entityId, userId } = options;
+  const staged = stageAttachmentBuffer({ buffer: options.buffer, fileName: options.file.name, mimeType: options.file.type, size: options.file.size });
+  try {
+    return registerStagedAttachment(staged, options);
+  } catch (error) {
+    discardStagedAttachment(staged);
+    throw error;
+  }
+}
 
-  const ext = file.type === "image/svg+xml" && /\.svgz$/i.test(file.name)
+/** Server-only formats that may be stored but never uploaded through /api/files. */
+const INTERNAL_MIME: Record<string, string> = { "application/zip": ".zip" };
+
+export type StagedAttachment = {
+  storedName: string; fileName: string; mimeType: string; sizeBytes: number; sha256: string;
+};
+
+/**
+ * Validates and writes an immutable file with a unique name, without a
+ * database row. Pair with `registerStagedAttachment` inside the caller's
+ * transaction, and `discardStagedAttachment` if that transaction fails; the
+ * unique name means a discard never removes bytes another row references.
+ */
+export function stageAttachmentBuffer(options: {
+  buffer: Buffer; fileName: string; mimeType: string; size?: number; internal?: boolean;
+}): StagedAttachment {
+  const { buffer, fileName, mimeType: type } = options;
+  const size = options.size ?? buffer.byteLength;
+  const ext = type === "image/svg+xml" && /\.svgz$/i.test(fileName)
     ? ".svgz"
-    : ALLOWED_MIME[file.type];
-  if (!ext) throw new UploadError(`File type not allowed: ${file.type}`);
-  if (file.size > MAX_UPLOAD_BYTES) {
+    : ALLOWED_MIME[type] ?? (options.internal ? INTERNAL_MIME[type] : undefined);
+  if (!ext) throw new UploadError(`File type not allowed: ${type}`);
+  if (size > MAX_UPLOAD_BYTES) {
     throw new UploadError("File exceeds the 50 MB limit");
   }
 
-  const buffer = options.buffer;
   // Media is served inline: reject disguised HTML and unsupported containers.
-  if (/^(audio|video)\//.test(file.type)) {
+  if (/^(audio|video)\//.test(type)) {
     const header = buffer.subarray(0, 16);
-    const valid = file.type.endsWith("mp4") ? header.subarray(4, 8).toString() === "ftyp"
-      : file.type === "video/webm" ? header.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
-      : file.type === "audio/ogg" ? header.subarray(0, 4).toString() === "OggS"
-      : file.type === "audio/wav" ? header.subarray(0, 4).toString() === "RIFF" && header.subarray(8, 12).toString() === "WAVE"
-      : file.type === "audio/mpeg" ? header.subarray(0, 3).toString() === "ID3" || (header[0] === 0xff && (header[1] & 0xe0) === 0xe0) : false;
+    const valid = type.endsWith("mp4") ? header.subarray(4, 8).toString() === "ftyp"
+      : type === "video/webm" ? header.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
+      : type === "audio/ogg" ? header.subarray(0, 4).toString() === "OggS"
+      : type === "audio/wav" ? header.subarray(0, 4).toString() === "RIFF" && header.subarray(8, 12).toString() === "WAVE"
+      : type === "audio/mpeg" ? header.subarray(0, 3).toString() === "ID3" || (header[0] === 0xff && (header[1] & 0xe0) === 0xe0) : false;
     if (!valid) throw new UploadError("The media content does not match its file type");
   }
-  if (file.type === "image/svg+xml") {
+  if (type === "image/svg+xml") {
     let svgBytes: Uint8Array = buffer;
     try {
       if (ext === ".svgz" || (buffer[0] === 0x1f && buffer[1] === 0x8b)) svgBytes = gunzipSync(buffer, { maxOutputLength: MAX_SVG_DECOMPRESSED_BYTES });
@@ -97,24 +121,33 @@ export function saveAttachmentBuffer(options: {
 
   const absolute = path.join(/* turbopackIgnore: true */ UPLOADS_PATH, storedName);
   fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(absolute), { recursive: true });
-  fs.writeFileSync(/* turbopackIgnore: true */ absolute, buffer);
+  fs.writeFileSync(/* turbopackIgnore: true */ absolute, buffer, { flag: "wx" });
+  return { storedName, fileName, mimeType: type, sizeBytes: size, sha256 };
+}
 
-  const row = db
+/** Inserts the row for a staged file; run inside the caller's transaction. */
+export function registerStagedAttachment(staged: StagedAttachment, owner: {
+  entityType: AttachmentEntityType; entityId: string; userId: string;
+}) {
+  return db
     .insert(attachments)
     .values({
-      fileName: file.name,
-      storedName,
-      mimeType: file.type,
-      sizeBytes: file.size,
-      sha256,
-      entityType,
-      entityId,
-      uploadedBy: userId,
+      fileName: staged.fileName,
+      storedName: staged.storedName,
+      mimeType: staged.mimeType,
+      sizeBytes: staged.sizeBytes,
+      sha256: staged.sha256,
+      entityType: owner.entityType,
+      entityId: owner.entityId,
+      uploadedBy: owner.userId,
     })
     .returning()
     .get();
+}
 
-  return row;
+/** Removes only the file this operation staged. */
+export function discardStagedAttachment(staged: StagedAttachment) {
+  fs.rmSync(/* turbopackIgnore: true */ path.join(UPLOADS_PATH, staged.storedName), { force: true });
 }
 
 export function getAttachment(id: string) {

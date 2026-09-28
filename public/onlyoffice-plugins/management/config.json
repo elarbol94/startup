@@ -1,0 +1,26 @@
+{
+  "name": "Workspace",
+  "nameLocale": { "de": "Workspace", "en": "Workspace" },
+  "guid": "asc.{5B2E0C7A-4F61-4B8E-9C3D-7A1E2F90B6D4}",
+  "version": "1.0.0",
+  "minVersion": "9.0.0",
+  "variations": [
+    {
+      "description": "Citations, PDF evidence, wiki links and tasks from the workspace",
+      "descriptionLocale": { "de": "Zitate, PDF-Nachweise, Wiki-Links und Aufgaben aus dem Workspace" },
+      "url": "index.html",
+      "icons": ["resources/icon.png", "resources/icon@2x.png"],
+      "isViewer": false,
+      "EditorsSupport": ["word"],
+      "isVisual": true,
+      "isModal": false,
+      "isInsideMode": true,
+      "initDataType": "none",
+      "initData": "",
+      "isUpdateOleOnResize": false,
+      "buttons": [],
+      "events": [],
+      "size": [360, 560]
+    }
+  ]
+}

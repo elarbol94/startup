@@ -1,0 +1,107 @@
+{
+  "_note": "Verified callback payloads captured from onlyoffice/documentserver:9.4.0.1 during the Phase 0 spike (2026-09-28).",
+  "status1": {
+    "key": "run-1790584776",
+    "status": 1,
+    "users": [
+      "u1"
+    ],
+    "actions": [
+      {
+        "type": 1,
+        "userid": "u1"
+      }
+    ]
+  },
+  "status6": {
+    "key": "run-1790584776",
+    "status": 6,
+    "url": "http://127.0.0.1:8086/office/cache/files/data/run-1790584776_7075/output.docx/output.docx?md5=3D-nXpLZNi99slZ047WwDQ&expires=1790585689&shardkey=run-1790584776&filename=output.docx",
+    "changesurl": "http://127.0.0.1:8086/office/cache/files/data/run-1790584776_7075/changes.zip/changes.zip?md5=BLyfxZvngv1kzFIRprsQgA&expires=1790585689&shardkey=run-1790584776&filename=changes.zip",
+    "history": {
+      "serverVersion": "9.4.0",
+      "changes": [
+        {
+          "documentSha256": "072f475287cd45e95b0cca3851bae39b1e48b6e6926ad920fea955d8fa26a9b8",
+          "created": "2026-09-28 08:39:42",
+          "user": {
+            "id": "u1",
+            "name": "User u1"
+          }
+        },
+        {
+          "documentSha256": "072f475287cd45e95b0cca3851bae39b1e48b6e6926ad920fea955d8fa26a9b8",
+          "created": "2026-09-28 08:39:47",
+          "user": {
+            "id": "u2",
+            "name": "User u2"
+          }
+        }
+      ]
+    },
+    "users": [
+      "u2"
+    ],
+    "userdata": "op-1",
+    "lastsave": "2026-09-28T08:39:47.000Z",
+    "forcesavetype": 0,
+    "filetype": "docx"
+  },
+  "status2": {
+    "key": "run-1790584776",
+    "status": 2,
+    "url": "http://127.0.0.1:8086/office/cache/files/data/run-1790584776_2144/output.docx/output.docx?md5=oPn5oh9fDTFph8u39KKvEw&expires=1790585711&shardkey=run-1790584776&filename=output.docx",
+    "changesurl": "http://127.0.0.1:8086/office/cache/files/data/run-1790584776_2144/changes.zip/changes.zip?md5=WO6aNFewie5oba40p4F2jA&expires=1790585711&shardkey=run-1790584776&filename=changes.zip",
+    "history": {
+      "serverVersion": "9.4.0",
+      "changes": [
+        {
+          "documentSha256": "072f475287cd45e95b0cca3851bae39b1e48b6e6926ad920fea955d8fa26a9b8",
+          "created": "2026-09-28 08:39:42",
+          "user": {
+            "id": "u1",
+            "name": "User u1"
+          }
+        },
+        {
+          "documentSha256": "072f475287cd45e95b0cca3851bae39b1e48b6e6926ad920fea955d8fa26a9b8",
+          "created": "2026-09-28 08:39:47",
+          "user": {
+            "id": "u2",
+            "name": "User u2"
+          }
+        },
+        {
+          "documentSha256": "072f475287cd45e95b0cca3851bae39b1e48b6e6926ad920fea955d8fa26a9b8",
+          "created": "2026-09-28 08:39:49",
+          "user": {
+            "id": "u1",
+            "name": "User u1"
+          }
+        }
+      ]
+    },
+    "users": [
+      "u1"
+    ],
+    "actions": [
+      {
+        "type": 0,
+        "userid": "u1"
+      }
+    ],
+    "lastsave": "2026-09-28T08:39:49.000Z",
+    "notmodified": false,
+    "filetype": "docx"
+  },
+  "status4": {
+    "key": "spike-1790585322376",
+    "status": 4,
+    "actions": [
+      {
+        "type": 0,
+        "userid": "u1"
+      }
+    ]
+  }
+}

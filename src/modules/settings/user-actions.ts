@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { removeUserSchema, inviteUserSchema, type InviteUserInput, type AcceptInvitationInput } from "./user-input";
 import { removeUserAccount } from "./user-removal";
 import { acceptInvitation, issueInvitation, revokeInvitation } from "./invitations";
+import { dropUserFromOfficeSessions } from "@/modules/wiki/office/revocation";
 
 export async function invitePlatformUser(input: InviteUserInput) {
   const admin = await requireAdmin();
@@ -28,7 +29,10 @@ export async function removePlatformUser(input: { userId: string }) {
   const parsed = removeUserSchema.safeParse(input);
   if (!parsed.success) return { error: "invalidRemoval" as const };
   const result = removeUserAccount(parsed.data.userId, admin.id);
-  if (!result.error) revalidatePath("/", "layout");
+  if (!result.error) {
+    await dropUserFromOfficeSessions(parsed.data.userId);
+    revalidatePath("/", "layout");
+  }
   return result;
 }
 

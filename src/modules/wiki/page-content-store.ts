@@ -1,37 +1,15 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { evidenceLinks, wikiCommentThreads, wikiLinks, wikiPageRevisions, wikiPageEditLeases, wikiPageSources, wikiPages, wikiSources, wikiPdfAnnotations } from "@/db/schema";
-import { indexText } from "./lib/vector-store.server";
+import { wikiCommentThreads, wikiPageRevisions, wikiPageEditLeases, wikiPages } from "@/db/schema";
+import { rebuildPageDerivedData, schedulePageIndex } from "./page-derived-data";
 import { isCommentAnchorOrphaned, type CommentAnchor } from "./lib/comment-anchors";
 import { extractCitations, extractCommentAnchors, extractCommentNodeIds, extractEvidenceAnnotationIds, extractInternalSlugs, extractText } from "./lib/tiptap";
 import { parseEditorDocument } from "./lib/editor-document";
 import { withDocumentSectionIds } from "./lib/document-sections";
 import { normalizeDocumentSettings, serializeDocumentSettings } from "./lib/document-settings";
 const LEASE_TIMEOUT_MS = 60_000;
-const indexing = new Map<string, ReturnType<typeof setTimeout>>();
-function scheduleIndex(pageId: string, title: string, contentText: string) {
-  clearTimeout(indexing.get(pageId));
-  const timer = setTimeout(() => {
-    indexing.delete(pageId);
-    void indexText({ kind: "page", refId: pageId, text: `${title}\n\n${contentText}` })
-      .catch((error: unknown) => console.warn(JSON.stringify({ event: "page_index_failed", pageId, reason: error instanceof Error ? error.message : "unknown" })));
-  }, 1000);
-  timer.unref?.();
-  indexing.set(pageId, timer);
-}
-
-function syncFts(pageId: string, title: string, contentText: string) {
-  sqlite
-    .prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?")
-    .run(pageId);
-  sqlite
-    .prepare(
-      "INSERT INTO wiki_pages_fts (page_id, title, content_text) VALUES (?, ?, ?)",
-    )
-    .run(pageId, title, contentText);
-}
 
 function contentSnapshotHash(contentJson: string, documentMode: boolean, documentSettingsJson: string) {
   return createHash("sha256")
@@ -66,6 +44,8 @@ export function savePageContentInternal(input: z.infer<typeof saveSchema>, user:
   // Autosaves can arrive after another request deleted the page. Treat that
   // normal race as a no-op instead of surfacing a server error.
   if (!page) return { saved: false };
+  // Office (DOCX) documents are stored by the office store only.
+  if (page.documentEngine !== "tiptap") throw new Error("documentMovedToOffice");
 
   const lease = db.select().from(wikiPageEditLeases).where(eq(wikiPageEditLeases.pageId, data.id)).get();
   if (!collaborative && lease && lease.sessionId !== data.editorSessionId && Date.now() - lease.heartbeatAt.getTime() <= LEASE_TIMEOUT_MS) {
@@ -165,52 +145,7 @@ export function savePageContentInternal(input: z.infer<typeof saveSchema>, user:
       .get();
     if (!updated) return false;
 
-    // Rebuild outgoing links.
-    db.delete(wikiLinks).where(eq(wikiLinks.sourcePageId, data.id)).run();
-    if (slugs.length > 0) {
-      const targets = db
-        .select({ id: wikiPages.id })
-        .from(wikiPages)
-        .where(inArray(wikiPages.slug, slugs))
-        .all();
-      if (targets.length > 0) {
-        db.insert(wikiLinks)
-          .values(
-            targets
-              .filter((target) => target.id !== data.id)
-              .map((target) => ({
-                sourcePageId: data.id,
-                targetPageId: target.id,
-              })),
-          )
-          .onConflictDoNothing()
-          .run();
-      }
-    }
-
-    db.delete(wikiPageSources)
-      .where(and(eq(wikiPageSources.pageId, data.id), eq(wikiPageSources.relation, "citation")))
-      .run();
-    if (citationSourceIds.length > 0) {
-      const existingSources = db.select({ id: wikiSources.id }).from(wikiSources).where(inArray(wikiSources.id, citationSourceIds)).all();
-      if (existingSources.length) db.insert(wikiPageSources)
-        .values(existingSources.map(({ id: sourceId }) => ({ pageId: data.id, sourceId, relation: "citation" as const })))
-        .onConflictDoNothing()
-        .run();
-    }
-
-    db.delete(evidenceLinks)
-      .where(and(eq(evidenceLinks.targetType, "wikiPage"), eq(evidenceLinks.targetId, data.id)))
-      .run();
-    if (evidenceAnnotationIds.length > 0) {
-      const annotations = db.select({ id: wikiPdfAnnotations.id }).from(wikiPdfAnnotations)
-        .where(inArray(wikiPdfAnnotations.id, evidenceAnnotationIds)).all();
-      if (annotations.length > 0) {
-        db.insert(evidenceLinks).values(annotations.map((annotation) => ({
-          annotationId: annotation.id, targetType: "wikiPage" as const, targetId: data.id, createdBy: user.id,
-        }))).onConflictDoNothing().run();
-      }
-    }
+    rebuildPageDerivedData(data.id, effectiveTitle, { text: contentText, slugs, citationSourceIds, evidenceAnnotationIds }, user.id);
 
     const threads = db
       .select({
@@ -259,8 +194,6 @@ export function savePageContentInternal(input: z.infer<typeof saveSchema>, user:
         .run();
     }
 
-    syncFts(data.id, effectiveTitle, contentText);
-    scheduleIndex(data.id, effectiveTitle, contentText);
     return true;
   });
   if (!applied) {
@@ -274,6 +207,7 @@ export function savePageContentInternal(input: z.infer<typeof saveSchema>, user:
       documentSettingsJson: page.documentSettingsJson,
     };
   }
+  schedulePageIndex(data.id, effectiveTitle, contentText);
   // No revalidatePath here: autosave must not re-render the open editor.
   return { saved: true as const, conflict: false as const, contentVersion: nextContentVersion };
 }

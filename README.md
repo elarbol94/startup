@@ -72,6 +72,10 @@ For automatic live document and presentation collaboration, see
 For wiki presentation editing, save recovery, live following and PDF export,
 see [docs/presentations.md](docs/presentations.md).
 
+Word documents are edited in an embedded ONLYOFFICE Docs editor (DOCX, real
+pages, track changes, co-editing); setup, versions, the workspace plugin and
+local development are in [docs/office-documents.md](docs/office-documents.md).
+
 For Wiki document saving, recovery, templates, Word import and validation,
 see [docs/wiki-documents.md](docs/wiki-documents.md). Image captions, references,
 figure lists and live laptop/server folder setup are covered in
@@ -104,6 +108,8 @@ allows only one dev server per project.
 # .env next to docker-compose.yml:
 #   BETTER_AUTH_SECRET=<node -e "console.log(require('crypto').randomBytes(32).toString('hex'))">
 #   BETTER_AUTH_URL=https://startup.elarbol.me
+#   ONLYOFFICE_INBOX_SECRET=<openssl rand -hex 32>
+#   ONLYOFFICE_OUTBOX_SECRET=<openssl rand -hex 32>   (a different value)
 docker compose up --build -d
 ```
 
@@ -136,8 +142,11 @@ runner skips that duplicate check only after native validation succeeds.
 To put the application behind Cloudflare Access using the opt-in Tunnel
 sidecar, follow [docs/cloudflare-access.md](docs/cloudflare-access.md).
 
-The container stores everything under the `app_data` volume (`/data`):
-`app.db` (SQLite) + `uploads/`. Put Caddy or Traefik in front for TLS.
+The app stores its state under the `app_data` volume (`/data`): `app.db`
+(SQLite) + `uploads/` (including every stored Word document version). The
+`proxy` service (nginx) is the single entry point on `127.0.0.1:3007`; put
+Cloudflare Tunnel, Caddy or Traefik in front of it for TLS. The ONLYOFFICE
+document server needs about 2–4 GB RAM.
 
 If the volume was created outside Compose (for example restored from a backup),
 Compose warns that it "already exists but was not created by Docker Compose".
@@ -164,6 +173,12 @@ The entire application state is the `/data` volume (or `./data` in dev):
 sqlite3 /data/app.db ".backup /backups/app-$(date +%F).db"
 rsync -a /data/uploads /backups/uploads
 ```
+
+The `onlyoffice_*` volumes hold co-editing state that has not been saved back
+to the app yet (normally for seconds to minutes). Include them in volume
+backups and stop the stack gracefully (`docker compose stop`, 60 s grace
+period) so pending saves are delivered; committed documents are always in
+`/data`.
 
 ## Adding a module
 

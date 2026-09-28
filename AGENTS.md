@@ -67,6 +67,8 @@ SQLite database. Stop the normal development server before running it.
 - `docs/cloudflare-access.md`: Cloudflare Tunnel/Access deployment.
 - `docs/graphics-sidecar.md`: wiki graphics sidecars and sync.
 - `docs/municipality-kennzahlen.md`: Ausgangsdaten vs. Kennzahlen, and how to add one.
+- `docs/office-documents.md`: Word documents in ONLYOFFICE (topology, secrets,
+  versions/restore, workspace plugin, local development).
 
 ## Development and deployment workflow
 

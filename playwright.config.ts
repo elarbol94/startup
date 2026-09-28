@@ -47,6 +47,11 @@ export default defineConfig({
             SMTP_USER: "",
             SMTP_PASSWORD: "",
             SMTP_FROM: "invites@example.com",
+            // Office documents: e2e/office-documents.spec.ts plays the document server.
+            ONLYOFFICE_INBOX_SECRET: "e2e-office-inbox-secret-0123456789abcdef",
+            ONLYOFFICE_OUTBOX_SECRET: "e2e-office-outbox-secret-0123456789abcdef",
+            ONLYOFFICE_INTERNAL_URL: `http://127.0.0.1:${port + 5}`,
+            APP_INTERNAL_URL: baseURL,
           },
         },
 });

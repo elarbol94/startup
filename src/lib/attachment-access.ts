@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, entries, invoices } from "@/db/schema";
+import { categories, entries, invoices, wikiPages } from "@/db/schema";
 import type { AttachmentEntityType } from "@/lib/files";
 import { presentationRole } from "@/modules/wiki/presentation-access";
 
@@ -44,6 +44,11 @@ export function attachmentAccessError(
       if (!role) return 404;
       if (access !== "read" && role !== "edit" && role !== "owner") return 403;
       return null;
+    }
+    case "wikiOfficeDocument": {
+      // Office versions are written only by the office store; the wiki is shared workspace content.
+      if (access !== "read") return 403;
+      return db.select({ id: wikiPages.id }).from(wikiPages).where(and(eq(wikiPages.id, entityId), isNull(wikiPages.deletedAt))).get() ? null : 404;
     }
     case "wikiPresentationLibrary":
       // Managed exclusively through the design library actions.

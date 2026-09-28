@@ -5,6 +5,8 @@ export const excludedTables = new Set([
   "wiki_collaboration_updates", "wiki_collaboration_presence", "wiki_page_edit_leases",
   "wiki_presentation_edit_leases", "wiki_presentation_live_sessions",
   "calendar_reminder_deliveries", "wiki_notifications", "wiki_links",
+  // Office history is append-only and managed by the office store/UI.
+  "wiki_office_documents", "wiki_office_sessions", "wiki_office_versions", "wiki_office_operations",
 ]);
 
 export function tracksTable(name: string) {
