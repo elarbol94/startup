@@ -1,6 +1,7 @@
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { user, wikiOfficeDocuments, wikiOfficeSessions, wikiOfficeVersions, wikiPages } from "@/db/schema";
+import { evidenceLinks, user, wikiOfficeDocuments, wikiOfficeSessions, wikiOfficeVersions, wikiPageSources, wikiPages, wikiPdfAnnotations, wikiSources } from "@/db/schema";
+import { listDeadlinesForContext, listTasksForContext } from "@/modules/projects/queries";
 import { activeOperation } from "./sessions";
 
 export function getOfficePage(pageId: string) {
@@ -53,3 +54,27 @@ export type OfficeVersionRow = ReturnType<typeof listOfficeVersions>[number];
 export function getOfficeVersion(pageId: string, versionId: string) {
   return db.select().from(wikiOfficeVersions).where(and(eq(wikiOfficeVersions.id, versionId), eq(wikiOfficeVersions.pageId, pageId))).get() ?? null;
 }
+
+/** Everything the document links to, for the connections panel. */
+export function getOfficeConnections(pageId: string) {
+  const sources = db.select({ id: wikiSources.id, title: wikiSources.title, issuedDate: wikiSources.issuedDate })
+    .from(wikiPageSources).innerJoin(wikiSources, eq(wikiSources.id, wikiPageSources.sourceId))
+    .where(and(eq(wikiPageSources.pageId, pageId), eq(wikiPageSources.relation, "citation"), isNull(wikiSources.deletedAt)))
+    .orderBy(asc(wikiSources.title)).all();
+  const evidence = db.select({
+    id: wikiPdfAnnotations.id, label: wikiPdfAnnotations.label, selectedText: wikiPdfAnnotations.selectedText,
+    pageNumber: wikiPdfAnnotations.pageNumber, sourceTitle: wikiSources.title,
+  }).from(evidenceLinks)
+    .innerJoin(wikiPdfAnnotations, eq(wikiPdfAnnotations.id, evidenceLinks.annotationId))
+    .innerJoin(wikiSources, eq(wikiSources.id, wikiPdfAnnotations.sourceId))
+    .where(and(eq(evidenceLinks.targetType, "wikiPage"), eq(evidenceLinks.targetId, pageId), isNull(wikiPdfAnnotations.deletedAt)))
+    .all();
+  return {
+    tasks: listTasksForContext("wikiPage", pageId).map((task) => ({ id: task.id, title: task.title, status: task.status, dueDate: task.dueDate })),
+    deadlines: listDeadlinesForContext("wikiPage", pageId).map((deadline) => ({ id: deadline.id, title: deadline.title, status: deadline.status, dueDate: deadline.deadlineDate })),
+    sources,
+    evidence,
+  };
+}
+
+export type OfficeConnections = ReturnType<typeof getOfficeConnections>;

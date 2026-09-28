@@ -140,16 +140,29 @@ operations still `created` resend the drop, and those past their deadline fail.
 - **Outside the editor:** `/api/wiki/office/[pageId]/export?format=pdf|docx[&version=]`
   exports a stored version. PDF goes through ConvertService.
 
-## Workspace plugin
+## Workspace tab and connections
 
-Connections inside the text are content controls with tags. The plugin panel
-("Workspace" under Plugins) offers:
+The plugin (`public/onlyoffice-plugins/management`) runs in the background for
+every editor. It adds a **Workspace** tab to the toolbar with these buttons:
+Zitat, Literatur aktualisieren, PDF-Nachweis, Wiki-Link, Aufgabe, Frist and
+Verknüpfung entfernen.
+
+**How the buttons reach the app.** Buttons that need a choice ask the page,
+through a `BroadcastChannel` named per editor instance (`bridgeId` from the
+config route), to open the app's own dialogs:
+- `office-insert-dialog.tsx` for sources, PDF highlights and wiki pages;
+- the regular task and deadline dialogs.
+
+The page answers with commands that the plugin applies to the document
+(`use-office-bridge.ts`).
+
+**Connections are content controls with tags:**
 
 | Tag | Meaning |
 |---|---|
-| `mp:cite:{"ids":[…],"loc":"…"}` | Citation(s) with an optional locator. "Zitate und Literaturverzeichnis aktualisieren" renumbers them and rewrites the `mp:bibliography` block, using the page's citation style and locale |
+| `mp:cite:{"ids":[…],"loc":"…"}` | Citation(s) with an optional locator. "Literatur aktualisieren" renumbers them and rewrites the `mp:bibliography` block, using the page's citation style and locale. Inserts inside the bibliography are refused |
 | `mp:evidence:{"id":…}` | PDF highlight quote with a link to the reader |
-| `mp:task:{"id":…}`, `mp:deadline:{"id":…}` | Selection turned into a task or deadline through the app's dialogs (the plugin asks the page through a `MessageChannel`); `?task=`/`?deadline=` links select the control again |
+| `mp:task:{"id":…}`, `mp:deadline:{"id":…}` | Selection turned into a task or deadline; `?task=`/`?deadline=` links select the control again |
 
 Normal hyperlinks to `/wiki/pages/<slug>` become backlinks.
 
@@ -159,6 +172,36 @@ On every stored version `docx-extract.ts` reads these controls back:
 - footnotes, headers and footers are searchable.
 
 Deleting a control, or its text, removes the relation with the next save.
+
+**Details panel.** "Verknüpfungen im Text" lists the document's tasks,
+deadlines, cited sources and PDF evidence (`/api/wiki/office/[pageId]/connections`).
+Clicking an entry selects its passage in the editor.
+
+**Save version.** "Version speichern" also stores a PDF of that version as a
+page attachment ("Titel – Version n.pdf").
+
+**Mentions.** An @mention in an ONLYOFFICE comment creates a wiki
+notification that carries the editor's `actionLink`
+(`wiki_notifications.office_action_link`). Opening it jumps to the comment
+(`?officeAction=`).
+
+## Look and feel
+
+- **Theme.** The editor follows the app's light/dark appearance
+  (`customization.uiTheme`). The editor stores its own theme choice in
+  localStorage, which would win over the config, so the page clears it when it
+  no longer matches the app.
+- **Toolbar.** The tabs Zeichnen, Schutz and Plugins are hidden. The
+  Community edition ignores `customization.layout` and `customization.logo`,
+  because they need a commercial licence. The editor frame is same-origin, so
+  the page injects a small stylesheet on `onAppReady` instead. If ONLYOFFICE
+  changes its markup, those tabs simply show again.
+- **Logo.** The ONLYOFFICE logo stays; the licence requires it.
+- **Focus mode.** The focus-mode button hides the app chrome and the details
+  panel.
+- **Content blockers.** Blockers such as uBlock Origin block the editor's
+  `Analytics.js` module because of its name, and the editor then never
+  finishes loading. Allow the site in the blocker.
 
 ## Local development
 

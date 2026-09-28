@@ -9,6 +9,7 @@ import { ArrowLeft, Download, FileText, History, MoreHorizontal, PanelRight, Plu
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
+import { FocusModeToggle, useFocusMode } from "@/components/focus-mode";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { createPage, deletePage, renamePage } from "../../actions";
 import { toggleFavorite } from "../../research-actions";
@@ -16,6 +17,7 @@ import { saveOfficeCheckpoint } from "../../office/office-actions";
 import { AttachmentPanel } from "../attachment-panel";
 import { EvidencePanel } from "../evidence-panel";
 import { InlinePageTitle } from "../inline-page-title";
+import { OfficeConnectionsPanel } from "./office-connections-panel";
 import { OfficeEditor, type OfficeEditorHandle } from "./office-editor";
 import { OfficeSaveBadge } from "./office-save-badge";
 import { OfficeVersionsDialog } from "./office-versions-dialog";
@@ -29,7 +31,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   backlinks: PageRef[];
   favorite: boolean;
   attachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string }>;
-  query: { insertEvidence?: string; task?: string; deadline?: string };
+  query: { insertEvidence?: string; task?: string; deadline?: string; officeAction?: string };
 }) {
   const t = useTranslations("officeDocuments");
   const tWiki = useTranslations("wiki");
@@ -47,6 +49,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const [textPrompt, askText] = useTextPrompt();
   const currentSlug = useRef(page.slug);
   const { status, refresh } = useOfficeStatus(page.id, true);
+  const { isFocused } = useFocusMode();
 
   async function rename(title: string) {
     const renamed = await renamePage(page.id, title);
@@ -69,7 +72,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
     setCheckpointing(true);
     try {
       const result = await saveOfficeCheckpoint({ pageId: page.id });
-      if (result.state === "done") toast.success(result.stored ? t("checkpointStored") : t("checkpointBranch"));
+      if (result.state === "done") toast.success(!result.stored ? t("checkpointBranch") : result.pdf ? t("checkpointStoredPdf") : t("checkpointStored"));
       else if (result.reason === "nothingNew") toast.info(t("checkpointNothingNew"));
       else toast.error(t("checkpointFailed"));
       void refresh();
@@ -97,7 +100,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
         <Link href="/wiki" aria-label={tWiki("backToWikiStart")} title={tWiki("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link>
         <div className="min-w-0">
           <InlinePageTitle title={page.title} onRename={rename} />
-          {status && <p className="mt-0.5 text-xs text-muted-foreground">{t("storedAt", { version: status.head.version, time: format.dateTime(new Date(status.head.storedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>}
+          {status && !isFocused && <p className="mt-0.5 text-xs text-muted-foreground">{t("storedAt", { version: status.head.version, time: format.dateTime(new Date(status.head.storedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>}
         </div>
       </div>
       <div className="flex items-center gap-1">
@@ -118,6 +121,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void remove()}><Trash2 />{tWiki("deletePage")}</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <FocusModeToggle compact />
       </div>
     </header>
 
@@ -137,7 +141,8 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
           </div>
           : <OfficeEditor key={editorKey} ref={editor} page={page} query={query} onSynced={(value) => { setSynced(value); if (value) void refresh(); }} onUnavailable={() => setUnavailable(true)} />}
       </main>
-      {detailsOpen && <aside data-testid="office-document-details" className="max-h-full w-full space-y-6 overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+      {detailsOpen && !isFocused && <aside data-testid="office-document-details" className="max-h-full w-full space-y-6 overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+        <OfficeConnectionsPanel pageId={page.id} refreshKey={status?.head.id ?? 0} onSelect={(kind, id) => editor.current?.send({ command: "select", kind, id })} />
         <ContextPanel subjectType="wikiPage" subjectId={page.id} subjectLabel={page.title} subjectHref={`/wiki/pages/${page.slug}`} compact hideSources />
         <AttachmentPanel entityType="wikiPage" entityId={page.id} initial={attachments} />
         <EvidencePanel targetType="wikiPage" targetId={page.id} compact />

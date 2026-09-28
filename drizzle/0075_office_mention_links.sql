@@ -1,0 +1,1 @@
+ALTER TABLE `wiki_notifications` ADD `office_action_link` text;

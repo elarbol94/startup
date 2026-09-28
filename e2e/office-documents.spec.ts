@@ -122,6 +122,8 @@ async function sessionKey(page: Page, pageId: string) {
 
 test.describe("office documents (simulated document server)", () => {
   test("stores versions, derives search, sources and backlinks, and restores", async ({ page }) => {
+    // Several saves, each with a PDF conversion, on a cold dev server.
+    test.setTimeout(180_000);
     await loginAsAnyUser(page);
     const target = await createDocument(page, "Office link target");
     const pageId = await createDocument(page, "Office e2e report");
@@ -144,7 +146,11 @@ test.describe("office documents (simulated document server)", () => {
     // A checkpoint succeeds only with its own callback.
     pendingSave = { pageId, key, content };
     await page.getByRole("button", { name: "Version speichern" }).click();
-    await expect(page.getByText("Version gespeichert.")).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText("Version gespeichert – PDF liegt unter Anhänge.")).toBeVisible({ timeout: 30_000 });
+    // The success toast covers the header buttons until it goes away (hovering pauses it).
+    await page.mouse.move(0, 0);
+    await expect(page.getByText("Version gespeichert – PDF liegt unter Anhänge.")).toBeHidden({ timeout: 20_000 });
+    expect(query("SELECT file_name FROM attachments WHERE entity_type = 'wikiPage' AND entity_id = ?", pageId)).toEqual([{ file_name: "Office e2e report – Version 2.pdf" }]);
     await expect(page.getByText(/Gespeichert: Version 2/)).toBeVisible({ timeout: 20_000 });
     await page.getByRole("button", { name: "Version speichern" }).click();
     await expect(page.getByText("Keine neuen Änderungen zu speichern.")).toBeVisible({ timeout: 30_000 });

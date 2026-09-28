@@ -570,6 +570,7 @@ export function listNotifications(userId: string, unreadOnly = false) {
       pageId: wikiNotifications.pageId,
       threadId: wikiNotifications.threadId,
       taskId: wikiNotifications.taskId,
+      officeActionLink: wikiNotifications.officeActionLink,
       actorName: user.name,
       actorId: wikiNotifications.actorId,
       actorMarkColor: userProfilePreferences.markColor,
