@@ -540,6 +540,12 @@
     "suggest": {
       "create": "Create new tag “{value}”",
       "didYouMean": "Did you mean"
+    },
+    "interactionEdit": {
+      "title": "Edit entry",
+      "edit": "Edit entry",
+      "save": "Save changes",
+      "cancel": "Cancel"
     }
   },
   "municipalities": {

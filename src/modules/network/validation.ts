@@ -80,5 +80,8 @@ export const interactionSchema = z.object({
   note: text(1000),
 });
 export type InteractionInput = z.input<typeof interactionSchema>;
+/** Editing a touchpoint: the contact is fixed, so it is not part of the input. */
+export const interactionUpdateSchema = interactionSchema.omit({ contactId: true }).extend({ id: idSchema });
+export type InteractionUpdateInput = z.input<typeof interactionUpdateSchema>;
 
 export const leadTaskLinkSchema = z.object({ leadId: idSchema, taskId: idSchema });

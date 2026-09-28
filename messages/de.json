@@ -540,6 +540,12 @@
     "suggest": {
       "create": "Neues Tag „{value}“ anlegen",
       "didYouMean": "Meintest du"
+    },
+    "interactionEdit": {
+      "title": "Eintrag bearbeiten",
+      "edit": "Eintrag bearbeiten",
+      "save": "Änderungen speichern",
+      "cancel": "Abbrechen"
     }
   },
   "municipalities": {

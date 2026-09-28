@@ -40,6 +40,28 @@ export function replaceContactTags(tx: Transaction, contactId: string, input: re
   removeUnusedTags(tx);
 }
 
+/*
+ * Invariant for `networkContacts.lastContactOn`:
+ * - It can be set by hand (contact edit form) to any date, or cleared.
+ * - Logging or editing an interaction only ever moves it *forward* to that
+ *   interaction's date (`bumpLastContact`); it never moves back on its own.
+ * - When an interaction is removed, or its date changes, and the stored value
+ *   equals the interaction's old date, it falls back to the latest remaining
+ *   interaction (`syncLastContactAfterRemoval`), or null if none remain.
+ *
+ * Known, accepted limitation: date equality is the only provenance signal.
+ * A date entered by hand that happens to equal an interaction's date is treated
+ * as coming from that interaction and may be replaced by the fallback. There is
+ * deliberately no extra "source" column for this.
+ */
+
+/** Moves the contact's last-contact date forward to `occurredOn`, never back. */
+export function bumpLastContact(tx: Transaction, contactId: string, occurredOn: string) {
+  const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, contactId)).get();
+  const lastContactOn = contact?.lastContactOn && contact.lastContactOn > occurredOn ? contact.lastContactOn : occurredOn;
+  tx.update(networkContacts).set({ lastContactOn, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
+}
+
 /** Logs a touchpoint and moves the contact's last-contact date forward, never back. */
 export function recordInteraction(
   tx: Transaction,
@@ -50,15 +72,14 @@ export function recordInteraction(
     .values({ contactId: input.contactId, occurredOn: input.occurredOn, channel: input.channel, note: input.note, createdBy: input.userId })
     .returning({ id: networkInteractions.id })
     .get().id;
-  const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, input.contactId)).get();
-  const lastContactOn = contact?.lastContactOn && contact.lastContactOn > input.occurredOn ? contact.lastContactOn : input.occurredOn;
-  tx.update(networkContacts).set({ lastContactOn, updatedAt: new Date() }).where(eq(networkContacts.id, input.contactId)).run();
+  bumpLastContact(tx, input.contactId, input.occurredOn);
   return id;
 }
 
 /**
- * After removing a touchpoint: if the last-contact date came from it, fall
- * back to the latest remaining one. A date entered by hand is left alone.
+ * After removing a touchpoint (or moving it away from `removedOn`): if the
+ * last-contact date came from it, fall back to the latest remaining one.
+ * A date entered by hand is left alone (see the invariant above).
  */
 export function syncLastContactAfterRemoval(tx: Transaction, contactId: string, removedOn: string) {
   const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, contactId)).get();
@@ -70,6 +91,25 @@ export function syncLastContactAfterRemoval(tx: Transaction, contactId: string, 
     .orderBy(desc(networkInteractions.occurredOn))
     .get();
   tx.update(networkContacts).set({ lastContactOn: latest?.occurredOn ?? null, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
+}
+
+/**
+ * Edits a touchpoint in place (id, contact and author stay the same) and keeps
+ * the last-contact date consistent when its date changes.
+ */
+export function editInteraction(
+  tx: Transaction,
+  existing: { id: string; contactId: string; occurredOn: string },
+  input: { occurredOn: string; channel: InteractionChannel; note: string },
+) {
+  tx.update(networkInteractions)
+    .set({ occurredOn: input.occurredOn, channel: input.channel, note: input.note })
+    .where(eq(networkInteractions.id, existing.id))
+    .run();
+  if (existing.occurredOn === input.occurredOn) return;
+  // The row already carries the new date, so the fallback may pick it up itself.
+  syncLastContactAfterRemoval(tx, existing.contactId, existing.occurredOn);
+  bumpLastContact(tx, existing.contactId, input.occurredOn);
 }
 
 export function removeUnusedTags(tx: Transaction) {
