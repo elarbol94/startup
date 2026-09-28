@@ -20,24 +20,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { quickCaptureContact } from "../contact-actions";
 import { leadKinds } from "../constants";
-import { normalizeText, type Suggestion } from "../network-utils";
+import { findSimilarContacts, type Suggestion } from "../network-utils";
 import type { NetworkContactOption } from "../queries";
 
 export type QuickCaptureOptions = { contacts: NetworkContactOption[]; tags: Suggestion[]; metContexts: Suggestion[] };
 import { MunicipalityPicker } from "./municipality-picker";
-import type { CaptureDraft } from "./quick-capture-draft";
+import { NEW_CONTACT, selectCaptureTarget, type CaptureDraft } from "./quick-capture-draft";
 import { selectClassName } from "./network-ui";
 import { SuggestInput } from "./suggest-input";
 import { PopularTags, TagInput } from "./tag-input";
 import { useNetworkAction } from "./use-network-action";
 
-const NEW_CONTACT = "new";
-
 /**
  * The 20-second capture after a conversation: who, what they said, a few
  * tags. Typing a known name offers to add to that contact instead of creating
- * a duplicate. Closing keeps the draft (see useCaptureDraft); only saving or
- * discarding clears it.
+ * a duplicate; similar names ("Maria Hueber") are offered too, but only an
+ * exact match is preselected. Closing keeps the draft (see useCaptureDraft);
+ * only saving or discarding clears it.
  */
 export function QuickCaptureDialog({
   open,
@@ -61,21 +60,15 @@ export function QuickCaptureDialog({
   const { form, setForm, clear, hasDraft } = draft;
   const { contacts, tags, metContexts } = options;
 
-  const matches = useMemo(() => {
-    const key = normalizeText(form.name);
-    return key ? contacts.filter((contact) => normalizeText(contact.name) === key) : [];
-  }, [contacts, form.name]);
-  // Default to the first matching contact; "new" only when chosen explicitly.
-  const target = matches.some((contact) => contact.id === form.target) || form.target === NEW_CONTACT
-    ? form.target
-    : matches[0]?.id ?? NEW_CONTACT;
+  const matches = useMemo(() => findSimilarContacts(form.name, contacts), [contacts, form.name]);
+  const target = selectCaptureTarget(matches, form.target);
   const existingId = target === NEW_CONTACT ? null : target;
-
+  const onlySimilar = matches.length > 0 && !matches.some((match) => match.exact);
 
   function submit(event?: FormEvent) {
     event?.preventDefault();
     if (!form.name.trim() || pending) return;
-    const name = existingId ? matches.find((contact) => contact.id === existingId)?.name ?? form.name : form.name.trim();
+    const name = existingId ? matches.find((match) => match.contact.id === existingId)?.contact.name ?? form.name : form.name.trim();
     run(
       () => quickCaptureContact({
         contactId: existingId,
@@ -128,6 +121,9 @@ export function QuickCaptureDialog({
               <datalist id="network-contact-names">
                 {[...new Set(contacts.map((contact) => contact.name))].map((name) => <option key={name} value={name} />)}
               </datalist>
+              {onlySimilar && (
+                <p className="text-xs text-muted-foreground" data-testid="network-quick-similar">{t("duplicates.similarHint")}</p>
+              )}
               {matches.length > 0 && (
                 <select
                   aria-label={t("quick.target")}
@@ -135,11 +131,14 @@ export function QuickCaptureDialog({
                   value={target}
                   onChange={(event) => setForm((current) => ({ ...current, target: event.target.value }))}
                 >
-                  {matches.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {t("quick.addTo", { name: contact.organization ? `${contact.name} · ${contact.organization}` : contact.name })}
-                    </option>
-                  ))}
+                  {matches.map(({ contact, exact }) => {
+                    const name = contact.organization ? `${contact.name} · ${contact.organization}` : contact.name;
+                    return (
+                      <option key={contact.id} value={contact.id}>
+                        {exact ? t("quick.addTo", { name }) : t("duplicates.addToSimilar", { name })}
+                      </option>
+                    );
+                  })}
                   <option value={NEW_CONTACT}>{t("quick.createNew")}</option>
                 </select>
               )}

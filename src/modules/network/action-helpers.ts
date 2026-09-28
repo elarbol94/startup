@@ -8,7 +8,17 @@ import { normalizeText, parseTagInput } from "./network-utils";
 import type { InteractionChannel } from "./constants";
 import { networkContacts, networkContactTags, networkInteractions, networkTags } from "./schema";
 
-export type NetworkActionError = "invalid" | "notFound" | "forbidden" | "duplicate";
+export type NetworkActionError =
+  | "invalid"
+  | "notFound"
+  | "forbidden"
+  | "duplicate"
+  /** Contact merge: one is private, the other shared with the team. */
+  | "visibilityMismatch"
+  /** Contact merge: the combined notes would exceed the limit. */
+  | "notesTooLong"
+  /** Contact merge: the combined tags would exceed the per-contact limit. */
+  | "tooManyTags";
 export type NetworkActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: NetworkActionError };
 
 export const fail = (error: NetworkActionError) => ({ ok: false as const, error });

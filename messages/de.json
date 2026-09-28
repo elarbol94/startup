@@ -317,7 +317,10 @@
       "invalid": "Bitte die Eingaben prüfen.",
       "notFound": "Dieser Kontakt existiert nicht mehr oder ist privat.",
       "forbidden": "Das kann nur die Person, die den Kontakt angelegt hat.",
-      "duplicate": "Eine andere Organisation heißt bereits so."
+      "duplicate": "Eine andere Organisation heißt bereits so.",
+      "visibilityMismatch": "Nur Kontakte mit gleicher Sichtbarkeit lassen sich zusammenführen. Bitte zuerst einen der beiden teilen oder privat machen.",
+      "notesTooLong": "Die zusammengeführten Notizen wären zu lang (höchstens 20.000 Zeichen). Bitte zuerst die Notizen kürzen.",
+      "tooManyTags": "Zusammen hätten die Kontakte mehr als 20 Tags. Bitte zuerst einige Tags entfernen."
     },
     "fields": {
       "name": "Name",
@@ -595,6 +598,41 @@
       "badge": "Noch nicht gesprochen",
       "field": "Noch nicht gesprochen",
       "hint": "Wir kennen die Person nur vom Hörensagen. Wird automatisch entfernt, sobald ein Gespräch eingetragen wird."
+    },
+    "duplicates": {
+      "similarHint": "Ähnliche Namen gefunden. Wähle die Person aus, falls sie es ist – sonst wird eine neue Person angelegt.",
+      "addToSimilar": "Zu {name} hinzufügen (ähnlicher Name)"
+    },
+    "merge": {
+      "open": "Zusammenführen…",
+      "title": "Kontakte zusammenführen",
+      "description": "Wenn {name} doppelt erfasst wurde: Möglichkeiten, Gespräche, Verknüpfungen und Tags landen bei einem Kontakt, der andere wird gelöscht.",
+      "other": "Doppelter Kontakt",
+      "choose": "Kontakt auswählen",
+      "similar": "Ähnliche Namen",
+      "all": "Alle Kontakte",
+      "onlyPrivate": "Angeboten werden nur deine privaten Kontakte. Geteilte Kontakte zuerst privat machen (oder umgekehrt).",
+      "onlyTeam": "Angeboten werden nur geteilte Kontakte, die du verwalten darfst. Private Kontakte zuerst teilen (oder umgekehrt).",
+      "noCandidates": "Es gibt keinen anderen Kontakt mit gleicher Sichtbarkeit, den du verwalten darfst.",
+      "swap": "Richtung tauschen",
+      "loading": "Vorschau wird geladen…",
+      "keeps": "Bleibt erhalten",
+      "removed": "Wird gelöscht",
+      "moves": "Wird übernommen: {items}.",
+      "nothingToMove": "Es gibt keine Möglichkeiten, Gespräche, Verknüpfungen oder neuen Tags zu übernehmen.",
+      "counts": {
+        "leads": "{count, plural, one {# Möglichkeit} other {# Möglichkeiten}}",
+        "introductions": "{count, plural, one {# Vorstellung durch andere} other {# Vorstellungen durch andere}}",
+        "interactions": "{count, plural, one {# Gespräch} other {# Gespräche}}",
+        "links": "{count, plural, one {# Verknüpfung} other {# Verknüpfungen}}",
+        "tags": "{count, plural, one {# neuer Tag} other {# neue Tags}}"
+      },
+      "filled": "Leere Felder werden ergänzt: {fields}.",
+      "conflictsTitle": "Unterschiedliche Angaben",
+      "conflictsHint": "Wähle je Feld den Wert, der bleiben soll. Der andere wird in die Notizen übernommen.",
+      "confirm": "Endgültig zusammenführen",
+      "merged": "{name} wurde zusammengeführt",
+      "notesHeader": "Zusammengeführt aus {name} am {date}:"
     }
   },
   "municipalities": {

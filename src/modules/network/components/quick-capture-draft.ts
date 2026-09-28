@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { leadKinds, type LeadKind } from "../constants";
+import type { SimilarContact } from "../network-utils";
 import type { MunicipalityValue } from "./municipality-picker";
 
 export type CaptureForm = {
@@ -20,6 +21,20 @@ export type CaptureForm = {
 export const emptyCaptureForm: CaptureForm = {
   name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, notYetSpoken: false, municipality: null,
 };
+
+/** Quick-capture target value for "create a new person". */
+export const NEW_CONTACT = "new";
+
+/**
+ * Which quick-capture target is selected: the user's explicit choice while it
+ * is still offered, otherwise the first exact name match, otherwise a new
+ * person. Similar names are offered but never preselected, so a note is not
+ * attached to the wrong person silently.
+ */
+export function selectCaptureTarget(matches: readonly SimilarContact<{ id: string }>[], chosen: string) {
+  if (chosen === NEW_CONTACT || matches.some((match) => match.contact.id === chosen)) return chosen;
+  return matches.find((match) => match.exact)?.contact.id ?? NEW_CONTACT;
+}
 
 /** Whether anything worth keeping was entered; the kind and the two checkboxes alone are not. */
 export function hasCaptureContent(form: CaptureForm) {

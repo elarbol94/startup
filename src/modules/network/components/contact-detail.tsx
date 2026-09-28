@@ -5,14 +5,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarCheck, Lock, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Lock, Merge, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
+import type { MergeContactSummary } from "../merge-fields";
 import type { Suggestion } from "../network-utils";
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
 import { reconnectDueOn } from "../reconnect-utils";
 import { ContactEditDialog } from "./contact-edit-dialog";
+import { ContactMergeDialog } from "./contact-merge-dialog";
 import { ContactLinks } from "./contact-links";
 import { ContactTagsEditor } from "./contact-tags-editor";
 import { InteractionLog } from "./interaction-log";
@@ -28,6 +30,7 @@ export function ContactDetail({
   tagSuggestions,
   metContextSuggestions,
   organizationNames,
+  mergeCandidates,
   today,
 }: {
   contact: NetworkContactDetail;
@@ -35,6 +38,8 @@ export function ContactDetail({
   tagSuggestions: Suggestion[];
   metContextSuggestions: Suggestion[];
   organizationNames: string[];
+  /** Contacts this one can be merged with (only for those who manage it). */
+  mergeCandidates: MergeContactSummary[];
   today: string;
 }) {
   const t = useTranslations("network");
@@ -44,6 +49,7 @@ export function ContactDetail({
   const [editing, setEditing] = useState(false);
   const [leadDialog, setLeadDialog] = useState<LeadDialogState>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [merging, setMerging] = useState(false);
   const formatDate = (value: string) => format.dateTime(dateOnly(value), { dateStyle: "medium", timeZone: "UTC" });
   const shared = contact.visibility === "team";
   const reconnectDue = reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays);
@@ -191,7 +197,11 @@ export function ContactDetail({
       )}
 
       {contact.canManage && (
-        <div className="flex justify-end border-t pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+          <Button variant="outline" size="sm" disabled={pending} onClick={() => setMerging(true)} data-testid="network-merge-open">
+            <Merge className="size-4" />
+            {t("merge.open")}
+          </Button>
           <Button variant="destructive" size="sm" disabled={pending} onClick={remove} onBlur={() => setConfirmDelete(false)}>
             <Trash2 className="size-4" />
             {confirmDelete ? t("contact.confirmDelete") : t("contact.delete")}
@@ -200,6 +210,9 @@ export function ContactDetail({
       )}
 
       <ContactEditDialog contact={contact} organizationNames={organizationNames} metContextSuggestions={metContextSuggestions} open={editing} onClose={() => setEditing(false)} />
+      {contact.canManage && (
+        <ContactMergeDialog contact={contact} candidates={mergeCandidates} open={merging} onClose={() => setMerging(false)} />
+      )}
       <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );
