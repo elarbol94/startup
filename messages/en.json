@@ -633,6 +633,26 @@
       "confirm": "Merge for good",
       "merged": "{name} was merged",
       "notesHeader": "Merged from {name} on {date}:"
+    },
+    "organizationMerge": {
+      "open": "Merge…",
+      "title": "Merge organisations",
+      "description": "If {name} was entered twice: every contact and intro – including other people's private contacts – moves to the organisation that stays, and the other one is deleted. This cannot be undone.",
+      "other": "Duplicate organisation",
+      "choose": "Choose an organisation",
+      "similar": "Similar names",
+      "all": "All organisations",
+      "noCandidates": "There is no other organisation you can see.",
+      "counts": {
+        "contacts": "{count, plural, one {# contact} other {# contacts}}",
+        "leads": "{count, plural, one {# intro} other {# intros}}"
+      },
+      "countsHint": "Every reference is counted, including other people's private contacts; their names are not shown.",
+      "nothingToMove": "No contacts or intros name this organisation.",
+      "conflictsHint": "Pick the value to keep for each field. A website or municipality that is not kept is added to the notes.",
+      "clashHint": "“{name}” already exists. As an admin you can merge the two organisations.",
+      "clashMerge": "Merge with {name}",
+      "merged": "{name} was merged"
     }
   },
   "municipalities": {

@@ -633,6 +633,26 @@
       "confirm": "Endgültig zusammenführen",
       "merged": "{name} wurde zusammengeführt",
       "notesHeader": "Zusammengeführt aus {name} am {date}:"
+    },
+    "organizationMerge": {
+      "open": "Zusammenführen…",
+      "title": "Organisationen zusammenführen",
+      "description": "Wenn {name} doppelt erfasst wurde: Alle Kontakte und Intros – auch private Kontakte anderer – wandern zur Organisation, die bleibt, die andere wird gelöscht. Das lässt sich nicht rückgängig machen.",
+      "other": "Doppelte Organisation",
+      "choose": "Organisation auswählen",
+      "similar": "Ähnliche Namen",
+      "all": "Alle Organisationen",
+      "noCandidates": "Es gibt keine andere Organisation, die du sehen kannst.",
+      "counts": {
+        "contacts": "{count, plural, one {# Kontakt} other {# Kontakte}}",
+        "leads": "{count, plural, one {# Intro} other {# Intros}}"
+      },
+      "countsHint": "Gezählt werden alle Verweise, auch private Kontakte anderer; deren Namen werden nicht angezeigt.",
+      "nothingToMove": "Keine Kontakte oder Intros nennen diese Organisation.",
+      "conflictsHint": "Wähle je Feld den Wert, der bleiben soll. Eine Website oder Gemeinde, die nicht bleibt, wird in die Notizen übernommen.",
+      "clashHint": "„{name}“ gibt es bereits. Als Admin kannst du die beiden Organisationen zusammenführen.",
+      "clashMerge": "Mit {name} zusammenführen",
+      "merged": "{name} wurde zusammengeführt"
     }
   },
   "municipalities": {

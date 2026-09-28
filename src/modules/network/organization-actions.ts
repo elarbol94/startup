@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
 import { fail, revalidateNetwork, type NetworkActionResult } from "./action-helpers";
 import { normalizeText } from "./network-utils";
+import type { OrganizationClash } from "./organization-merge-fields";
 import { canViewOrganization } from "./organization-queries";
 import { networkContacts, networkLeads, networkOrganizations } from "./schema";
 import { idSchema, municipalityCodeSchema } from "./validation";
@@ -20,8 +21,16 @@ const organizationSchema = z.object({
   municipalityCode: municipalityCodeSchema,
 });
 
-/** Organisations are shared: anyone who can see one may correct its name, website and notes. */
-export async function updateNetworkOrganization(input: z.input<typeof organizationSchema>): Promise<NetworkActionResult> {
+/** A rename onto a taken name; admins also learn which organisation has it, so they can merge the two. */
+export type OrganizationUpdateResult = NetworkActionResult | { ok: false; error: "duplicate"; clash: OrganizationClash };
+
+/**
+ * Organisations are shared: anyone who can see one may correct its name,
+ * website and notes. When the new name is taken, only admins (who may merge)
+ * learn which organisation has it; everyone else gets the bare "duplicate",
+ * so an organisation they cannot see does not leak.
+ */
+export async function updateNetworkOrganization(input: z.input<typeof organizationSchema>): Promise<OrganizationUpdateResult> {
   const viewer = await requireUserOrThrow();
   const parsed = organizationSchema.safeParse(input);
   if (!parsed.success) return fail("invalid");
@@ -32,11 +41,11 @@ export async function updateNetworkOrganization(input: z.input<typeof organizati
   if (!organization || !canViewOrganization(viewer, organization)) return fail("notFound");
   const normalizedName = normalizeText(name);
   const clash = db
-    .select({ id: networkOrganizations.id })
+    .select({ id: networkOrganizations.id, name: networkOrganizations.name })
     .from(networkOrganizations)
     .where(and(eq(networkOrganizations.normalizedName, normalizedName), ne(networkOrganizations.id, id)))
     .get();
-  if (clash) return fail("duplicate");
+  if (clash) return viewer.role === "admin" ? { ok: false, error: "duplicate", clash } : fail("duplicate");
 
   db.transaction((tx) => {
     tx.update(networkOrganizations).set({ name, normalizedName, website, notes, ...municipality, updatedAt: new Date() }).where(eq(networkOrganizations.id, id)).run();
