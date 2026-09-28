@@ -546,6 +546,29 @@
       "edit": "Eintrag bearbeiten",
       "save": "Änderungen speichern",
       "cancel": "Abbrechen"
+    },
+    "filters": {
+      "label": "Filter",
+      "scope": "Kontakte",
+      "scopes": {
+        "all": "Alle Kontakte",
+        "mine": "Meine Kontakte",
+        "team": "Team-Kontakte"
+      },
+      "relationship": "Beziehung",
+      "anyRelationship": "Alle Beziehungen",
+      "closeness": "Nähe",
+      "anyCloseness": "Jede Nähe",
+      "organization": "Organisation",
+      "anyOrganization": "Alle Organisationen",
+      "municipality": "Gemeinde",
+      "anyMunicipality": "Alle Gemeinden",
+      "sort": "Sortierung",
+      "sorts": {
+        "name": "Name (A–Z)",
+        "lastContact": "Letzter Kontakt",
+        "recent": "Zuletzt hinzugefügt"
+      }
     }
   },
   "municipalities": {

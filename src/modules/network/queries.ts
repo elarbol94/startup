@@ -5,6 +5,7 @@ import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { canEditContact, canManageContact, visibleContactCondition, type NetworkViewer } from "./access";
 import type { LeadStatus } from "./constants";
+import { compareContacts, defaultContactListFilter, type ContactListFilter, type NetworkFacet } from "./contact-filters";
 import { listContactLinks, type NetworkContactLink } from "./link-queries";
 import { compareLeads, isLeadActive, matchesSearch, normalizeText, type Suggestion } from "./network-utils";
 import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
@@ -72,55 +73,93 @@ export type NetworkContactListItem = {
   activeLeads: { id: string; summary: string; kind: string }[];
 };
 
+function countFacet(map: Map<string, NetworkFacet>, id: string | null, name: string | null) {
+  if (!id) return;
+  const entry = map.get(id) ?? { id, name: name || id, count: 0 };
+  entry.count += 1;
+  map.set(id, entry);
+}
+
+const byFacetName = (a: { name: string }, b: { name: string }) =>
+  normalizeText(a.name).localeCompare(normalizeText(b.name), "de");
+
 /**
  * "My network": every visible contact, optionally narrowed by a search over
- * the person, their notes and their leads, and by a tag. The network is small
+ * the person, their notes and their leads, by tag, relationship, closeness,
+ * owner scope, organisation and municipality, and sorted. The network is small
  * (hundreds of rows), so filtering happens here, which also gives
  * accent-insensitive matching that SQLite's LIKE cannot.
+ *
+ * Facets (tags, organisations, municipalities) come from all visible contacts,
+ * so options never reveal anything private. A tag, organisation or
+ * municipality that is not among them is ignored; `filter` in the result is
+ * what was actually applied.
  */
-export function listNetworkContacts(viewer: NetworkViewer, filter: { query?: string; tagId?: string } = {}) {
+export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<ContactListFilter> = {}) {
   const contacts = visibleContacts(viewer);
   const ids = contacts.map((contact) => contact.id);
   const tags = tagsByContact(ids);
   const leads = leadsByContact(ids);
-  const allTags = new Map<string, NetworkTag & { count: number }>();
+  const allTags = new Map<string, NetworkFacet>();
   for (const contactTags of tags.values()) {
-    for (const tag of contactTags) {
-      const entry = allTags.get(tag.id) ?? { ...tag, count: 0 };
-      entry.count += 1;
-      allTags.set(tag.id, entry);
-    }
+    for (const tag of contactTags) countFacet(allTags, tag.id, tag.name);
+  }
+  const organizations = new Map<string, NetworkFacet>();
+  const municipalities = new Map<string, NetworkFacet>();
+  for (const contact of contacts) {
+    countFacet(organizations, contact.organizationId, contact.organization);
+    countFacet(municipalities, contact.municipalityCode, contact.municipalityName);
   }
 
-  const items: NetworkContactListItem[] = [];
+  const requested = { ...defaultContactListFilter, ...filterInput };
+  const filter: ContactListFilter = {
+    ...requested,
+    tagId: allTags.has(requested.tagId) ? requested.tagId : "",
+    organizationId: organizations.has(requested.organizationId) ? requested.organizationId : "",
+    municipalityCode: municipalities.has(requested.municipalityCode) ? requested.municipalityCode : "",
+  };
+
+  const matching: typeof contacts = [];
   for (const contact of contacts) {
     const contactTags = tags.get(contact.id) ?? [];
     const contactLeads = leads.get(contact.id) ?? [];
+    // Scope narrows the visible contacts; it never widens them.
+    if (filter.scope === "mine" && contact.ownerId !== viewer.id) continue;
+    if (filter.scope === "team" && contact.visibility !== "team") continue;
+    if (filter.relationship && contact.relationship !== filter.relationship) continue;
+    if (filter.closeness && contact.closeness !== filter.closeness) continue;
+    if (filter.organizationId && contact.organizationId !== filter.organizationId) continue;
+    if (filter.municipalityCode && contact.municipalityCode !== filter.municipalityCode) continue;
     if (filter.tagId && !contactTags.some((tag) => tag.id === filter.tagId)) continue;
     if (filter.query && !matchesSearch(filter.query, [
       contact.name, contact.organization, contact.role, contact.metContext, contact.notes, contact.municipalityName,
       ...contactTags.map((tag) => tag.name),
       ...contactLeads.flatMap((lead) => [lead.summary, lead.targetName, lead.targetOrganization, lead.nextStep]),
     ])) continue;
-    items.push({
-      id: contact.id,
-      name: contact.name,
-      organization: contact.organization,
-      role: contact.role,
-      visibility: contact.visibility,
-      isOwn: contact.ownerId === viewer.id,
-      lastContactOn: contact.lastContactOn,
-      municipalityName: contact.municipalityName,
-      tags: contactTags,
-      activeLeads: contactLeads
-        .filter((lead) => isLeadActive(lead.status))
-        .map((lead) => ({ id: lead.id, summary: lead.summary, kind: lead.kind })),
-    });
+    matching.push(contact);
   }
+
+  const items: NetworkContactListItem[] = matching.sort(compareContacts(filter.sort)).map((contact) => ({
+    id: contact.id,
+    name: contact.name,
+    organization: contact.organization,
+    role: contact.role,
+    visibility: contact.visibility,
+    isOwn: contact.ownerId === viewer.id,
+    lastContactOn: contact.lastContactOn,
+    municipalityName: contact.municipalityName,
+    tags: tags.get(contact.id) ?? [],
+    activeLeads: (leads.get(contact.id) ?? [])
+      .filter((lead) => isLeadActive(lead.status))
+      .map((lead) => ({ id: lead.id, summary: lead.summary, kind: lead.kind })),
+  }));
   return {
     contacts: items,
     total: contacts.length,
-    tags: [...allTags.values()].sort((a, b) => normalizeText(a.name).localeCompare(normalizeText(b.name), "de")),
+    filter,
+    tags: [...allTags.values()].sort(byFacetName),
+    organizations: [...organizations.values()].sort(byFacetName),
+    municipalities: [...municipalities.values()].sort(byFacetName),
   };
 }
 
