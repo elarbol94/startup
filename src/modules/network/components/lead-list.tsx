@@ -10,23 +10,29 @@ import { setNetworkLeadStatus } from "../lead-actions";
 import { isLeadActive, isLeadOverdue } from "../network-utils";
 import type { NetworkLeadView } from "../queries";
 import { LeadTaskButton } from "./lead-task-button";
+import { LeadRowMenu } from "./lead-row-menu";
+import { RowSelectCheckbox } from "@/components/row-selection";
+import type { RowSelection } from "@/lib/use-row-selection";
 import { dateOnly } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
 /**
  * Leads as a checklist: ticking one marks it done, "asked" records that we
- * reached out and are waiting.
+ * reached out and are waiting. With `selection` (select mode) the checkbox
+ * selects the lead for bulk actions instead.
  */
 export function LeadList({
   leads,
   today,
   showContact,
   onEdit,
+  selection,
 }: {
   leads: NetworkLeadView[];
   today: string;
   showContact?: boolean;
   onEdit: (lead: NetworkLeadView) => void;
+  selection?: RowSelection;
 }) {
   const t = useTranslations("network");
   const format = useFormatter();
@@ -42,14 +48,18 @@ export function LeadList({
           ? `/network/${lead.targetContact.id}`
           : lead.targetOrganizationId ? `/network/organizations/${lead.targetOrganizationId}` : null;
         return (
-          <li key={lead.id} className="flex items-start gap-3 px-4 py-3">
-            <Checkbox
-              className="mt-1"
-              checked={lead.status === "done"}
-              disabled={pending || lead.status === "dropped"}
-              aria-label={t("lead.markDone", { summary: lead.summary })}
-              onCheckedChange={(checked) => run(() => setNetworkLeadStatus({ id: lead.id, status: checked ? "done" : "open" }))}
-            />
+          <li key={lead.id} data-selected={selection?.isSelected(lead.id) || undefined} className="flex items-start gap-3 px-4 py-3 data-selected:bg-accent/60">
+            {selection ? (
+              <RowSelectCheckbox className="mt-1" id={lead.id} label={lead.summary} selection={selection} />
+            ) : (
+              <Checkbox
+                className="mt-1"
+                checked={lead.status === "done"}
+                disabled={pending || lead.status === "dropped"}
+                aria-label={t("lead.markDone", { summary: lead.summary })}
+                onCheckedChange={(checked) => run(() => setNetworkLeadStatus({ id: lead.id, status: checked ? "done" : "open" }))}
+              />
+            )}
             <div className="min-w-0 flex-1 space-y-1">
               <div className={cn("text-sm", !active && "text-muted-foreground line-through")}>
                 {showContact && (
@@ -79,7 +89,7 @@ export function LeadList({
               )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-              {lead.status === "open" && (
+              {lead.status === "open" && !selection && (
                 <Button size="xs" variant="outline" disabled={pending} onClick={() => run(() => setNetworkLeadStatus({ id: lead.id, status: "asked" }))}>
                   {t("lead.markAsked")}
                 </Button>
@@ -88,6 +98,7 @@ export function LeadList({
               <Button size="icon-sm" variant="ghost" aria-label={t("lead.edit")} onClick={() => onEdit(lead)}>
                 <Pencil />
               </Button>
+              <LeadRowMenu lead={lead} onEdit={() => onEdit(lead)} />
             </div>
           </li>
         );

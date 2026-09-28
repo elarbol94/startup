@@ -1,20 +1,14 @@
 "use server";
-import fs from "node:fs";
-import path from "node:path";
 
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
 import {
-  contextLinks,
-  evidenceLinks,
   wikiFavorites,
   wikiNotifications,
   wikiPages,
   wikiCitationStyles,
-  wikiPdfAnnotations,
-  wikiPdfDocuments,
   wikiPageSources,
   wikiPageTags,
   wikiSourceContributors,
@@ -24,10 +18,9 @@ import {
   wikiTags,
 } from "@/db/schema";
 import { requireAdmin, requireUserOrThrow } from "@/lib/auth";
-import { deleteAttachmentsFor, UPLOADS_PATH } from "@/lib/files";
-import { pdfSourcePurgeBlocker } from "./lib/pdf-evidence";
 import { sourceInputSchema } from "./lib/source-input";
-import { ensureTags, syncSourceFts, saveSourceRecord } from "./source-records";
+import { ensureTags, saveSourceRecord, syncSourceFts } from "./source-records";
+import { purgePageTree, purgeSource, restorePageTree, restoreSource, softDeleteSource } from "./page-trash";
 import { buildFtsQuery } from "./lib/tiptap";
 import { fuseRankings } from "./lib/search-ranking";
 import { searchSimilar } from "./lib/vector-store.server";
@@ -84,102 +77,29 @@ export async function linkSupportingSource(pageId: string, sourceId: string) {
 
 export async function deleteSource(id: string) {
   const currentUser = await requireUserOrThrow();
-  const documentIds = db
-    .select({ id: wikiPdfDocuments.id })
-    .from(wikiPdfDocuments)
-    .where(eq(wikiPdfDocuments.sourceId, id))
-    .all()
-    .map((document) => document.id);
-  db.transaction((tx) => {
-    tx.delete(contextLinks)
-      .where(
-        and(
-          eq(contextLinks.targetType, "wikiSource"),
-          eq(contextLinks.targetId, id),
-        ),
-      )
-      .run();
-    if (documentIds.length) {
-      tx.delete(contextLinks)
-        .where(
-          and(
-            eq(contextLinks.targetType, "pdf"),
-            inArray(contextLinks.targetId, documentIds),
-          ),
-        )
-        .run();
-    }
-    tx.update(wikiSources).set({ deletedAt: new Date(), updatedAt: new Date(), updatedBy: currentUser.id }).where(eq(wikiSources.id, id)).run();
-  });
-  sqlite.prepare("DELETE FROM wiki_sources_fts WHERE source_id = ?").run(id);
+  db.transaction(() => softDeleteSource(id, currentUser.id));
   revalidateWiki();
 }
 
 export async function restoreFromTrash(entityType: "page" | "source", id: string) {
   const currentUser = await requireUserOrThrow();
-  if (entityType === "page") {
-    const page = db.select().from(wikiPages).where(eq(wikiPages.id, id)).get();
-    if (!page) throw new Error("Page not found");
-    const all = db.select().from(wikiPages).all();
-    const restoreIds = new Set<string>([id]);
-    let changed = true;
-    while (changed) { changed = false; for (const candidate of all) if (candidate.parentId && restoreIds.has(candidate.parentId) && !restoreIds.has(candidate.id)) { restoreIds.add(candidate.id); changed = true; } }
-    const originalParentExists = page.parentId ? all.some((candidate) => candidate.id === page.parentId && !candidate.deletedAt) : true;
-    db.transaction(() => {
-      for (const candidate of all.filter((item) => restoreIds.has(item.id))) {
-        db.update(wikiPages).set({ deletedAt: null, ...(candidate.id === id && !originalParentExists ? { parentId: null } : {}), updatedBy: currentUser.id }).where(eq(wikiPages.id, candidate.id)).run();
-        sqlite.prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?").run(candidate.id);
-        sqlite.prepare("INSERT INTO wiki_pages_fts (page_id, title, content_text) VALUES (?, ?, ?)").run(candidate.id, candidate.title, candidate.contentText);
-      }
-    });
-  } else {
-    const source = db.select().from(wikiSources).where(eq(wikiSources.id, id)).get();
-    if (!source) throw new Error("Source not found");
-    db.update(wikiSources).set({ deletedAt: null, updatedBy: currentUser.id }).where(eq(wikiSources.id, id)).run();
-    const contributors = db.select().from(wikiSourceContributors).where(eq(wikiSourceContributors.sourceId, id)).all();
-    const tagNames = db.select({ name: wikiTags.name }).from(wikiSourceTags).innerJoin(wikiTags, eq(wikiSourceTags.tagId, wikiTags.id)).where(eq(wikiSourceTags.sourceId, id)).all().map((tag) => tag.name);
-    syncSourceFts(id, { ...source, contributors, tagNames });
-  }
+  const result = entityType === "page" ? restorePageTree(id, currentUser.id).result : restoreSource(id, currentUser.id);
+  if (result === "notFound") throw new Error(entityType === "page" ? "Page not found" : "Source not found");
+  if (result === "notTrashed") throw new Error("Not in the trash");
   revalidateWiki();
 }
 
+const purgeErrors = {
+  notFound: "Not found",
+  notTrashed: "Only trashed items can be purged",
+  blocked: "Still referenced by active pages or PDF evidence",
+  busy: "The document is open in the editor",
+} as const;
+
 export async function purgeFromTrash(entityType: "page" | "source", id: string) {
   await requireAdmin();
-  if (entityType === "source") {
-    const references = db.select({ pageId: wikiPageSources.pageId }).from(wikiPageSources).innerJoin(wikiPages, eq(wikiPageSources.pageId, wikiPages.id))
-      .where(and(eq(wikiPageSources.sourceId, id), isNull(wikiPages.deletedAt))).all();
-    const evidenceReferences = db.select({ id: evidenceLinks.id }).from(evidenceLinks)
-      .innerJoin(wikiPdfAnnotations, eq(evidenceLinks.annotationId, wikiPdfAnnotations.id))
-      .where(eq(wikiPdfAnnotations.sourceId, id)).all();
-    const purgeBlocker = pdfSourcePurgeBlocker({ activePageReferences: references.length, evidenceReferences: evidenceReferences.length });
-    if (purgeBlocker === "active-pages") throw new Error("Source is still referenced by active pages");
-    if (purgeBlocker === "evidence") throw new Error("Source PDF evidence is still referenced");
-    const documents = db.select({ id: wikiPdfDocuments.id }).from(wikiPdfDocuments)
-      .where(eq(wikiPdfDocuments.sourceId, id)).all();
-    for (const document of documents) {
-      sqlite.prepare("DELETE FROM wiki_pdf_pages_fts WHERE document_id = ?").run(document.id);
-      fs.rmSync(path.join(UPLOADS_PATH, "derived", document.id), { recursive: true, force: true });
-    }
-    deleteAttachmentsFor("wikiSource", id);
-    db.delete(wikiSources).where(eq(wikiSources.id, id)).run();
-  } else {
-    const all = db.select({ id: wikiPages.id, parentId: wikiPages.parentId, deletedAt: wikiPages.deletedAt }).from(wikiPages).all();
-    if (!all.find((item) => item.id === id)?.deletedAt) throw new Error("Only trashed pages can be purged");
-    const purgeIds = new Set<string>([id]);
-    let changed = true;
-    while (changed) { changed = false; for (const candidate of all) if (candidate.parentId && purgeIds.has(candidate.parentId) && !purgeIds.has(candidate.id)) { purgeIds.add(candidate.id); changed = true; } }
-    // A live page can sit below a trashed one (e.g. created from a stale tab); never destroy it.
-    if (all.some((item) => purgeIds.has(item.id) && !item.deletedAt)) throw new Error("Page still has active subpages");
-    const byId = new Map(all.map((item) => [item.id, item]));
-    const depth = (item: { id: string; parentId: string | null }) => { let value = 0; let current = item; while (current.parentId && byId.has(current.parentId)) { value += 1; current = byId.get(current.parentId)!; } return value; };
-    const ordered = all.filter((item) => purgeIds.has(item.id)).sort((a, b) => depth(b) - depth(a));
-    db.transaction(() => { for (const item of ordered) {
-      deleteAttachmentsFor("wikiPage", item.id);
-      db.delete(wikiPages).where(eq(wikiPages.id, item.id)).run();
-      // Office versions cascade with the page; their DOCX files go after them.
-      deleteAttachmentsFor("wikiOfficeDocument", item.id);
-    } });
-  }
+  const result = entityType === "page" ? (await purgePageTree(id)).result : purgeSource(id);
+  if (result !== "ok") throw new Error(purgeErrors[result]);
   revalidateWiki();
 }
 

@@ -144,6 +144,16 @@ export function editInteraction(
   bumpLastContact(tx, existing.contactId, input.occurredOn);
 }
 
+export function contactTagNames(tx: Transaction, contactId: string) {
+  return tx
+    .select({ name: networkTags.name })
+    .from(networkContactTags)
+    .innerJoin(networkTags, eq(networkTags.id, networkContactTags.tagId))
+    .where(eq(networkContactTags.contactId, contactId))
+    .all()
+    .map((row) => row.name);
+}
+
 export function removeUnusedTags(tx: Transaction) {
   const used = tx.selectDistinct({ id: networkContactTags.tagId }).from(networkContactTags);
   tx.delete(networkTags).where(notInArray(networkTags.id, used)).run();

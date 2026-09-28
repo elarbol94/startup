@@ -1,26 +1,61 @@
 "use client";
-import { UserIdentity } from "@/components/user-identity";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
-import { FileDown, MoreHorizontal, Play, Plus, Presentation, Search, Upload } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Plus, Presentation, Search, Trash2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
+import { SelectionBar } from "@/components/selection-bar";
+import { useBulkAction } from "@/lib/use-bulk-action";
+import { useRowSelection } from "@/lib/use-row-selection";
 import type { PresentationListItem } from "../presentation-queries";
-import { PresentationScene } from "./presentation-scene";
 import { PresentationImport } from "./presentation-import";
-import { DeletePresentationButton, NewPresentationForm } from "./presentation-list-actions";
+import { NewPresentationForm } from "./presentation-list-actions";
+import { PresentationCard } from "./presentation-library/presentation-card";
+import { renamePresentation } from "../presentation-actions";
+import { deletePresentations } from "../presentation-bulk-actions";
 
 export function PresentationLibrary({ presentations }: { presentations: PresentationListItem[] }) {
   const t = useTranslations("wiki");
+  const tCommon = useTranslations("common");
   const studio = useTranslations("presentationStudio");
-  const format = useFormatter();
   const [creation, setCreation] = useState<"blank" | "import" | null>(null);
   const [query, setQuery] = useState("");
   const visible = presentations.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const selectableIds = useMemo(() => visible.filter((item) => item.role === "owner").map((item) => item.id), [visible]);
+  const selection = useRowSelection(selectableIds);
+  const { run, pending } = useBulkAction(selection.deselect);
+  const [confirmDialog, confirm] = useConfirm();
+  const [promptDialog, prompt] = useTextPrompt();
+  const router = useRouter();
+
+  async function rename(item: PresentationListItem) {
+    const title = await prompt({ title: t("presentations.renameTitle"), label: t("presentations.presentationTitle"), defaultValue: item.title, required: true, maxLength: 200, confirmLabel: tCommon("rename") });
+    if (!title || title === item.title) return;
+    try {
+      await renamePresentation({ id: item.id, title });
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error && error.message === "Presentation is locked" ? t("presentations.renameLocked") : tCommon("error"));
+    }
+  }
+  async function remove(ids: string[]) {
+    const title = ids.length === 1 ? presentations.find((item) => item.id === ids[0])?.title : undefined;
+    const ok = await confirm({
+      title: tCommon("confirmDeleteTitle"),
+      description: title ? t("presentations.deleteConfirm", { title }) : t("presentations.bulkDeleteConfirm", { count: ids.length }),
+      confirmLabel: t("presentations.deletePermanently"),
+      destructive: true,
+    });
+    if (ok) await run(() => deletePresentations({ ids }), { done: (outcome) => t("presentations.deleted", { count: outcome.succeededIds.length }) });
+  }
 
   return <div className="mx-auto max-w-7xl p-5 md:p-8">
     <PageHeader title={t("presentations.title")} description={t("presentations.description")} actions={<>
@@ -35,22 +70,11 @@ export function PresentationLibrary({ presentations }: { presentations: Presenta
     {presentations.length > 0 && <div className="relative mb-6 max-w-sm"><Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" /><Input className="pl-9" value={query} onChange={(event) => setQuery(event.target.value)} aria-label={t("workspace.searchPresentations")} placeholder={t("workspace.searchPresentations")} /></div>}
     {!presentations.length ? <div className="grid min-h-72 place-items-center rounded-2xl bg-muted/30 p-8 text-center"><div><Presentation className="mx-auto mb-4 size-9 text-muted-foreground/60" /><h2 className="font-medium">{t("presentations.empty")}</h2><p className="mt-2 text-sm text-muted-foreground">{t("presentations.emptyDescription")}</p></div></div>
       : !visible.length ? <p className="py-12 text-sm text-muted-foreground">{t("noSearchResults")}</p>
-      : <ul className="grid gap-6 sm:grid-cols-2 2xl:grid-cols-3">{visible.map((item) => <li key={item.id} className="group min-w-0 overflow-hidden rounded-xl border border-border/60 bg-card transition-shadow hover:shadow-md">
-        <Link href={`/wiki/presentations/${item.id}`} aria-label={item.title} className="block focus-visible:outline-2 focus-visible:outline-offset-[-2px]">
-          <div className="aspect-video overflow-hidden border-b border-border/50 bg-muted/30 p-3" aria-hidden="true" inert style={{ contentVisibility: "auto", containIntrinsicSize: "400px 225px" }}>
-            {item.elementCount ? <div className="pointer-events-none h-full w-full overflow-hidden rounded-sm bg-white shadow-sm"><PresentationScene presentation={item.preview} index={0} interactive={false} /></div> : <div className="grid h-full place-items-center"><Presentation className="size-10 text-muted-foreground/30" /></div>}
-          </div>
-          <h2 className="line-clamp-2 px-4 pt-4 text-base font-medium tracking-tight">{item.title}</h2>
-        </Link>
-        <div className="flex items-center gap-2 px-4 pt-2 pb-4">
-          <p className="min-w-0 flex-1 truncate text-xs text-muted-foreground" title={item.updatedByName ?? undefined}>{format.dateTime(item.updatedAt, { dateStyle: "medium", timeZone: "Europe/Vienna" })}{item.updatedByName && <> · <UserIdentity userId={item.updatedBy} name={item.updatedByName} compact /></>}</p>
-          {item.stepCount > 0 && <Link href={`/wiki/presentations/${item.id}/present`} className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium hover:bg-accent"><Play className="size-3.5" />{t("presentations.present")}</Link>}
-          <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.itemActions", { title: item.title })} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
-            <DropdownMenuItem render={<Link href={`/wiki/presentations/${item.id}`} />}>{t("edit")}</DropdownMenuItem>
-            {item.stepCount > 0 && <DropdownMenuItem render={<a href={`/print/presentations/${item.id}`} target="_blank" rel="noopener noreferrer" />}><FileDown />{t("presentations.exportPdf")}</DropdownMenuItem>}
-            {item.role === "owner" && <><DropdownMenuSeparator /><DeletePresentationButton menuItem id={item.id} title={item.title} /></>}
-          </DropdownMenuContent></DropdownMenu>
-        </div>
-      </li>)}</ul>}
+      : <ul className="grid gap-6 sm:grid-cols-2 2xl:grid-cols-3">{visible.map((item) => <PresentationCard key={item.id} item={item} selection={selection} onRename={() => void rename(item)} onDelete={() => void remove([item.id])} />)}</ul>}
+    <SelectionBar count={selection.count} onClear={selection.clear}>
+      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" disabled={pending} onClick={() => void remove(selection.selectedIds)}><Trash2 className="size-4" />{t("presentations.deletePermanently")}</Button>
+    </SelectionBar>
+    {confirmDialog}
+    {promptDialog}
   </div>;
 }

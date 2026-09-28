@@ -174,22 +174,30 @@ export type ProjectImpact = {
 
 /** Counts what deleting (or archiving) a project affects. */
 export function projectImpact(projectId: string): ProjectImpact {
+  return projectsImpact([projectId]);
+}
+
+/**
+ * Counts what deleting several projects affects. Each dependency row is counted
+ * once, even when it links two of the selected projects.
+ */
+export function projectsImpact(projectIds: string[]): ProjectImpact {
   const count = (value: { value: number } | undefined) => Number(value?.value ?? 0);
-  const projectTaskIds = db.select({ id: tasks.id }).from(tasks).where(eq(tasks.projectId, projectId));
-  const taskCount = count(db.select({ value: sql<number>`count(*)` }).from(tasks).where(eq(tasks.projectId, projectId)).get());
+  const projectTaskIds = db.select({ id: tasks.id }).from(tasks).where(inArray(tasks.projectId, projectIds));
+  const taskCount = count(db.select({ value: sql<number>`count(*)` }).from(tasks).where(inArray(tasks.projectId, projectIds)).get());
   const openTasks = count(
     db.select({ value: sql<number>`count(*)` })
       .from(tasks)
-      .where(and(eq(tasks.projectId, projectId), isNull(tasks.parentTaskId), ne(tasks.status, "done")))
+      .where(and(inArray(tasks.projectId, projectIds), isNull(tasks.parentTaskId), ne(tasks.status, "done")))
       .get(),
   );
-  const columns = count(db.select({ value: sql<number>`count(*)` }).from(projectColumns).where(eq(projectColumns.projectId, projectId)).get());
+  const columns = count(db.select({ value: sql<number>`count(*)` }).from(projectColumns).where(inArray(projectColumns.projectId, projectIds)).get());
   const projectLinks = count(
     db.select({ value: sql<number>`count(*)` })
       .from(projectDependencies)
       .where(or(
-        eq(projectDependencies.successorProjectId, projectId),
-        and(eq(projectDependencies.predecessorType, "project"), eq(projectDependencies.predecessorId, projectId)),
+        inArray(projectDependencies.successorProjectId, projectIds),
+        and(eq(projectDependencies.predecessorType, "project"), inArray(projectDependencies.predecessorId, projectIds)),
         and(eq(projectDependencies.predecessorType, "task"), inArray(projectDependencies.predecessorId, projectTaskIds)),
       ))
       .get(),
@@ -198,7 +206,7 @@ export function projectImpact(projectId: string): ProjectImpact {
     db.select({ value: sql<number>`count(*)` })
       .from(projectTaskDependencies)
       .where(or(
-        eq(projectTaskDependencies.predecessorProjectId, projectId),
+        inArray(projectTaskDependencies.predecessorProjectId, projectIds),
         inArray(projectTaskDependencies.successorTaskId, projectTaskIds),
       ))
       .get(),

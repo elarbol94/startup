@@ -26,6 +26,7 @@ import { changePresentationStudio } from "./presentation-studio";
 import { presentationIdForToken, presentationRole } from "./presentation-access";
 import { getPresentation, listPresentationOverview } from "./presentation-queries";
 import { publicPresentation, renderPresentationHtml } from "./presentation-delivery";
+import { deletePresentations } from "./presentation-bulk-actions";
 
 const sessionId = "editor-session-one";
 const record = (id: string) => sqlite.prepare("SELECT * FROM wiki_presentations WHERE id = ?").get(id) as {
@@ -239,4 +240,18 @@ it("keeps restricted presentation metadata out of the overview until access is g
   expect(row.title).toBe("Restricted overview entry");
   expect(row).not.toHaveProperty("elementsJson");
   expect(row).not.toHaveProperty("pathJson");
+});
+
+describe("bulk presentation delete", () => {
+  it("deletes owned presentations and skips others", async () => {
+    const mine = (await createPresentation({ title: "Mine" })).id;
+    vi.mocked(requireUserOrThrow).mockResolvedValue({ id: "other", name: "Other" } as Awaited<ReturnType<typeof requireUserOrThrow>>);
+    const theirs = (await createPresentation({ title: "Theirs" })).id;
+    vi.mocked(requireUserOrThrow).mockResolvedValue({ id: "author", name: "Author" } as Awaited<ReturnType<typeof requireUserOrThrow>>);
+    const outcome = await deletePresentations({ ids: [mine, theirs, "missing"] });
+    expect(outcome.succeededIds).toEqual([mine]);
+    expect(outcome.skipped).toEqual([{ id: theirs, reason: "forbidden" }, { id: "missing", reason: "notFound" }]);
+    expect(record(mine)).toBeUndefined();
+    expect(record(theirs)).toBeDefined();
+  });
 });

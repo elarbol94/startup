@@ -8,6 +8,7 @@ import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import {
   clearNotYetSpoken,
   contactFor,
+  contactTagNames,
   fail,
   recordInteraction,
   removeUnusedTags,
@@ -17,7 +18,7 @@ import {
 } from "./action-helpers";
 import { municipalityColumns } from "./municipalities.server";
 import { removeUnusedOrganizations, resolveOrganization } from "./organizations";
-import { networkContacts, networkContactTags, networkInteractions, networkLeads, networkTags } from "./schema";
+import { networkContacts, networkInteractions, networkLeads } from "./schema";
 import {
   contactSchema,
   contactTagsSchema,
@@ -78,16 +79,6 @@ export async function quickCaptureContact(input: QuickCaptureInput): Promise<Net
   });
   revalidateNetwork();
   return { ok: true, contactId };
-}
-
-function contactTagNames(tx: Parameters<Parameters<typeof db.transaction>[0]>[0], contactId: string) {
-  return tx
-    .select({ name: networkTags.name })
-    .from(networkContactTags)
-    .innerJoin(networkTags, eq(networkTags.id, networkContactTags.tagId))
-    .where(eq(networkContactTags.contactId, contactId))
-    .all()
-    .map((row) => row.name);
 }
 
 export async function updateNetworkContact(input: ContactInput): Promise<NetworkActionResult> {

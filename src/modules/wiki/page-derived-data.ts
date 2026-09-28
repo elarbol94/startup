@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { evidenceLinks, wikiLinks, wikiPageSources, wikiPages, wikiPdfAnnotations, wikiSources } from "@/db/schema";
 import { indexText } from "./lib/vector-store.server";
@@ -55,7 +55,10 @@ export function rebuildPageDerivedData(pageId: string, title: string, data: Page
     }
   }
 
-  syncPageFts(pageId, title, data.text);
+  // A late office save for a trashed page keeps its version but must not put the
+  // page back into search (trashing removed its FTS row).
+  const live = db.select({ id: wikiPages.id }).from(wikiPages).where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt))).get();
+  if (live) syncPageFts(pageId, title, data.text);
 }
 
 export function syncPageFts(pageId: string, title: string, contentText: string) {
@@ -75,4 +78,10 @@ export function schedulePageIndex(pageId: string, title: string, contentText: st
   }, 1000);
   timer.unref?.();
   indexing.set(pageId, timer);
+}
+
+/** Drops a queued embedding refresh, e.g. when the page is trashed or purged. */
+export function cancelPageIndex(pageId: string) {
+  clearTimeout(indexing.get(pageId));
+  indexing.delete(pageId);
 }

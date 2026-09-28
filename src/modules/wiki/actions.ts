@@ -4,9 +4,10 @@ import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
-import { contextLinks, wikiPages } from "@/db/schema";
+import { wikiPages } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
-import { indexText, removeFromIndex } from "./lib/vector-store.server";
+import { indexText } from "./lib/vector-store.server";
+import { softDeletePageTrees } from "./page-trash";
 
 import { slugify } from "./lib/tiptap";
 import { isPageSlugTaken } from "./queries";
@@ -116,7 +117,7 @@ export async function renamePage(id: string, title: string) {
   const user = await requireUserOrThrow();
   const cleanTitle = z.string().min(1).max(200).parse(title);
 
-  const page = db.select().from(wikiPages).where(eq(wikiPages.id, id)).get();
+  const page = db.select().from(wikiPages).where(and(eq(wikiPages.id, id), isNull(wikiPages.deletedAt))).get();
   if (!page) throw new Error("Page not found");
 
   // Keep the URL in step with the title, but remember the old slug so existing links
@@ -143,46 +144,6 @@ export async function renamePage(id: string, title: string) {
 /** Soft-deletes a page and all of its descendants. */
 export async function deletePage(id: string) {
   const user = await requireUserOrThrow();
-
-  const all = db
-    .select({ id: wikiPages.id, parentId: wikiPages.parentId })
-    .from(wikiPages)
-    .where(isNull(wikiPages.deletedAt))
-    .all();
-
-  const childrenOf = new Map<string | null, string[]>();
-  for (const page of all) {
-    const list = childrenOf.get(page.parentId) ?? [];
-    list.push(page.id);
-    childrenOf.set(page.parentId, list);
-  }
-
-  const toDelete: string[] = [];
-  const queue = [id];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    toDelete.push(current);
-    queue.push(...(childrenOf.get(current) ?? []));
-  }
-
-  db.transaction(() => {
-    db.delete(contextLinks)
-      .where(
-        and(
-          eq(contextLinks.targetType, "wikiPage"),
-          inArray(contextLinks.targetId, toDelete),
-        ),
-      )
-      .run();
-    db.update(wikiPages)
-      .set({ deletedAt: new Date(), updatedBy: user.id })
-      .where(inArray(wikiPages.id, toDelete))
-      .run();
-    for (const pageId of toDelete) {
-      sqlite.prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?").run(pageId);
-      removeFromIndex("page", pageId);
-    }
-  });
-
+  softDeletePageTrees([z.string().min(1).parse(id)], user.id);
   revalidatePath("/wiki", "layout");
 }

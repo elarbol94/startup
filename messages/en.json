@@ -257,6 +257,13 @@
     "selectionOnly": "Only comments on selection"
   },
   "common": {
+    "selection": {"toolbar":"Selection actions","count":"{count} selected","clear":"Clear","selectAll":"Select all","selectRow":"Select {name}","done":"{count, plural, one {# item updated} other {# items updated}}","partial":"{done} done, {skipped} skipped","allSkipped":"{count, plural, one {# item was} other {# items were}} skipped","failed":"The action failed","skipReasons":{"notFound":"not found","forbidden":"no permission","blocked":"still referenced","busy":"open in the editor","notTrashed":"not in the trash","tooManyTags":"too many tags","locked":"being edited"}},
+    "tags": {"editTitle":"{count, plural, one {Edit tags} other {Edit tags of # items}}","editDescription":"Checked tags are added to every selected item, unchecked ones removed. Tags on only some items stay unchanged until you click them.","addPlaceholder":"New tag","create":"Add","new":"new","mixed":"{count} of {total}","apply":"Apply","noTags":"No tags yet","label":"Tags"},
+    "confirmTrashTitle": "Move to trash?",
+    "moveToTrash": "Move to trash",
+    "status": "Status",
+    "rename": "Rename",
+    "more": "More actions for {name}",
     "close": "Close",
     "appName": "Management Platform",
     "save": "Save",
@@ -306,6 +313,7 @@
     "draft": "Draft"
   },
   "network": {
+    "bulk": {"selectHint":"Select contacts to tag, share or delete several at once","visibility":"Visibility","deleteTitle":"{count, plural, one {Delete # contact?} other {Delete # contacts?}}","deleteConfirm":"Their opportunities are deleted too; opportunities that introduced them keep the name. This cannot be undone.","notManageable":"{count, plural, one {# selected contact} other {# selected contacts}} can only be deleted by the owner and will be skipped.","deleted":"{count, plural, one {# contact deleted} other {# contacts deleted}}","select":"Select","doneSelecting":"Done","deleteLeadsTitle":"{count, plural, one {Delete # opportunity?} other {Delete # opportunities?}}","deleteLeadsConfirm":"This cannot be undone."},
     "title": "Network",
     "description": "Who we know, what they offered and whom they could introduce us to.",
     "subnavLabel": "Network views",
@@ -2043,6 +2051,7 @@
     }
   },
   "projects": {
+    "bulk": {"deleteTitle":"{count, plural, one {Delete # project?} other {Delete # projects?}}","deleteConfirm":"The projects are deleted with all their columns, tasks and links. You can undo this for a few seconds.","archived":"{count, plural, one {# project archived} other {# projects archived}}","restored":"{count, plural, one {# project restored} other {# projects restored}}"},
     "focusSearch": "Search projects and tasks",
     "keyboardShortcuts": "Keyboard shortcuts",
     "redo": "Redo",
@@ -2507,6 +2516,10 @@
     }
   },
   "wiki": {
+    "sourceBulk": {"trashConfirm":"{count, plural, one {# source} other {# sources}} will be moved to the trash.","trashed":"{count, plural, one {# source moved to the trash} other {# sources moved to the trash}}"},
+    "bulk": {"trashConfirm":"{count, plural, one {# document} other {# documents}} will be moved to the trash.","trashConfirmOne":"“{title}” will be moved to the trash.","trashDescendants":"{count, plural, one {Its # subpage goes with it.} other {Their # subpages go with them.}}","trashed":"{count, plural, one {# document moved to the trash} other {# documents moved to the trash}}","moved":"{count, plural, one {# document moved} other {# documents moved}}","selectedOf":"{count} of {total} selected","selectHint":"Select documents to edit or delete several at once","restore":"Restore","purge":"Delete permanently","purgeConfirm":"{count, plural, one {# item} other {# items}} will be deleted permanently, including subpages and attachments. This cannot be undone.","restored":"{count, plural, one {# item restored} other {# items restored}}","purged":"{count, plural, one {# item deleted permanently} other {# items deleted permanently}}","skippedList":"Skipped: {items}"},
+    "pageMenu": {"renameTitle":"Rename document","renameLabel":"Title","editTags":"Edit tags…","move":"Move…"},
+    "movePages": {"title":"{count, plural, one {Move document} other {Move # documents}}","description":"Choose the new parent. Subpages move along.","search":"Search documents…","targets":"Possible parents","topLevel":"Top level","current":"current","submit":"Move here","noTargets":"No matching documents"},
     "workspace": {
       "share": "Share",
       "tools": "Tools",
@@ -3201,8 +3214,6 @@
     "trashDescription": "Deleted pages and sources stay recoverable until an administrator purges them.",
     "trashEmpty": "Trash is empty.",
     "purge": "Purge",
-    "purgeConfirm": "Permanently delete this item? This cannot be undone.",
-    "purgeFailed": "This item could not be purged.",
     "tagView": "Tag view",
     "tagName": "Tag name",
     "mergeTag": "Merge tag",
@@ -3374,7 +3385,7 @@
     "sendToPage": "Send to page",
     "findPage": "Search pages…",
     "reorderPage": "Move “{title}”",
-    "reorderSameLevelOnly": "Pages can only be reordered within the same level.",
+    "reorderSameLevelOnly": "Dragging only reorders pages within the same level. Use “Move…” in the row menu to change the parent.",
     "reorderFailed": "The new order could not be saved.",
     "showAllResults": "Show all results",
     "searchResultsTitle": "Search results",
@@ -3457,6 +3468,12 @@
     "editors": "Editors",
     "editorsHelp": "One person per line, as above. Leave empty if there are none.",
     "presentations": {
+      "rename": "Rename",
+      "renameTitle": "Rename presentation",
+      "renameLocked": "Someone is editing this presentation right now. Try again later.",
+      "deletePermanently": "Delete permanently",
+      "bulkDeleteConfirm": "{count, plural, one {# presentation} other {# presentations}} will be deleted permanently. This cannot be undone.",
+      "deleted": "{count, plural, one {# presentation deleted} other {# presentations deleted}}",
       "leaveSaveFailed": "Your changes could not be saved. Please resolve the save issue before leaving.",
       "uploadImage": "Upload image",
       "documentTitle": "{title} – Presentation",

@@ -16,3 +16,15 @@ export function withPageOfficeLock<T>(pageId: string, fn: () => Promise<T> | T):
   void tail.then(() => { if (locks.get(pageId) === tail) locks.delete(pageId); });
   return run;
 }
+
+/**
+ * Holds the lock of every page in `pageIds` (e.g. a whole subtree) while `fn`
+ * runs. Locks are taken in sorted order so two callers never deadlock.
+ */
+export function withPageOfficeLocks<T>(pageIds: Iterable<string>, fn: () => Promise<T> | T): Promise<T> {
+  const ordered = [...new Set(pageIds)].sort();
+  const take = (index: number): Promise<T> => index >= ordered.length
+    ? Promise.resolve().then(fn)
+    : withPageOfficeLock(ordered[index], () => take(index + 1));
+  return take(0);
+}

@@ -1,30 +1,16 @@
 "use client";
 
-import { UserAttribution } from "@/components/user-identity";
-
-import { useState } from "react";
-import Link from "next/link";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { usePendingDeleteIds } from "@/lib/use-pending-delete";
-import { Archive, ArchiveRestore, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { useBulkAction } from "@/lib/use-bulk-action";
+import { useRowSelection } from "@/lib/use-row-selection";
+import { Plus } from "lucide-react";
 import { setProjectStatus } from "@/modules/projects/actions";
-import { Badge } from "@/components/ui/badge";
+import { setProjectsStatus } from "@/modules/projects/project-bulk-actions";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   ProjectDialogs,
   type ProjectDialogState,
@@ -32,8 +18,10 @@ import {
   type ProjectPredecessorOption,
   type ProjectRecord,
 } from "@/modules/projects/components/project-dialog";
-
-type Project = ProjectRecord & { openTasks: number };
+import { ArchivedProjectRow } from "./projects-list/archived-project-row";
+import { BulkDeleteProjectsDialog } from "./projects-list/bulk-delete-projects-dialog";
+import { ProjectCard, type ProjectListItem } from "./projects-list/project-card";
+import { ProjectsBulkBar } from "./projects-list/projects-bulk-bar";
 
 export function ProjectsClient({
   projects,
@@ -41,7 +29,7 @@ export function ProjectsClient({
   predecessorOptions = [],
   hideCreateButton = false,
 }: {
-  projects: Project[];
+  projects: ProjectListItem[];
   members?: ProjectMember[];
   predecessorOptions?: ProjectPredecessorOption[];
   /** Hide the inline "new project" button when the host page already offers one. */
@@ -58,6 +46,7 @@ export function ProjectsClient({
     setItems(projects);
   }
   const [dialog, setDialog] = useState<ProjectDialogState>(null);
+  const [bulkDeleteIds, setBulkDeleteIds] = useState<string[] | null>(null);
 
   function onSaved(saved: ProjectRecord) {
     setItems((current) => {
@@ -69,15 +58,14 @@ export function ProjectsClient({
     });
   }
 
-  function setLocalStatus(id: string, status: Project["status"]) {
-    setItems((current) =>
-      current.map((item) => (item.id === id ? { ...item, status } : item)),
-    );
+  function setLocalStatus(ids: readonly string[], status: ProjectListItem["status"]) {
+    const changed = new Set(ids);
+    setItems((current) => current.map((item) => (changed.has(item.id) ? { ...item, status } : item)));
   }
 
-  async function restore(project: Project) {
+  async function restore(project: ProjectListItem) {
     const previous = items;
-    setLocalStatus(project.id, "active");
+    setLocalStatus([project.id], "active");
     try {
       await setProjectStatus(project.id, "active");
       router.refresh();
@@ -89,9 +77,19 @@ export function ProjectsClient({
 
   // Projects awaiting a delayed delete (Undo window) are hidden locally.
   const pendingDeleteIds = usePendingDeleteIds();
-  const visible = items.filter((p) => !pendingDeleteIds.has(p.id));
+  const visible = useMemo(() => items.filter((p) => !pendingDeleteIds.has(p.id)), [items, pendingDeleteIds]);
   const active = visible.filter((p) => p.status === "active");
   const archived = visible.filter((p) => p.status === "archived");
+  const visibleIds = useMemo(() => visible.map((project) => project.id), [visible]);
+  const selection = useRowSelection(visibleIds);
+  const { run, pending } = useBulkAction(selection.deselect);
+
+  async function bulkStatus(ids: string[], status: ProjectListItem["status"]) {
+    const previous = items;
+    setLocalStatus(ids, status);
+    const outcome = await run(() => setProjectsStatus({ ids, status }), { done: (result) => t(status === "archived" ? "bulk.archived" : "bulk.restored", { count: result.succeededIds.length }) });
+    if (!outcome) setItems(previous);
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,72 +105,7 @@ export function ProjectsClient({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {active.map((project) => (
-          <Card key={project.id} className="relative min-w-0 transition-shadow hover:shadow-md">
-            <CardHeader>
-              <div className="flex items-start justify-between gap-2">
-                <Link
-                  href={`/projects/${project.id}`}
-                  className="grid min-w-0 flex-1 gap-1"
-                >
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="inline-block size-3 shrink-0 rounded-full"
-                      style={{ backgroundColor: project.color }}
-                    />
-                    <CardTitle className="truncate" title={project.name}>{project.name}</CardTitle>
-                  </span>
-                  <UserAttribution userId={project.managerId} relation="managedBy" />
-                </Link>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={t("projectActions", {
-                          name: project.name,
-                        })}
-                      />
-                    }
-                  >
-                    <MoreHorizontal className="size-4" />
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => setDialog({ kind: "edit", project })}>
-                      <Pencil className="mr-2 size-4" />
-                      {tCommon("edit")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setDialog({ kind: "archive", project })}>
-                      <Archive className="mr-2 size-4" />
-                      {t("archive")}
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      variant="destructive"
-                      onClick={() => setDialog({ kind: "delete", project })}
-                    >
-                      <Trash2 className="mr-2 size-4" />
-                      {t("deleteProject")}
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              {project.description && (
-                <CardDescription className="line-clamp-2">
-                  {project.description}
-                </CardDescription>
-              )}
-            </CardHeader>
-            <CardContent>
-              <Link
-                href={`/projects/${project.id}`}
-                className="text-sm text-muted-foreground"
-              >
-                {t("openTasks", { count: project.openTasks })}
-              </Link>
-            </CardContent>
-          </Card>
-        ))}
+        {active.map((project) => <ProjectCard key={project.id} project={project} selection={selection} onDialog={setDialog} />)}
       </div>
 
       {archived.length > 0 && (
@@ -182,45 +115,37 @@ export function ProjectsClient({
           </h2>
           <div className="flex flex-col divide-y rounded-md border">
             {archived.map((project) => (
-              <div key={project.id} className="flex items-center gap-3 px-3 py-2">
-                <span
-                  className="inline-block size-2.5 rounded-full opacity-50"
-                  style={{ backgroundColor: project.color }}
-                />
-                <span className="min-w-0 flex-1 text-sm text-muted-foreground">
-                  {project.name}<br /><UserAttribution userId={project.managerId} relation="managedBy" />
-                </span>
-                <Badge variant="secondary" className="max-sm:hidden">{t("archived")}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  title={t("unarchive")}
-                  aria-label={t("unarchive")}
-                  onClick={() => restore(project)}
-                >
-                  <ArchiveRestore className="size-3.5" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={t("deleteProject")}
-                  onClick={() => setDialog({ kind: "delete", project })}
-                >
-                  <Trash2 className="size-3.5" />
-                </Button>
-              </div>
+              <ArchivedProjectRow
+                key={project.id}
+                project={project}
+                selection={selection}
+                onRestore={() => void restore(project)}
+                onDelete={() => setDialog({ kind: "delete", project })}
+              />
             ))}
           </div>
         </div>
       )}
 
+      <ProjectsBulkBar
+        selection={selection}
+        projects={visible}
+        pending={pending}
+        onStatus={(ids, status) => void bulkStatus(ids, status)}
+        onDelete={setBulkDeleteIds}
+      />
+      <BulkDeleteProjectsDialog
+        ids={bulkDeleteIds}
+        onOpenChange={(open) => { if (!open) setBulkDeleteIds(null); }}
+        onScheduled={(ids) => selection.deselect(ids)}
+      />
       <ProjectDialogs
         state={dialog}
         onStateChange={setDialog}
         members={members}
         predecessorOptions={predecessorOptions}
         onSaved={onSaved}
-        onArchived={(id) => setLocalStatus(id, "archived")}
+        onArchived={(id) => setLocalStatus([id], "archived")}
         onDeleted={(id) => setItems((current) => current.filter((item) => item.id !== id))}
       />
     </div>

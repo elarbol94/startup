@@ -29,6 +29,7 @@ import {
 import { deleteProject, setProjectStatus, upsertProject } from "./actions";
 import { addProjectPredecessor, getProjectImpact, getProjectLinks, removeProjectDependency } from "./project-actions";
 import { listProjects } from "./queries";
+import { deleteProjects, getProjectsImpact, setProjectsStatus } from "./project-bulk-actions";
 
 const count = (table: string) =>
   (sqlite.prepare(`SELECT count(*) AS n FROM ${table}`).get() as { n: number }).n;
@@ -152,5 +153,27 @@ describe("listProjects", () => {
   it("counts only open top-level tasks", () => {
     const rows = listProjects();
     expect(rows.find((row) => row.id === "p")?.openTasks).toBe(1);
+  });
+});
+
+describe("bulk project actions", () => {
+  it("counts a dependency between two selected projects once", async () => {
+    db.insert(projectDependencies).values({ id: "dep-pq", predecessorType: "project", predecessorId: "p", successorProjectId: "q" }).run();
+    db.insert(taskDependencies).values({ predecessorTaskId: "a", successorTaskId: "x" }).run();
+    const p = await getProjectImpact("p");
+    const q = await getProjectImpact("q");
+    const both = await getProjectsImpact({ ids: ["p", "q"] });
+    expect(both).toEqual({ tasks: p.tasks + q.tasks, openTasks: p.openTasks + q.openTasks, columns: p.columns + q.columns, dependencies: 2 });
+    expect(p.dependencies + q.dependencies).toBe(4);
+  });
+  it("archives, restores and deletes several projects, skipping unknown ids", async () => {
+    expect((await setProjectsStatus({ ids: ["p", "q"], status: "archived" })).succeededIds).toEqual(["p", "q"]);
+    expect(db.select().from(projects).all().every((row) => row.status === "archived")).toBe(true);
+    const outcome = await deleteProjects({ ids: ["p", "q", "missing"] });
+    expect(outcome.succeededIds).toEqual(["p", "q"]);
+    expect(outcome.skipped).toEqual([{ id: "missing", reason: "notFound" }]);
+    expect(count("projects")).toBe(0);
+    expect(count("tasks")).toBe(0);
+    expect(count("project_columns")).toBe(0);
   });
 });

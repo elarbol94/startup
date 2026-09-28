@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import { ArrowRight, Check, ChevronLeft, ChevronRight, Loader2, Plus, Trash2 } from "lucide-react";
+import { ArrowRight, Check, ChevronLeft, ChevronRight, Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { createPresentation, deletePresentation } from "../presentation-actions";
+import { createPresentation } from "../presentation-actions";
 import { localizedPresentationTemplate, presentationTemplateIds, presentationTemplates, type PresentationTemplate, type PresentationTemplateId } from "../lib/presentation-templates";
 import { presentationPaletteIds, presentationPalettes, type PresentationPaletteId } from "../lib/presentation-template-palettes";
 import { defaultPresentationSettings } from "../lib/presentation";
@@ -152,20 +151,4 @@ export function NewPresentationForm({ open: controlledOpen, onOpenChange, hideTr
       </Dialog>
     </>
   );
-}
-
-export function DeletePresentationButton({ id, title, menuItem = false }: { id: string; title: string; menuItem?: boolean }) {
-  const t = useTranslations("wiki");
-  const router = useRouter();
-  const remove = async () => {
-        if (!confirm(t("presentations.deleteConfirm", { title }))) return;
-        try {
-          await deletePresentation({ id });
-          router.refresh();
-        } catch {
-          toast.error(t("presentations.deleteFailed"));
-        }
-      };
-  if (menuItem) return <DropdownMenuItem className="text-destructive" onClick={remove}><Trash2 />{t("presentations.deletePresentation")}</DropdownMenuItem>;
-  return <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.deletePresentation")} onClick={remove}><Trash2 className="size-4" /></Button>;
 }

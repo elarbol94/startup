@@ -154,6 +154,17 @@ describe("office callbacks", () => {
     expect(row<{ kind: string }>("SELECT kind FROM wiki_office_versions WHERE session_key = 'forgotten-key'").kind).toBe("branch");
   });
 
+  it("stores a late save for a trashed page without putting it back into search", async () => {
+    const page = await newPage("Trashed");
+    const { key } = await getOrOpenSession(page.id);
+    const { saved, deps } = server();
+    sqlite.prepare("UPDATE wiki_pages SET deleted_at = ? WHERE id = ?").run(Date.now(), page.id);
+    sqlite.prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?").run(page.id);
+    expect(await handleCallback(page.id, payload(key, 6, { url: saved("late words"), lastsave: at(3) }), deps)).toMatchObject({ ok: true, advanced: true });
+    expect(headText(page.id)).toBe("late words");
+    expect(row<{ n: number }>("SELECT count(*) AS n FROM wiki_pages_fts WHERE page_id = ?", page.id).n).toBe(0);
+  });
+
   it("propagates download failures so the document server retries", async () => {
     const page = await newPage();
     const { key } = await getOrOpenSession(page.id);

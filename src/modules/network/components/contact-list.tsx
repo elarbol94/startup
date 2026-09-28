@@ -5,6 +5,8 @@ import { defaultContactListFilter, isContactListFiltered, networkFilterHref } fr
 import type { listNetworkContacts } from "../queries";
 import { ContactFilters } from "./contact-list/contact-filters";
 import { ContactRow } from "./contact-list/contact-row";
+import { ContactBulkBar } from "./contact-list/contact-bulk-bar";
+import { RowSelectCheckbox, RowSelectionProvider, SelectAllCheckbox } from "@/components/row-selection";
 
 type Data = ReturnType<typeof listNetworkContacts>;
 
@@ -53,11 +55,21 @@ export async function ContactList({ data, today }: { data: Data; today: string }
           )}
         </div>
       ) : (
-        <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-contact-list">
-          {data.contacts.map((contact) => (
-            <li key={contact.id}><ContactRow contact={contact} today={today} showUpcoming={filter.sort === "reconnect"} /></li>
-          ))}
-        </ul>
+        <RowSelectionProvider ids={data.contacts.map((contact) => contact.id)}>
+          <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-contact-list">
+            <li className="flex h-9 items-center gap-3 bg-muted/30 px-4 text-xs text-muted-foreground">
+              <SelectAllCheckbox />
+              <span>{t("bulk.selectHint")}</span>
+            </li>
+            {data.contacts.map((contact) => (
+              <li key={contact.id} className="group flex items-center">
+                <span className="flex self-stretch items-center pl-4"><RowSelectCheckbox id={contact.id} label={contact.name} /></span>
+                <div className="min-w-0 flex-1"><ContactRow contact={contact} today={today} showUpcoming={filter.sort === "reconnect"} /></div>
+              </li>
+            ))}
+          </ul>
+          <ContactBulkBar contacts={data.contacts.map((contact) => ({ id: contact.id, name: contact.name, canManage: contact.canManage, tags: contact.tags.map((tag) => tag.name) }))} />
+        </RowSelectionProvider>
       )}
       {filtered && data.contacts.length > 0 && (
         <p className="text-xs text-muted-foreground">{t("list.filteredCount", { shown: data.contacts.length, total: data.total })}</p>

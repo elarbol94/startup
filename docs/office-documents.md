@@ -126,6 +126,21 @@ Saves arriving meanwhile still advance head. If nothing is stored within 60 s,
 the restore **fails and changes nothing**, so no edits are lost. At startup,
 operations still `created` resend the drop, and those past their deadline fail.
 
+### Trash and purge
+
+Moving a page to the trash does not wait for the document server. A save that
+arrives later is still stored as a version, but the page stays out of full-text
+and semantic search until it is restored (`page-derived-data.ts` checks
+`deleted_at`, and `indexText` checks again before it writes vectors).
+
+Purging (`page-trash.ts`) takes the office lock of every page in the subtree,
+in sorted order, and checks the subtree again while holding them. A page is
+skipped as "open in the editor" while it has an active operation or an `open`
+session that reported in within the last 24 hours. `idle` sessions do not block
+a purge; they are deleted with the page. Edits the document server never saved
+(for example after a save error) are then lost. That is accepted because the
+page was already in the trash and an admin chose to delete it permanently.
+
 ### Save state in the UI
 
 - **"Synchronisiert"** means the document server has the edits.

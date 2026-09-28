@@ -257,6 +257,13 @@
     "selectionOnly": "Nur Kommentare zur Auswahl"
   },
   "common": {
+    "selection": {"toolbar":"Aktionen für die Auswahl","count":"{count} ausgewählt","clear":"Auswahl aufheben","selectAll":"Alle auswählen","selectRow":"{name} auswählen","done":"{count, plural, one {# Eintrag aktualisiert} other {# Einträge aktualisiert}}","partial":"{done} erledigt, {skipped} übersprungen","allSkipped":"{count, plural, one {# Eintrag wurde} other {# Einträge wurden}} übersprungen","failed":"Die Aktion ist fehlgeschlagen","skipReasons":{"notFound":"nicht gefunden","forbidden":"keine Berechtigung","blocked":"wird noch verwendet","busy":"im Editor geöffnet","notTrashed":"nicht im Papierkorb","tooManyTags":"zu viele Tags","locked":"wird gerade bearbeitet"}},
+    "tags": {"editTitle":"{count, plural, one {Tags bearbeiten} other {Tags von # Einträgen bearbeiten}}","editDescription":"Angehakte Tags werden allen ausgewählten Einträgen hinzugefügt, nicht angehakte entfernt. Tags, die nur manche Einträge haben, bleiben unverändert, bis du sie anklickst.","addPlaceholder":"Neuer Tag","create":"Hinzufügen","new":"neu","mixed":"{count} von {total}","apply":"Übernehmen","noTags":"Noch keine Tags","label":"Tags"},
+    "confirmTrashTitle": "In den Papierkorb verschieben?",
+    "moveToTrash": "In den Papierkorb",
+    "status": "Status",
+    "rename": "Umbenennen",
+    "more": "Weitere Aktionen für {name}",
     "close": "Schließen",
     "appName": "Management-Plattform",
     "save": "Speichern",
@@ -306,6 +313,7 @@
     "draft": "Entwurf"
   },
   "network": {
+    "bulk": {"selectHint":"Kontakte auswählen, um mehrere auf einmal zu taggen, zu teilen oder zu löschen","visibility":"Sichtbarkeit","deleteTitle":"{count, plural, one {# Kontakt löschen?} other {# Kontakte löschen?}}","deleteConfirm":"Ihre Möglichkeiten werden mitgelöscht; Möglichkeiten, über die sie vorgestellt wurden, behalten den Namen. Das kann nicht rückgängig gemacht werden.","notManageable":"{count, plural, one {# ausgewählter Kontakt kann} other {# ausgewählte Kontakte können}} nur von der Eigentümerin oder dem Eigentümer gelöscht werden und {count, plural, one {wird} other {werden}} übersprungen.","deleted":"{count, plural, one {# Kontakt gelöscht} other {# Kontakte gelöscht}}","select":"Auswählen","doneSelecting":"Fertig","deleteLeadsTitle":"{count, plural, one {# Möglichkeit löschen?} other {# Möglichkeiten löschen?}}","deleteLeadsConfirm":"Das kann nicht rückgängig gemacht werden."},
     "title": "Netzwerk",
     "description": "Wen wir kennen, was angeboten wurde und wen man uns vorstellen könnte.",
     "subnavLabel": "Netzwerk-Ansichten",
@@ -2043,6 +2051,7 @@
     }
   },
   "projects": {
+    "bulk": {"deleteTitle":"{count, plural, one {# Projekt löschen?} other {# Projekte löschen?}}","deleteConfirm":"Die Projekte werden mit allen Spalten, Aufgaben und Verknüpfungen gelöscht. Einige Sekunden lang kannst du das rückgängig machen.","archived":"{count, plural, one {# Projekt archiviert} other {# Projekte archiviert}}","restored":"{count, plural, one {# Projekt wiederhergestellt} other {# Projekte wiederhergestellt}}"},
     "focusSearch": "Projekte und Aufgaben suchen",
     "keyboardShortcuts": "Tastenkürzel",
     "redo": "Wiederholen",
@@ -2507,6 +2516,10 @@
     }
   },
   "wiki": {
+    "sourceBulk": {"trashConfirm":"{count, plural, one {# Quelle wird} other {# Quellen werden}} in den Papierkorb verschoben.","trashed":"{count, plural, one {# Quelle in den Papierkorb verschoben} other {# Quellen in den Papierkorb verschoben}}"},
+    "bulk": {"trashConfirm":"{count, plural, one {# Dokument wird} other {# Dokumente werden}} in den Papierkorb verschoben.","trashConfirmOne":"„{title}“ wird in den Papierkorb verschoben.","trashDescendants":"{count, plural, one {# Unterseite kommt mit.} other {# Unterseiten kommen mit.}}","trashed":"{count, plural, one {# Dokument in den Papierkorb verschoben} other {# Dokumente in den Papierkorb verschoben}}","moved":"{count, plural, one {# Dokument verschoben} other {# Dokumente verschoben}}","selectedOf":"{count} von {total} ausgewählt","selectHint":"Dokumente auswählen, um mehrere auf einmal zu bearbeiten oder zu löschen","restore":"Wiederherstellen","purge":"Endgültig löschen","purgeConfirm":"{count, plural, one {# Eintrag wird} other {# Einträge werden}} endgültig gelöscht, samt Unterseiten und Anhängen. Das kann nicht rückgängig gemacht werden.","restored":"{count, plural, one {# Eintrag wiederhergestellt} other {# Einträge wiederhergestellt}}","purged":"{count, plural, one {# Eintrag endgültig gelöscht} other {# Einträge endgültig gelöscht}}","skippedList":"Übersprungen: {items}"},
+    "pageMenu": {"renameTitle":"Dokument umbenennen","renameLabel":"Titel","editTags":"Tags bearbeiten…","move":"Verschieben…"},
+    "movePages": {"title":"{count, plural, one {Dokument verschieben} other {# Dokumente verschieben}}","description":"Wähle die neue übergeordnete Seite. Unterseiten werden mitverschoben.","search":"Dokumente suchen…","targets":"Mögliche übergeordnete Seiten","topLevel":"Oberste Ebene","current":"aktuell","submit":"Hierher verschieben","noTargets":"Keine passenden Dokumente"},
     "workspace": {
       "share": "Freigeben",
       "tools": "Werkzeuge",
@@ -3201,8 +3214,6 @@
     "trashDescription": "Gelöschte Seiten und Quellen bleiben erhalten, bis ein Administrator sie endgültig entfernt.",
     "trashEmpty": "Der Papierkorb ist leer.",
     "purge": "Endgültig löschen",
-    "purgeConfirm": "Diesen Eintrag endgültig löschen? Das kann nicht rückgängig gemacht werden.",
-    "purgeFailed": "Dieser Eintrag konnte nicht endgültig gelöscht werden.",
     "tagView": "Schlagwortansicht",
     "tagName": "Name des Schlagworts",
     "mergeTag": "Schlagwort zusammenführen",
@@ -3374,7 +3385,7 @@
     "sendToPage": "An Seite senden",
     "findPage": "Seite suchen…",
     "reorderPage": "„{title}“ verschieben",
-    "reorderSameLevelOnly": "Seiten lassen sich nur innerhalb derselben Ebene sortieren.",
+    "reorderSameLevelOnly": "Durch Ziehen lassen sich Seiten nur innerhalb derselben Ebene sortieren. Mit „Verschieben…“ im Zeilenmenü änderst du die übergeordnete Seite.",
     "reorderFailed": "Die Reihenfolge konnte nicht gespeichert werden.",
     "showAllResults": "Alle Ergebnisse anzeigen",
     "searchResultsTitle": "Suchergebnisse",
@@ -3457,6 +3468,12 @@
     "editors": "Herausgeber:innen",
     "editorsHelp": "Eine Person pro Zeile, wie oben. Leer lassen, wenn es keine gibt.",
     "presentations": {
+      "rename": "Umbenennen",
+      "renameTitle": "Präsentation umbenennen",
+      "renameLocked": "Diese Präsentation wird gerade bearbeitet. Versuche es später noch einmal.",
+      "deletePermanently": "Endgültig löschen",
+      "bulkDeleteConfirm": "{count, plural, one {# Präsentation wird} other {# Präsentationen werden}} endgültig gelöscht. Das kann nicht rückgängig gemacht werden.",
+      "deleted": "{count, plural, one {# Präsentation gelöscht} other {# Präsentationen gelöscht}}",
       "leaveSaveFailed": "Deine Änderungen konnten nicht gespeichert werden. Bitte behebe das Speicherproblem vor dem Verlassen.",
       "uploadImage": "Bild hochladen",
       "documentTitle": "{title} – Präsentation",

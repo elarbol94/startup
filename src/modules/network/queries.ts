@@ -67,6 +67,8 @@ export type NetworkContactListItem = {
   role: string;
   visibility: "private" | "team";
   isOwn: boolean;
+  /** May delete it or change its visibility (see `canManageContact`). */
+  canManage: boolean;
   lastContactOn: string | null;
   notYetSpoken: boolean;
   /** Next keep-in-touch date (see `reconnectDueOn`); only for the viewer's own contacts, like the reminders. */
@@ -156,6 +158,7 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     role: contact.role,
     visibility: contact.visibility,
     isOwn: contact.ownerId === viewer.id,
+    canManage: canManageContact(contact, viewer),
     lastContactOn: contact.lastContactOn,
     notYetSpoken: contact.notYetSpoken,
     reconnectDueOn: contact.ownerId === viewer.id ? reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays) : null,

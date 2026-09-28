@@ -54,6 +54,10 @@ function hashOf(text: string) {
  * Re-embeds one page or PDF page. Chunks whose text is unchanged keep their vector, so
  * saving a document repeatedly costs nothing after the first time.
  */
+function pageIsLive(pageId: string) {
+  return Boolean(sqlite.prepare("SELECT 1 FROM wiki_pages WHERE id = ? AND deleted_at IS NULL").get(pageId));
+}
+
 export async function indexText(input: {
   kind: "page" | "pdfPage";
   refId: string;
@@ -61,6 +65,7 @@ export async function indexText(input: {
   text: string;
 }): Promise<{ indexed: number; skipped: number } | null> {
   if (!ensureVectorTable()) return null;
+  if (input.kind === "page" && !pageIsLive(input.refId)) return null;
   const pageNumber = input.pageNumber ?? 0;
   const chunks = chunkText(input.text);
 
@@ -85,6 +90,9 @@ export async function indexText(input: {
 
   const vectors = await embedPassages(needed.map((chunk) => chunk.text));
   if (!vectors) return null;
+  // Embedding is slow: the page may have been trashed or purged meanwhile, and
+  // writing now would put it back into semantic search.
+  if (input.kind === "page" && !pageIsLive(input.refId)) return null;
 
   const upsertMeta = sqlite.prepare(`
     INSERT INTO wiki_embeddings (kind, ref_id, page_number, chunk_index, content_hash, text, updated_at)
