@@ -5383,6 +5383,21 @@
       "evidence": "PDF-Nachweise",
       "jump": "Zur Stelle im Text springen"
     },
-    "legacyVersion": "Fassung vor der Umstellung (alter Editor)"
+    "legacyVersion": "Fassung vor der Umstellung (alter Editor)",
+    "grammar": {
+      "title": "Rechtschreibung & Grammatik",
+      "recheck": "Erneut prüfen",
+      "close": "Schließen",
+      "checking": "Prüfe mit LanguageTool …",
+      "unavailable": "Die Prüfung ist gerade nicht erreichbar.",
+      "clean": "Keine Auffälligkeiten gefunden.",
+      "jump": "Zur Stelle springen",
+      "remove": "(entfernen)",
+      "ignore": "Ignorieren",
+      "learn": "Ins Wörterbuch",
+      "stale": "Der Text hat sich an dieser Stelle geändert – bitte neu prüfen.",
+      "learned": "„{word}“ ins Wörterbuch aufgenommen.",
+      "learnFailed": "Das Wort konnte nicht gespeichert werden."
+    }
   }
 }

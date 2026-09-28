@@ -14,11 +14,21 @@ export type OfficeCommand =
   | { command: "insertEvidence"; item: unknown }
   | { command: "insertLink"; page: unknown }
   | { command: "wrapSelection"; kind: "task" | "deadline"; id: string }
-  | { command: "select"; kind: "cite" | "evidence" | "task" | "deadline"; id: string };
+  | { command: "select"; kind: "cite" | "evidence" | "task" | "deadline"; id: string }
+  | { command: "collectParagraphs" }
+  | { command: "selectIssue"; id: string; index: number; offset: number; length: number; expected: string }
+  | { command: "replaceIssue"; id: string; index: number; offset: number; length: number; expected: string; replacement: string };
+
+/** Plugin messages the page (not the bridge) handles, e.g. the grammar check. */
+export type PluginEvent =
+  | { type: "grammarRequested" }
+  | { type: "paragraphs"; paragraphs: Array<{ index: number; text: string }> }
+  | { type: "issueResult"; id: string; result: "ok" | "stale"; replaced?: boolean };
 
 type PluginMessage =
   | { type: "ready" }
-  | { type: "request"; action: InsertKind | "task" | "deadline"; quote?: string }
+  | { type: "request"; action: InsertKind | "task" | "deadline" | "grammar"; quote?: string }
+  | Exclude<PluginEvent, { type: "grammarRequested" }>
   | { type: "notice"; kind: "success" | "info" | "error"; text: string };
 
 /**
@@ -26,13 +36,15 @@ type PluginMessage =
  * The plugin's toolbar buttons ask the page to open its dialogs; the page
  * answers with commands. `bridgeId` is unique per editor instance.
  */
-export function useOfficeBridge(bridgeId: string | null, page: { id: string; slug: string; title: string }) {
+export function useOfficeBridge(bridgeId: string | null, page: { id: string; slug: string; title: string }, onEvent?: (event: PluginEvent) => void) {
   const router = useRouter();
   const { openTaskCreator } = useTaskCreator();
   const { openDeadlineCreator } = useDeadlineCreator();
   const channel = useRef<BroadcastChannel | null>(null);
   const [ready, setReady] = useState(false);
   const [dialog, setDialog] = useState<InsertKind | null>(null);
+  const events = useRef(onEvent);
+  useEffect(() => { events.current = onEvent; });
 
   const send = useCallback((message: OfficeCommand) => {
     channel.current?.postMessage({ type: "command", ...message });
@@ -45,6 +57,7 @@ export function useOfficeBridge(bridgeId: string | null, page: { id: string; slu
     current.onmessage = (event: MessageEvent<PluginMessage>) => {
       const message = event.data;
       if (message.type === "ready") { setReady(true); return; }
+      if (message.type === "paragraphs" || message.type === "issueResult") { events.current?.(message); return; }
       if (message.type === "notice") {
         if (message.kind === "error") toast.error(message.text);
         else if (message.kind === "info") toast.info(message.text);
@@ -52,6 +65,7 @@ export function useOfficeBridge(bridgeId: string | null, page: { id: string; slu
         return;
       }
       if (message.type !== "request") return;
+      if (message.action === "grammar") { events.current?.({ type: "grammarRequested" }); return; }
       if (message.action === "task" || message.action === "deadline") {
         const kind = message.action;
         const quote = message.quote ?? "";

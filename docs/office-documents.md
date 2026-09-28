@@ -185,6 +185,27 @@ notification that carries the editor's `actionLink`
 (`wiki_notifications.office_action_link`). Opening it jumps to the comment
 (`?officeAction=`).
 
+## Spelling and grammar
+
+**Spelling while typing** is ONLYOFFICE's own checker. It follows the text
+language shown in the status bar. New and converted documents start in the
+page's proofing language.
+
+**Grammar check.** "Grammatik" in the Workspace tab checks the whole document
+with the app's LanguageTool service (`/api/wiki/spellcheck`), using the same
+shared dictionary as the old editor, so no text leaves the server:
+1. The plugin reads the non-empty paragraphs.
+2. The page checks them in batches (80 paragraphs / 24 000 characters) and
+   lists the issues in a side panel.
+3. Clicking an issue selects it in the text. A suggestion replaces it,
+   "Ignorieren" hides it, and "Ins Wörterbuch" adds a word to the shared
+   dictionary.
+
+A replacement locates its target with the editor's search (the n-th
+occurrence in that paragraph) and is refused if the text there changed since
+the check. Editor range positions count formatting boundaries, so plain
+offsets would drift.
+
 ## Look and feel
 
 - **Theme.** The editor follows the app's light/dark appearance
