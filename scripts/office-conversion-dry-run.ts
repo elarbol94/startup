@@ -33,7 +33,6 @@ if (path.resolve(process.env.DATABASE_PATH) === path.resolve("data/app.db")) {
   console.error("Refusing to run against data/app.db: pass a copy.");
   process.exit(2);
 }
-process.env.COLLAB_DISABLED = "true";
 
 async function main() {
   const { db } = await import("@/db");

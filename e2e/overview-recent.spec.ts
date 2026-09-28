@@ -7,10 +7,11 @@ test("recently opened can be added to the dashboard and reopens visited document
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
   expect(response.ok()).toBe(true);
   await page.goto("/wiki");
-  await page.getByRole("button", { name: "Dokument schreiben", exact: true }).click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Leeres Dokument" }).click();
   await submitNewDocumentTitle(page, "Recently opened document");
   await page.waitForURL(/\/wiki\/pages\/.+/);
-  await expect(page.locator(".ProseMirror")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Umbenennen:/ })).toBeVisible();
   const documentPath = new URL(page.url()).pathname;
   await page.goto("/");
   await page.getByRole("button", { name: "Layout anpassen", exact: true }).click();

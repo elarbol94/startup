@@ -21,6 +21,7 @@ for (const legacy of [false, true]) {
     expect(new URL(page.url()).searchParams.get("section")).toBe("budget");
     expect(new URL(page.url()).searchParams.get("task")).toBe("linked-task");
     expect(new URL(page.url()).searchParams.getAll("tag")).toEqual(["one", "two"]);
-    await expect(page.locator(".ProseMirror #budget")).toBeVisible();
+    // A page still in the old format opens read-only with a conversion notice.
+    await expect(page.getByRole("heading", { name: "Renamed document" })).toBeVisible();
   });
 }

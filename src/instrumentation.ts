@@ -28,15 +28,8 @@ export async function register() {
     await warmLanguageTool();
     const { startPdfProcessingWorker } = await import("./modules/wiki/pdf-processing");
     startPdfProcessingWorker();
-    const { startFigureSyncWorker } = await import("./modules/wiki/figure-assets");
-    startFigureSyncWorker();
     // Office documents: resume persisted restore/checkpoint operations, sweep orphaned files.
     const { startOfficeMaintenance } = await import("./modules/wiki/office/maintenance");
     startOfficeMaintenance();
-    // Live document collaboration (Hocuspocus WebSocket server on COLLAB_PORT).
-    if (process.env.COLLAB_DISABLED !== "true") {
-      const { startCollaborationSocketServer } = await import("./modules/wiki/collaboration/socket-server");
-      startCollaborationSocketServer().catch(() => undefined);
-    }
   }
 }

@@ -2569,26 +2569,15 @@
       "documentCount": "{shown} of {total} documents"
     },
     "title": "Wiki",
-    "newPage": "New page",
-    "newSubpage": "Add subpage",
-    "documentDetails": "Details",
-    "showDocumentDetails": "Open document details",
-    "hideDocumentDetails": "Close document details",
     "pageTitle": "Title",
     "rename": "Rename",
     "renameFailed": "The title could not be changed.",
     "newDocumentTitle": "New document",
     "newDocumentDescription": "Give the document a title. You can change it at any time.",
-    "checkpointLabel": "Name for this version (optional)",
-    "deletePage": "Delete page",
     "searchPlaceholder": "Search the wiki…",
     "noResults": "No results",
-    "noPages": "No documents in the wiki yet.",
-    "createFirst": "Create the first document",
     "backlinks": "Documents linking here",
-    "linkPage": "Link a document",
     "insertLink": "Insert link",
-    "lastEdited": "Last edited by {name}",
     "saving": "Saving…",
     "saved": "Saved",
     "researchWorkspace": "Research workspace",
@@ -2618,7 +2607,6 @@
     "launchpadDescription": "Find what was written, continue working, or add a new source right away.",
     "knowledgeSearch": "Knowledge search",
     "launchpadSearchPlaceholder": "Search by title, content, author, or PDF text…",
-    "writeDocument": "Write document",
     "addSource": "Add source",
     "continueWorking": "Continue working",
     "continueWorkingDescription": "Your most recently edited documents.",
@@ -2667,7 +2655,6 @@
     "documentType": "Document type",
     "documentTypePlaceholder": "e.g. funding, paper, report",
     "readingStatus": "Reading status",
-    "citationLanguage": "Citation language",
     "citationStyle": "Citation style",
     "citationStyles": {
       "ieee": "IEEE",
@@ -2735,14 +2722,8 @@
       "conversion": "Before the switch to Word"
     },
     "noHistory": "No earlier versions.",
-    "historyComparisonDescription": "Compare an earlier version with the current document. Changed lines are highlighted.",
-    "selectedVersion": "Version {version}",
-    "currentVersion": "Current version",
-    "diffRemovedLine": "Removed line {line}",
-    "diffAddedLine": "Added line {line}",
     "notLinkedYet": "This source is not linked to a page yet.",
     "citedIn": "Cited in page",
-    "supportingSource": "Supporting source",
     "favorite": "Favorite",
     "deleteSource": "Delete source",
     "deleteSourceConfirm": "Move this source to Trash?",
@@ -2754,89 +2735,39 @@
     "attachmentInUse": "This image is still embedded in the page. Remove the image from the editor first.",
     "deleteAttachmentFailed": "The attachment could not be deleted.",
     "downloadAttachment": "Download {name}",
-    "linkSupportingSource": "Link selected source",
-    "supportingSources": "Supporting sources",
-    "chooseSource": "Choose source",
     "references": "References",
-    "citeSource": "Cite source",
     "graphics": {
       "title": "Graphics",
       "description": "Edit SVG text and connect it to document fields.",
       "close": "Close graphics",
       "assets": "SVG graphics",
       "link": "Link folder",
-      "sync": "Sync folder",
       "import": "Import folder",
       "importing": "Reading {done}/{total}",
-      "linkedFolder": "Linked to {name} — synced each time this panel opens.",
-      "importSummary": "{added} new, {updated} updated, {unchanged} unchanged.",
       "insert": "Insert into document",
-      "importSources": "{count, plural, one {# source imported} other {# sources imported}}.",
-      "linkedSource": "Source: {title}",
       "scale": "Scale",
-      "scaleInherit": "auto",
-      "scaleHint": "Overrides the document diagram scale for this graphic only. Empty follows the document.",
-      "importNothing": "No SVG files in that folder.",
       "importFailed": "{count} files could not be imported: {names}",
-      "importFailedGeneric": "The folder could not be read.",
-      "folderPermissionDenied": "Access to the folder was withdrawn. Link it again.",
       "empty": "No SVG graphic yet",
-      "emptyHint": "Add an SVG or SVGZ file as an image or attachment, or import a whole folder.",
       "version": "Version {version}",
-      "textLayers": "Text layers",
-      "noText": "This graphic has no directly editable text or tspan elements.",
-      "fixedText": "Fixed text",
       "save": "Save graphic",
       "history": "Version history",
       "restore": "Restore",
       "loadFailed": "Graphics could not be loaded.",
       "saveFailed": "The graphic could not be saved.",
-      "restoreFailed": "The graphic version could not be restored.",
       "conflict": "The graphic changed in the meantime. Reopen the panel.",
       "remove": "Remove graphic",
-      "removeConfirm": "Remove this graphic and its file?",
-      "removeFailed": "The graphic could not be removed.",
-      "removeInUse": "The graphic is used in the document. Remove it there first.",
-      "styleFont": "Font",
-      "styleColor": "Colour",
       "fontSize": "Size",
-      "scaleForAll": "For every graphic",
-      "scaleForAllHint": "Saves this scale for every graphic on this page.",
       "changes": "Changes",
-      "changeMoved": "moved",
-      "changeResized": "resized",
-      "moveHint": "Drag a label to move it, click it to edit it.",
-      "previewOnly": "Preview — nothing is applied until you save.",
-      "editInGraphic": "Click a label in the graphic to edit it right there.",
-      "editLayer": "Edit label",
-      "searchLayers": "Find a label",
-      "noMatches": "No label found.",
-      "boundTo": "Comes from the document field {field}.",
-      "resetLayer": "Reset to the saved text",
       "unsaved": "Unsaved",
-      "discardConfirm": "Discard the unsaved changes to this graphic?",
-      "matchesDocument": "Document font: {font}, {size} pt",
-      "ownFont": "The graphic's own font",
-      "matchFontHint": "Draws every label in the document's font. Size and scaling live in the document layout.",
-      "allLayers": "All labels",
       "done": "Done"
     },
     "comments": "Comments",
-    "hideComments": "Hide comments",
-    "showComments": "Show comments",
     "shortcuts": {
       "title": "Keyboard shortcuts",
       "description": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
-      "tabKeys": "Tab and Shift+Tab move between table cells (Tab in the last cell adds a row), indent list items and insert a tab in text. To leave the editor with the keyboard, press Esc and then Tab.",
-      "recording": "Press a key…",
-      "requiresModifier": "Use Ctrl or Cmd together with a key.",
-      "reserved": "This key is reserved.",
       "conflict": "This shortcut is already used by “{action}”.",
-      "resetAll": "Reset all",
-      "resetOne": "Reset {action}",
       "done": "Done",
       "groups": {
-        "editing": "Editing",
         "structure": "Structure",
         "wiki": "Wiki and view",
         "insert": "Insert",
@@ -2850,10 +2781,6 @@
         "underline": "Underline",
         "highlight": "Highlight",
         "strike": "Strikethrough",
-        "inlineCode": "Inline code",
-        "heading1": "Heading 1",
-        "heading2": "Heading 2",
-        "heading3": "Heading 3",
         "bulletList": "Bullet list",
         "orderedList": "Numbered list",
         "taskList": "Task list",
@@ -2862,37 +2789,13 @@
         "horizontalRule": "Divider",
         "pageBreak": "Page break",
         "tableOfContents": "Table of contents",
-        "twoColumns": "Two-column section",
         "search": "Find and replace",
         "outline": "Document outline",
-        "inlineComment": "Add comment",
-        "toggleComments": "Show/hide comments",
-        "typography": "Writing style",
         "shortcuts": "Keyboard shortcuts",
         "image": "Insert image",
-        "pageLink": "Link wiki page",
-        "externalLink": "Insert external link",
         "citation": "Insert citation",
         "pdfEvidence": "Insert PDF evidence",
-        "attachment": "Add attachment",
-        "supportingSource": "Link supporting source",
-        "imageHighlight": "Highlight image",
-        "imageComment": "Comment on image",
-        "imageRegion": "Comment on image area",
-        "imageWidth50": "Image width 50%",
-        "imageWidth75": "Image width 75%",
-        "imageWidth100": "Image width 100%",
-        "imageAlignLeft": "Align image left",
-        "imageAlignCenter": "Center image",
-        "imageAlignRight": "Align image right",
-        "tableAddRow": "Add table row",
-        "tableAddColumn": "Add table column",
-        "tableHeader": "Toggle table header",
-        "tableAlignLeft": "Align table cell left",
-        "tableAlignCenter": "Center table cell",
-        "tableAlignRight": "Align table cell right",
-        "tableDeleteRow": "Delete current table row",
-        "tableDeleteColumn": "Delete current table column"
+        "attachment": "Add attachment"
       },
       "keys": {
         "ctrl": "Ctrl",
@@ -2901,10 +2804,7 @@
     },
     "document": {
       "recoveryUnavailable": "Local recovery is unavailable. Keep this page open until the status shows Saved.",
-      "exportSaveFailed": "The document could not be saved before export. Resolve the save error or conflict first.",
       "toggle": "Document mode",
-      "switchMode": "Switch view: {current} → {next}",
-      "showLayout": "Show document layout",
       "tabs": {
         "page": "Page",
         "content": "Content",
@@ -2919,9 +2819,7 @@
         "bottom": "Bottom (mm)",
         "left": "Left (mm)"
       },
-      "typography": "Typography and colors",
       "bodyFont": "Body font",
-      "headingFont": "Headings",
       "fontSize": "Font size (pt)",
       "lineHeight": "Line height",
       "font": {
@@ -2949,9 +2847,6 @@
       "insert": "Document blocks",
       "pageBreak": "Page break",
       "contents": "Table of contents",
-      "twoColumns": "Two-column section",
-      "keepWithNext": "Keep with next",
-      "keepTogether": "Keep together",
       "fields": {
         "date": "Date"
       },
@@ -2959,37 +2854,13 @@
       "applyTemplate": "Apply template",
       "saveTemplate": "Save as template",
       "ready": "Ready for PDF export",
-      "previewPdf": "PDF preview",
-      "downloadPdf": "Download PDF",
-      "image": {
-        "alignLeft": "Align image left",
-        "alignCenter": "Center image",
-        "alignRight": "Align image right"
-      },
       "table": {
-        "addRow": "Row",
-        "addColumn": "Column",
         "header": "Header row",
-        "deleteRow": "Delete current row",
         "deleteColumn": "Delete current column"
       },
       "proposal": {
-        "snippet_executiveSummary": "Executive summary",
-        "snippet_objectives": "Objectives",
-        "snippet_deliverables": "Deliverables",
-        "snippet_assumptions": "Assumptions",
-        "snippet_decision": "Decision",
         "blocks": "Proposal blocks",
-        "budget": "Budget",
-        "workPackages": "Work packages",
         "timeline": "Timeline",
-        "risks": "Risk register",
-        "kpis": "KPI table",
-        "generic": "Table",
-        "callout_info": "Information",
-        "callout_decision": "Decision",
-        "callout_warning": "Warning",
-        "callout_assumption": "Assumption",
         "annex": "Annex",
         "signature": "Signature",
         "insert": "Insert",
@@ -3007,30 +2878,19 @@
     },
     "editor": {
       "proofing": {
-        "shortTitle": "Proofing",
         "saving": "Saving…",
-        "preferenceFailed": "This setting applies to this session for now. Saving failed.",
-        "moreActions": "More actions",
-        "deleteText": "Remove",
         "hint": "Right-click an underlined word for suggestions. Alt+Enter opens the suggestion at the cursor.",
-        "nextIssue": "Next suggestion",
         "retry": "Check again",
-        "issueCount": "{count, plural, one {# suggestion} other {# suggestions}}",
-        "fallbackShort": "Checking unavailable",
         "ready": "Check complete",
         "language": "Proofing language",
         "title": "Proofreading",
         "languages": {
           "de": "German",
-          "deAt": "German (Austria)",
           "en": "English"
         },
         "switch": "Proofing language: {language}. Switch to {nextLanguage}.",
         "checking": "Checking",
-        "checkingChanges": "Checking changes…",
-        "recheckingSuggestion": "This suggestion is being updated…",
         "unavailable": "Spelling and grammar checking is currently unavailable",
-        "browserFallback": "Spelling and grammar checking is unavailable. We will retry automatically. You can keep writing.",
         "saveFailed": "The proofing language could not be saved.",
         "picky": "Stricter proofing",
         "dialog": "Correction suggestions",
@@ -3038,14 +2898,7 @@
           "spelling": "Spelling",
           "writing": "Grammar & style"
         },
-        "noReplacement": "No replacement suggested.",
-        "replaceAll": "Replace all identically marked occurrences",
         "ignore": "Ignore this suggestion",
-        "addToDictionary": "Add to shared dictionary",
-        "disableRule": "Disable rule",
-        "dictionaryAdded": "“{word}” was added to the dictionary.",
-        "dictionaryFailed": "The word could not be added to the dictionary.",
-        "replacedAll": "{count, plural, one {# occurrence replaced} other {# occurrences replaced}}",
         "close": "Close"
       },
       "toolbar": {
@@ -3053,9 +2906,6 @@
         "redo": "Redo",
         "bold": "Bold",
         "italic": "Italic",
-        "heading1": "Heading 1",
-        "heading2": "Heading 2",
-        "heading3": "Heading 3",
         "bulletList": "Bullet list",
         "orderedList": "Numbered list",
         "taskList": "Task list",
@@ -3064,14 +2914,12 @@
         "more": "More",
         "actions": "Actions",
         "settings": "View and settings",
-        "sideTools": "Document tools",
         "language": "Language",
         "outline": "Outline",
         "view": "View",
         "zoom": "Zoom",
         "zoomIn": "Zoom in",
         "zoomOut": "Zoom out",
-        "zoomReset": "Reset zoom to 100%",
         "groups": {
           "history": "History",
           "writing": "Format text",
@@ -3082,7 +2930,6 @@
         "underline": "Underline",
         "highlight": "Highlight",
         "strike": "Strikethrough",
-        "inlineCode": "Inline code",
         "blockquote": "Block quote",
         "codeBlock": "Code block"
       },
@@ -3102,24 +2949,17 @@
         "unsaved": "Not saved",
         "offline": "Offline · saved locally",
         "error": "Save failed",
-        "retry": "Retry",
-        "offlineUnsaved": "Offline · keep this page open until saved",
-        "lastSaved": "Last saved: {time}",
-        "notSavedYet": "Not saved yet in this session"
+        "retry": "Retry"
       },
       "lease": {
-        "locked": "This page is already being edited in another window. Your local draft remains safe.",
-        "takeover": "Take over editing",
-        "takeoverFailed": "Editing could not be taken over."
+        "takeover": "Take over editing"
       },
       "paste": {
-        "imagesDropped": "{count, plural, one {# image from the pasted content could not be imported. Use \"Insert image\" to add it.} other {# images from the pasted content could not be imported. Use \"Insert image\" to add them.}}",
         "tooLarge": "The pasted content is too large for one page. Please paste it in smaller parts."
       },
       "search": {
         "title": "Find and replace",
         "placeholder": "Search this note…",
-        "replacement": "Replace with…",
         "results": "{current} of {total}",
         "noResults": "No results",
         "caseSensitive": "Match case",
@@ -3127,7 +2967,6 @@
         "previous": "Previous result",
         "next": "Next result",
         "replace": "Replace",
-        "replaceAll": "Replace all",
         "close": "Close search"
       },
       "outline": {
@@ -3142,12 +2981,7 @@
       "preferences": {
         "title": "Writing style",
         "description": "Set fonts, rhythm and colors for every wiki page and document export where you are the primary author.",
-        "scope": {
-          "primaryAuthor": "This page updates immediately. Every other wiki page where you are the primary author uses the same writing style.",
-          "otherPage": "This page keeps its primary author's writing style. Your changes apply to every wiki page where you are the primary author."
-        },
         "tabs": {
-          "typography": "Typography",
           "editor": "Editor"
         },
         "density": {
@@ -3170,27 +3004,12 @@
           "deleteFailed": "The template could not be deleted. Please try again."
         },
         "sections": {
-          "type": "Body text and lists",
-          "headings": "Headings",
-          "colors": "Colors"
+          "type": "Body text and lists"
         },
         "controls": {
           "bodyFont": "Body font",
-          "headingFont": "Heading font",
-          "bodySize": "Body font size",
           "lineHeight": "Line height",
-          "paragraphSpacing": "Paragraph spacing",
-          "listItemSpacing": "Spacing per list item",
-          "listBlockSpacing": "Spacing before and after lists",
-          "listIndent": "List indent",
-          "h1Size": "Heading 1 size",
-          "h2Size": "Heading 2 size",
-          "h3Size": "Heading 3 size",
-          "headingLineHeight": "Heading line height",
-          "headingBefore": "Spacing before headings",
-          "headingAfter": "Spacing after headings",
           "textColor": "Text",
-          "accentColor": "Accent",
           "mutedColor": "Muted"
         },
         "fonts": {
@@ -3200,27 +3019,14 @@
         },
         "preview": {
           "title": "Rendered preview",
-          "live": "Live",
           "heading": "Write more clearly together",
           "paragraph": "A calm writing style makes long notes easier to scan. Font and spacing changes appear here immediately.",
-          "bulletOne": "Document decisions so they remain understandable",
-          "bulletTwo": "Keep knowledge compact and accessible",
-          "taskOne": "First task completed",
-          "taskTwo": "Agree on the next step together",
           "hint": "The preview uses the same CSS values as wiki pages and HTML or PDF exports."
         },
         "editorSection": {
           "title": "Editor behavior",
           "description": "These options affect only your writing surface, not exported documents."
         },
-        "minimalToolbar": "Minimal toolbar",
-        "minimalToolbarDescription": "Hides less frequently used formatting commands.",
-        "typewriter": "Typewriter mode",
-        "typewriterDescription": "Centers the paragraph you are currently editing in the visible area.",
-        "statusBar": "Status bar",
-        "statusBarDescription": "Shows words, characters, reading time and the current block.",
-        "resetControl": "Reset value",
-        "resetAll": "Reset all",
         "cancel": "Cancel",
         "save": "Save",
         "saving": "Saving…",
@@ -3234,21 +3040,10 @@
         "block": "Block: {type}"
       }
     },
-    "pageCommentPlaceholder": "Add a page comment or mention @Name…",
-    "commentPlaceholder": "Write a comment or mention @Name…",
-    "addComment": "Add comment",
-    "inlineComment": "Comment on selection",
-    "highlightSelection": "Highlight text",
-    "commentSelection": "Comment",
-    "insertImage": "Insert image",
-    "uploadingImage": "Uploading image…",
-    "inlineImageUnsupported": "Inline images support PNG, JPEG, WebP, and safe SVG files.",
     "imagePicker": {
       "title": "Insert graphic",
       "description": "Choose a graphic from this page's attachments.",
       "empty": "No graphics available yet.",
-      "emptyHint": "Add an image file to choose it here.",
-      "addFromPath": "Add image from path",
       "loadFailed": "Graphics could not be loaded."
     },
     "image": "Image",
@@ -3256,51 +3051,28 @@
       "button": "Image description",
       "title": "Edit image description",
       "caption": "Figure caption",
-      "captionPlaceholder": "For example, Revenue trend 2024–2026",
       "alt": "Alternative text",
-      "altPlaceholder": "Briefly describe what the image shows.",
-      "include": "Show in the list of figures",
-      "includeHint": "The caption is numbered in the list of figures once it is enabled in document layout.",
       "save": "Save image description"
     },
-    "imageComment": "Comment on image",
-    "commentWholeImage": "Comment entire image",
-    "selectImageRegion": "Select image region",
-    "anchoredComments": "Anchored comments",
-    "openComment": "Open comment",
     "unassigned": "No assignee",
     "orphaned": "anchor removed",
     "resolve": "Resolve",
     "reopen": "Reopen",
     "commentRail": {
-      "textComment": "Text comment",
-      "imageComment": "Image comment",
-      "generalComment": "General comment",
       "open": "Open",
       "resolved": "Resolved",
       "reply": "Reply",
-      "replyPlaceholder": "Write a reply…",
       "editComment": "Edit comment",
       "deleteComment": "Delete comment",
-      "commentDeleted": "Comment deleted",
       "undo": "Undo",
       "save": "Save",
       "cancel": "Cancel",
-      "showResolved": "Show resolved",
-      "hideResolved": "Open only",
-      "noOpenComments": "No open comments.",
-      "mobileTitle": "Comments",
-      "mobileDescription": "Page comments and comments on selected text and images",
       "operationFailed": "Could not save the comment change. Please try again."
     },
     "restore": "Restore",
     "restoreRevisionConfirm": "Restore this version? The current page remains in history.",
     "insertCitation": "Insert citation",
-    "findSource": "Find a source…",
-    "pageShort": "Page",
-    "filterPages": "Filter documents…",
     "slash": {
-      "ariaLabel": "Slash commands",
       "empty": "No matching commands",
       "groups": {
         "text": "Text",
@@ -3311,270 +3083,110 @@
       "commands": {
         "paragraph": {
           "label": "Text",
-          "description": "Write a normal paragraph",
-          "keywords": [
-            "paragraph",
-            "normal",
-            "absatz"
-          ]
+          "description": "Write a normal paragraph"
         },
         "heading1": {
           "label": "Heading 1",
-          "description": "Large section heading",
-          "keywords": [
-            "heading",
-            "headline",
-            "h1",
-            "überschrift"
-          ]
+          "description": "Large section heading"
         },
         "heading2": {
           "label": "Heading 2",
-          "description": "Medium section heading",
-          "keywords": [
-            "heading",
-            "headline",
-            "h2",
-            "überschrift"
-          ]
+          "description": "Medium section heading"
         },
         "heading3": {
           "label": "Heading 3",
-          "description": "Small section heading",
-          "keywords": [
-            "heading",
-            "headline",
-            "h3",
-            "überschrift"
-          ]
+          "description": "Small section heading"
         },
         "bulletList": {
           "label": "Bullet list",
-          "description": "List with bullet points",
-          "keywords": [
-            "list",
-            "bullets",
-            "unordered",
-            "aufzählung"
-          ]
+          "description": "List with bullet points"
         },
         "orderedList": {
           "label": "Numbered list",
-          "description": "List with sequential numbers",
-          "keywords": [
-            "list",
-            "numbers",
-            "ordered",
-            "nummeriert"
-          ]
+          "description": "List with sequential numbers"
         },
         "taskList": {
           "label": "Task list",
-          "description": "Checklist with completable tasks",
-          "keywords": [
-            "checklist",
-            "list",
-            "checkbox"
-          ]
+          "description": "Checklist with completable tasks"
         },
         "todo": {
           "label": "Create task",
-          "description": "Create an assignable task with priority and origin",
-          "keywords": [
-            "todo",
-            "task",
-            "aufgabe"
-          ]
+          "description": "Create an assignable task with priority and origin"
         },
         "deadline": {
           "label": "Create deadline",
-          "description": "Create a deadline with timestamp, assignee and origin",
-          "keywords": [
-            "deadline",
-            "due",
-            "frist",
-            "termin"
-          ]
+          "description": "Create a deadline with timestamp, assignee and origin"
         },
         "blockquote": {
           "label": "Block quote",
-          "description": "Display text as a highlighted quote",
-          "keywords": [
-            "quote",
-            "blockquote",
-            "zitat"
-          ]
+          "description": "Display text as a highlighted quote"
         },
         "codeBlock": {
           "label": "Code block",
-          "description": "Insert preformatted code",
-          "keywords": [
-            "code",
-            "programming"
-          ]
+          "description": "Insert preformatted code"
         },
         "table": {
           "label": "Table",
-          "description": "Insert an empty table with a header row",
-          "keywords": [
-            "table",
-            "tabelle",
-            "grid",
-            "columns",
-            "rows"
-          ]
+          "description": "Insert an empty table with a header row"
         },
         "horizontalRule": {
           "label": "Divider",
-          "description": "Visually separate sections",
-          "keywords": [
-            "line",
-            "divider",
-            "horizontal",
-            "trennlinie"
-          ]
+          "description": "Visually separate sections"
         },
         "pageBreak": {
           "label": "Page break",
-          "description": "Start a new page in the PDF",
-          "keywords": [
-            "page",
-            "break",
-            "new page",
-            "umbruch"
-          ]
+          "description": "Start a new page in the PDF"
         },
         "tableOfContents": {
           "label": "Table of contents",
-          "description": "Generate a contents list from headings",
-          "keywords": [
-            "contents",
-            "toc",
-            "outline",
-            "verzeichnis"
-          ]
+          "description": "Generate a contents list from headings"
         },
         "twoColumns": {
           "label": "Two columns",
-          "description": "Insert a two-column section",
-          "keywords": [
-            "columns",
-            "layout",
-            "spalten"
-          ]
+          "description": "Insert a two-column section"
         },
         "pageLink": {
           "label": "Link a page",
-          "description": "Insert a link to another wiki page",
-          "keywords": [
-            "link",
-            "page",
-            "wiki",
-            "verknüpfung"
-          ]
+          "description": "Insert a link to another wiki page"
         },
         "externalLink": {
           "label": "Insert external link",
-          "description": "Link a web address at the cursor",
-          "keywords": [
-            "link",
-            "url",
-            "website",
-            "external"
-          ]
+          "description": "Link a web address at the cursor"
         },
         "citation": {
           "label": "Cite source",
-          "description": "Insert an IEEE citation with an optional page",
-          "keywords": [
-            "citation",
-            "source",
-            "reference",
-            "zitat",
-            "ieee",
-            "bibliography"
-          ]
+          "description": "Insert an IEEE citation with an optional page"
         },
         "pdfEvidence": {
           "label": "Insert PDF evidence",
-          "description": "Reuse an annotation from a PDF",
-          "keywords": [
-            "pdf",
-            "evidence",
-            "annotation",
-            "nachweis"
-          ]
+          "description": "Reuse an annotation from a PDF"
         },
         "inlineImage": {
           "label": "Insert image",
-          "description": "Upload a PNG, JPEG, or WebP image",
-          "keywords": [
-            "image",
-            "photo",
-            "picture",
-            "upload",
-            "bild"
-          ]
+          "description": "Upload a PNG, JPEG, or WebP image"
         },
         "attachment": {
           "label": "Add attachment",
-          "description": "Attach a file to this page",
-          "keywords": [
-            "attachment",
-            "file",
-            "upload",
-            "anhang"
-          ]
+          "description": "Attach a file to this page"
         },
         "supportingSource": {
           "label": "Link source only",
-          "description": "Connect a supporting source without citing it in the text",
-          "keywords": [
-            "source",
-            "supporting",
-            "link",
-            "quelle"
-          ]
+          "description": "Connect a supporting source without citing it in the text"
         },
         "pageComment": {
           "label": "Add comment",
-          "description": "Write a page-level comment",
-          "keywords": [
-            "comment",
-            "discussion",
-            "feedback",
-            "kommentar"
-          ]
+          "description": "Write a page-level comment"
         },
         "crossReference": {
           "label": "Cross-reference",
-          "description": "Reference a heading, figure, table or annex",
-          "keywords": [
-            "reference",
-            "cross-reference",
-            "figure",
-            "table",
-            "annex",
-            "verweis"
-          ]
+          "description": "Reference a heading, figure, table or annex"
         },
         "mermaidDiagram": {
           "label": "Mermaid diagram",
-          "description": "Write a diagram as text",
-          "keywords": [
-            "mermaid",
-            "diagram",
-            "flowchart",
-            "graph",
-            "chart"
-          ]
+          "description": "Write a diagram as text"
         }
       }
     },
-    "editConflict": "Edit conflict",
-    "editConflictDescription": "Another version was saved first. Your draft is preserved in history.",
-    "loadCurrent": "Load current",
-    "restoreMine": "Restore my version",
     "personalView": "Personal view",
     "noFavorites": "No favorites yet.",
     "teamActivity": "Team activity",
@@ -3748,19 +3360,13 @@
     "search": "Search",
     "noLinkedEvidence": "No PDF evidence linked yet.",
     "removedEvidence": "This evidence is no longer available.",
-    "insertPdfEvidence": "Insert PDF evidence",
-    "findEvidence": "Search PDF annotations…",
     "noEvidenceAvailable": "No reusable PDF annotations are available yet.",
     "loading": "Loading…",
-    "exportPage": "Export page",
     "documentsDescription": "Every document in the knowledge base, in its hierarchy.",
     "searchDocuments": "Search documents…",
     "noSearchResults": "No matches for this search.",
     "noDocuments": "No documents yet",
     "noDocumentsDescription": "Create a quick note to start filling the knowledge base.",
-    "existingTags": "Existing tags",
-    "savedVersionsOnly": "Saved versions only",
-    "noSavedVersions": "No version has been saved for this page yet.",
     "mergeTagDescription": "All documents and sources tagged \"{name}\" move to the chosen tag. \"{name}\" is removed afterwards.",
     "mergeTagTarget": "Choose target tag",
     "errorDescription": "This part of the wiki could not be loaded. Try again or go back to the start page.",
@@ -3768,19 +3374,9 @@
     "notFoundDescription": "This wiki page does not exist (any more). It may have been deleted, or the link is wrong.",
     "sendToPage": "Send to page",
     "findPage": "Search pages…",
-    "evidenceInserted": "Evidence inserted from “{source}”.",
-    "evidenceInsertFailed": "The evidence could not be inserted.",
-    "unlinkedMentions": "Unlinked mentions",
-    "unlinkedMentionsHint": "These pages name this title without linking to it.",
-    "markVerified": "Mark as verified",
-    "verifyAgain": "Verify again",
-    "verifiedUntilLabel": "Verified until {date}.",
-    "verificationOverdue": "Verification overdue since {date}.",
     "reorderPage": "Move “{title}”",
     "reorderSameLevelOnly": "Pages can only be reordered within the same level.",
     "reorderFailed": "The new order could not be saved.",
-    "compareWith": "Compare with",
-    "layoutChanges": "{count, plural, one {# layout change} other {# layout changes}}",
     "showAllResults": "Show all results",
     "searchResultsTitle": "Search results",
     "searchResultsEmptyQuery": "Enter a search term.",
@@ -3794,9 +3390,7 @@
     "mermaid": {
       "source": "Mermaid source",
       "edit": "Edit diagram",
-      "editHint": "Ctrl+Enter applies, Escape discards.",
-      "empty": "Empty diagram — click to edit.",
-      "renderFailed": "The diagram could not be drawn."
+      "empty": "Empty diagram — click to edit."
     },
     "categories": {
       "title": "Argument",
@@ -3812,12 +3406,6 @@
       "moveTo": "Move to",
       "deleteConfirm": "Delete this point and all sub-points? The evidence itself is kept.",
       "actionFailed": "The change could not be saved."
-    },
-    "suggestions": {
-      "enterMode": "Suggest changes",
-      "leaveMode": "Edit directly",
-      "acceptAll": "{count, plural, one {Accept # suggestion} other {Accept # suggestions}}",
-      "rejectAll": "Reject suggestions"
     },
     "pdfShortcuts": {
       "groups": {
@@ -4222,46 +3810,25 @@
       "path": "Link file path",
       "upload": "Choose files",
       "diagram": "Mermaid diagram",
-      "editSvg": "Edit SVG labels",
       "search": "Search graphics",
       "empty": "Choose files, drag them here, or paste an image.",
       "caption": "Caption",
-      "captionPlaceholder": "Add a caption…",
       "alt": "Alternative text",
-      "decorative": "Decorative image without a number",
-      "include": "Include in list of figures",
       "width": "Width",
       "layout": "Layout",
       "left": "Left, separate block",
       "center": "Centered, separate block",
       "right": "Right, separate block",
-      "wrapLeft": "Left with text wrapping",
-      "wrapRight": "Right with text wrapping",
-      "crop": "Crop",
       "cropX": "Left (%)",
       "cropY": "Top (%)",
-      "cropWidth": "Width (%)",
-      "cropHeight": "Height (%)",
-      "resetCrop": "Reset crop",
       "resize": "Resize image; arrow keys change width by 5%",
       "move": "Move figure",
       "replace": "Replace",
       "details": "Details",
       "source": "Source file",
-      "filePath": "File path",
-      "serverFolder": "Server folder",
       "laptop": "This computer",
       "server": "Server",
-      "pathHint": "The linked file updates automatically. Local files need a connected folder and an open document tab.",
-      "prefix": "Local folder path (optional)",
-      "prefixHint": "For full paths, enter the absolute path of the folder you selected. It stays in this browser.",
-      "connectFolder": "Connect local folder",
       "reconnect": "Reconnect folder",
-      "insertLinked": "Insert linked file",
-      "relink": "Change file link",
-      "noServerRoots": "No server folders have been configured yet. You can connect a local folder directly.",
-      "browserUnsupported": "Local live links need Chrome or Edge. Uploads and server paths work here too.",
-      "live": "Updates automatically",
       "paused": "Updates paused",
       "updated": "Last updated",
       "pause": "Pause",
@@ -4269,39 +3836,15 @@
       "retry": "Refresh now",
       "detach": "Use independent copy",
       "restore": "Restore an earlier version (pauses the link)",
-      "chooseRevision": "Choose version",
       "working": "Working…",
       "uploading": "Uploading image…",
       "cancel": "Cancel",
-      "insertReference": "Insert reference",
-      "searchReference": "Search figures, headings, or tables",
-      "noReferences": "No matching reference targets yet.",
       "list": "List of figures",
-      "insertList": "Insert list of figures",
-      "missingReference": "Reference target missing — choose another target",
-      "imageUnavailable": "Image unavailable",
-      "sourceUnavailable": "Source file unavailable — showing the last valid version",
       "notFound": "Graphic or document not found",
       "forbidden": "You cannot update this source",
       "invalidPath": "The path must stay inside the connected folder.",
-      "invalidFile": "The file is damaged, too large, or unsupported. Use PNG, JPEG, WebP, SVG, or SVGZ.",
       "invalidInput": "Check the fields and try again.",
-      "invalidSidecar": "The JSON sidecar is invalid.",
-      "sidecarConflict": "The source metadata conflicts with an existing source.",
-      "fileChanging": "The file is being written. The update will retry.",
-      "versionConflict": "The graphic has changed. Please try again.",
-      "sourceConflict": "This file is already linked to another graphic.",
-      "staleExport": "At least one source file could not be refreshed. Export using the last saved image version?",
-      "browseFolder": "Choose a file in the folder",
       "chooseFile": "Choose linked file",
-      "panelTitle": "Image",
-      "textWrap": "Text wrapping",
-      "noWrap": "On its own line",
-      "moveHint": "Drag the image or its grip between words or paragraphs. The blue marker shows the exact position; text continues after the image.",
-      "cropHint": "Drag the corners to crop, or drag the frame to move it. Arrow keys make fine adjustments. Apply when ready; Escape cancels.",
-      "preciseCrop": "Precise crop dimensions",
-      "applyCrop": "Apply crop",
-      "captionHint": "Edit the caption directly below the image.",
       "cropHandle": {
         "move": "Move crop frame",
         "nw": "Crop top left",
@@ -5215,6 +4758,15 @@
     "restoreInProgress": "A version is being restored. The editor will reopen shortly.",
     "unavailable": "The office editor is not reachable right now. You can download the last stored version.",
     "converting": "This document is being converted. Please reload the page in a minute.",
+    "legacyPage": {
+      "back": "Back to documents",
+      "description": "This document is still stored in the old editor's format (for example after restoring it from the trash). It is read-only until it is converted to a Word document.",
+      "open": "Read the text",
+      "convert": "Convert to Word document",
+      "adminOnly": "An admin can convert it to a Word document.",
+      "converted": "The document is now a Word document.",
+      "convertFailed": "Conversion failed: {detail}"
+    },
     "mobileViewOnly": "On phones, documents are view-only. Please use a computer to edit.",
     "mentionFailed": "The mention could not be delivered.",
     "storedAt": "Stored: version {version} · {time}",

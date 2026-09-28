@@ -55,9 +55,10 @@ An absent version is not a shortcut around a module's deletion checks.
 - Project/task metadata supports direct restoration. Changes to dates, completion,
   hierarchy or other coordinated scheduling fields must use the project planner.
   Deleted project/task records can be recreated when their dependencies exist.
-- Wiki documents and presentations restore through the existing collaborative room
-  mutation path, updating the durable shared state and publishing a new live update.
-  Document projections, search and derived links follow the existing saving code.
+- Presentations restore through the existing collaborative room mutation path,
+  updating the durable shared state and publishing a new live update. Word
+  documents keep their own version history (office tables are excluded); a
+  restored office page only gets its metadata back.
   Missing dependencies or unavailable presentation media reject the transaction.
 - Financial/personnel/funding transactions, access membership, calendar workflows,
   source/index maintenance, graphics synchronization, evidence relationships,

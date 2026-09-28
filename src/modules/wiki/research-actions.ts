@@ -1,11 +1,6 @@
 "use server";
-import { roomExists, mutateRoom } from "./collaboration/store";
-import { parseDocumentSettings as collaborationDocumentSettings } from "./lib/document-settings";
-import { seedPage } from "./collaboration/codec";
-
 import fs from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
@@ -14,12 +9,8 @@ import { db, sqlite } from "@/db";
 import {
   contextLinks,
   evidenceLinks,
-  user,
-  wikiCommentThreads,
-  wikiComments,
   wikiFavorites,
   wikiNotifications,
-  wikiPageRevisions,
   wikiPages,
   wikiCitationStyles,
   wikiPdfAnnotations,
@@ -37,55 +28,13 @@ import { deleteAttachmentsFor, UPLOADS_PATH } from "@/lib/files";
 import { pdfSourcePurgeBlocker } from "./lib/pdf-evidence";
 import { sourceInputSchema } from "./lib/source-input";
 import { ensureTags, syncSourceFts, saveSourceRecord } from "./source-records";
-import type { CommentAnchor } from "./lib/comment-anchors";
-import { buildFtsQuery, extractText, parseStoredDocument } from "./lib/tiptap";
+import { buildFtsQuery } from "./lib/tiptap";
 import { fuseRankings } from "./lib/search-ranking";
 import { searchSimilar } from "./lib/vector-store.server";
-import { getPageComments } from "./research-queries";
 import { searchPdfPageText } from "./pdf-queries";
 
 function revalidateWiki() {
   revalidatePath("/wiki", "layout");
-}
-
-function pageSnapshotHash(page: Pick<typeof wikiPages.$inferSelect, "contentJson" | "documentMode" | "documentSettingsJson">) {
-  return createHash("sha256")
-    .update(page.contentJson)
-    .update("\0")
-    .update(page.documentMode ? "1" : "0")
-    .update("\0")
-    .update(page.documentSettingsJson)
-    .digest("hex");
-}
-
-export async function createPageCheckpoint(pageId: string, label?: string) {
-  const currentUser = await requireUserOrThrow();
-  const page = db.select().from(wikiPages).where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt))).get();
-  if (!page) throw new Error("Page not found");
-  const contentHash = pageSnapshotHash(page);
-  const existing = db.select({ id: wikiPageRevisions.id }).from(wikiPageRevisions)
-    .where(and(eq(wikiPageRevisions.pageId, pageId), eq(wikiPageRevisions.contentHash, contentHash)))
-    .get();
-  if (existing) return { id: existing.id, created: false as const };
-  const revision = db.insert(wikiPageRevisions).values({
-    pageId,
-    version: page.version,
-    contentVersion: page.contentVersion,
-    contentHash,
-    label: z.string().trim().max(120).optional().parse(label) || null,
-    title: page.title,
-    contentJson: page.contentJson,
-    status: page.status,
-    citationLocale: page.citationLocale,
-    citationStyle: page.citationStyle,
-    documentMode: page.documentMode,
-    documentSettingsJson: page.documentSettingsJson,
-    documentTemplateId: page.documentTemplateId,
-    kind: "manual",
-    createdBy: currentUser.id,
-  }).returning({ id: wikiPageRevisions.id }).get();
-  revalidateWiki();
-  return { id: revision.id, created: true as const };
 }
 
 const pageMetaSchema = z.object({
@@ -95,25 +44,6 @@ const pageMetaSchema = z.object({
   citationStyle: z.enum(wikiCitationStyles).optional(),
   tagNames: z.array(z.string().trim().min(1).max(40)).max(20),
 });
-
-/** Confirms a page is still accurate for a period; 0 months clears the confirmation. */
-export async function verifyPage(input: { pageId: string; months: number }) {
-  const currentUser = await requireUserOrThrow();
-  const data = z.object({ pageId: z.string().min(1), months: z.number().int().min(0).max(24) }).parse(input);
-  const page = db.select().from(wikiPages).where(and(eq(wikiPages.id, data.pageId), isNull(wikiPages.deletedAt))).get();
-  if (!page) throw new Error("Page not found");
-  if (data.months === 0) {
-    db.update(wikiPages).set({ verifiedAt: null, verifiedUntil: null, verifiedBy: null }).where(eq(wikiPages.id, page.id)).run();
-    revalidateWiki();
-    return { verifiedUntil: null };
-  }
-  const verifiedAt = new Date();
-  const verifiedUntil = new Date(verifiedAt);
-  verifiedUntil.setMonth(verifiedUntil.getMonth() + data.months);
-  db.update(wikiPages).set({ verifiedAt, verifiedUntil, verifiedBy: currentUser.id }).where(eq(wikiPages.id, page.id)).run();
-  revalidateWiki();
-  return { verifiedUntil: verifiedUntil.toISOString() };
-}
 
 export async function updatePageResearchMeta(input: z.input<typeof pageMetaSchema>) {
   const currentUser = await requireUserOrThrow();
@@ -149,12 +79,6 @@ export async function saveSource(input: z.infer<typeof sourceInputSchema>) {
 export async function linkSupportingSource(pageId: string, sourceId: string) {
   await requireUserOrThrow();
   db.insert(wikiPageSources).values({ pageId, sourceId, relation: "supporting" }).onConflictDoNothing().run();
-  revalidateWiki();
-}
-
-export async function unlinkSupportingSource(pageId: string, sourceId: string) {
-  await requireUserOrThrow();
-  db.delete(wikiPageSources).where(and(eq(wikiPageSources.pageId, pageId), eq(wikiPageSources.sourceId, sourceId), eq(wikiPageSources.relation, "supporting"))).run();
   revalidateWiki();
 }
 
@@ -256,145 +180,6 @@ export async function purgeFromTrash(entityType: "page" | "source", id: string) 
       deleteAttachmentsFor("wikiOfficeDocument", item.id);
     } });
   }
-  revalidateWiki();
-}
-
-const normalizedRectSchema = z.object({
-  x: z.number().min(0).max(1),
-  y: z.number().min(0).max(1),
-  width: z.number().positive().max(1),
-  height: z.number().positive().max(1),
-}).refine((rect) => rect.x + rect.width <= 1.000_001 && rect.y + rect.height <= 1.000_001);
-
-const commentAnchorSchema = z.discriminatedUnion("type", [
-  z.object({ type: z.literal("page") }),
-  z.object({ type: z.literal("text"), quote: z.string().trim().min(1).max(2_000) }),
-  z.object({
-    type: z.literal("image"),
-    nodeId: z.string().min(1).max(200),
-    mode: z.enum(["whole", "region"]),
-    rect: normalizedRectSchema.optional(),
-    label: z.string().max(500).default(""),
-  }).refine((anchor) => anchor.mode === "whole" || anchor.rect !== undefined),
-]);
-
-const commentSchema = z.object({
-  pageId: z.string(),
-  threadId: z.string().optional(),
-  body: z.string().trim().min(1).max(10_000),
-  anchor: commentAnchorSchema.optional(),
-  anchorQuote: z.string().max(2_000).optional(),
-  assigneeId: z.string().nullable().optional(),
-});
-export async function addComment(input: z.infer<typeof commentSchema>) {
-  const currentUser = await requireUserOrThrow();
-  const data = commentSchema.parse(input);
-  let threadId = data.threadId;
-  db.transaction(() => {
-    if (!threadId) {
-      const anchor: CommentAnchor = data.anchor ?? (data.anchorQuote ? { type: "text", quote: data.anchorQuote } : { type: "page" });
-      threadId = db.insert(wikiCommentThreads).values({
-        pageId: data.pageId,
-        anchorQuote: anchor.type === "text" ? anchor.quote : anchor.type === "image" ? anchor.label : "",
-        anchorType: anchor.type,
-        anchorNodeId: anchor.type === "image" ? anchor.nodeId : null,
-        anchorData: anchor.type === "image" ? { mode: anchor.mode, rect: anchor.rect, label: anchor.label } : {},
-        assigneeId: data.assigneeId ?? null,
-        createdBy: currentUser.id,
-      }).returning({ id: wikiCommentThreads.id }).get().id;
-      if (data.assigneeId && data.assigneeId !== currentUser.id) db.insert(wikiNotifications).values({ userId: data.assigneeId, actorId: currentUser.id, type: "assignment", pageId: data.pageId, threadId }).run();
-    } else {
-      const thread = db.select().from(wikiCommentThreads).where(and(eq(wikiCommentThreads.id, threadId), eq(wikiCommentThreads.pageId, data.pageId))).get();
-      if (!thread) throw new Error("Comment thread not found");
-      if (thread.createdBy !== currentUser.id) db.insert(wikiNotifications).values({ userId: thread.createdBy, actorId: currentUser.id, type: "reply", pageId: data.pageId, threadId }).run();
-    }
-    db.insert(wikiComments).values({ threadId: threadId!, body: data.body, createdBy: currentUser.id }).run();
-    const mentioned = db.select({ id: user.id, name: user.name }).from(user).where(isNull(user.removedAt)).all().filter((person) => data.body.toLocaleLowerCase().includes(`@${person.name.toLocaleLowerCase()}`) && person.id !== currentUser.id);
-    for (const person of mentioned) db.insert(wikiNotifications).values({ userId: person.id, actorId: currentUser.id, type: "mention", pageId: data.pageId, threadId }).run();
-  });
-  revalidateWiki();
-  const thread = getPageComments(data.pageId).find((item) => item.id === threadId);
-  if (!thread) throw new Error("Created comment thread could not be loaded");
-  return { threadId: threadId!, thread };
-}
-
-const commentIdSchema = z.string().min(1);
-const commentUpdateSchema = z.object({
-  commentId: commentIdSchema,
-  body: z.string().trim().min(1).max(10_000),
-});
-
-async function requireCommentAuthor(commentId: string, includeDeleted = false) {
-  const currentUser = await requireUserOrThrow();
-  const comment = db.select({ id: wikiComments.id, createdBy: wikiComments.createdBy, deletedAt: wikiComments.deletedAt })
-    .from(wikiComments)
-    .where(and(eq(wikiComments.id, commentId), ...(includeDeleted ? [] : [isNull(wikiComments.deletedAt)])))
-    .get();
-  if (!comment) throw new Error("Comment not found");
-  if (comment.createdBy !== currentUser.id) throw new Error("You can only change your own comments");
-  return comment;
-}
-
-export async function updateComment(input: z.infer<typeof commentUpdateSchema>) {
-  const data = commentUpdateSchema.parse(input);
-  await requireCommentAuthor(data.commentId);
-  db.update(wikiComments).set({ body: data.body }).where(eq(wikiComments.id, data.commentId)).run();
-  revalidateWiki();
-}
-
-export async function deleteComment(commentId: string) {
-  const id = commentIdSchema.parse(commentId);
-  await requireCommentAuthor(id);
-  db.update(wikiComments).set({ deletedAt: new Date() }).where(eq(wikiComments.id, id)).run();
-  revalidateWiki();
-}
-
-export async function restoreComment(commentId: string) {
-  const id = commentIdSchema.parse(commentId);
-  await requireCommentAuthor(id, true);
-  db.update(wikiComments).set({ deletedAt: null }).where(eq(wikiComments.id, id)).run();
-  revalidateWiki();
-}
-
-export async function setCommentResolved(threadId: string, resolved: boolean) {
-  const currentUser = await requireUserOrThrow();
-  const thread = db.select().from(wikiCommentThreads).where(eq(wikiCommentThreads.id, threadId)).get();
-  if (!thread) throw new Error("Thread not found");
-  db.update(wikiCommentThreads).set({ resolvedAt: resolved ? new Date() : null, resolvedBy: resolved ? currentUser.id : null }).where(eq(wikiCommentThreads.id, threadId)).run();
-  if (resolved && thread.createdBy !== currentUser.id) db.insert(wikiNotifications).values({ userId: thread.createdBy, actorId: currentUser.id, type: "resolved", pageId: thread.pageId, threadId }).run();
-  revalidateWiki();
-}
-
-export async function markNotificationsRead(ids?: string[]) {
-  const currentUser = await requireUserOrThrow();
-  const where = ids?.length ? and(eq(wikiNotifications.userId, currentUser.id), inArray(wikiNotifications.id, ids)) : eq(wikiNotifications.userId, currentUser.id);
-  db.update(wikiNotifications).set({ readAt: new Date() }).where(where).run();
-  revalidateWiki();
-}
-
-export async function restorePageRevision(revisionId: string) {
-  const currentUser = await requireUserOrThrow();
-  const revision = db.select().from(wikiPageRevisions).where(eq(wikiPageRevisions.id, revisionId)).get();
-  if (!revision) throw new Error("Revision not found");
-  const page = db.select().from(wikiPages).where(eq(wikiPages.id, revision.pageId)).get();
-  if (!page) throw new Error("Page not found");
-  if (roomExists("page", page.id)) {
-    db.transaction(() => {
-      db.insert(wikiPageRevisions).values({ pageId: page.id, version: page.version, contentVersion: page.contentVersion, contentHash: pageSnapshotHash(page), title: page.title, contentJson: page.contentJson, status: page.status, citationLocale: page.citationLocale, citationStyle: page.citationStyle, documentMode: page.documentMode, documentSettingsJson: page.documentSettingsJson, documentTemplateId: page.documentTemplateId, kind: "restore", createdBy: currentUser.id }).run();
-      db.update(wikiPages).set({ title: revision.title, status: revision.status, citationLocale: revision.citationLocale, citationStyle: revision.citationStyle, documentTemplateId: revision.documentTemplateId }).where(eq(wikiPages.id, page.id)).run();
-      mutateRoom("page", page.id, currentUser, doc => seedPage(doc, parseStoredDocument(revision.contentJson), revision.documentMode, collaborationDocumentSettings(revision.documentSettingsJson) as unknown as Record<string, unknown>));
-    });
-    revalidateWiki(); return;
-  }
-  const restoredDocument = parseStoredDocument(revision.contentJson);
-  const restoredContentJson = JSON.stringify(restoredDocument);
-  const contentText = extractText(restoredDocument);
-  db.transaction(() => {
-    db.insert(wikiPageRevisions).values({ pageId: page.id, version: page.version, contentVersion: page.contentVersion, contentHash: pageSnapshotHash(page), title: page.title, contentJson: page.contentJson, status: page.status, citationLocale: page.citationLocale, citationStyle: page.citationStyle, documentMode: page.documentMode, documentSettingsJson: page.documentSettingsJson, documentTemplateId: page.documentTemplateId, kind: "restore", createdBy: currentUser.id }).run();
-    db.update(wikiPages).set({ title: revision.title, contentJson: restoredContentJson, contentText, status: revision.status, citationLocale: revision.citationLocale, citationStyle: revision.citationStyle, documentMode: revision.documentMode, documentSettingsJson: revision.documentSettingsJson, documentTemplateId: revision.documentTemplateId, version: page.version + 1, contentVersion: page.contentVersion + 1, updatedBy: currentUser.id, updatedAt: new Date() }).where(eq(wikiPages.id, page.id)).run();
-    sqlite.prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?").run(page.id);
-    sqlite.prepare("INSERT INTO wiki_pages_fts (page_id, title, content_text) VALUES (?, ?, ?)").run(page.id, revision.title, contentText);
-  });
   revalidateWiki();
 }
 
@@ -560,5 +345,12 @@ export async function mergeTags(sourceTagId: string, targetTagId: string) {
     if (sourceLinks.length) db.insert(wikiSourceTags).values(sourceLinks.map((link) => ({ sourceId: link.sourceId, tagId: targetTagId }))).onConflictDoNothing().run();
     db.delete(wikiTags).where(eq(wikiTags.id, sourceTagId)).run();
   });
+  revalidateWiki();
+}
+
+export async function markNotificationsRead(ids?: string[]) {
+  const currentUser = await requireUserOrThrow();
+  const where = ids?.length ? and(eq(wikiNotifications.userId, currentUser.id), inArray(wikiNotifications.id, ids)) : eq(wikiNotifications.userId, currentUser.id);
+  db.update(wikiNotifications).set({ readAt: new Date() }).where(where).run();
   revalidateWiki();
 }

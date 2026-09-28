@@ -6,10 +6,8 @@ import {
   taskContexts,
   tasks,
   wikiCommentThreads,
-  wikiComments,
   wikiFavorites,
   wikiNotifications,
-  wikiPageRevisions,
   wikiPages,
   wikiPageSources,
   wikiPageTags,
@@ -39,50 +37,6 @@ export type KnowledgeLaunchpadItem = {
   status: string;
 };
 
-export function getKnowledgeLaunchpad() {
-  const documents = sqlite.prepare(`
-    SELECT id, title, slug, status, updated_at AS updatedAt
-    FROM wiki_pages
-    WHERE deleted_at IS NULL
-    ORDER BY updated_at DESC, id DESC
-    LIMIT 6
-  `).all() as Array<{ id: string; title: string; slug: string; status: string; updatedAt: number }>;
-
-  const sources = sqlite.prepare(`
-    SELECT s.id, s.title, s.reading_status AS status, s.updated_at AS updatedAt,
-      (SELECT d.id FROM wiki_pdf_documents d
-       WHERE d.source_id = s.id AND d.status = 'ready'
-       ORDER BY CASE WHEN d.role = 'primary' THEN 0 ELSE 1 END, d.created_at ASC
-       LIMIT 1) AS documentId
-    FROM wiki_sources s
-    WHERE s.deleted_at IS NULL AND s.reading_status IN ('reading', 'read')
-    ORDER BY CASE WHEN s.reading_status = 'reading' THEN 0 ELSE 1 END,
-      s.updated_at DESC, s.id DESC
-    LIMIT 6
-  `).all() as Array<{ id: string; title: string; status: string; updatedAt: number; documentId: string | null }>;
-
-  return {
-    documents: documents.map((item): KnowledgeLaunchpadItem => ({
-      id: item.id,
-      title: item.title,
-      href: `/wiki/pages/${item.slug}`,
-      updatedAt: item.updatedAt,
-      kind: "document",
-      status: item.status,
-    })),
-    sources: sources.map((item): KnowledgeLaunchpadItem => ({
-      id: item.id,
-      title: item.title,
-      href: item.documentId
-        ? `/wiki/sources/${item.id}/read/${item.documentId}`
-        : `/wiki/sources/${item.id}`,
-      updatedAt: item.updatedAt,
-      kind: "source",
-      status: item.status,
-    })),
-  };
-}
-
 export function getResearchNavigation(userId: string) {
   const counts = sqlite
     .prepare(
@@ -107,33 +61,6 @@ export function getResearchNavigation(userId: string) {
 
 export function listTags() {
   return db.select().from(wikiTags).orderBy(asc(wikiTags.name)).all();
-}
-
-export function listInboxPages() {
-  return sqlite
-    .prepare(
-      `
-    SELECT p.id, p.title, p.slug, p.content_text AS contentText, p.updated_at AS updatedAt,
-           p.updated_by AS updatedBy, u.name AS updatedByName,
-           group_concat(DISTINCT t.name) AS tags
-    FROM wiki_pages p
-    JOIN user u ON u.id = p.updated_by
-    LEFT JOIN wiki_page_tags pt ON pt.page_id = p.id
-    LEFT JOIN wiki_tags t ON t.id = pt.tag_id
-    WHERE p.deleted_at IS NULL AND p.status = 'inbox'
-    GROUP BY p.id ORDER BY p.updated_at DESC
-  `,
-    )
-    .all() as Array<{
-    id: string;
-    title: string;
-    slug: string;
-    contentText: string;
-    updatedAt: number;
-    updatedBy: string;
-    updatedByName: string;
-    tags: string | null;
-  }>;
 }
 
 export type SourceListItem = {
@@ -409,131 +336,6 @@ export function isFavoritePage(pageId: string, userId: string) {
   return Boolean(db.select({ userId: wikiFavorites.userId }).from(wikiFavorites)
     .where(and(eq(wikiFavorites.userId, userId), eq(wikiFavorites.entityType, "page"), eq(wikiFavorites.entityId, pageId)))
     .get());
-}
-
-export function getPageResearchMeta(pageId: string, userId: string) {
-  const tags = db
-    .select({ id: wikiTags.id, name: wikiTags.name, color: wikiTags.color })
-    .from(wikiPageTags)
-    .innerJoin(wikiTags, eq(wikiPageTags.tagId, wikiTags.id))
-    .where(eq(wikiPageTags.pageId, pageId))
-    .orderBy(asc(wikiTags.name))
-    .all();
-  const supportingSources = db
-    .select({
-      id: wikiSources.id,
-      title: wikiSources.title,
-      issuedDate: wikiSources.issuedDate,
-      relation: wikiPageSources.relation,
-    })
-    .from(wikiPageSources)
-    .innerJoin(wikiSources, eq(wikiPageSources.sourceId, wikiSources.id))
-    .where(
-      and(
-        eq(wikiPageSources.pageId, pageId),
-        eq(wikiPageSources.relation, "supporting"),
-        // A Literaturstelle in the trash is gone from the library, so it must not
-        // keep sitting in the page's sidebar linking to a deleted record.
-        isNull(wikiSources.deletedAt),
-      ),
-    )
-    .all();
-  const favorite = isFavoritePage(pageId, userId);
-  const revisions = db
-    .select({
-      id: wikiPageRevisions.id,
-      version: wikiPageRevisions.version,
-      createdBy: wikiPageRevisions.createdBy,
-      contentVersion: wikiPageRevisions.contentVersion,
-      contentHash: wikiPageRevisions.contentHash,
-      label: wikiPageRevisions.label,
-      kind: wikiPageRevisions.kind,
-      createdAt: wikiPageRevisions.createdAt,
-      createdByName: user.name,
-      contentJson: wikiPageRevisions.contentJson,
-      documentSettingsJson: wikiPageRevisions.documentSettingsJson,
-    })
-    .from(wikiPageRevisions)
-    .innerJoin(user, eq(wikiPageRevisions.createdBy, user.id))
-    .where(eq(wikiPageRevisions.pageId, pageId))
-    .orderBy(desc(wikiPageRevisions.createdAt))
-    .limit(30)
-    .all();
-  return { tags, supportingSources, favorite, revisions };
-}
-
-export function getPageComments(pageId: string) {
-  const threads = db
-    .select({
-      id: wikiCommentThreads.id,
-      anchorQuote: wikiCommentThreads.anchorQuote,
-      anchorType: wikiCommentThreads.anchorType,
-      anchorNodeId: wikiCommentThreads.anchorNodeId,
-      anchorData: wikiCommentThreads.anchorData,
-      orphaned: wikiCommentThreads.orphaned,
-      resolvedAt: wikiCommentThreads.resolvedAt,
-      assigneeId: wikiCommentThreads.assigneeId,
-      createdAt: wikiCommentThreads.createdAt,
-      createdBy: wikiCommentThreads.createdBy,
-      createdByName: user.name,
-      createdByMarkColor: userProfilePreferences.markColor,
-    })
-    .from(wikiCommentThreads)
-    .innerJoin(user, eq(wikiCommentThreads.createdBy, user.id))
-    .leftJoin(userProfilePreferences, eq(wikiCommentThreads.createdBy, userProfilePreferences.userId))
-    .where(eq(wikiCommentThreads.pageId, pageId))
-    .orderBy(desc(wikiCommentThreads.createdAt))
-    .all();
-  if (threads.length === 0) return [];
-
-  const commentRows = db
-    .select({
-      id: wikiComments.id,
-      threadId: wikiComments.threadId,
-      body: wikiComments.body,
-      createdBy: wikiComments.createdBy,
-      createdAt: wikiComments.createdAt,
-      createdByName: user.name,
-      createdByMarkColor: userProfilePreferences.markColor,
-    })
-    .from(wikiComments)
-    .innerJoin(user, eq(wikiComments.createdBy, user.id))
-    .leftJoin(
-      userProfilePreferences,
-      eq(wikiComments.createdBy, userProfilePreferences.userId),
-    )
-    .where(
-      and(
-        inArray(
-          wikiComments.threadId,
-          threads.map((thread) => thread.id),
-        ),
-        isNull(wikiComments.deletedAt),
-      ),
-    )
-    .orderBy(asc(wikiComments.createdAt))
-    .all();
-  const commentsByThread = new Map<string, typeof commentRows>();
-  for (const comment of commentRows) {
-    const current = commentsByThread.get(comment.threadId) ?? [];
-    current.push(comment);
-    commentsByThread.set(comment.threadId, current);
-  }
-
-  return threads.map((thread) => ({
-    ...thread,
-    createdByMarkColor: resolveStoredUserMarkColor(thread.createdByMarkColor),
-    anchor: thread.anchorType === "image"
-      ? { type: "image" as const, nodeId: thread.anchorNodeId ?? "", mode: thread.anchorData.mode ?? "whole", rect: thread.anchorData.rect, label: thread.anchorData.label ?? thread.anchorQuote }
-      : thread.anchorType === "text"
-        ? { type: "text" as const, quote: thread.anchorQuote }
-        : { type: "page" as const },
-    comments: (commentsByThread.get(thread.id) ?? [])
-      .map((comment) => ({
-        ...comment,
-        createdByMarkColor: resolveStoredUserMarkColor(comment.createdByMarkColor),
-      })),
-  })).filter((thread) => thread.comments.length > 0);
 }
 
 export function listFavorites(userId: string) {

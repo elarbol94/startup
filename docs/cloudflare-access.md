@@ -14,12 +14,11 @@ in to management-platform with a username and password.
 Browser -> Cloudflare Access -> Tunnel -> cloudflared -> localhost:3007 (proxy, nginx)
                                                             |
                                                             +-> /         app:3000 (+ Better Auth)
-                                                            +-> /collab   app:3001 (live collaboration)
                                                             +-> /office/  onlyoffice:80 (office documents)
 ```
 
-Everything is one origin, so one Access application covers the app, live
-collaboration and the ONLYOFFICE document server. Server-to-server traffic
+Everything is one origin, so one Access application covers the app and the
+ONLYOFFICE document server. Server-to-server traffic
 (document download and save callbacks) stays on the private Compose network
 and never passes through Cloudflare.
 
@@ -43,7 +42,7 @@ CLOUDFLARE_TUNNEL_TOKEN=<remotely-managed-tunnel-token>
 `BETTER_AUTH_URL` must be the final HTTPS hostname users visit. Keep
 `APP_BIND_ADDRESS` on `127.0.0.1`. The tunnel connector reaches the `proxy`
 service at `http://localhost:3007`; it forwards to the application (port 3000
-inside its container), `/collab` and `/office/`.
+inside its container) and `/office/`.
 
 For office documents also set `ONLYOFFICE_INBOX_SECRET` and
 `ONLYOFFICE_OUTBOX_SECRET` (see `docs/office-documents.md`).
@@ -77,13 +76,12 @@ Hostname: startup.elarbol.me
 Service:  http://localhost:3007
 ```
 
-Live document collaboration (`/collab`) and office documents (`/office/`) need
-no extra routes: the `proxy` service routes them, and Cloudflare proxies
-WebSockets without extra settings.
+Office documents (`/office/`) need no extra route: the `proxy` service routes
+them, and Cloudflare proxies WebSockets without extra settings. Do not add a
+route for `/office`.
 
-Older setups had a second route `^/collab → http://localhost:3008`. It keeps
-working (the app still publishes that port) but is no longer needed; delete it
-to have a single route. Do not add a route for `/office`.
+Older setups had a second route `^/collab → http://localhost:3008` for the
+removed wiki-page editor. The app no longer publishes that port; delete the route.
 
 Copy the raw tunnel token into the untracked `.env` file as
 `CLOUDFLARE_TUNNEL_TOKEN`. Do not paste it into `docker-compose.yml`. The

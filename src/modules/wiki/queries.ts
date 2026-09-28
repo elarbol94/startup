@@ -1,6 +1,6 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { user, wikiLinks, wikiPages } from "@/db/schema";
+import { wikiLinks, wikiPages } from "@/db/schema";
 import { buildFtsQuery } from "./lib/tiptap";
 
 export type WikiTreeNode = {
@@ -69,38 +69,6 @@ export function isPageSlugTaken(slug: string, excludePageId?: string) {
   return Boolean(previous && previous.id !== excludePageId);
 }
 
-export function getFirstPage() {
-  return db
-    .select()
-    .from(wikiPages)
-    .where(isNull(wikiPages.deletedAt))
-    .orderBy(asc(wikiPages.sortOrder), asc(wikiPages.createdAt))
-    .get();
-}
-
-/**
- * Pages that mention this page's title in their text but never linked to it. Explicit
- * links need the author to remember; this surfaces what they forgot.
- */
-export function getUnlinkedMentions(pageId: string, title: string, limit = 20) {
-  const needle = title.trim();
-  // A very short title matches almost everything, so it is not worth offering.
-  if (needle.length < 4) return [];
-  return sqlite.prepare(`
-    SELECT p.id, p.title, p.slug
-    FROM wiki_pages p
-    WHERE p.deleted_at IS NULL
-      AND p.id != ?
-      AND p.content_text LIKE ? COLLATE NOCASE
-      AND NOT EXISTS (
-        SELECT 1 FROM wiki_links l
-        WHERE l.source_page_id = p.id AND l.target_page_id = ?
-      )
-    ORDER BY p.updated_at DESC
-    LIMIT ?
-  `).all(pageId, `%${needle}%`, pageId, limit) as Array<{ id: string; title: string; slug: string }>;
-}
-
 export function getBacklinks(pageId: string) {
   return db
     .select({
@@ -112,19 +80,6 @@ export function getBacklinks(pageId: string) {
     .innerJoin(wikiPages, eq(wikiLinks.sourcePageId, wikiPages.id))
     .where(and(eq(wikiLinks.targetPageId, pageId), isNull(wikiPages.deletedAt)))
     .all();
-}
-
-export function getPageMeta(pageId: string) {
-  return db
-    .select({
-      updatedAt: wikiPages.updatedAt,
-      updatedBy: wikiPages.updatedBy,
-      updatedByName: user.name,
-    })
-    .from(wikiPages)
-    .innerJoin(user, eq(wikiPages.updatedBy, user.id))
-    .where(eq(wikiPages.id, pageId))
-    .get();
 }
 
 export type WikiSearchResult = {
@@ -153,16 +108,6 @@ export function searchPages(query: string, limit = 10): WikiSearchResult[] {
     .all(ftsQuery, limit) as WikiSearchResult[];
 
   return rows;
-}
-
-/** All non-deleted pages, flat — for the "insert page link" picker. */
-export function listPagesFlat() {
-  return db
-    .select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug })
-    .from(wikiPages)
-    .where(isNull(wikiPages.deletedAt))
-    .orderBy(asc(wikiPages.title))
-    .all();
 }
 
 /** Pages whose body is TipTap JSON (office documents are excluded), e.g. presentation sources. */

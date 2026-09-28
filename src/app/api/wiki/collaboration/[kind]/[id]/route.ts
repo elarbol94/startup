@@ -4,11 +4,12 @@ import { limitedRequest } from "@/lib/request-body";
 import { sqlite } from "@/db";
 import { applyRoomUpdate, authorize, loadRoom, replayRoom, roomKey, wireRoom } from "@/modules/wiki/collaboration/store";
 
-const paramsSchema = z.object({ kind: z.enum(["page", "presentation"]), id: z.string().min(1).max(200) });
+// Only presentations are edited live; wiki pages are Word documents (ONLYOFFICE).
+const paramsSchema = z.object({ kind: z.enum(["presentation"]), id: z.string().min(1).max(200) });
 const bodySchema = z.object({
   update: z.string().max(4_000_000).regex(/^[A-Za-z0-9+/]*={0,2}$/).optional(),
   client: z.string().uuid(),
-  presence: z.object({ cursor: z.object({ anchor: z.string().max(1000), head: z.string().max(1000) }).nullable().optional(), selectedIds: z.array(z.string().max(64)).max(500).optional() }).optional(),
+  presence: z.object({ selectedIds: z.array(z.string().max(64)).max(500).optional() }).optional(),
 });
 type Context = { params: Promise<{ kind: string; id: string }> };
 export async function POST(request: Request, context: Context) {

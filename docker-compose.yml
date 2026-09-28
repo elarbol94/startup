@@ -3,12 +3,8 @@ name: management-platform
 services:
   app:
     build: .
-    # The `proxy` service is the entry point (app, /collab and the /office
-    # document server share one origin). The collaboration port stays published
-    # so an existing Cloudflare `^/collab → localhost:3008` route keeps working;
-    # it can be removed once that route is deleted (docs/cloudflare-access.md).
-    ports:
-      - "${APP_BIND_ADDRESS:-127.0.0.1}:${COLLAB_HOST_PORT:-3008}:3001"
+    # The `proxy` service is the entry point (the app and the /office document
+    # server share one origin); the app publishes no host port.
     environment:
       # Set BETTER_AUTH_SECRET in a .env file next to this compose file.
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
@@ -24,16 +20,12 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       # Extra trusted browser origins, for example a local development proxy.
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
-      # Where browsers open the collaboration WebSocket. Empty: wss://<host>/collab.
-      COLLAB_PUBLIC_URL: ${COLLAB_PUBLIC_URL:-}
       # Internal-only endpoint; never expose LanguageTool on a host port.
       LANGUAGETOOL_URL: ${LANGUAGETOOL_URL:-http://languagetool:8010}
       # Optional AI-assisted calendar import; deterministic parsing remains the fallback.
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_CALENDAR_MODEL: ${OPENAI_CALENDAR_MODEL:-gpt-6-astra}
       OPENAI_MINUTES_MODEL: ${OPENAI_MINUTES_MODEL:-gpt-6-astra}
-      # Named figure roots; mount each source directory read-only in an override.
-      WIKI_FIGURE_ROOTS: ${WIKI_FIGURE_ROOTS:-}
       # Office documents (ONLYOFFICE). See docs/office-documents.md.
       ONLYOFFICE_INBOX_SECRET: ${ONLYOFFICE_INBOX_SECRET:-}
       ONLYOFFICE_OUTBOX_SECRET: ${ONLYOFFICE_OUTBOX_SECRET:-}

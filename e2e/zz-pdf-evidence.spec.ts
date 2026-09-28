@@ -194,22 +194,6 @@ test("upload, read, search, annotate, reload, and insert traceable PDF evidence"
   await expect(page.getByTestId("pdf-annotation-mobile-sheet")).toBeVisible();
   await expect(page.getByTestId("pdf-annotation-mobile-sheet").getByText("Edited after zoom")).toBeVisible();
   await page.getByTestId("pdf-annotation-mobile-sheet").getByRole("button", { name: "Abbrechen" }).click();
-
-  await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
-  await submitNewDocumentTitle(page, "PDF Evidence Review");
-  const editor = page.locator(".ProseMirror");
-  await expect(editor).toHaveAttribute("contenteditable", "true");
-  await editor.focus();
-  await page.keyboard.insertText("PDF Evidence Review");
-  await page.getByRole("button", { name: "PDF-Nachweis einfügen" }).click();
-  await page.getByRole("button", { name: new RegExp(`local evidence ${runId}.*Local PDF evidence supports traceable research`, "i") }).click();
-  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert");
-  await page.reload();
-  await expect(page.getByText("Local PDF evidence supports traceable research").first()).toBeVisible();
-  await expect(editor.locator("[data-pdf-evidence]")).toHaveAttribute("sourcetitle", `local evidence ${runId}`);
-  await expect(editor.locator("[data-pdf-evidence]")).toHaveAttribute("pagenumber", "1");
-  await expect(editor.locator("[data-citation]")).toContainText(/(?:S\.|p\.) 1/);
 });
 
 test("PDF and note focus modes expand their workspaces and persist independently", async ({ page }) => {
@@ -227,9 +211,6 @@ test("PDF and note focus modes expand their workspaces and persist independently
   const researchSidebar = visibleTestId(page, "research-sidebar");
   const thumbnailsPanel = visibleTestId(page, "pdf-thumbnails-panel");
   const commentsPanel = visibleTestId(page, "pdf-comments-panel");
-  const noteMetadataControls = visibleTestId(page, "note-metadata-controls");
-  const noteMetadataSidebar = visibleTestId(page, "note-metadata-sidebar");
-  const commentRail = visibleTestId(page, "comment-rail");
   await expect(viewport).toBeVisible();
   await expect(appSidebar).toBeVisible();
   await expect(researchSidebar).toBeVisible();
@@ -267,26 +248,13 @@ test("PDF and note focus modes expand their workspaces and persist independently
   await expect(researchSidebar).toBeVisible();
   await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
   await submitNewDocumentTitle(page, "Focused writing");
-  const editor = page.locator(".ProseMirror");
-  await editor.click();
-  await page.keyboard.type("Focused writing remains autosaved");
-  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert", { timeout: 10_000 });
-  await expect(page.getByRole("button", { name: "Fokusmodus", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Umbenennen: Focused writing" })).toBeVisible();
   await page.getByRole("button", { name: "Fokusmodus", exact: true }).click();
   await expect(appSidebar).toHaveCount(0);
   await expect(researchSidebar).toHaveCount(0);
-  await expect(noteMetadataControls).toHaveCount(0);
-  await expect(noteMetadataSidebar).toHaveCount(0);
-  await expect(commentRail).toHaveCount(0);
-  await expect(editor).toContainText("Focused writing remains autosaved");
-
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Kommentare", exact: true }).click();
-  await expect(commentRail).toBeVisible();
   await page.reload();
   await expect(page.getByRole("button", { name: "Fokusmodus beenden" })).toBeVisible();
   await expect(appSidebar).toHaveCount(0);
-  await expect(page.locator(".ProseMirror")).toContainText("Focused writing remains autosaved");
   await page.getByRole("button", { name: "Fokusmodus beenden" }).click();
 
   await page.goto(readerUrl);

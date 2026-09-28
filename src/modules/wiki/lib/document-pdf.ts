@@ -18,7 +18,6 @@ import { renderDocumentHtml, type RenderedDocument } from "./document-renderer";
 
 import { parseDocumentForExport } from "./suggestions";
 import { getCitationSourcesForPage } from "../research-queries";
-import { renderDocumentPdfBytes } from "./document-pdf-engine";
 import type { WikiTypographySettingsV1 } from "./wiki-typography";
 import { renderSvgAsset } from "../svg-assets";
 
@@ -131,23 +130,4 @@ export async function renderStoredWikiDocument(pageId: string, typography: WikiT
     resolveAsset: async ({ src }) => src.startsWith("data:image/") ? src : null,
   });
   return { page, rendered, doc, images };
-}
-
-export async function generateWikiDocumentPdf(pageId: string, typography: WikiTypographySettingsV1, revisions?: Record<string, number>) {
-  const { page: storedPage, rendered } = await renderStoredWikiDocument(pageId, typography, revisions);
-  const settings = localizeDocumentSettings(
-    parseDocumentSettings(storedPage.documentSettingsJson),
-    storedPage.citationLocale,
-  );
-  const pdf = await renderDocumentPdfBytes({
-    rendered,
-    settings,
-    metadata: {
-      title: storedPage.title,
-      author: settings.metadata.author,
-      subject: settings.metadata.subject,
-      keywords: settings.metadata.keywords,
-    },
-  });
-  return { pdf, page: storedPage, rendered };
 }

@@ -1,11 +1,8 @@
 import { expect, it } from "vitest";
 import { unzipSync, strFromU8 } from "fflate";
-import { PDFDocument, PDFName, PDFDict, PDFArray } from "pdf-lib";
 import { generateDocumentDocx } from "./document-docx";
 import { renderDocumentHtml } from "./document-renderer";
-import { appendPdfWithLinks, pdfFigurePages } from "./document-pdf-engine";
 import { DEFAULT_DOCUMENT_SETTINGS } from "./document-settings";
-import { docxHtmlToTiptap } from "./docx-import";
 import type { TiptapNode } from "./tiptap";
 
 const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="100" height="50"><rect width="100" height="50" fill="red"/></svg>';
@@ -32,22 +29,4 @@ it("uses stable targets, strips legacy numbers and does not append a duplicate l
   expect(result.bodyHtml).toContain('data-figure-page="chart"');
   expect(result.bodyHtml).not.toContain("Abbildung 8");
 });
-it("imports embedded images without losing adjacent formatting or captions", () => {
-  const imported = docxHtmlToTiptap('<p>Before <strong>bold<img src="/api/files/image123" alt="Chart"/>after</strong> text</p><p><img src="/api/files/image456"/></p><p class="figure-caption">Abbildung 9: Revenue</p>');
-  expect(imported.content?.map((node) => node.type)).toEqual(["paragraph", "commentableImage", "paragraph", "commentableImage"]);
-  expect(imported.content?.[1].attrs).toMatchObject({ attachmentId: "image123", alt: "Chart" });
-  expect(imported.content?.[2].content?.[0]).toMatchObject({ text: "after", marks: [{ type: "bold" }] });
-  expect(imported.content?.[3].attrs?.caption).toBe("Revenue");
-  expect(JSON.stringify(docxHtmlToTiptap('<p><img src="file:///private.png"/></p>'))).not.toContain("private.png");
-});
-it("preserves named PDF destinations and direct links when adding a cover", async () => {
-  const body = await PDFDocument.create(); const first = body.addPage(), target = body.addPage();
-  body.catalog.set(PDFName.of("Dests"), body.context.obj({ chart: [target.ref, PDFName.of("XYZ"), 0, 500, 0] }));
-  first.node.set(PDFName.of("Annots"), body.context.obj([body.context.register(body.context.obj({ Type: "Annot", Subtype: "Link", Rect: [0, 0, 100, 20], Dest: [target.ref, PDFName.of("XYZ"), 0, 500, 0] }))]));
-  expect(pdfFigurePages(body)).toEqual({ chart: 2 });
-  const merged = await PDFDocument.create(); merged.addPage(); await appendPdfWithLinks(merged, body);
-  expect(pdfFigurePages(merged)).toEqual({ chart: 3 });
-  const annotations = merged.getPage(1).node.lookup(PDFName.of("Annots")) as PDFArray;
-  const annotation = merged.context.lookup(annotations.get(0)) as PDFDict;
-  expect((annotation.lookup(PDFName.of("Dest")) as PDFArray).get(0)).toEqual(merged.getPage(2).ref);
-});
+

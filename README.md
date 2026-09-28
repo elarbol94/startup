@@ -9,8 +9,8 @@ Self-hosted all-in-one management app for a small Austrian start-up:
   A4 print view.
 - **Projekte** — projects with kanban boards (drag & drop), tasks with
   assignees, due dates and priorities, "Meine Aufgaben" on the dashboard.
-- **Wiki** — hierarchical pages with a rich-text editor (Tiptap), autosave,
-  full-text search (SQLite FTS5), internal page links and backlinks.
+- **Wiki** — hierarchical Word documents (embedded ONLYOFFICE editor) with
+  versions, full-text search (SQLite FTS5), internal links and backlinks.
 - **i18n** — German (default) and English, switchable per user in the user menu.
 
 ## Stack
@@ -66,7 +66,7 @@ underlying cause; only password/invalid-document errors blame the uploaded file.
   automatically; the preference is remembered in the current browser.
 - Configuration lives in `.env.local` (see `.env.example`).
 
-For automatic live document and presentation collaboration, see
+For live presentation collaboration, see
 [docs/live-collaboration.md](docs/live-collaboration.md).
 
 For wiki presentation editing, save recovery, live following and PDF export,
@@ -75,11 +75,6 @@ see [docs/presentations.md](docs/presentations.md).
 Word documents are edited in an embedded ONLYOFFICE Docs editor (DOCX, real
 pages, track changes, co-editing); setup, versions, the workspace plugin and
 local development are in [docs/office-documents.md](docs/office-documents.md).
-
-For Wiki page saving, recovery and validation,
-see [docs/wiki-documents.md](docs/wiki-documents.md). Image captions, references,
-figure lists and live laptop/server folder setup are covered in
-[docs/wiki-figures.md](docs/wiki-figures.md).
 
 ### Schema changes
 

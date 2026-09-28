@@ -44,7 +44,6 @@ function syncFts(pageId: string, title: string, contentText: string) {
     .run(pageId, title, contentText);
 }
 
-
 const createSchema = z.object({
   title: z.string().min(1).max(200),
   parentId: z.string().nullable().default(null),
@@ -78,24 +77,6 @@ export async function createPage(
   scheduleIndex(row.id, data.title, "");
   revalidatePath("/wiki", "layout");
   return { slug };
-}
-
-const proofingLanguageSchema = z.object({
-  pageId: z.string().min(1),
-  language: z.enum(["de-DE", "de-AT", "en-US"]),
-});
-
-export async function updatePageProofingLanguage(input: z.infer<typeof proofingLanguageSchema>) {
-  await requireUserOrThrow();
-  const data = proofingLanguageSchema.parse(input);
-  const result = db.update(wikiPages)
-    .set({ proofingLanguage: data.language })
-    .where(and(eq(wikiPages.id, data.pageId), isNull(wikiPages.deletedAt)))
-    .returning({ proofingLanguage: wikiPages.proofingLanguage })
-    .get();
-  if (!result) throw new Error("Page not found");
-  revalidatePath("/wiki", "layout");
-  return result;
 }
 
 /**
@@ -157,12 +138,6 @@ export async function renamePage(id: string, title: string) {
   // No revalidatePath here: it would re-render the old URL inside the action response,
   // whose redirect to the new slug remounts the open editor. The caller refreshes instead.
   return { slug: nextSlug };
-}
-
-export async function searchWiki(query: string) {
-  await requireUserOrThrow();
-  const { searchPages } = await import("./queries");
-  return searchPages(z.string().max(200).parse(query));
 }
 
 /** Soft-deletes a page and all of its descendants. */

@@ -4,13 +4,11 @@ import { cn } from "@/lib/utils";
 import { createContext, useContext, useEffect, useReducer, useState } from "react";
 import { useTranslations } from "next-intl";
 import { CollaborationProvider, type CollaborationClient } from "./provider";
-import { SocketCollaborationProvider } from "./socket-provider";
 import type { Kind } from "./codec";
 export const CollaborationContext = createContext<CollaborationClient | null>(null);
 export const useCollaborationContext = () => useContext(CollaborationContext);
 export function useCollaboration(kind: Kind, id: string, enabled = true) {
-  // Wiki pages use the WebSocket server; presentations keep the HTTP transport.
-  const [provider] = useState<CollaborationClient>(() => kind === "page" ? new SocketCollaborationProvider(kind, id) : new CollaborationProvider(kind, id));
+  const [provider] = useState<CollaborationClient>(() => new CollaborationProvider(kind, id));
   const [, refresh] = useReducer(value => value + 1, 0);
   useEffect(() => {
     if (!enabled) return;

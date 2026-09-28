@@ -1,5 +1,4 @@
 import { expect, test, type Page } from "@playwright/test";
-import { submitNewDocumentTitle } from "./helpers/new-document";
 
 test.use({ actionTimeout: 25_000, viewport: { width: 1440, height: 1000 } });
 test.describe.configure({ timeout: 240_000 });
@@ -21,67 +20,6 @@ async function screenshot(page: Page, name: string) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: test.info().outputPath(`${name}.png`), fullPage: true });
 }
-
-test("document tools share one panel and retain drafts at desktop, tablet, and phone sizes", async ({ page }) => {
-  await login(page);
-  await page.goto("/wiki/pages");
-  await page.getByRole("button", { name: "Dokument schreiben", exact: true }).click();
-  await submitNewDocumentTitle(page, "Quiet workspace");
-  await page.waitForURL(/\/wiki\/pages\/.+/, { timeout: 90_000 });
-  const editor = page.locator(".ProseMirror");
-  await expect(editor).toHaveAttribute("contenteditable", "true");
-  await editor.fill("A quiet workspace keeps the document at the centre.");
-  await expect(page.getByTestId("document-save-status")).toHaveText("Gespeichert");
-  await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(0);
-  await editor.press("ControlOrMeta+Home");
-  await editor.press("Shift+ArrowRight");
-  await tool(page, "Dokumentgliederung");
-  await closePanel(page);
-  await tool(page, "Details");
-  await closePanel(page);
-  await page.getByTestId("document-toolbar").getByRole("button", { name: "Fett", exact: true }).click();
-  await expect(editor.locator("strong")).toHaveText("A");
-  const longTitle = "Strategische Zusammenarbeit und langfristige Unternehmensentwicklung";
-  await page.getByRole("button", { name: /^Umbenennen:/ }).click();
-  await page.getByTestId("page-title-input").fill(longTitle);
-  await page.getByTestId("page-title-input").press("Enter");
-  await expect(page.getByRole("button", { name: `Umbenennen: ${longTitle}`, exact: true })).toBeVisible();
-  await tool(page, "Kommentare");
-  await page.getByTestId("page-comment-input").fill("Unsent review note");
-  await closePanel(page);
-  await tool(page, "Details");
-  await expect(page.getByTestId("note-metadata-sidebar")).toBeVisible();
-  await expect(page.getByTestId("comment-rail")).not.toBeVisible();
-  await closePanel(page);
-  await tool(page, "Kommentare");
-  await expect(page.getByTestId("page-comment-input")).toHaveValue("Unsent review note");
-  await closePanel(page);
-  for (const width of [1440, 1024, 390]) {
-    await page.setViewportSize({ width, height: 1000 });
-    await tool(page, "Kommentare");
-    await expect(page.getByTestId("page-comment-input")).toHaveValue(width === 1440 ? "Unsent review note" : width === 1024 ? "Draft at 1440" : "Draft at 1024");
-    await closePanel(page);
-    await screenshot(page, `document-${width}`);
-    await tool(page, "Dokumentgliederung");
-    await expect(page.getByTestId("editor-outline")).toBeVisible();
-    await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(1);
-    if (width < 1280) await expect(page.getByRole("dialog")).toBeVisible();
-    await screenshot(page, `document-tools-${width}`);
-    if (width < 1280) {
-      await page.keyboard.press("Escape");
-      await expect(page.getByRole("dialog")).not.toBeVisible();
-    } else await closePanel(page);
-    await tool(page, "Kommentare");
-    await page.getByTestId("page-comment-input").fill(`Draft at ${width}`);
-    await closePanel(page);
-    await tool(page, "Kommentare");
-    await expect(page.getByTestId("page-comment-input")).toHaveValue(`Draft at ${width}`);
-    await closePanel(page);
-  }
-  await page.reload();
-  await expect(editor).toContainText("A quiet workspace");
-  await expect(page.locator("[data-workspace-panel]:visible")).toHaveCount(0);
-});
 
 test("presentation panels preserve pending edits, playback order, previews, and canvas position", async ({ page }) => {
   await login(page);

@@ -65,7 +65,6 @@ SQLite database. Stop the normal development server before running it.
 - `README.md`: setup, deployment, backup, and adding a module.
 - `ACCOUNTING_INTEGRATION_CONTRACT.md`: accounting/migration invariants.
 - `docs/cloudflare-access.md`: Cloudflare Tunnel/Access deployment.
-- `docs/graphics-sidecar.md`: wiki graphics sidecars and sync.
 - `docs/municipality-kennzahlen.md`: Ausgangsdaten vs. Kennzahlen, and how to add one.
 - `docs/office-documents.md`: Word documents in ONLYOFFICE (topology, secrets,
   versions/restore, workspace plugin, local development).

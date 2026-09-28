@@ -2,16 +2,12 @@ import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { listAttachmentsFor } from "@/lib/files";
-import { getBacklinks, getUnlinkedMentions, getPageByPreviousSlug, getPageBySlug, getPageMeta, listPagesFlat } from "@/modules/wiki/queries";
-import { getPageComments, getPageResearchMeta, isFavoritePage, listCitationSources, listTags, listUsers } from "@/modules/wiki/research-queries";
-import { WikiShell } from "@/modules/wiki/components/wiki-shell";
+import { getBacklinks, getPageByPreviousSlug, getPageBySlug } from "@/modules/wiki/queries";
+import { isFavoritePage } from "@/modules/wiki/research-queries";
+import { LegacyPageNotice } from "@/modules/wiki/components/office/legacy-page-notice";
 import { OfficeDocumentShell } from "@/modules/wiki/components/office/office-document-shell";
 import { wasConverted } from "@/modules/wiki/office/queries";
 import { getTranslations } from "next-intl/server";
-import { getWikiTypographyForUser, getWikiTypographyProfileForUser } from "@/modules/wiki/lib/wiki-typography.server";
-import { getWikiProofingPrefsForUser } from "@/modules/wiki/lib/wiki-proofing-prefs.server";
-import { listDeadlinesForContext, listTasksForContext } from "@/modules/projects/queries";
-import { listGraphicAttachmentIds } from "@/modules/wiki/svg-assets";
 
 export default async function WikiPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ task?: string; deadline?: string; insertEvidence?: string; officeAction?: string }> }) {
   await connection();
@@ -29,41 +25,16 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
     }
     notFound();
   }
-  if (page.documentEngine !== "tiptap") {
-    const attachmentsList = listAttachmentsFor("wikiPage", page.id).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, uploadedBy: file.uploadedBy }));
-    if (page.documentEngine === "converting") return <p className="p-8 text-center text-sm text-muted-foreground">{(await getTranslations("officeDocuments"))("converting")}</p>;
-    return <OfficeDocumentShell
-      page={{ id: page.id, title: page.title, slug: page.slug }}
-      backlinks={getBacklinks(page.id)}
-      favorite={isFavoritePage(page.id, currentUser.id)}
-      converted={wasConverted(page.id)}
-      proofingLanguage={page.proofingLanguage}
-      attachments={attachmentsList}
-      query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline, officeAction: query.officeAction }}
-    />;
-  }
-  const meta = getPageMeta(page.id);
-  // Diagrams live in the graphics panel, which has its own preview, insert and
-  // remove actions; repeating them under attachments only doubles the list.
-  const graphicAttachmentIds = listGraphicAttachmentIds(page.id);
-  const currentUserTypography = getWikiTypographyProfileForUser(currentUser.id);
-  return <WikiShell
-    page={{ id: page.id, title: page.title, slug: page.slug, contentJson: page.contentJson, status: page.status, citationLocale: page.citationLocale, citationStyle: page.citationStyle, verifiedUntil: page.verifiedUntil?.toISOString() ?? null, proofingLanguage: page.proofingLanguage, version: page.version, contentVersion: page.contentVersion, documentSettingsJson: page.documentSettingsJson, createdBy: page.createdBy }}
-    backlinks={getBacklinks(page.id)} unlinkedMentions={getUnlinkedMentions(page.id, page.title)} allPages={listPagesFlat().filter((item) => item.id !== page.id)}
-    sources={listCitationSources(page.citationLocale, 500, page.citationStyle)}
-    allTags={listTags()}
-    research={getPageResearchMeta(page.id, currentUser.id)}
-    comments={getPageComments(page.id)} currentUserId={currentUser.id} users={listUsers()}
-    attachments={listAttachmentsFor("wikiPage", page.id).filter((file) => !graphicAttachmentIds.has(file.id)).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, uploadedBy: file.uploadedBy }))}
-    typography={getWikiTypographyForUser(page.createdBy)}
-    editableTypography={currentUserTypography.typography}
-    typographyTemplates={currentUserTypography.templates}
-    proofingPrefs={getWikiProofingPrefsForUser(currentUser.id)}
-    tasks={listTasksForContext("wikiPage", page.id)}
-    deadlines={listDeadlinesForContext("wikiPage", page.id)}
-    focusTaskId={query.task}
-    insertEvidenceId={query.insertEvidence}
-    focusDeadlineId={query.deadline}
-    meta={meta ? { updatedAt: meta.updatedAt.getTime(), updatedBy: meta.updatedBy, updatedByName: meta.updatedByName } : null}
+  if (page.documentEngine === "tiptap") return <LegacyPageNotice page={{ id: page.id, title: page.title }} canConvert={currentUser.role === "admin"} />;
+  if (page.documentEngine === "converting") return <p className="p-8 text-center text-sm text-muted-foreground">{(await getTranslations("officeDocuments"))("converting")}</p>;
+  const attachments = listAttachmentsFor("wikiPage", page.id).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, uploadedBy: file.uploadedBy }));
+  return <OfficeDocumentShell
+    page={{ id: page.id, title: page.title, slug: page.slug }}
+    backlinks={getBacklinks(page.id)}
+    favorite={isFavoritePage(page.id, currentUser.id)}
+    converted={wasConverted(page.id)}
+    proofingLanguage={page.proofingLanguage}
+    attachments={attachments}
+    query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline, officeAction: query.officeAction }}
   />;
 }

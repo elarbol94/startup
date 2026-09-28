@@ -4,8 +4,10 @@ Word documents are wiki pages whose body is a DOCX file edited in an embedded,
 self-hosted **ONLYOFFICE Docs Community** editor (`documentEngine = "office"`).
 The editor provides pagination, tables, track changes, comments and real-time
 co-editing; the app keeps storage, access, versions and every connection to the
-rest of the workspace. Plain wiki pages and quick notes keep the TipTap editor
-(`documentEngine = "tiptap"`).
+rest of the workspace. It is the only document editor: the old TipTap page
+editor was removed. A page still stored as TipTap (`documentEngine = "tiptap"`,
+only possible after restoring it from the trash) opens read-only with its old
+text as HTML and, for admins, a "convert to Word document" button.
 
 Because an office document is still a `wiki_pages` row with the same id,
 tasks and deadlines (`task_contexts`), project context links, network links,
@@ -19,7 +21,6 @@ Office documents are not presentation sources: they are excluded from
 ```text
 browser ──> proxy (nginx, one origin, 127.0.0.1:3007)
               /          → app:3000
-              /collab    → app:3001   (TipTap live collaboration)
               /office/   → onlyoffice (virtual path, WebSockets)
 onlyoffice ──> http://app:3000/api/wiki/office/{file,callback}   (private network)
 app        ──> http://onlyoffice/{command,converter}              (private network)
@@ -75,7 +76,7 @@ Settings → Version Control. Office history is its own UI.
   removes unregistered `.docx`/`.zip` files older than an hour.
 - **Head.** `head_version_id` is the authoritative version, and search text, FTS,
   embeddings, backlinks, cited sources and PDF evidence are always derived from
-  it. See `page-derived-data.ts`, which is shared with the TipTap save path.
+  it. See `page-derived-data.ts`.
 
 ### Sessions and callbacks
 

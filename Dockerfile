@@ -43,7 +43,6 @@ ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \
     HOSTNAME=0.0.0.0 \
-    COLLAB_PORT=3001 \
     DATABASE_PATH=/data/app.db \
     UPLOADS_PATH=/data/uploads \
     MAX_PDF_UPLOAD_BYTES=104857600 \
@@ -78,7 +77,6 @@ COPY --from=deps --chown=app:app /app/node_modules/@napi-rs/canvas-linux-x64-gnu
 # Fail the image build if the PDF runtime's native dependency cannot initialize.
 RUN node -e "const { DOMMatrix, Path2D } = require('@napi-rs/canvas'); new DOMMatrix(); new Path2D();"
 USER app
-# 3000: web app, 3001: live document collaboration (WebSocket)
-EXPOSE 3000 3001
+EXPOSE 3000
 VOLUME /data
 CMD ["node", "server.js"]

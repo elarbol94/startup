@@ -519,7 +519,9 @@ text on the canvas or in Properties, select the target words and use the
 source-passage link icon. This applies a normal rich-text link without replacing
 the words. It participates in collaborative editing, saving and undo.
 Ctrl/Cmd+click in the editor returns to the source passage; source viewing requires
-sign-in. See [wiki-documents.md](wiki-documents.md#linking-selected-text-to-a-source-passage).
+sign-in. In the PDF source reader, prepare a passage with the link icon
+(**Quelltextstelle verknüpfen / Link source passage**); the most recently prepared
+passage is available in other tabs on the same origin and replaces the previous one.
 
 ## Object controls and smart guides
 
