@@ -23,7 +23,7 @@ describe("office DOCX export", () => {
       paragraph(text("kommentiert", [{ type: "comment", attrs: { threadId: "th1" } }])),
     ] };
     const bytes = await generateDocumentDocx("Titel", doc, DEFAULT_DOCUMENT_SETTINGS, {}, () => undefined, {
-      origin: "https://app.example", comments: [{ threadId: "th1", author: "Anna", date: new Date(0), text: "Anna: Bitte prüfen" }],
+      origin: "https://app.example", language: "de-AT", comments: [{ threadId: "th1", author: "Anna", date: new Date(0), text: "Anna: Bitte prüfen" }],
     });
     const files = unzipDocxBounded(bytes);
     const extract = extractDocx(files);
@@ -34,6 +34,7 @@ describe("office DOCX export", () => {
     expect(extract.text).toContain("☑ Erledigt");
     expect(extract.text).toContain("☐ Offen");
     expect(strFromU8(unzipSync(bytes)["word/comments.xml"])).toContain("Bitte prüfen");
+    expect(strFromU8(files["word/styles.xml"])).toContain('<w:lang w:val="de-AT"/>');
     // No helper bookmarks remain once they became content controls.
     expect(strFromU8(files["word/document.xml"])).not.toContain("mpsdt_");
   });

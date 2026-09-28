@@ -30,6 +30,8 @@ type Context = {
 export type OfficeDocxOptions = {
   /** Absolute app origin for internal links (e.g. https://host). */
   origin: string;
+  /** Default text language, e.g. "de-AT"; the editor checks spelling in it. */
+  language?: string;
   comments: Array<{ threadId: string; author: string; date: Date; text: string }>;
 };
 type OfficeContext = OfficeDocxOptions & { tags: string[]; commentIds: Map<string, number>; anchored: Set<string> };
@@ -240,7 +242,10 @@ export async function generateDocumentDocx(title: string, doc: TiptapNode, setti
     ? [{ id: index, author: comment.author, date: comment.date, children: [new Paragraph(comment.text)] }] : []) : [];
   const document = new Document({ creator: settings.metadata.author, title, subject: settings.metadata.subject, features: { updateFields: true },
     ...(comments.length ? { comments: { children: comments } } : {}),
-    styles: { paragraphStyles: [{ id: "Caption", name: "Caption", basedOn: "Normal", run: { size: 20 }, paragraph: { spacing: { after: 120 } } }] },
+    styles: {
+      ...(office?.language ? { default: { document: { run: { language: { value: office.language } } } } } : {}),
+      paragraphStyles: [{ id: "Caption", name: "Caption", basedOn: "Normal", run: { size: 20 }, paragraph: { spacing: { after: 120 } } }],
+    },
     numbering: { config: [{ reference: "proposal-numbering", levels: [{ level: 0, format: "decimal", text: "%1.", alignment: "start" }] }] },
     sections: [{ properties: { page: { size: { width: Math.round((settings.page.size === "A4" ? 210 : 215.9) * 56.693), height: Math.round((settings.page.size === "A4" ? 297 : 279.4) * 56.693), orientation: settings.page.orientation }, margin: Object.fromEntries(Object.entries(settings.page.marginsMm).map(([key, value]) => [key, Math.round(value * 56.693)])) } }, children: [new Paragraph({ text: title, heading: HeadingLevel.TITLE }), ...content] }],
   });
