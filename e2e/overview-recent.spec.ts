@@ -7,7 +7,7 @@ test("recently opened can be added to the dashboard and reopens visited document
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
   expect(response.ok()).toBe(true);
   await page.goto("/wiki");
-  await page.getByRole("button", { name: "Neues Dokument", exact: true }).click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await page.getByRole("menuitem", { name: "Leeres Dokument" }).click();
   await submitNewDocumentTitle(page, "Recently opened document");
   await page.waitForURL(/\/wiki\/pages\/.+/);

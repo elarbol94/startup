@@ -86,7 +86,7 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expectWidth(appSidebar, 56);
   await researchSidebar.hover();
   await expectWidth(researchSidebar, 208);
-  await researchSidebar.getByRole("button", { name: "Schnelle Notiz" }).click();
+  await researchSidebar.getByRole("button", { name: "Neues Dokument", exact: true }).click();
   await submitNewDocumentTitle(page, "Focus mode note");
   await expect(page).toHaveURL(/\/wiki\/pages\/[^/]+$/);
   await page.getByRole("button", { name: "Fokusmodus", exact: true }).click();

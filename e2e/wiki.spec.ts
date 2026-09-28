@@ -14,7 +14,7 @@ async function login(page: Page) {
 /** Creates a (Word) document through the inbox's quick-note button. */
 async function quickNote(page: Page, title: string) {
   await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, title);
   await expect(page.getByRole("button", { name: `Umbenennen: ${title}`, exact: true })).toBeVisible({ timeout: 30_000 });
 }

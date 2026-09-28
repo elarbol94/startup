@@ -172,7 +172,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
   }, [state, script.api, elementId, page.id, t, theme]);
 
   const failed = state.kind === "error" || script.error;
-  return <div className="relative h-full min-h-[32rem] overflow-hidden rounded-md border bg-background">
+  return <div className="relative h-full min-h-[18rem] overflow-hidden rounded-md border bg-background">
     {state.kind !== "unavailable" && <div ref={containerRef} className="size-full [&>div]:size-full" />}
     {(state.kind === "loading" || (state.kind === "ready" && !script.api && !script.error)) && <div className="absolute inset-0 grid place-items-center text-sm text-muted-foreground"><span className="flex items-center gap-2"><Loader2 className="size-4 animate-spin" />{t("loading")}</span></div>}
     {failed && <div className="absolute inset-0 grid place-items-center bg-background/90 p-6 text-center">

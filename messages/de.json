@@ -2597,7 +2597,7 @@
     "hideAnnotations": "Markierungen ausblenden",
     "pdfNavigationDescription": "PDF durchsuchen und über Seitenvorschauen navigieren.",
     "annotationsDescription": "Markierungen, Nachweise und Antworten für diese PDF prüfen.",
-    "quickNote": "Schnelle Notiz",
+    "quickNote": "Neues Dokument",
     "start": "Start",
     "backToWikiStart": "Zurück zur Wiki-Startseite",
     "more": "Mehr",
@@ -4653,6 +4653,7 @@
     "then": "dann"
   },
   "officeDocuments": {
+    "documentTitle": "{title} – Dokument",
     "newDocumentMenu": "Neues Dokument",
     "blankDocument": "Leeres Dokument",
     "newDocument": "Neues Dokument",

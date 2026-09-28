@@ -16,6 +16,7 @@ import { saveOfficeCheckpoint } from "../../office/office-actions";
 import { AttachmentPanel } from "../attachment-panel";
 import { EvidencePanel } from "../evidence-panel";
 import { InlinePageTitle } from "../inline-page-title";
+import { OfficeDocumentTitle } from "./office-document-title";
 import { OfficeConnectionsPanel } from "./office-connections-panel";
 import { OfficeGrammarPanel } from "./office-grammar-panel";
 import type { OfficeCommand } from "./use-office-bridge";
@@ -40,7 +41,7 @@ function useFitToViewport() {
     if (!element) return;
     const fit = () => {
       const top = element.getBoundingClientRect().top + window.scrollY;
-      element.style.height = `${Math.max(480, window.innerHeight - top)}px`;
+      element.style.height = `${Math.max(360, window.innerHeight - top)}px`;
     };
     fit();
     const observer = new ResizeObserver(fit);
@@ -81,9 +82,12 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const { status, refresh } = useOfficeStatus(page.id, true);
   const { isFocused } = useFocusMode();
   const root = useFitToViewport();
+  // Follows renames that only replace the URL, without a server refresh.
+  const [title, setTitle] = useState(page.title);
 
   async function rename(title: string) {
     const renamed = await renamePage(page.id, title);
+    setTitle(title);
     if (renamed.slug === currentSlug.current) { router.refresh(); return; }
     currentSlug.current = renamed.slug;
     window.history.replaceState(null, "", `/wiki/pages/${encodeURIComponent(renamed.slug)}${window.location.search}`);
@@ -123,6 +127,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
       <div className="flex min-w-0 items-start gap-2">
         <Link href="/wiki/pages" aria-label={t("backToDocuments")} title={t("backToDocuments")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link>
         <div className="min-w-0">
+          <OfficeDocumentTitle title={title} />
           <InlinePageTitle title={page.title} onRename={rename} />
           {status && !isFocused && <p className="mt-0.5 text-xs text-muted-foreground">{t("storedAt", { version: status.head.version, time: format.dateTime(new Date(status.head.storedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>}
         </div>

@@ -246,7 +246,7 @@ test("PDF and note focus modes expand their workspaces and persist independently
   await expect(page.getByTestId("research-sidebar")).toHaveCount(1);
   await expect(appSidebar).toBeVisible();
   await expect(researchSidebar).toBeVisible();
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, "Focused writing");
   await expect(page.getByRole("button", { name: "Umbenennen: Focused writing" })).toBeVisible();
   await page.getByRole("button", { name: "Fokusmodus", exact: true }).click();

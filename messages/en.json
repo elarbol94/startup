@@ -2597,7 +2597,7 @@
     "hideAnnotations": "Hide annotations",
     "pdfNavigationDescription": "Search the PDF and navigate with page thumbnails.",
     "annotationsDescription": "Review annotations, evidence, and replies for this PDF.",
-    "quickNote": "Quick note",
+    "quickNote": "New document",
     "start": "Start",
     "backToWikiStart": "Back to Wiki start",
     "more": "More",
@@ -4653,6 +4653,7 @@
     "then": "then"
   },
   "officeDocuments": {
+    "documentTitle": "{title} – Document",
     "newDocumentMenu": "New document",
     "blankDocument": "Blank document",
     "newDocument": "New document",

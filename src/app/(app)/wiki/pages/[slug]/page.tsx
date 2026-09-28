@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
@@ -8,6 +9,13 @@ import { LegacyPageNotice } from "@/modules/wiki/components/office/legacy-page-n
 import { OfficeDocumentShell } from "@/modules/wiki/components/office/office-document-shell";
 import { wasConverted } from "@/modules/wiki/office/queries";
 import { getTranslations } from "next-intl/server";
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const [, { slug }, t] = await Promise.all([requireUser(), params, getTranslations("officeDocuments")]);
+  const page = getPageBySlug(decodeURIComponent(slug));
+  // The shell keeps this in step when the document is renamed.
+  return page ? { title: { absolute: t("documentTitle", { title: page.title }) } } : {};
+}
 
 export default async function WikiPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ task?: string; deadline?: string; insertEvidence?: string; officeAction?: string }> }) {
   await connection();

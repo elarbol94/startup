@@ -104,7 +104,8 @@ function query<T>(sql: string, ...args: unknown[]) {
 
 async function createDocument(page: Page, title: string) {
   await page.goto("/wiki/pages");
-  await page.getByRole("button", { name: "Neues Dokument", exact: true }).click();
+  // The sidebar's "+" has the same name; the page header menu comes last.
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await page.getByRole("menuitem", { name: "Leeres Dokument" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Titel").fill(title);

@@ -28,7 +28,7 @@ test("a new document asks for its title first and creates nothing when cancelled
   await login(page);
   const untitledBefore = untitledPageCount();
   await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   const dialog = page.getByRole("dialog", { name: "Neues Dokument" });
   await expect(dialog).toBeVisible();
   const titleField = dialog.getByLabel("Titel", { exact: true });
@@ -41,7 +41,7 @@ test("a new document asks for its title first and creates nothing when cancelled
   await expect(page).toHaveURL(/\/wiki\/inbox$/);
 
   const title = `Titled first ${Date.now()}`;
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, title);
   await page.waitForURL(/\/wiki\/pages\/titled-first-\d+$/, { timeout: 240_000 });
   await expect(page.getByRole("button", { name: `Umbenennen: ${title}`, exact: true })).toBeVisible({ timeout: 120_000 });
@@ -54,7 +54,7 @@ test("the title renames inline with Enter, Escape cancels, and the old slug redi
   const stamp = Date.now();
   const original = `Inline title ${stamp}`;
   await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, original);
   await page.waitForURL(new RegExp(`/wiki/pages/inline-title-${stamp}$`));
   const oldPath = new URL(page.url()).pathname;
@@ -99,7 +99,7 @@ test("a new page cannot claim a slug that still redirects to a renamed page", as
   const stamp = Date.now();
   const first = `Slug owner ${stamp}`;
   await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, first);
   await page.waitForURL(new RegExp(`/wiki/pages/slug-owner-${stamp}$`));
   await page.getByRole("button", { name: `Umbenennen: ${first}`, exact: true }).click();
@@ -108,7 +108,7 @@ test("a new page cannot claim a slug that still redirects to a renamed page", as
   await page.waitForURL(new RegExp(`/wiki/pages/moved-owner-${stamp}$`));
 
   await page.goto("/wiki/inbox");
-  await page.getByRole("button", { name: "Schnelle Notiz" }).last().click();
+  await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
   await submitNewDocumentTitle(page, first);
   await page.waitForURL(new RegExp(`/wiki/pages/slug-owner-${stamp}-2$`));
   await page.goto(`/wiki/pages/slug-owner-${stamp}`);
