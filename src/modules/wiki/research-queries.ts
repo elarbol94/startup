@@ -405,6 +405,12 @@ export function listCitationSources(locale = "en-US", limit = 500, style: Citati
   }, locale, style));
 }
 
+export function isFavoritePage(pageId: string, userId: string) {
+  return Boolean(db.select({ userId: wikiFavorites.userId }).from(wikiFavorites)
+    .where(and(eq(wikiFavorites.userId, userId), eq(wikiFavorites.entityType, "page"), eq(wikiFavorites.entityId, pageId)))
+    .get());
+}
+
 export function getPageResearchMeta(pageId: string, userId: string) {
   const tags = db
     .select({ id: wikiTags.id, name: wikiTags.name, color: wikiTags.color })
@@ -432,19 +438,7 @@ export function getPageResearchMeta(pageId: string, userId: string) {
       ),
     )
     .all();
-  const favorite = Boolean(
-    db
-      .select({ userId: wikiFavorites.userId })
-      .from(wikiFavorites)
-      .where(
-        and(
-          eq(wikiFavorites.userId, userId),
-          eq(wikiFavorites.entityType, "page"),
-          eq(wikiFavorites.entityId, pageId),
-        ),
-      )
-      .get(),
-  );
+  const favorite = isFavoritePage(pageId, userId);
   const revisions = db
     .select({
       id: wikiPageRevisions.id,

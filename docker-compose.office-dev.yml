@@ -1,0 +1,35 @@
+# Local development of office documents with `npm run dev` on the host:
+#   docker compose -f docker-compose.office-dev.yml up -d
+#   open http://localhost:8086 (single origin: app via host, /office → ONLYOFFICE)
+# .env.local needs ONLYOFFICE_INTERNAL_URL=http://localhost:8085,
+# APP_INTERNAL_URL=http://host.docker.internal:3000 and the two secrets below.
+name: management-office-dev
+
+services:
+  onlyoffice:
+    image: onlyoffice/documentserver:9.4.0.1
+    entrypoint: ["/bin/sh", "/deploy/onlyoffice-entrypoint.sh"]
+    environment:
+      JWT_ENABLED: "true"
+      JWT_SECRET: ${ONLYOFFICE_INBOX_SECRET:?set ONLYOFFICE_INBOX_SECRET}
+      ONLYOFFICE_INBOX_SECRET: ${ONLYOFFICE_INBOX_SECRET}
+      ONLYOFFICE_OUTBOX_SECRET: ${ONLYOFFICE_OUTBOX_SECRET:?set ONLYOFFICE_OUTBOX_SECRET}
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      PLUGINS_ENABLED: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8085:80"
+    volumes:
+      - ./deploy/onlyoffice-entrypoint.sh:/deploy/onlyoffice-entrypoint.sh:ro
+
+  proxy:
+    image: nginx:1.27-alpine
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8086:80"
+    volumes:
+      - ./deploy/nginx.dev.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - onlyoffice

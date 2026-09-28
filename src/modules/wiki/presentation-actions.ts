@@ -80,11 +80,13 @@ export async function createPresentationFromWikiPage(input: { pageId: string; in
     .object({ pageId: idSchema, includeImages: z.boolean().optional() })
     .parse(input);
   const page = db
-    .select({ id: wikiPages.id, title: wikiPages.title, contentJson: wikiPages.contentJson })
+    .select({ id: wikiPages.id, title: wikiPages.title, contentJson: wikiPages.contentJson, engine: wikiPages.documentEngine })
     .from(wikiPages)
     .where(and(eq(wikiPages.id, pageId), isNull(wikiPages.deletedAt)))
     .get();
   if (!page) throw new Error("Page not found");
+  // Office documents are not linked to presentations.
+  if (page.engine !== "tiptap") throw new Error("Page not found");
   // Same media rule as savePresentation: a deck can be published without login,
   // so it must never pick up a non-wiki attachment referenced in the page JSON.
   const { elements, steps } = presentationFromWikiPage(page, {

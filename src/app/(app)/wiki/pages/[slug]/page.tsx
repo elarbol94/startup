@@ -3,8 +3,10 @@ import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { listAttachmentsFor } from "@/lib/files";
 import { getBacklinks, getUnlinkedMentions, getPageByPreviousSlug, getPageBySlug, getPageMeta, listPagesFlat } from "@/modules/wiki/queries";
-import { getPageComments, getPageResearchMeta, listCitationSources, listTags, listUsers } from "@/modules/wiki/research-queries";
+import { getPageComments, getPageResearchMeta, isFavoritePage, listCitationSources, listTags, listUsers } from "@/modules/wiki/research-queries";
 import { WikiShell } from "@/modules/wiki/components/wiki-shell";
+import { OfficeDocumentShell } from "@/modules/wiki/components/office/office-document-shell";
+import { getTranslations } from "next-intl/server";
 import { listDocumentTemplates } from "@/modules/wiki/document-queries";
 import { getWikiTypographyForUser, getWikiTypographyProfileForUser } from "@/modules/wiki/lib/wiki-typography.server";
 import { getWikiProofingPrefsForUser } from "@/modules/wiki/lib/wiki-proofing-prefs.server";
@@ -29,6 +31,17 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
       redirect(`${destination.pathname}${destination.search}`);
     }
     notFound();
+  }
+  if (page.documentEngine !== "tiptap") {
+    const attachmentsList = listAttachmentsFor("wikiPage", page.id).map((file) => ({ id: file.id, fileName: file.fileName, mimeType: file.mimeType, sizeBytes: file.sizeBytes, uploadedBy: file.uploadedBy }));
+    if (page.documentEngine === "converting") return <p className="p-8 text-center text-sm text-muted-foreground">{(await getTranslations("officeDocuments"))("converting")}</p>;
+    return <OfficeDocumentShell
+      page={{ id: page.id, title: page.title, slug: page.slug }}
+      backlinks={getBacklinks(page.id)}
+      favorite={isFavoritePage(page.id, currentUser.id)}
+      attachments={attachmentsList}
+      query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline }}
+    />;
   }
   const meta = getPageMeta(page.id);
   // Diagrams live in the graphics panel, which has its own preview, insert and

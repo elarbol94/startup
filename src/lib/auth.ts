@@ -119,9 +119,12 @@ function getLocalDevelopmentSession(): typeof auth.$Infer.Session | null {
 }
 
 export const getSession = cache(async function getSession() {
+  // Read the request first: the session is per-request, and the local
+  // development shortcut below would otherwise read the clock while prerendering.
+  const requestHeaders = await headers();
   const localSession = getLocalDevelopmentSession();
   if (localSession) return localSession;
-  return auth.api.getSession({ headers: await headers() });
+  return auth.api.getSession({ headers: requestHeaders });
 });
 
 /**

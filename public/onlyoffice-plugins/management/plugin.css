@@ -1,0 +1,15 @@
+body { margin: 0; padding: 8px; font: 12px/1.4 Arial, sans-serif; display: flex; flex-direction: column; gap: 8px; }
+.tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.tabs button { flex: 1; padding: 4px; border: 1px solid #cbcbcb; background: #fff; border-radius: 2px; cursor: pointer; }
+.tabs button.active { background: #446995; color: #fff; border-color: #446995; }
+section { display: flex; flex-direction: column; gap: 6px; }
+input, select { box-sizing: border-box; width: 100%; padding: 4px; border: 1px solid #cbcbcb; border-radius: 2px; }
+.row { display: flex; align-items: center; gap: 6px; }
+.row select { flex: 1; }
+.results { list-style: none; margin: 0; padding: 0; max-height: 320px; overflow: auto; border: 1px solid #e2e2e2; }
+.results li { padding: 5px 6px; border-bottom: 1px solid #efefef; cursor: pointer; }
+.results li:hover, .results li.selected { background: #e8eef6; }
+.results small { display: block; color: #666; }
+button.primary { font-weight: bold; }
+footer { margin-top: auto; display: flex; flex-direction: column; gap: 6px; }
+#message { min-height: 1.4em; margin: 0; color: #444; }

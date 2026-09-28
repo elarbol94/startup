@@ -5,11 +5,13 @@ import { getWikiNavigationItems } from "@/modules/wiki/navigation-queries";
 import { WikiHome } from "@/modules/wiki/components/wiki-home";
 import { QuickNoteButton } from "@/modules/wiki/components/workspace-actions";
 import { NewSourceDialog } from "@/modules/wiki/components/new-source-dialog";
+import { OfficeDocumentButton } from "@/modules/wiki/components/office/office-document-button";
 
 export default async function WikiIndex() {
   const [viewer, t] = await Promise.all([requireUser(), getTranslations("wiki")]);
   return <WikiHome items={getWikiNavigationItems(viewer)} actions={<>
     <NewSourceDialog documentTypes={listDocumentTypes().map((item) => item.value)} label={t("addSource")} variant="outline" />
+    <OfficeDocumentButton />
     <QuickNoteButton label={t("writeDocument")} />
   </>} />;
 }

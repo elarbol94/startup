@@ -11,11 +11,17 @@ application session and authorization layer, including the `admin` and
 in to management-platform with a username and password.
 
 ```text
-Browser -> Cloudflare Access -> Tunnel -> cloudflared -> localhost:3007
+Browser -> Cloudflare Access -> Tunnel -> cloudflared -> localhost:3007 (proxy, nginx)
                                                             |
-                                                            +-> app:3000
-                                                                +-> Better Auth
+                                                            +-> /         app:3000 (+ Better Auth)
+                                                            +-> /collab   app:3001 (live collaboration)
+                                                            +-> /office/  onlyoffice:80 (office documents)
 ```
+
+Everything is one origin, so one Access application covers the app, live
+collaboration and the ONLYOFFICE document server. Server-to-server traffic
+(document download and save callbacks) stays on the private Compose network
+and never passes through Cloudflare.
 
 Keeping both layers avoids coupling Cloudflare identity-provider changes to
 application accounts. Automatic account provisioning or single sign-on is a
@@ -35,9 +41,12 @@ CLOUDFLARE_TUNNEL_TOKEN=<remotely-managed-tunnel-token>
 ```
 
 `BETTER_AUTH_URL` must be the final HTTPS hostname users visit. Keep
-`APP_BIND_ADDRESS` on `127.0.0.1`. The tunnel connector reaches the application
-at `http://localhost:3007`; the application still listens on port 3000 inside
-its container.
+`APP_BIND_ADDRESS` on `127.0.0.1`. The tunnel connector reaches the `proxy`
+service at `http://localhost:3007`; it forwards to the application (port 3000
+inside its container), `/collab` and `/office/`.
+
+For office documents also set `ONLYOFFICE_INBOX_SECRET` and
+`ONLYOFFICE_OUTBOX_SECRET` (see `docs/office-documents.md`).
 
 The tunnel token can run that tunnel. Keep it out of source control and rotate
 it if it is exposed.
@@ -68,23 +77,13 @@ Hostname: startup.elarbol.me
 Service:  http://localhost:3007
 ```
 
-Add a second route on the same hostname for live document collaboration
-(WebSocket; Cloudflare proxies WebSockets without extra settings). Put it
-above the catch-all route so `/collab` is matched first:
+Live document collaboration (`/collab`) and office documents (`/office/`) need
+no extra routes: the `proxy` service routes them, and Cloudflare proxies
+WebSockets without extra settings.
 
-```text
-Hostname: startup.elarbol.me
-Path:     ^/collab
-Service:  http://localhost:3008
-```
-
-The path field is a regular expression matched anywhere in the URL path, so
-anchor it with `^/`. A bare `collab` also matches app URLs that merely contain
-the word and sends them to the collaboration server instead of the app.
-
-The editor connects to `wss://startup.elarbol.me/collab` by default; Access
-covers it because it is the same hostname. `COLLAB_HOST_PORT` (default 3008)
-changes the host port Docker Compose publishes, loopback-only like the app.
+Older setups had a second route `^/collab → http://localhost:3008`. It keeps
+working (the app still publishes that port) but is no longer needed; delete it
+to have a single route. Do not add a route for `/office`.
 
 Copy the raw tunnel token into the untracked `.env` file as
 `CLOUDFLARE_TUNNEL_TOKEN`. Do not paste it into `docker-compose.yml`. The
@@ -112,6 +111,8 @@ as before.
 - The host firewall has no separate public ingress path to the application.
 - File uploads, CSV exports, invoice print views, and logout still work through
   the public HTTPS hostname.
+- A Word document opens in the office editor, typing shows "Synchronisiert",
+  and "Version speichern" stores a new version.
 
 ## Optional origin JWT validation
 

@@ -284,7 +284,12 @@ export async function purgeFromTrash(entityType: "page" | "source", id: string) 
     const byId = new Map(all.map((item) => [item.id, item]));
     const depth = (item: { id: string; parentId: string | null }) => { let value = 0; let current = item; while (current.parentId && byId.has(current.parentId)) { value += 1; current = byId.get(current.parentId)!; } return value; };
     const ordered = all.filter((item) => purgeIds.has(item.id)).sort((a, b) => depth(b) - depth(a));
-    db.transaction(() => { for (const item of ordered) { deleteAttachmentsFor("wikiPage", item.id); db.delete(wikiPages).where(eq(wikiPages.id, item.id)).run(); } });
+    db.transaction(() => { for (const item of ordered) {
+      deleteAttachmentsFor("wikiPage", item.id);
+      db.delete(wikiPages).where(eq(wikiPages.id, item.id)).run();
+      // Office versions cascade with the page; their DOCX files go after them.
+      deleteAttachmentsFor("wikiOfficeDocument", item.id);
+    } });
   }
   revalidateWiki();
 }

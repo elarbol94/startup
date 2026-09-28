@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Workspace</title>
+  <link rel="stylesheet" href="../../office/sdkjs-plugins/v1/plugins.css">
+  <link rel="stylesheet" href="plugin.css">
+  <script src="../../office/sdkjs-plugins/v1/plugins.js"></script>
+  <script src="../../office/sdkjs-plugins/v1/plugins-ui.js"></script>
+  <script src="plugin.js"></script>
+</head>
+<body>
+  <nav class="tabs" role="tablist">
+    <button type="button" data-tab="cite" class="active" data-i18n="Cite">Cite</button>
+    <button type="button" data-tab="evidence" data-i18n="Evidence">Evidence</button>
+    <button type="button" data-tab="link" data-i18n="Link">Link</button>
+    <button type="button" data-tab="tasks" data-i18n="Tasks">Tasks</button>
+  </nav>
+
+  <section data-panel="cite">
+    <input id="cite-query" type="search" data-i18n-placeholder="Search sources" placeholder="Search sources">
+    <ul id="cite-results" class="results"></ul>
+    <input id="cite-locator" type="text" maxlength="120" data-i18n-placeholder="Locator (e.g. page)" placeholder="Locator (e.g. page)">
+    <button type="button" id="cite-insert" class="btn-text-default primary" data-i18n="Insert citation">Insert citation</button>
+    <button type="button" id="cite-update" class="btn-text-default" data-i18n="Update citations and bibliography">Update citations and bibliography</button>
+    <label class="row"><span data-i18n="Citation style">Citation style</span>
+      <select id="cite-style"></select>
+      <button type="button" id="cite-style-save" class="btn-text-default" data-i18n="Save">Save</button>
+    </label>
+  </section>
+
+  <section data-panel="evidence" hidden>
+    <input id="evidence-query" type="search" data-i18n-placeholder="Search PDF highlights" placeholder="Search PDF highlights">
+    <ul id="evidence-results" class="results"></ul>
+  </section>
+
+  <section data-panel="link" hidden>
+    <input id="link-query" type="search" data-i18n-placeholder="Search pages" placeholder="Search pages">
+    <ul id="link-results" class="results"></ul>
+  </section>
+
+  <section data-panel="tasks" hidden>
+    <button type="button" id="task-create" class="btn-text-default primary" data-i18n="Create task from selection">Create task from selection</button>
+    <button type="button" id="deadline-create" class="btn-text-default" data-i18n="Create deadline from selection">Create deadline from selection</button>
+  </section>
+
+  <footer>
+    <button type="button" id="remove-control" class="btn-text-default" data-i18n="Remove control at cursor">Remove control at cursor</button>
+    <p id="message" role="status"></p>
+  </footer>
+</body>
+</html>

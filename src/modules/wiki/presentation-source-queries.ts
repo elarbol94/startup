@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { wikiPages, wikiPresentations } from "@/db/schema";
 import { documentSourceSnapshots } from "./lib/document-source-snapshot";
@@ -11,16 +11,20 @@ import { parsePresentationCanvas, stepLabel } from "./lib/presentation";
 import type { DocumentPresentationLink, PresentationSourceDocument } from "./lib/presentation-source";
 import { presentationRole } from "./presentation-access";
 
+// Office (DOCX) documents are not presentation sources: their body is not
+// TipTap JSON, and existing decks keep their stored snapshots.
+const tiptapPage = eq(wikiPages.documentEngine, "tiptap");
+
 /** Wiki pages currently share workspace access. Call only after requireUser. */
 export function listPresentationSourceDocuments(): PresentationSourceDocument[] {
   return db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, contentJson: wikiPages.contentJson })
-    .from(wikiPages).where(isNull(wikiPages.deletedAt)).orderBy(asc(wikiPages.title)).all()
+    .from(wikiPages).where(and(isNull(wikiPages.deletedAt), tiptapPage)).orderBy(asc(wikiPages.title)).all()
     .map(({ contentJson, ...page }) => ({ ...page, sections: documentSections(parseStoredDocument(contentJson)) }));
 }
 
 export function getPresentationSourceDocument(pageId: string): PresentationSourceDocument | null {
   const page = db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, contentJson: wikiPages.contentJson, deletedAt: wikiPages.deletedAt })
-    .from(wikiPages).where(eq(wikiPages.id, pageId)).get();
+    .from(wikiPages).where(and(eq(wikiPages.id, pageId), tiptapPage)).get();
   if (!page || page.deletedAt) return null;
   return { id: page.id, title: page.title, slug: page.slug, sections: documentSections(parseStoredDocument(page.contentJson)) };
 }
@@ -40,7 +44,7 @@ export function presentationSourcePreviews(sources: Pick<PresentationSource, "pa
   const pages = new Map(sources.map(({ pageId }) => [pageId, null] as const));
   const resolved = new Map([...pages.keys()].map((id) => {
     const page = db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, contentJson: wikiPages.contentJson, deletedAt: wikiPages.deletedAt })
-      .from(wikiPages).where(eq(wikiPages.id, id)).get();
+      .from(wikiPages).where(and(eq(wikiPages.id, id), tiptapPage)).get();
     return [id, page && !page.deletedAt ? { document: { id: page.id, title: page.title, slug: page.slug }, snapshot: documentSourceSnapshots(parseStoredDocument(page.contentJson)) } : null] as const;
   }));
   return sources.map(({ pageId, sectionId }) => {

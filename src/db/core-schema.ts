@@ -112,6 +112,7 @@ export const attachmentEntityTypes = [
   "wikiSource",
   "wikiPresentation",
   "wikiPresentationLibrary",
+  "wikiOfficeDocument",
 ] as const;
 
 export const attachments = sqliteTable(

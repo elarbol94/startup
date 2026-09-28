@@ -24,9 +24,12 @@ export const restoreHook: RestoreHook = (table, target, current, actorId) => {
   const id = String(target.id);
   const viewer = { id: actorId, role: "admin" };
   if (table === "wiki_pages") {
-    const fields = Object.keys(target).filter(field => !["id", "content_json", "content_text", "document_mode", "document_settings_json", "content_version"].includes(field));
+    const engine = (sqlite.prepare("SELECT document_engine AS engine FROM wiki_pages WHERE id = ?").get(id) as { engine: string } | undefined)?.engine ?? "tiptap";
+    // Office documents keep their own version history; only metadata is restored here.
+    const contentFields = ["id", "content_json", "content_text", "document_mode", "document_settings_json", "content_version", "document_engine", "conversion_started_at"];
+    const fields = Object.keys(target).filter(field => !contentFields.includes(field));
     sqlite.prepare(`UPDATE wiki_pages SET ${fields.map(field => `${quote(field)} = ?`).join(",")} WHERE id = ?`).run(...fields.map(field => target[field]), id);
-    mutateRoom("page", id, viewer, doc => seedPage(doc, parseStoredDocument(String(target.content_json)), Boolean(target.document_mode), parseDocumentSettings(String(target.document_settings_json)) as unknown as Record<string, unknown>));
+    if (engine === "tiptap") mutateRoom("page", id, viewer, doc => seedPage(doc, parseStoredDocument(String(target.content_json)), Boolean(target.document_mode), parseDocumentSettings(String(target.document_settings_json)) as unknown as Record<string, unknown>));
     // A title-only restore may leave the shared document unchanged, so refresh FTS too.
     const row = sqlite.prepare("SELECT title, content_text FROM wiki_pages WHERE id = ?").get(id) as { title: string; content_text: string };
     sqlite.prepare("DELETE FROM wiki_pages_fts WHERE page_id = ?").run(id);
