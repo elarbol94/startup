@@ -25,6 +25,7 @@ export function SettingsTabs({ isAdmin }: { isAdmin: boolean }) {
               { href: "/settings/locations", label: t("locations") },
               { href: "/settings/users", label: t("users") },
               { href: "/settings/version-control", label: t("versionControl") },
+              { href: "/settings/documents", label: t("documents") },
             ],
           },
         ]

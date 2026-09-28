@@ -203,6 +203,44 @@ notification that carries the editor's `actionLink`
   `Analytics.js` module because of its name, and the editor then never
   finishes loading. Allow the site in the blocker.
 
+## Converting old-editor documents
+
+TipTap pages with document layout can be moved to the office editor.
+
+**Dry run first.** Run it on a copy of the database and uploads. It is
+read-only and writes a report plus the DOCX files:
+
+```bash
+DATABASE_PATH=/copy/app.db UPLOADS_PATH=/copy/uploads npx tsx --tsconfig tsconfig.json scripts/office-conversion-dry-run.ts --out ./dry-run
+```
+
+**Real conversion.** Only an admin can run it, from Settings → Word-Umstellung
+(`convertPageToOffice`, inside the running app, one page at a time):
+1. The page is marked `converting`, so every TipTap/Yjs writer refuses.
+2. Open editors are disconnected, and edits held only in memory are merged
+   into the stored room.
+3. The body is converted and verified (`office/convert.ts`). The following
+   make it fail:
+   - unsupported content;
+   - unresolved suggestions;
+   - unreadable images;
+   - any difference in citations, PDF evidence, wiki links, tasks, deadlines
+     or text.
+
+   A failure puts the page back in the old editor, unchanged.
+4. Version 1 (`conversion`) is stored and the engine becomes `office`. The last
+   TipTap body is kept both as a `conversion` revision and as the stored JSON,
+   and "Fassung vor der Umstellung" in the editor menu shows it as read-only
+   HTML.
+5. Open comment threads that contain comments become Word comments. Threads
+   without any comment are not carried over.
+
+**Interruptions.** A restart during a conversion is resolved at startup: pages
+left in `converting` become `office` if version 1 exists, otherwise they go
+back to `tiptap`.
+
+**Backups.** Back up `app.db` and `uploads` before converting.
+
 ## Local development
 
 ```bash

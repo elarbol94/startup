@@ -4,6 +4,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/db";
 import { UPLOADS_PATH } from "@/lib/files";
 import { officeConfig } from "./config";
+import { recoverInterruptedConversions } from "./convert-page";
 import { defaultOperationDeps, recoverOfficeOperations } from "./operations";
 
 const ORPHAN_AGE_MS = 60 * 60 * 1000;
@@ -37,6 +38,7 @@ export function sweepOrphanedOfficeFiles(now = Date.now()) {
 
 /** Startup: resume or terminate persisted office operations and sweep orphans daily. */
 export function startOfficeMaintenance() {
+  recoverInterruptedConversions();
   const config = officeConfig();
   if (config) void recoverOfficeOperations(defaultOperationDeps(config));
   const sweep = () => {

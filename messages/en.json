@@ -2731,7 +2731,8 @@
       "autosave": "Automatic checkpoint",
       "manual": "Saved version",
       "conflict": "Protected draft",
-      "restore": "Before restore"
+      "restore": "Before restore",
+      "conversion": "Before the switch to Word"
     },
     "noHistory": "No earlier versions.",
     "historyComparisonDescription": "Compare an earlier version with the current document. Changed lines are highlighted.",
@@ -4463,6 +4464,24 @@
     "commentFailed": "Change failed. Please try again."
   },
   "settings": {
+    "documents": {
+      "title": "Convert to Word documents",
+      "description": "Move documents from the old editor to the office editor.",
+      "explanation": "Converting briefly locks the document, saves and closes open editing sessions, and carries over citations, PDF evidence, links, tasks and deadlines with a check – if a check fails, the document stays unchanged in the old editor. The last version from the old editor stays readable.",
+      "convert": "Convert",
+      "convertAll": "{count, plural, =0 {All converted} one {Convert 1 document} other {Convert # documents}}",
+      "confirm": "Convert {count, plural, one {this document} other {# documents}} to Word now? Anyone editing it is briefly disconnected.",
+      "running": "Converting …",
+      "converted": "Converted",
+      "word": "Word document",
+      "failed": "Not converted: {detail}",
+      "updated": "Last changed {time}",
+      "empty": "No documents with page layout.",
+      "reasons": {
+        "notConvertible": "The check failed.",
+        "failed": "Unexpected error."
+      }
+    },
     "appearance": {
       "title": "Appearance",
       "description": "Choose the appearance for the whole platform. System follows your operating system automatically. Your choice is saved in this browser.",
@@ -4479,6 +4498,7 @@
       "categories": "Categories",
       "locations": "Business locations",
       "versionControl": "Version Control",
+      "documents": "Word conversion",
       "personalGroup": "Personal",
       "adminGroup": "Administration"
     },
@@ -5360,6 +5380,7 @@
       "sources": "Cited sources",
       "evidence": "PDF evidence",
       "jump": "Jump to the passage"
-    }
+    },
+    "legacyVersion": "Version before the switch (old editor)"
   }
 }

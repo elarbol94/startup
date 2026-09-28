@@ -6,6 +6,7 @@ import { getBacklinks, getUnlinkedMentions, getPageByPreviousSlug, getPageBySlug
 import { getPageComments, getPageResearchMeta, isFavoritePage, listCitationSources, listTags, listUsers } from "@/modules/wiki/research-queries";
 import { WikiShell } from "@/modules/wiki/components/wiki-shell";
 import { OfficeDocumentShell } from "@/modules/wiki/components/office/office-document-shell";
+import { wasConverted } from "@/modules/wiki/office/queries";
 import { getTranslations } from "next-intl/server";
 import { listDocumentTemplates } from "@/modules/wiki/document-queries";
 import { getWikiTypographyForUser, getWikiTypographyProfileForUser } from "@/modules/wiki/lib/wiki-typography.server";
@@ -39,6 +40,7 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
       page={{ id: page.id, title: page.title, slug: page.slug }}
       backlinks={getBacklinks(page.id)}
       favorite={isFavoritePage(page.id, currentUser.id)}
+      converted={wasConverted(page.id)}
       attachments={attachmentsList}
       query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline, officeAction: query.officeAction }}
     />;

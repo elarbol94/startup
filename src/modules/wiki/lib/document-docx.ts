@@ -2,10 +2,11 @@ import {
   Document, HeadingLevel, type IParagraphOptions, Packer, PageBreak, Paragraph,
   Table, TableCell, TableRow, TextRun, WidthType, ImageRun, Bookmark, SimpleField,
   InternalHyperlink, TableOfContents, type ParagraphChild, type IFrameOptions,
+  ExternalHyperlink, CommentRangeStart, CommentRangeEnd, CommentReference,
 } from "docx";
 import sharp from "sharp";
 import { unzipSync, zipSync, strFromU8, strToU8 } from "fflate";
-import { DOMParser, XMLSerializer } from "@xmldom/xmldom";
+import { DOMParser, XMLSerializer, type Element as XmlElement, type Node as XmlNode } from "@xmldom/xmldom";
 import type { TiptapNode } from "./tiptap";
 import type { DocumentSettingsV1 } from "./document-settings";
 import type { DocumentImageResolver } from "./document-image";
@@ -18,12 +19,87 @@ type Block = Paragraph | Table | TableOfContents;
 type Context = {
   labels: Map<string, string>; figures: ReturnType<typeof documentFigures>; figureLabel: string;
   images: DocumentImageResolver; settings: DocumentSettingsV1; crops: Map<string, FigureCrop>;
+  office?: OfficeContext;
 };
-function runs(node: TiptapNode, context: Context): ParagraphChild[] {
-  if (node.text !== undefined) {
-    const marks = new Set((node.marks ?? []).map((mark) => mark.type));
-    return [new TextRun({ text: node.text, bold: marks.has("bold"), italics: marks.has("italic"), strike: marks.has("strike"), subScript: marks.has("subscript"), superScript: marks.has("superscript") })];
+
+/**
+ * Office (ONLYOFFICE) conversion: connections become tagged content controls
+ * (see office/docx-extract.ts), links stay clickable and open comment threads
+ * become Word comments.
+ */
+export type OfficeDocxOptions = {
+  /** Absolute app origin for internal links (e.g. https://host). */
+  origin: string;
+  comments: Array<{ threadId: string; author: string; date: Date; text: string }>;
+};
+type OfficeContext = OfficeDocxOptions & { tags: string[]; commentIds: Map<string, number>; anchored: Set<string> };
+
+const TAG_BOOKMARK = "mpsdt_";
+const officeTag = (kind: string, data: object) => `mp:${kind}:${JSON.stringify(data)}`;
+
+/** Marks runs for a tagged content control; post-processing turns the bookmark into a `w:sdt`. */
+function tagged(context: Context, tag: string, children: ParagraphChild[]): ParagraphChild[] {
+  if (!context.office) return children;
+  const index = context.office.tags.push(tag) - 1;
+  return [new Bookmark({ id: `${TAG_BOOKMARK}${index}`, children })];
+}
+
+function absoluteHref(href: string, context: Context) {
+  if (/^(https?:|mailto:)/i.test(href)) return href;
+  if (href.startsWith("/") && context.office) return `${context.office.origin}${href}`;
+  return null;
+}
+
+function referenceRuns(node: TiptapNode, context: Context): ParagraphChild[] | null {
+  const attrs = node.attrs ?? {};
+  if (node.type === "taskReference" || node.type === "deadlineReference") {
+    const kind = node.type === "taskReference" ? "task" : "deadline";
+    const id = String(attrs[`${kind}Id`] || "");
+    const title = String(attrs.title || "") || (kind === "task" ? "Aufgabe" : "Frist");
+    return id ? tagged(context, officeTag(kind, { id }), [new TextRun(title)]) : [new TextRun(title)];
   }
+  if (node.type === "pdfEvidence") {
+    const quote = String(attrs.quote || attrs.label || "").replace(/\s+/g, " ").trim();
+    const text = `„${quote}“ (${String(attrs.sourceTitle || "")}, S. ${String(attrs.pageNumber || 1)})`;
+    const id = String(attrs.annotationId || "");
+    return id ? tagged(context, officeTag("evidence", { id }), [new TextRun(text)]) : [new TextRun(text)];
+  }
+  if (node.type === "citation") {
+    const label = String(attrs.label || "");
+    const items = Array.isArray(attrs.items) ? attrs.items as Array<{ sourceId?: unknown; locator?: unknown }> : attrs.sourceId ? [{ sourceId: attrs.sourceId, locator: attrs.locator }] : [];
+    const ids = items.map((item) => String(item.sourceId || "")).filter(Boolean);
+    const loc = items.map((item) => String(item.locator || "")).filter(Boolean).join("; ");
+    return ids.length ? tagged(context, officeTag("cite", { ids, ...(loc ? { loc } : {}) }), [new TextRun(label || "[?]")]) : [new TextRun(label)];
+  }
+  return null;
+}
+
+function textRuns(node: TiptapNode, context: Context): ParagraphChild[] {
+  const marks = new Set((node.marks ?? []).map((mark) => mark.type));
+  const run = new TextRun({ text: node.text ?? "", bold: marks.has("bold"), italics: marks.has("italic"), strike: marks.has("strike"), subScript: marks.has("subscript"), superScript: marks.has("superscript") });
+  const href = String(node.marks?.find((mark) => mark.type === "link")?.attrs?.href ?? "");
+  const link = href ? absoluteHref(href, context) : null;
+  let children: ParagraphChild[] = [link ? new ExternalHyperlink({ link, children: [run] }) : run];
+  const office = context.office;
+  if (office) {
+    // A thread is anchored once, on the first text it marks.
+    for (const mark of node.marks ?? []) {
+      if (mark.type !== "comment") continue;
+      const ids = [mark.attrs?.threadId, ...(Array.isArray(mark.attrs?.threadIds) ? mark.attrs.threadIds : [])].filter((id): id is string => typeof id === "string");
+      for (const id of ids) {
+        const commentId = office.commentIds.get(id);
+        if (commentId === undefined || office.anchored.has(id)) continue;
+        office.anchored.add(id);
+        children = [new CommentRangeStart(commentId), ...children, new CommentRangeEnd(commentId), new TextRun({ children: [new CommentReference(commentId)] })];
+      }
+    }
+  }
+  return children;
+}
+function runs(node: TiptapNode, context: Context): ParagraphChild[] {
+  if (node.text !== undefined) return textRuns(node, context);
+  const reference = context.office ? referenceRuns(node, context) : null;
+  if (reference) return reference;
   if (node.type === "hardBreak") return [new TextRun({ break: 1 })];
   if (node.type === "crossReference") {
     const id = String(node.attrs?.targetId || "");
@@ -88,6 +164,20 @@ async function block(node: TiptapNode, context: Context): Promise<Block[]> {
     return [new Paragraph({ heading: Number(node.attrs?.level) === 1 ? HeadingLevel.HEADING_1 : Number(node.attrs?.level) === 3 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_2, children: id ? [new Bookmark({ id: bookmark(id), children })] : children })];
   }
   if (node.type === "paragraph") return [paragraph(node, context)];
+  if (context.office && (node.type === "taskReference" || node.type === "deadlineReference" || node.type === "pdfEvidence")) {
+    return [new Paragraph({ children: referenceRuns(node, context) ?? [] })];
+  }
+  if (node.type === "taskList") {
+    const result: Block[] = [];
+    for (const item of node.content || []) {
+      const box = new TextRun(item.attrs?.checked ? "☑ " : "☐ ");
+      for (const [index, child] of (item.content || []).entries()) {
+        if (index === 0 && child.type === "paragraph") result.push(new Paragraph({ children: [box, ...runs(child, context)] }));
+        else result.push(...await block(child, context));
+      }
+    }
+    return result;
+  }
   if (node.type === "blockquote") return [paragraph(node, context, { indent: { left: 420 } })];
   if (node.type === "bulletList" || node.type === "orderedList") {
     const result: Block[] = [];
@@ -139,15 +229,62 @@ export function applyDocxFigureCrops(bytes: Uint8Array, crops: Map<string, Figur
   files["word/document.xml"] = strToU8(new XMLSerializer().serializeToString(document));
   return Buffer.from(zipSync(files));
 }
-export async function generateDocumentDocx(title: string, doc: TiptapNode, settings: DocumentSettingsV1, labels: { figureLabel?: string; tableLabel?: string } = {}, images: DocumentImageResolver = () => undefined) {
+export async function generateDocumentDocx(title: string, doc: TiptapNode, settings: DocumentSettingsV1, labels: { figureLabel?: string; tableLabel?: string } = {}, images: DocumentImageResolver = () => undefined, office?: OfficeDocxOptions) {
   const figures = documentFigures(doc);
-  const context: Context = { labels: resolveCrossReferenceLabels({ headings: collectHeadings(doc), annexes: collectAnnexes(doc), figures: figures.map((figure) => ({ id: figure.nodeId, caption: figure.caption })), tables: collectTables(doc).map((table) => ({ id: table.tableId, caption: table.caption })), figureLabel: labels.figureLabel || "Figure", tableLabel: labels.tableLabel || "Table" }), figures, figureLabel: labels.figureLabel || "Figure", images, settings, crops: new Map() };
+  const officeContext: OfficeContext | undefined = office && { ...office, tags: [], anchored: new Set(), commentIds: new Map(office.comments.map((comment, index) => [comment.threadId, index])) };
+  const context: Context = { labels: resolveCrossReferenceLabels({ headings: collectHeadings(doc), annexes: collectAnnexes(doc), figures: figures.map((figure) => ({ id: figure.nodeId, caption: figure.caption })), tables: collectTables(doc).map((table) => ({ id: table.tableId, caption: table.caption })), figureLabel: labels.figureLabel || "Figure", tableLabel: labels.tableLabel || "Table" }), figures, figureLabel: labels.figureLabel || "Figure", images, settings, crops: new Map(), office: officeContext };
   const content = (await Promise.all((doc.content || []).map((child) => block(child, context)))).flat();
   if (settings.figures.enabled && !hasFigureList(doc)) content.push(...figureList(settings.figures.heading, context, settings.figures.pageBreakBefore));
+  // Only threads anchored in the text become comments.
+  const comments = officeContext ? officeContext.comments.flatMap((comment, index) => officeContext.anchored.has(comment.threadId)
+    ? [{ id: index, author: comment.author, date: comment.date, children: [new Paragraph(comment.text)] }] : []) : [];
   const document = new Document({ creator: settings.metadata.author, title, subject: settings.metadata.subject, features: { updateFields: true },
+    ...(comments.length ? { comments: { children: comments } } : {}),
     styles: { paragraphStyles: [{ id: "Caption", name: "Caption", basedOn: "Normal", run: { size: 20 }, paragraph: { spacing: { after: 120 } } }] },
     numbering: { config: [{ reference: "proposal-numbering", levels: [{ level: 0, format: "decimal", text: "%1.", alignment: "start" }] }] },
     sections: [{ properties: { page: { size: { width: Math.round((settings.page.size === "A4" ? 210 : 215.9) * 56.693), height: Math.round((settings.page.size === "A4" ? 297 : 279.4) * 56.693), orientation: settings.page.orientation }, margin: Object.fromEntries(Object.entries(settings.page.marginsMm).map(([key, value]) => [key, Math.round(value * 56.693)])) } }, children: [new Paragraph({ text: title, heading: HeadingLevel.TITLE }), ...content] }],
   });
-  return applyDocxFigureCrops(await Packer.toBuffer(document), context.crops);
+  const bytes = applyDocxFigureCrops(await Packer.toBuffer(document), context.crops);
+  return officeContext ? applyTaggedControls(bytes, officeContext.tags) : bytes;
+}
+
+/**
+ * Replaces each `mpsdt_<n>` bookmark range (start, runs, end: siblings in one
+ * paragraph) with an inline content control tagged `tags[n]`.
+ */
+export function applyTaggedControls(bytes: Uint8Array, tags: string[]) {
+  if (!tags.length) return Buffer.from(bytes);
+  const W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+  const files = unzipSync(bytes);
+  const document = new DOMParser().parseFromString(strFromU8(files["word/document.xml"]), "application/xml");
+  for (const start of Array.from(document.getElementsByTagNameNS(W, "bookmarkStart"))) {
+    const name = start.getAttributeNS(W, "name") || start.getAttribute("w:name") || "";
+    if (!name.startsWith(TAG_BOOKMARK)) continue;
+    const tag = tags[Number(name.slice(TAG_BOOKMARK.length))];
+    const id = start.getAttributeNS(W, "id") || start.getAttribute("w:id");
+    const parent = start.parentNode;
+    if (!tag || !parent) continue;
+    const moved: XmlNode[] = [];
+    let end: XmlElement | null = null;
+    for (let node = start.nextSibling; node; node = node.nextSibling) {
+      const element = node as XmlElement;
+      if (element.localName === "bookmarkEnd" && (element.getAttributeNS(W, "id") || element.getAttribute("w:id")) === id) { end = element; break; }
+      moved.push(node);
+    }
+    if (!end) continue;
+    const sdt = document.createElementNS(W, "w:sdt");
+    const properties = document.createElementNS(W, "w:sdtPr");
+    const tagElement = document.createElementNS(W, "w:tag");
+    tagElement.setAttributeNS(W, "w:val", tag);
+    properties.appendChild(tagElement);
+    const content = document.createElementNS(W, "w:sdtContent");
+    for (const node of moved) content.appendChild(node);
+    sdt.appendChild(properties);
+    sdt.appendChild(content);
+    parent.insertBefore(sdt, start);
+    parent.removeChild(start);
+    parent.removeChild(end);
+  }
+  files["word/document.xml"] = strToU8(new XMLSerializer().serializeToString(document));
+  return Buffer.from(zipSync(files));
 }

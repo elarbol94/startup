@@ -26,8 +26,10 @@ import { useOfficeStatus } from "./use-office-status";
 type PageRef = { id: string; title: string; slug: string };
 
 /** Page chrome for office (DOCX) documents: header, editor, workspace side panels. */
-export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query }: {
+export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query, converted = false }: {
   page: PageRef;
+  /** Converted from the old editor: its last version stays readable. */
+  converted?: boolean;
   backlinks: PageRef[];
   favorite: boolean;
   attachments: Array<{ id: string; fileName: string; mimeType: string; sizeBytes: number; uploadedBy: string }>;
@@ -117,6 +119,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
             <DropdownMenuItem onClick={() => exportLive("pdf")}><Download />{t("exportPdf")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => exportLive("docx")}><FileText />{t("exportDocx")}</DropdownMenuItem>
             <DropdownMenuItem render={<a href={exportStored("pdf")} />}><Download />{t("exportStoredPdf")}</DropdownMenuItem>
+            {converted && <DropdownMenuItem render={<a href={`/api/wiki/pages/${encodeURIComponent(page.id)}/export?format=html&disposition=inline`} target="_blank" rel="noopener" />}><History />{t("legacyVersion")}</DropdownMenuItem>}
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => void remove()}><Trash2 />{tWiki("deletePage")}</DropdownMenuItem>
           </DropdownMenuContent>

@@ -192,3 +192,23 @@ export function replayRoom(kind: Kind, id: string, after: number) {
   if (!rows.length || rows[0].sequence !== after + 1) return wireRoom(room);
   return { update: encode(Y.mergeUpdates(rows.map(row => row.update))), sequence: room.sequence };
 }
+
+/**
+ * Office conversion only: merges the last in-memory state of a frozen page
+ * room into the stored room. Skips the TipTap projection (the page is already
+ * `converting`, so regular commits are refused); the converter reads the room.
+ */
+export function commitFrozenRoom(id: string, update: Uint8Array) {
+  sqlite.transaction(() => {
+    const key = roomKey("page", id);
+    const room = sqlite.prepare("SELECT * FROM wiki_collaboration_rooms WHERE key = ?").get(key) as Room | undefined;
+    if (!room) return;
+    const doc = new Y.Doc();
+    try {
+      Y.applyUpdate(doc, room.state);
+      Y.applyUpdate(doc, update);
+      const state = Buffer.from(Y.encodeStateAsUpdate(doc));
+      if (!state.equals(room.state)) sqlite.prepare("UPDATE wiki_collaboration_rooms SET state = ?, sequence = sequence + 1 WHERE key = ?").run(state, key);
+    } finally { doc.destroy(); }
+  }).immediate();
+}

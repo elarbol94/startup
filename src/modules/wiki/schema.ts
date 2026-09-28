@@ -305,7 +305,7 @@ export const wikiPageRevisions = sqliteTable(
     documentMode: integer("document_mode", { mode: "boolean" }).notNull().default(false),
     documentSettingsJson: text("document_settings_json").notNull().default(""),
     documentTemplateId: text("document_template_id").references(() => wikiDocumentTemplates.id, { onDelete: "set null" }),
-    kind: text("kind", { enum: ["autosave", "manual", "conflict", "restore"] }).notNull().default("autosave"),
+    kind: text("kind", { enum: ["autosave", "manual", "conflict", "restore", "conversion"] }).notNull().default("autosave"),
     createdBy: text("created_by").notNull().references(() => user.id),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   },
