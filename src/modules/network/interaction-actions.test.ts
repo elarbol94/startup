@@ -17,9 +17,9 @@ vi.mock("@/db", async () => {
 });
 
 import { db, sqlite } from "@/db";
-import { networkContacts, networkOrganizations, networkTags, tasks, user } from "@/db/schema";
+import { networkContacts, networkInteractions, networkOrganizations, networkTags, tasks, user } from "@/db/schema";
 import { markNetworkContactContacted, quickCaptureContact, setNetworkContactVisibility, updateNetworkContact } from "./contact-actions";
-import { addNetworkInteraction, deleteNetworkInteraction } from "./interaction-actions";
+import { addNetworkInteraction, deleteNetworkInteraction, updateNetworkInteraction } from "./interaction-actions";
 import { linkNetworkLeadTask, saveNetworkLead } from "./lead-actions";
 import { getNetworkContact, listNetworkFollowUps } from "./queries";
 
@@ -96,6 +96,95 @@ describe("interaction log", () => {
     as(colleague);
     expect(await addNetworkInteraction({ contactId: id, occurredOn: "2026-09-01" })).toEqual({ ok: false, error: "notFound" });
     expect(await deleteNetworkInteraction(entry.id)).toEqual({ ok: false, error: "notFound" });
+  });
+});
+
+describe("editing an interaction", () => {
+  async function log(contactId: string, occurredOn: string, note = "") {
+    const result = await addNetworkInteraction({ contactId, occurredOn, channel: "call", note });
+    if (!result.ok) throw new Error(result.error);
+    return result.id;
+  }
+  const move = (id: string, occurredOn: string) => updateNetworkInteraction({ id, occurredOn, channel: "call", note: "" });
+
+  it("moves the last-contact date forward when an entry is moved later", async () => {
+    const id = await capture({ name: "Felix" });
+    const entry = await log(id, "2026-08-01");
+    await log(id, "2026-09-01");
+    expect(await move(entry, "2026-09-15")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-15");
+  });
+
+  it("falls back when the latest entry is moved earlier, and ignores older entries moving back", async () => {
+    const id = await capture({ name: "Anna" });
+    const older = await log(id, "2026-08-01");
+    const latest = await log(id, "2026-09-20");
+    expect(await move(older, "2026-07-01")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-20");
+
+    // Moved below another entry: that one becomes the latest.
+    await log(id, "2026-09-01");
+    expect(await move(latest, "2026-06-01")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-01");
+  });
+
+  it("keeps the latest entry's new date when it is still the latest after moving back", async () => {
+    const id = await capture({ name: "Sebastian" });
+    await log(id, "2026-08-01");
+    const latest = await log(id, "2026-09-20");
+    expect(await move(latest, "2026-09-10")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-10");
+  });
+
+  it("keeps the date when another entry shares it", async () => {
+    const id = await capture({ name: "Tie" });
+    const first = await log(id, "2026-09-20");
+    await log(id, "2026-09-20");
+    await log(id, "2026-08-01");
+    expect(await move(first, "2026-07-01")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-20");
+  });
+
+  it("leaves a later date entered by hand alone", async () => {
+    const id = await capture({ name: "Christoph" });
+    const entry = await log(id, "2026-05-01");
+    await updateNetworkContact({ id, name: "Christoph", lastContactOn: "2026-09-25" });
+    expect(await move(entry, "2026-06-01")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-25");
+    expect(await move(entry, "2026-04-01")).toEqual({ ok: true });
+    expect(lastContact(id)).toBe("2026-09-25");
+  });
+
+  it("updates the row in place, keeping its id, contact and author", async () => {
+    const id = await capture({ name: "Team" });
+    await setNetworkContactVisibility({ contactId: id, visibility: "team" });
+    const entry = await log(id, "2026-09-01", "Erstgespräch");
+    as(colleague);
+    expect(await updateNetworkInteraction({ id: entry, occurredOn: "2026-09-02", channel: "email", note: "Nachfass-Mail" })).toEqual({ ok: true });
+    const rows = db.select().from(networkInteractions).where(eq(networkInteractions.contactId, id)).all();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: entry, contactId: id, createdBy: "aaron", occurredOn: "2026-09-02", channel: "email", note: "Nachfass-Mail" });
+  });
+
+  it("cannot reparent an entry through extra input", async () => {
+    const id = await capture({ name: "Mine" });
+    const other = await capture({ name: "Other" });
+    const entry = await log(id, "2026-09-01");
+    const input = { id: entry, occurredOn: "2026-09-02", channel: "call", note: "", contactId: other } as Parameters<typeof updateNetworkInteraction>[0];
+    expect(await updateNetworkInteraction(input)).toEqual({ ok: true });
+    expect(db.select().from(networkInteractions).where(eq(networkInteractions.id, entry)).get()?.contactId).toBe(id);
+    expect(lastContact(other)).toBeNull();
+  });
+
+  it("rejects invalid input and hides missing or private entries", async () => {
+    const id = await capture({ name: "Private" });
+    const entry = await log(id, "2026-09-01", "geheim");
+    expect(await updateNetworkInteraction({ id: entry, occurredOn: "2026-02-30" })).toEqual({ ok: false, error: "invalid" });
+    expect(await updateNetworkInteraction({ id: "missing", occurredOn: "2026-09-01" })).toEqual({ ok: false, error: "notFound" });
+    as(colleague);
+    expect(await updateNetworkInteraction({ id: entry, occurredOn: "2026-09-02", note: "x" })).toEqual({ ok: false, error: "notFound" });
+    as(aaron);
+    expect(getNetworkContact(aaron, id)!.interactions).toMatchObject([{ occurredOn: "2026-09-01", note: "geheim" }]);
   });
 });
 

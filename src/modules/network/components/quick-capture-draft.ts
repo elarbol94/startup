@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { leadKinds, type LeadKind } from "../constants";
+import type { SimilarContact } from "../network-utils";
 import type { MunicipalityValue } from "./municipality-picker";
 
 export type CaptureForm = {
@@ -12,14 +13,30 @@ export type CaptureForm = {
   metContext: string;
   tags: string[];
   metToday: boolean;
+  /** New contacts only; never together with `metToday`. */
+  notYetSpoken: boolean;
   municipality: MunicipalityValue;
 };
 
 export const emptyCaptureForm: CaptureForm = {
-  name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, municipality: null,
+  name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, notYetSpoken: false, municipality: null,
 };
 
-/** Whether anything worth keeping was entered; the kind and "met today" alone are not. */
+/** Quick-capture target value for "create a new person". */
+export const NEW_CONTACT = "new";
+
+/**
+ * Which quick-capture target is selected: the user's explicit choice while it
+ * is still offered, otherwise the first exact name match, otherwise a new
+ * person. Similar names are offered but never preselected, so a note is not
+ * attached to the wrong person silently.
+ */
+export function selectCaptureTarget(matches: readonly SimilarContact<{ id: string }>[], chosen: string) {
+  if (chosen === NEW_CONTACT || matches.some((match) => match.contact.id === chosen)) return chosen;
+  return matches.find((match) => match.exact)?.contact.id ?? NEW_CONTACT;
+}
+
+/** Whether anything worth keeping was entered; the kind and the two checkboxes alone are not. */
 export function hasCaptureContent(form: CaptureForm) {
   return Boolean(form.name.trim() || form.note.trim() || form.metContext.trim() || form.tags.length || form.municipality);
 }
@@ -38,10 +55,13 @@ export function restoreCaptureForm(raw: unknown): CaptureForm | null {
     metContext: text("metContext", 300),
     tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 20) : [],
     metToday: typeof value.metToday === "boolean" ? value.metToday : true,
+    notYetSpoken: value.notYetSpoken === true,
     municipality: municipality && typeof municipality.code === "string" && /^\d{5}$/.test(municipality.code) && typeof municipality.name === "string"
       ? { code: municipality.code, name: municipality.name }
       : null,
   };
+  // The two options exclude each other; "not spoken yet" was the later, explicit choice.
+  if (form.notYetSpoken) form.metToday = false;
   return hasCaptureContent(form) ? form : null;
 }
 

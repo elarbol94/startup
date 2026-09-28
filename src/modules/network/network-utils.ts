@@ -122,3 +122,38 @@ export function rankSuggestions(
   }
   return { matches, closest, exact };
 }
+
+export const MAX_SIMILAR_CONTACTS = 5;
+/** Shorter names are too ambiguous for fuzzy matching; they only match exactly. */
+const MIN_FUZZY_NAME_LENGTH = 4;
+
+export type SimilarContact<T> = { contact: T; exact: boolean };
+
+const nameTokens = (normalized: string) => normalized.split(" ").filter(Boolean).sort().join(" ");
+
+/**
+ * Contacts whose name matches a typed one, for duplicate hints: exact matches
+ * (ignoring case, accents and spacing) first, then near-misses — the same
+ * words in a different order ("Huber Maria"), or one typo for names under 8
+ * characters and two for longer ones. Names under 4 characters only match
+ * exactly. At most five, closest first; ties keep the incoming order.
+ */
+export function findSimilarContacts<T extends { name: string }>(name: string, contacts: readonly T[]): SimilarContact<T>[] {
+  const key = normalizeText(name);
+  if (!key) return [];
+  const fuzzy = key.length >= MIN_FUZZY_NAME_LENGTH;
+  const tolerance = key.length < 8 ? 1 : 2;
+  const tokens = nameTokens(key);
+  const scored = contacts.flatMap((contact, order) => {
+    const candidate = normalizeText(contact.name);
+    if (candidate === key) return [{ contact, exact: true, score: 0, order }];
+    if (!fuzzy || !candidate) return [];
+    if (nameTokens(candidate) === tokens) return [{ contact, exact: false, score: 1, order }];
+    // The distance is at least the length difference, so skip the obvious misses.
+    if (Math.abs(candidate.length - key.length) > tolerance) return [];
+    const distance = editDistance(key, candidate);
+    return distance <= tolerance ? [{ contact, exact: false, score: 1 + distance, order }] : [];
+  });
+  scored.sort((a, b) => a.score - b.score || a.order - b.order);
+  return scored.slice(0, MAX_SIMILAR_CONTACTS).map(({ contact, exact }) => ({ contact, exact }));
+}

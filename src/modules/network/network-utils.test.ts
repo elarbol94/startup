@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compareLeads, editDistance, isLeadOverdue, matchesSearch, normalizeText, parseTagInput, rankSuggestions } from "./network-utils";
+import { compareLeads, editDistance, findSimilarContacts, isLeadOverdue, matchesSearch, normalizeText, parseTagInput, rankSuggestions } from "./network-utils";
 
 describe("tags", () => {
   it("splits, trims and de-duplicates case- and accent-insensitively", () => {
@@ -69,5 +69,36 @@ describe("suggestions", () => {
     expect(rankSuggestions(known, "Gemiende").closest.map((entry) => entry.value)).toEqual(["Gemeinden"]);
     expect(rankSuggestions(known, "xyz").closest).toEqual([]);
     expect(editDistance("kitten", "sitting")).toBe(3);
+  });
+});
+
+describe("findSimilarContacts", () => {
+  const people = (...names: string[]) => names.map((name, index) => ({ id: `c${index}`, name }));
+  const names = (result: { contact: { name: string }; exact: boolean }[]) => result.map((entry) => `${entry.contact.name}${entry.exact ? "!" : ""}`);
+
+  it("puts exact matches (case, accents, spacing) before near-misses", () => {
+    const contacts = people("Maria Hueber", "maria  huber", "Mária Huber", "Anna");
+    expect(names(findSimilarContacts("Maria Huber", contacts))).toEqual(["maria  huber!", "Mária Huber!", "Maria Hueber"]);
+  });
+
+  it("allows one typo below 8 characters and two from 8 on", () => {
+    expect(names(findSimilarContacts("Sabine", people("Sabina", "Sabrna", "Sabinee")))).toEqual(["Sabina", "Sabinee"]);
+    expect(names(findSimilarContacts("Christoph", people("Kristof", "Christof", "Chrystoph")))).toEqual(["Chrystoph", "Christof"]);
+  });
+
+  it("matches the same words in a different order", () => {
+    expect(names(findSimilarContacts("Huber Maria", people("Maria Huber", "Maria Hofer")))).toEqual(["Maria Huber"]);
+    expect(names(findSimilarContacts("huber  MÁRIA", people("Maria Huber")))).toEqual(["Maria Huber"]);
+  });
+
+  it("only matches short names exactly", () => {
+    expect(names(findSimilarContacts("Ben", people("Ben", "BEN", "Bea", "Benn")))).toEqual(["Ben!", "BEN!"]);
+    expect(names(findSimilarContacts("Li Wu", people("Wu Li")))).toEqual(["Wu Li"]);
+    expect(findSimilarContacts("  ", people("Ben"))).toEqual([]);
+  });
+
+  it("returns at most five, closest first", () => {
+    const contacts = people("Lukass", "Lucas", "Lukas", "Luka", "Lukasz", "Lukes", "Lukaš");
+    expect(names(findSimilarContacts("Lukas", contacts))).toEqual(["Lukas!", "Lukaš!", "Lukass", "Lucas", "Luka"]);
   });
 });

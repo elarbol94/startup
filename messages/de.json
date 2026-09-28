@@ -317,7 +317,10 @@
       "invalid": "Bitte die Eingaben prüfen.",
       "notFound": "Dieser Kontakt existiert nicht mehr oder ist privat.",
       "forbidden": "Das kann nur die Person, die den Kontakt angelegt hat.",
-      "duplicate": "Eine andere Organisation heißt bereits so."
+      "duplicate": "Eine andere Organisation heißt bereits so.",
+      "visibilityMismatch": "Nur Kontakte mit gleicher Sichtbarkeit lassen sich zusammenführen. Bitte zuerst einen der beiden teilen oder privat machen.",
+      "notesTooLong": "Die zusammengeführten Notizen wären zu lang (höchstens 20.000 Zeichen). Bitte zuerst die Notizen kürzen.",
+      "tooManyTags": "Zusammen hätten die Kontakte mehr als 20 Tags. Bitte zuerst einige Tags entfernen."
     },
     "fields": {
       "name": "Name",
@@ -395,6 +398,7 @@
       "saved": "Für {name} gespeichert",
       "open": "Öffnen",
       "metToday": "Heute gesprochen",
+      "notYetSpoken": "Noch nicht gesprochen (nur davon gehört)",
       "continue": "Erfassung fortsetzen",
       "close": "Schließen",
       "discard": "Entwurf verwerfen",
@@ -540,6 +544,115 @@
     "suggest": {
       "create": "Neues Tag „{value}“ anlegen",
       "didYouMean": "Meintest du"
+    },
+    "interactionEdit": {
+      "title": "Eintrag bearbeiten",
+      "edit": "Eintrag bearbeiten",
+      "save": "Änderungen speichern",
+      "cancel": "Abbrechen"
+    },
+    "filters": {
+      "label": "Filter",
+      "scope": "Kontakte",
+      "scopes": {
+        "all": "Alle Kontakte",
+        "mine": "Meine Kontakte",
+        "team": "Team-Kontakte"
+      },
+      "relationship": "Beziehung",
+      "anyRelationship": "Alle Beziehungen",
+      "closeness": "Nähe",
+      "anyCloseness": "Jede Nähe",
+      "organization": "Organisation",
+      "anyOrganization": "Alle Organisationen",
+      "municipality": "Gemeinde",
+      "anyMunicipality": "Alle Gemeinden",
+      "spoken": "Gesprochen",
+      "anySpoken": "Gesprochen oder nicht",
+      "spokenStates": {
+        "no": "Noch nicht gesprochen",
+        "yes": "Schon gesprochen"
+      },
+      "sort": "Sortierung",
+      "sorts": {
+        "name": "Name (A–Z)",
+        "lastContact": "Letzter Kontakt",
+        "recent": "Zuletzt hinzugefügt",
+        "reconnect": "Wieder melden (fällig zuerst)"
+      }
+    },
+    "reconnect": {
+      "title": "Wieder melden",
+      "intro": "Menschen, mit denen du in Kontakt bleiben wolltest und länger nicht gesprochen hast.",
+      "field": "In Kontakt bleiben",
+      "none": "Keine Erinnerung",
+      "every": "Alle {days} Tage",
+      "neverContacted": "Noch kein Kontakt",
+      "dueSince": "Fällig seit {date}",
+      "dueToday": "Heute fällig",
+      "nextOn": "Nächstes Mal am {date}",
+      "lastContact": "Zuletzt am {date}",
+      "markContactedFor": "Heute mit {name} gesprochen"
+    },
+    "notYetSpoken": {
+      "badge": "Noch nicht gesprochen",
+      "field": "Noch nicht gesprochen",
+      "hint": "Wir kennen die Person nur vom Hörensagen. Wird automatisch entfernt, sobald ein Gespräch eingetragen wird."
+    },
+    "duplicates": {
+      "similarHint": "Ähnliche Namen gefunden. Wähle die Person aus, falls sie es ist – sonst wird eine neue Person angelegt.",
+      "addToSimilar": "Zu {name} hinzufügen (ähnlicher Name)"
+    },
+    "merge": {
+      "open": "Zusammenführen…",
+      "title": "Kontakte zusammenführen",
+      "description": "Wenn {name} doppelt erfasst wurde: Möglichkeiten, Gespräche, Verknüpfungen und Tags landen bei einem Kontakt, der andere wird gelöscht.",
+      "other": "Doppelter Kontakt",
+      "choose": "Kontakt auswählen",
+      "similar": "Ähnliche Namen",
+      "all": "Alle Kontakte",
+      "onlyPrivate": "Angeboten werden nur deine privaten Kontakte. Geteilte Kontakte zuerst privat machen (oder umgekehrt).",
+      "onlyTeam": "Angeboten werden nur geteilte Kontakte, die du verwalten darfst. Private Kontakte zuerst teilen (oder umgekehrt).",
+      "noCandidates": "Es gibt keinen anderen Kontakt mit gleicher Sichtbarkeit, den du verwalten darfst.",
+      "swap": "Richtung tauschen",
+      "loading": "Vorschau wird geladen…",
+      "keeps": "Bleibt erhalten",
+      "removed": "Wird gelöscht",
+      "moves": "Wird übernommen: {items}.",
+      "nothingToMove": "Es gibt keine Möglichkeiten, Gespräche, Verknüpfungen oder neuen Tags zu übernehmen.",
+      "counts": {
+        "leads": "{count, plural, one {# Möglichkeit} other {# Möglichkeiten}}",
+        "introductions": "{count, plural, one {# Vorstellung durch andere} other {# Vorstellungen durch andere}}",
+        "interactions": "{count, plural, one {# Gespräch} other {# Gespräche}}",
+        "links": "{count, plural, one {# Verknüpfung} other {# Verknüpfungen}}",
+        "tags": "{count, plural, one {# neuer Tag} other {# neue Tags}}"
+      },
+      "filled": "Leere Felder werden ergänzt: {fields}.",
+      "conflictsTitle": "Unterschiedliche Angaben",
+      "conflictsHint": "Wähle je Feld den Wert, der bleiben soll. Der andere wird in die Notizen übernommen.",
+      "confirm": "Endgültig zusammenführen",
+      "merged": "{name} wurde zusammengeführt",
+      "notesHeader": "Zusammengeführt aus {name} am {date}:"
+    },
+    "organizationMerge": {
+      "open": "Zusammenführen…",
+      "title": "Organisationen zusammenführen",
+      "description": "Wenn {name} doppelt erfasst wurde: Alle Kontakte und Intros – auch private Kontakte anderer – wandern zur Organisation, die bleibt, die andere wird gelöscht. Das lässt sich nicht rückgängig machen.",
+      "other": "Doppelte Organisation",
+      "choose": "Organisation auswählen",
+      "similar": "Ähnliche Namen",
+      "all": "Alle Organisationen",
+      "noCandidates": "Es gibt keine andere Organisation, die du sehen kannst.",
+      "counts": {
+        "contacts": "{count, plural, one {# Kontakt} other {# Kontakte}}",
+        "leads": "{count, plural, one {# Intro} other {# Intros}}"
+      },
+      "countsHint": "Gezählt werden alle Verweise, auch private Kontakte anderer; deren Namen werden nicht angezeigt.",
+      "nothingToMove": "Keine Kontakte oder Intros nennen diese Organisation.",
+      "conflictsHint": "Wähle je Feld den Wert, der bleiben soll. Eine Website oder Gemeinde, die nicht bleibt, wird in die Notizen übernommen.",
+      "clashHint": "„{name}“ gibt es bereits. Als Admin kannst du die beiden Organisationen zusammenführen.",
+      "clashMerge": "Mit {name} zusammenführen",
+      "merged": "{name} wurde zusammengeführt"
     }
   },
   "municipalities": {

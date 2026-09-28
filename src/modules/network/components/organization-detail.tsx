@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, Building2, Globe, Lock, MapPin, Pencil, UsersRound } from "lucide-react";
+import { ArrowLeft, Building2, Globe, Lock, MapPin, Merge, Pencil, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,12 +18,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { updateNetworkOrganization } from "../organization-actions";
+import type { OrganizationClash } from "../organization-merge-fields";
 import type { NetworkOrganizationDetail } from "../organization-queries";
 import type { NetworkContactOption } from "../queries";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
 import { MunicipalityLink } from "./municipality-link";
 import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
+import { OrganizationMergeDialog, type OrganizationMergeStart } from "./organization-merge-dialog";
 import { useNetworkAction } from "./use-network-action";
 
 export function OrganizationDetail({
@@ -31,15 +33,19 @@ export function OrganizationDetail({
   contacts,
   organizationNames,
   today,
+  mergeCandidates,
 }: {
   organization: NetworkOrganizationDetail;
   contacts: NetworkContactOption[];
   organizationNames: string[];
   today: string;
+  /** Organisations to merge with; null unless the viewer is an admin. */
+  mergeCandidates: OrganizationClash[] | null;
 }) {
   const t = useTranslations("network");
   const [editing, setEditing] = useState(false);
   const [leadDialog, setLeadDialog] = useState<LeadDialogState>(null);
+  const [merging, setMerging] = useState<{ start: OrganizationMergeStart } | null>(null);
 
   return (
     <div className="space-y-4" data-testid="network-organization-detail">
@@ -54,10 +60,18 @@ export function OrganizationDetail({
             <Building2 className="size-5 shrink-0 text-muted-foreground" />
             <span className="truncate">{organization.name}</span>
           </h2>
-          <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-            <Pencil className="size-4" />
-            {t("contact.edit")}
-          </Button>
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
+            {mergeCandidates && (
+              <Button size="sm" variant="outline" data-testid="network-organization-merge-open" onClick={() => setMerging({ start: null })}>
+                <Merge className="size-4" />
+                {t("organizationMerge.open")}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+              <Pencil className="size-4" />
+              {t("contact.edit")}
+            </Button>
+          </div>
         </div>
         {organization.municipalityCode && (
           <p className="inline-flex items-center gap-1.5 text-sm">
@@ -105,7 +119,22 @@ export function OrganizationDetail({
         )}
       </section>
 
-      <OrganizationEditDialog organization={organization} open={editing} onClose={() => setEditing(false)} />
+      <OrganizationEditDialog
+        organization={organization}
+        open={editing}
+        onClose={() => setEditing(false)}
+        // After a rename clash: keep the existing organisation, since its name is the one wanted.
+        onMerge={mergeCandidates ? (clash) => { setEditing(false); setMerging({ start: { other: clash, keepCurrent: false } }); } : undefined}
+      />
+      {mergeCandidates && (
+        <OrganizationMergeDialog
+          organization={{ id: organization.id, name: organization.name }}
+          candidates={mergeCandidates}
+          open={merging !== null}
+          start={merging?.start ?? null}
+          onClose={() => setMerging(null)}
+        />
+      )}
       <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );
@@ -115,22 +144,34 @@ function OrganizationEditDialog({
   organization,
   open,
   onClose,
+  onMerge,
 }: {
   organization: NetworkOrganizationDetail;
   open: boolean;
   onClose: () => void;
+  onMerge?: (clash: OrganizationClash) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      {open && <OrganizationForm organization={organization} onClose={onClose} />}
+      {open && <OrganizationForm organization={organization} onClose={onClose} onMerge={onMerge} />}
     </Dialog>
   );
 }
 
-function OrganizationForm({ organization, onClose }: { organization: NetworkOrganizationDetail; onClose: () => void }) {
+function OrganizationForm({
+  organization,
+  onClose,
+  onMerge,
+}: {
+  organization: NetworkOrganizationDetail;
+  onClose: () => void;
+  onMerge?: (clash: OrganizationClash) => void;
+}) {
   const t = useTranslations("network");
   const id = useId();
   const { pending, run } = useNetworkAction();
+  // Only admins get this back from the action (see updateNetworkOrganization).
+  const [clash, setClash] = useState<OrganizationClash | null>(null);
   const [form, setForm] = useState<{ name: string; website: string; notes: string; municipality: MunicipalityValue }>({
     name: organization.name,
     website: organization.website,
@@ -142,13 +183,18 @@ function OrganizationForm({ organization, onClose }: { organization: NetworkOrga
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    run(() => updateNetworkOrganization({
-      id: organization.id,
-      name: form.name,
-      website: form.website,
-      notes: form.notes,
-      municipalityCode: form.municipality?.code ?? null,
-    }), () => {
+    setClash(null);
+    run(async () => {
+      const result = await updateNetworkOrganization({
+        id: organization.id,
+        name: form.name,
+        website: form.website,
+        notes: form.notes,
+        municipalityCode: form.municipality?.code ?? null,
+      });
+      if (!result.ok && "clash" in result) setClash(result.clash);
+      return result;
+    }, () => {
       toast.success(t("organizations.saved"));
       onClose();
     });
@@ -177,6 +223,15 @@ function OrganizationForm({ organization, onClose }: { organization: NetworkOrga
           <Label htmlFor={`${id}-notes`}>{t("fields.notes")}</Label>
           <Textarea id={`${id}-notes`} rows={4} maxLength={20000} value={form.notes} onChange={(event) => setForm({ ...form, notes: event.target.value })} />
         </div>
+        {clash && onMerge && (
+          <div className="space-y-2 rounded-lg border px-3 py-2 text-sm" role="status" data-testid="network-organization-clash">
+            <p>{t("organizationMerge.clashHint", { name: clash.name })}</p>
+            <Button type="button" size="sm" variant="outline" onClick={() => onMerge(clash)}>
+              <Merge className="size-4" />
+              {t("organizationMerge.clashMerge", { name: clash.name })}
+            </Button>
+          </div>
+        )}
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>{t("cancel")}</Button>
           <Button type="submit" disabled={pending || !form.name.trim()}>{t("save")}</Button>

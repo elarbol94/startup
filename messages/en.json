@@ -317,7 +317,10 @@
       "invalid": "Please check your input.",
       "notFound": "This contact no longer exists or is private.",
       "forbidden": "Only the owner can do this.",
-      "duplicate": "Another organisation already has this name."
+      "duplicate": "Another organisation already has this name.",
+      "visibilityMismatch": "Only contacts with the same visibility can be merged. Share one of them or make it private first.",
+      "notesTooLong": "The merged notes would be too long (at most 20,000 characters). Please shorten the notes first.",
+      "tooManyTags": "Together the contacts would have more than 20 tags. Please remove some tags first."
     },
     "fields": {
       "name": "Name",
@@ -395,6 +398,7 @@
       "saved": "Saved for {name}",
       "open": "Open",
       "metToday": "We talked today",
+      "notYetSpoken": "Not spoken yet (only heard of them)",
       "continue": "Continue capture",
       "close": "Close",
       "discard": "Discard draft",
@@ -540,6 +544,115 @@
     "suggest": {
       "create": "Create new tag “{value}”",
       "didYouMean": "Did you mean"
+    },
+    "interactionEdit": {
+      "title": "Edit entry",
+      "edit": "Edit entry",
+      "save": "Save changes",
+      "cancel": "Cancel"
+    },
+    "filters": {
+      "label": "Filters",
+      "scope": "Contacts",
+      "scopes": {
+        "all": "All contacts",
+        "mine": "My contacts",
+        "team": "Team contacts"
+      },
+      "relationship": "Relationship",
+      "anyRelationship": "All relationships",
+      "closeness": "Closeness",
+      "anyCloseness": "Any closeness",
+      "organization": "Organisation",
+      "anyOrganization": "All organisations",
+      "municipality": "Municipality",
+      "anyMunicipality": "All municipalities",
+      "spoken": "Spoken",
+      "anySpoken": "Spoken or not",
+      "spokenStates": {
+        "no": "Not spoken yet",
+        "yes": "Already spoken"
+      },
+      "sort": "Sort",
+      "sorts": {
+        "name": "Name (A–Z)",
+        "lastContact": "Last contact",
+        "recent": "Recently added",
+        "reconnect": "Reconnect (due first)"
+      }
+    },
+    "reconnect": {
+      "title": "Reconnect",
+      "intro": "People you wanted to keep in touch with and have not spoken to for a while.",
+      "field": "Keep in touch",
+      "none": "No reminder",
+      "every": "Every {days} days",
+      "neverContacted": "No contact yet",
+      "dueSince": "Due since {date}",
+      "dueToday": "Due today",
+      "nextOn": "Next on {date}",
+      "lastContact": "Last contact {date}",
+      "markContactedFor": "Spoke to {name} today"
+    },
+    "notYetSpoken": {
+      "badge": "Not spoken yet",
+      "field": "Not spoken yet",
+      "hint": "We only know of this person. Cleared automatically once a conversation is logged."
+    },
+    "duplicates": {
+      "similarHint": "Similar names found. Pick the person if it is them — otherwise a new person is created.",
+      "addToSimilar": "Add to {name} (similar name)"
+    },
+    "merge": {
+      "open": "Merge…",
+      "title": "Merge contacts",
+      "description": "If {name} was entered twice: opportunities, conversations, links and tags end up on one contact and the other is deleted.",
+      "other": "Duplicate contact",
+      "choose": "Choose a contact",
+      "similar": "Similar names",
+      "all": "All contacts",
+      "onlyPrivate": "Only your private contacts are offered. Make a shared contact private first (or the other way round).",
+      "onlyTeam": "Only shared contacts you can manage are offered. Share a private contact first (or the other way round).",
+      "noCandidates": "There is no other contact with the same visibility that you can manage.",
+      "swap": "Swap direction",
+      "loading": "Loading preview…",
+      "keeps": "Kept",
+      "removed": "Deleted",
+      "moves": "Moves over: {items}.",
+      "nothingToMove": "There are no opportunities, conversations, links or new tags to move over.",
+      "counts": {
+        "leads": "{count, plural, one {# opportunity} other {# opportunities}}",
+        "introductions": "{count, plural, one {# introduction by others} other {# introductions by others}}",
+        "interactions": "{count, plural, one {# conversation} other {# conversations}}",
+        "links": "{count, plural, one {# link} other {# links}}",
+        "tags": "{count, plural, one {# new tag} other {# new tags}}"
+      },
+      "filled": "Empty fields are filled in: {fields}.",
+      "conflictsTitle": "Different details",
+      "conflictsHint": "Pick the value to keep for each field. The other one is added to the notes.",
+      "confirm": "Merge for good",
+      "merged": "{name} was merged",
+      "notesHeader": "Merged from {name} on {date}:"
+    },
+    "organizationMerge": {
+      "open": "Merge…",
+      "title": "Merge organisations",
+      "description": "If {name} was entered twice: every contact and intro – including other people's private contacts – moves to the organisation that stays, and the other one is deleted. This cannot be undone.",
+      "other": "Duplicate organisation",
+      "choose": "Choose an organisation",
+      "similar": "Similar names",
+      "all": "All organisations",
+      "noCandidates": "There is no other organisation you can see.",
+      "counts": {
+        "contacts": "{count, plural, one {# contact} other {# contacts}}",
+        "leads": "{count, plural, one {# intro} other {# intros}}"
+      },
+      "countsHint": "Every reference is counted, including other people's private contacts; their names are not shown.",
+      "nothingToMove": "No contacts or intros name this organisation.",
+      "conflictsHint": "Pick the value to keep for each field. A website or municipality that is not kept is added to the notes.",
+      "clashHint": "“{name}” already exists. As an admin you can merge the two organisations.",
+      "clashMerge": "Merge with {name}",
+      "merged": "{name} was merged"
     }
   },
   "municipalities": {

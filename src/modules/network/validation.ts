@@ -9,6 +9,7 @@ import {
   leadStatuses,
 } from "./constants";
 import { MAX_TAG_LENGTH, MAX_TAGS_PER_CONTACT } from "./network-utils";
+import { MAX_RECONNECT_DAYS, MIN_RECONNECT_DAYS } from "./reconnect-utils";
 
 export const idSchema = z.string().min(1).max(100);
 /** A Gemeindekennziffer from the map section, or none. */
@@ -37,6 +38,10 @@ export const contactSchema = z.object({
   notes: text(20_000),
   lastContactOn: optionalDate,
   municipalityCode: municipalityCodeSchema,
+  /** Keep-in-touch cadence in days; null (or omitted) means no reminder. */
+  reconnectEveryDays: z.number().int().min(MIN_RECONNECT_DAYS).max(MAX_RECONNECT_DAYS).nullish().transform((value) => value ?? null),
+  /** "Not spoken yet": we know of them but have not talked to them. */
+  notYetSpoken: z.boolean().default(false),
 });
 export type ContactInput = z.input<typeof contactSchema>;
 
@@ -66,7 +71,12 @@ export const quickCaptureSchema = z.object({
   metToday: z.boolean().default(false),
   /** Where a new contact lives; ignored when adding to an existing contact. */
   municipalityCode: municipalityCodeSchema,
-}).refine((value) => value.contactId || value.name, { path: ["name"] });
+  /** Mark a new contact as "not spoken yet"; ignored when adding to an existing contact. */
+  notYetSpoken: z.boolean().default(false),
+})
+  .refine((value) => value.contactId || value.name, { path: ["name"] })
+  // "Met today" and "not spoken yet" contradict each other.
+  .refine((value) => !(value.metToday && value.notYetSpoken), { path: ["notYetSpoken"] });
 export type QuickCaptureInput = z.input<typeof quickCaptureSchema>;
 
 export const contactTagsSchema = z.object({ contactId: idSchema, tags: tagsSchema });
@@ -80,5 +90,8 @@ export const interactionSchema = z.object({
   note: text(1000),
 });
 export type InteractionInput = z.input<typeof interactionSchema>;
+/** Editing a touchpoint: the contact is fixed, so it is not part of the input. */
+export const interactionUpdateSchema = interactionSchema.omit({ contactId: true }).extend({ id: idSchema });
+export type InteractionUpdateInput = z.input<typeof interactionUpdateSchema>;
 
 export const leadTaskLinkSchema = z.object({ leadId: idSchema, taskId: idSchema });

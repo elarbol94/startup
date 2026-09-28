@@ -5,12 +5,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { ArrowLeft, CalendarCheck, Lock, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { ArrowLeft, CalendarCheck, Lock, Merge, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
+import type { MergeContactSummary } from "../merge-fields";
 import type { Suggestion } from "../network-utils";
 import type { NetworkContactDetail, NetworkContactOption } from "../queries";
+import { reconnectDueOn } from "../reconnect-utils";
 import { ContactEditDialog } from "./contact-edit-dialog";
+import { ContactMergeDialog } from "./contact-merge-dialog";
 import { ContactLinks } from "./contact-links";
 import { ContactTagsEditor } from "./contact-tags-editor";
 import { InteractionLog } from "./interaction-log";
@@ -26,6 +30,7 @@ export function ContactDetail({
   tagSuggestions,
   metContextSuggestions,
   organizationNames,
+  mergeCandidates,
   today,
 }: {
   contact: NetworkContactDetail;
@@ -33,6 +38,8 @@ export function ContactDetail({
   tagSuggestions: Suggestion[];
   metContextSuggestions: Suggestion[];
   organizationNames: string[];
+  /** Contacts this one can be merged with (only for those who manage it). */
+  mergeCandidates: MergeContactSummary[];
   today: string;
 }) {
   const t = useTranslations("network");
@@ -42,8 +49,17 @@ export function ContactDetail({
   const [editing, setEditing] = useState(false);
   const [leadDialog, setLeadDialog] = useState<LeadDialogState>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [merging, setMerging] = useState(false);
   const formatDate = (value: string) => format.dateTime(dateOnly(value), { dateStyle: "medium", timeZone: "UTC" });
   const shared = contact.visibility === "team";
+  const reconnectDue = reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays);
+  const reconnectFact = contact.reconnectEveryDays && reconnectDue !== null && [
+    t("reconnect.every", { days: contact.reconnectEveryDays }),
+    !reconnectDue ? t("reconnect.neverContacted")
+      : reconnectDue === today ? t("reconnect.dueToday")
+        : reconnectDue < today ? t("reconnect.dueSince", { date: formatDate(reconnectDue) })
+          : t("reconnect.nextOn", { date: formatDate(reconnectDue) }),
+  ].join(" · ");
 
   function remove() {
     if (!confirmDelete) {
@@ -62,6 +78,7 @@ export function ContactDetail({
     { label: t("fields.municipality"), value: contact.municipalityCode && <MunicipalityLink code={contact.municipalityCode} name={contact.municipalityName ?? contact.municipalityCode} /> },
     { label: t("fields.metContext"), value: contact.metContext },
     { label: t("fields.lastContactOn"), value: contact.lastContactOn && formatDate(contact.lastContactOn) },
+    { label: t("reconnect.field"), value: reconnectFact },
     { label: t("fields.email"), value: contact.email && <a className="underline-offset-4 hover:underline" href={`mailto:${contact.email}`}>{contact.email}</a> },
     { label: t("fields.phone"), value: contact.phone && <a className="underline-offset-4 hover:underline" href={`tel:${contact.phone.replace(/\s+/g, "")}`}>{contact.phone}</a> },
     { label: t("fields.linkedinUrl"), value: contact.linkedinUrl && <a className="break-all underline-offset-4 hover:underline" href={contact.linkedinUrl} target="_blank" rel="noreferrer noopener">{contact.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}</a> },
@@ -77,7 +94,12 @@ export function ContactDetail({
       <section className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
+              {contact.notYetSpoken && (
+                <Badge variant="outline" title={t("notYetSpoken.hint")} data-testid="network-not-spoken-badge">{t("notYetSpoken.badge")}</Badge>
+              )}
+            </div>
             {(contact.role || contact.organization) && (
               <p className="text-sm text-muted-foreground">
                 {contact.role}
@@ -175,7 +197,11 @@ export function ContactDetail({
       )}
 
       {contact.canManage && (
-        <div className="flex justify-end border-t pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+          <Button variant="outline" size="sm" disabled={pending} onClick={() => setMerging(true)} data-testid="network-merge-open">
+            <Merge className="size-4" />
+            {t("merge.open")}
+          </Button>
           <Button variant="destructive" size="sm" disabled={pending} onClick={remove} onBlur={() => setConfirmDelete(false)}>
             <Trash2 className="size-4" />
             {confirmDelete ? t("contact.confirmDelete") : t("contact.delete")}
@@ -184,6 +210,9 @@ export function ContactDetail({
       )}
 
       <ContactEditDialog contact={contact} organizationNames={organizationNames} metContextSuggestions={metContextSuggestions} open={editing} onClose={() => setEditing(false)} />
+      {contact.canManage && (
+        <ContactMergeDialog contact={contact} candidates={mergeCandidates} open={merging} onClose={() => setMerging(false)} />
+      )}
       <LeadDialog state={leadDialog} onClose={() => setLeadDialog(null)} contacts={contacts} organizationNames={organizationNames} />
     </div>
   );

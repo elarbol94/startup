@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import { ContactDetail } from "@/modules/network/components/contact-detail";
+import { listMergeCandidates } from "@/modules/network/merge-helpers";
 import { listNetworkOrganizationNames } from "@/modules/network/organization-queries";
 import {
   getNetworkContact,
@@ -24,6 +25,7 @@ export default async function NetworkContactPage({ params }: { params: Promise<{
       tagSuggestions={listNetworkTagSuggestions(viewer)}
       metContextSuggestions={listNetworkMetContextSuggestions(viewer)}
       organizationNames={listNetworkOrganizationNames(viewer)}
+      mergeCandidates={listMergeCandidates(contact, viewer)}
       today={localDateInZone(new Date(), TIME_ZONE)}
     />
   );

@@ -2,12 +2,13 @@
 
 import { useId, useState, type FormEvent } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { interactionChannels, type InteractionChannel } from "../constants";
 import { addNetworkInteraction, deleteNetworkInteraction } from "../interaction-actions";
 import type { NetworkContactDetail } from "../queries";
+import { InteractionEditForm } from "./interaction-edit-form";
 import { dateOnly, selectClassName } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -28,6 +29,7 @@ export function InteractionLog({
   const id = useId();
   const { pending, run } = useNetworkAction();
   const [form, setForm] = useState({ occurredOn: today, channel: "meeting" as InteractionChannel, note: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -73,23 +75,40 @@ export function InteractionLog({
         <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-interactions">
           {interactions.map((interaction) => (
             <li key={interaction.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
-              <span className="w-24 shrink-0 text-muted-foreground tabular-nums">
-                {format.dateTime(dateOnly(interaction.occurredOn), { dateStyle: "medium", timeZone: "UTC" })}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="text-muted-foreground">{t(`channels.${interaction.channel}`)}</span>
-                {interaction.note && <span className="whitespace-pre-wrap">: {interaction.note}</span>}
-              </span>
-              {canEdit && (
-                <Button
-                  size="icon-xs"
-                  variant="ghost"
-                  aria-label={t("history.delete")}
-                  disabled={pending}
-                  onClick={() => run(() => deleteNetworkInteraction(interaction.id))}
-                >
-                  <Trash2 />
-                </Button>
+              {canEdit && editingId === interaction.id ? (
+                <InteractionEditForm interaction={interaction} today={today} onDone={() => setEditingId(null)} />
+              ) : (
+                <>
+                  <span className="w-24 shrink-0 text-muted-foreground tabular-nums">
+                    {format.dateTime(dateOnly(interaction.occurredOn), { dateStyle: "medium", timeZone: "UTC" })}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="text-muted-foreground">{t(`channels.${interaction.channel}`)}</span>
+                    {interaction.note && <span className="whitespace-pre-wrap">: {interaction.note}</span>}
+                  </span>
+                  {canEdit && (
+                    <span className="flex shrink-0 items-center gap-1">
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={t("interactionEdit.edit")}
+                        disabled={pending}
+                        onClick={() => setEditingId(interaction.id)}
+                      >
+                        <Pencil />
+                      </Button>
+                      <Button
+                        size="icon-xs"
+                        variant="ghost"
+                        aria-label={t("history.delete")}
+                        disabled={pending}
+                        onClick={() => run(() => deleteNetworkInteraction(interaction.id))}
+                      >
+                        <Trash2 />
+                      </Button>
+                    </span>
+                  )}
+                </>
               )}
             </li>
           ))}

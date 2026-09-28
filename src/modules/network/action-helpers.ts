@@ -8,7 +8,17 @@ import { normalizeText, parseTagInput } from "./network-utils";
 import type { InteractionChannel } from "./constants";
 import { networkContacts, networkContactTags, networkInteractions, networkTags } from "./schema";
 
-export type NetworkActionError = "invalid" | "notFound" | "forbidden" | "duplicate";
+export type NetworkActionError =
+  | "invalid"
+  | "notFound"
+  | "forbidden"
+  | "duplicate"
+  /** Contact merge: one is private, the other shared with the team. */
+  | "visibilityMismatch"
+  /** Contact merge: the combined notes would exceed the limit. */
+  | "notesTooLong"
+  /** Contact merge: the combined tags would exceed the per-contact limit. */
+  | "tooManyTags";
 export type NetworkActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: NetworkActionError };
 
 export const fail = (error: NetworkActionError) => ({ ok: false as const, error });
@@ -40,6 +50,47 @@ export function replaceContactTags(tx: Transaction, contactId: string, input: re
   removeUnusedTags(tx);
 }
 
+/*
+ * Invariant for `networkContacts.lastContactOn`:
+ * - It can be set by hand (contact edit form) to any date, or cleared.
+ * - Logging or editing an interaction only ever moves it *forward* to that
+ *   interaction's date (`bumpLastContact`); it never moves back on its own.
+ * - When an interaction is removed, or its date changes, and the stored value
+ *   equals the interaction's old date, it falls back to the latest remaining
+ *   interaction (`syncLastContactAfterRemoval`), or null if none remain.
+ *
+ * Known, accepted limitation: date equality is the only provenance signal.
+ * A date entered by hand that happens to equal an interaction's date is treated
+ * as coming from that interaction and may be replaced by the fallback. There is
+ * deliberately no extra "source" column for this.
+ */
+
+/*
+ * Rule for `networkContacts.notYetSpoken` ("noch nicht gesprochen"):
+ * - It is set by hand (contact edit form, or quick capture for a new contact).
+ * - Logging or editing a conversation clears it (`bumpLastContact`,
+ *   `clearNotYetSpoken`), which covers adding and editing interactions,
+ *   "spoke today" and quick capture's "met today".
+ * - Removing interactions never sets it again.
+ * - Saving the edit form stores exactly what the form says, even the flag
+ *   together with a last-contact date: the user's explicit choice wins.
+ */
+
+/**
+ * Moves the contact's last-contact date forward to `occurredOn`, never back.
+ * A logged conversation also means we have now spoken, so "not spoken yet" is cleared.
+ */
+export function bumpLastContact(tx: Transaction, contactId: string, occurredOn: string) {
+  const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, contactId)).get();
+  const lastContactOn = contact?.lastContactOn && contact.lastContactOn > occurredOn ? contact.lastContactOn : occurredOn;
+  tx.update(networkContacts).set({ lastContactOn, notYetSpoken: false, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
+}
+
+/** We have spoken to them now (see the rule above). */
+export function clearNotYetSpoken(tx: Transaction, contactId: string) {
+  tx.update(networkContacts).set({ notYetSpoken: false }).where(eq(networkContacts.id, contactId)).run();
+}
+
 /** Logs a touchpoint and moves the contact's last-contact date forward, never back. */
 export function recordInteraction(
   tx: Transaction,
@@ -50,15 +101,14 @@ export function recordInteraction(
     .values({ contactId: input.contactId, occurredOn: input.occurredOn, channel: input.channel, note: input.note, createdBy: input.userId })
     .returning({ id: networkInteractions.id })
     .get().id;
-  const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, input.contactId)).get();
-  const lastContactOn = contact?.lastContactOn && contact.lastContactOn > input.occurredOn ? contact.lastContactOn : input.occurredOn;
-  tx.update(networkContacts).set({ lastContactOn, updatedAt: new Date() }).where(eq(networkContacts.id, input.contactId)).run();
+  bumpLastContact(tx, input.contactId, input.occurredOn);
   return id;
 }
 
 /**
- * After removing a touchpoint: if the last-contact date came from it, fall
- * back to the latest remaining one. A date entered by hand is left alone.
+ * After removing a touchpoint (or moving it away from `removedOn`): if the
+ * last-contact date came from it, fall back to the latest remaining one.
+ * A date entered by hand is left alone (see the invariant above).
  */
 export function syncLastContactAfterRemoval(tx: Transaction, contactId: string, removedOn: string) {
   const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, contactId)).get();
@@ -72,12 +122,38 @@ export function syncLastContactAfterRemoval(tx: Transaction, contactId: string, 
   tx.update(networkContacts).set({ lastContactOn: latest?.occurredOn ?? null, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
 }
 
+/**
+ * Edits a touchpoint in place (id, contact and author stay the same) and keeps
+ * the last-contact date consistent when its date changes.
+ */
+export function editInteraction(
+  tx: Transaction,
+  existing: { id: string; contactId: string; occurredOn: string },
+  input: { occurredOn: string; channel: InteractionChannel; note: string },
+) {
+  tx.update(networkInteractions)
+    .set({ occurredOn: input.occurredOn, channel: input.channel, note: input.note })
+    .where(eq(networkInteractions.id, existing.id))
+    .run();
+  if (existing.occurredOn === input.occurredOn) {
+    clearNotYetSpoken(tx, existing.contactId);
+    return;
+  }
+  // The row already carries the new date, so the fallback may pick it up itself.
+  syncLastContactAfterRemoval(tx, existing.contactId, existing.occurredOn);
+  bumpLastContact(tx, existing.contactId, input.occurredOn);
+}
+
 export function removeUnusedTags(tx: Transaction) {
   const used = tx.selectDistinct({ id: networkContactTags.tagId }).from(networkContactTags);
   tx.delete(networkTags).where(notInArray(networkTags.id, used)).run();
 }
 
-/** The layout lists contacts for quick capture, so every network page depends on the data. */
+/**
+ * The layout lists contacts for quick capture, so every network page depends
+ * on the data; the dashboard shows follow-ups and people to reconnect with.
+ */
 export function revalidateNetwork() {
   revalidatePath("/network", "layout");
+  revalidatePath("/");
 }
