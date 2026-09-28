@@ -71,6 +71,11 @@ export const networkContacts = sqliteTable(
     lastContactOn: text("last_contact_on"),
     /** Keep-in-touch cadence in days (7–730); null means no reminder. */
     reconnectEveryDays: integer("reconnect_every_days"),
+    /**
+     * "Noch nicht gesprochen": someone we know of or were told about but have
+     * not talked to yet. Set by hand; cleared when a conversation is logged.
+     */
+    notYetSpoken: integer("not_yet_spoken", { mode: "boolean" }).notNull().default(false),
     /** Municipality the person lives in (Gemeindekennziffer); only the municipality, never an address. */
     municipalityCode: text("municipality_code"),
     /** Name at the time it was chosen, so the record still reads well if codes change. */

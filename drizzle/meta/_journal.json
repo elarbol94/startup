@@ -512,6 +512,13 @@
       "when": 1790577977432,
       "tag": "0072_network_reconnect_cadence",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "6",
+      "when": 1790578530426,
+      "tag": "0073_network_not_yet_spoken",
+      "breakpoints": true
     }
   ]
 }

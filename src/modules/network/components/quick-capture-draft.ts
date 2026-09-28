@@ -12,14 +12,16 @@ export type CaptureForm = {
   metContext: string;
   tags: string[];
   metToday: boolean;
+  /** New contacts only; never together with `metToday`. */
+  notYetSpoken: boolean;
   municipality: MunicipalityValue;
 };
 
 export const emptyCaptureForm: CaptureForm = {
-  name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, municipality: null,
+  name: "", target: "", note: "", kind: "info", metContext: "", tags: [], metToday: true, notYetSpoken: false, municipality: null,
 };
 
-/** Whether anything worth keeping was entered; the kind and "met today" alone are not. */
+/** Whether anything worth keeping was entered; the kind and the two checkboxes alone are not. */
 export function hasCaptureContent(form: CaptureForm) {
   return Boolean(form.name.trim() || form.note.trim() || form.metContext.trim() || form.tags.length || form.municipality);
 }
@@ -38,10 +40,13 @@ export function restoreCaptureForm(raw: unknown): CaptureForm | null {
     metContext: text("metContext", 300),
     tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string").slice(0, 20) : [],
     metToday: typeof value.metToday === "boolean" ? value.metToday : true,
+    notYetSpoken: value.notYetSpoken === true,
     municipality: municipality && typeof municipality.code === "string" && /^\d{5}$/.test(municipality.code) && typeof municipality.name === "string"
       ? { code: municipality.code, name: municipality.name }
       : null,
   };
+  // The two options exclude each other; "not spoken yet" was the later, explicit choice.
+  if (form.notYetSpoken) form.metToday = false;
   return hasCaptureContent(form) ? form : null;
 }
 

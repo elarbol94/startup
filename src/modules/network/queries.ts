@@ -67,6 +67,7 @@ export type NetworkContactListItem = {
   visibility: "private" | "team";
   isOwn: boolean;
   lastContactOn: string | null;
+  notYetSpoken: boolean;
   municipalityName: string | null;
   tags: NetworkTag[];
   /** Summaries of the leads that still need something, soonest first. */
@@ -86,7 +87,7 @@ const byFacetName = (a: { name: string }, b: { name: string }) =>
 /**
  * "My network": every visible contact, optionally narrowed by a search over
  * the person, their notes and their leads, by tag, relationship, closeness,
- * owner scope, organisation and municipality, and sorted. The network is small
+ * owner scope, organisation, municipality and "not spoken yet", and sorted. The network is small
  * (hundreds of rows), so filtering happens here, which also gives
  * accent-insensitive matching that SQLite's LIKE cannot.
  *
@@ -130,6 +131,8 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     if (filter.closeness && contact.closeness !== filter.closeness) continue;
     if (filter.organizationId && contact.organizationId !== filter.organizationId) continue;
     if (filter.municipalityCode && contact.municipalityCode !== filter.municipalityCode) continue;
+    if (filter.spoken === "no" && !contact.notYetSpoken) continue;
+    if (filter.spoken === "yes" && contact.notYetSpoken) continue;
     if (filter.tagId && !contactTags.some((tag) => tag.id === filter.tagId)) continue;
     if (filter.query && !matchesSearch(filter.query, [
       contact.name, contact.organization, contact.role, contact.metContext, contact.notes, contact.municipalityName,
@@ -147,6 +150,7 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     visibility: contact.visibility,
     isOwn: contact.ownerId === viewer.id,
     lastContactOn: contact.lastContactOn,
+    notYetSpoken: contact.notYetSpoken,
     municipalityName: contact.municipalityName,
     tags: tags.get(contact.id) ?? [],
     activeLeads: (leads.get(contact.id) ?? [])

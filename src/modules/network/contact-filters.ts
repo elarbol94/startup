@@ -17,6 +17,10 @@ export type ContactSort = (typeof contactSorts)[number];
 export const contactScopes = ["all", "mine", "team"] as const;
 export type ContactScope = (typeof contactScopes)[number];
 
+/** `no`: only people marked "not spoken yet"; `yes`: everyone else. */
+export const contactSpokenStates = ["no", "yes"] as const;
+export type ContactSpokenState = (typeof contactSpokenStates)[number];
+
 export type ContactListFilter = {
   query: string;
   tagId: string;
@@ -25,6 +29,7 @@ export type ContactListFilter = {
   scope: ContactScope;
   organizationId: string;
   municipalityCode: string;
+  spoken: ContactSpokenState | "";
   sort: ContactSort;
 };
 
@@ -36,6 +41,7 @@ export const defaultContactListFilter: ContactListFilter = {
   scope: "all",
   organizationId: "",
   municipalityCode: "",
+  spoken: "",
   sort: "name",
 };
 
@@ -59,6 +65,7 @@ const paramsSchema = z.object({
   scope: param(z.enum(contactScopes)),
   organization: idParam,
   municipality: param(z.string().regex(/^\d{5}$/)),
+  spoken: param(z.enum(contactSpokenStates)),
   sort: param(z.enum(contactSorts)),
 });
 
@@ -76,6 +83,7 @@ export function parseContactListParams(raw: RawParams | null | undefined): Conta
     scope: params.scope ?? d.scope,
     organizationId: params.organization ?? d.organizationId,
     municipalityCode: params.municipality ?? d.municipalityCode,
+    spoken: params.spoken ?? d.spoken,
     sort: params.sort ?? d.sort,
   };
 }
@@ -95,6 +103,7 @@ const paramNames: [keyof ContactListFilter, string][] = [
   ["scope", "scope"],
   ["organizationId", "organization"],
   ["municipalityCode", "municipality"],
+  ["spoken", "spoken"],
   ["sort", "sort"],
 ];
 

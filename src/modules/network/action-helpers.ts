@@ -55,11 +55,30 @@ export function replaceContactTags(tx: Transaction, contactId: string, input: re
  * deliberately no extra "source" column for this.
  */
 
-/** Moves the contact's last-contact date forward to `occurredOn`, never back. */
+/*
+ * Rule for `networkContacts.notYetSpoken` ("noch nicht gesprochen"):
+ * - It is set by hand (contact edit form, or quick capture for a new contact).
+ * - Logging or editing a conversation clears it (`bumpLastContact`,
+ *   `clearNotYetSpoken`), which covers adding and editing interactions,
+ *   "spoke today" and quick capture's "met today".
+ * - Removing interactions never sets it again.
+ * - Saving the edit form stores exactly what the form says, even the flag
+ *   together with a last-contact date: the user's explicit choice wins.
+ */
+
+/**
+ * Moves the contact's last-contact date forward to `occurredOn`, never back.
+ * A logged conversation also means we have now spoken, so "not spoken yet" is cleared.
+ */
 export function bumpLastContact(tx: Transaction, contactId: string, occurredOn: string) {
   const contact = tx.select({ lastContactOn: networkContacts.lastContactOn }).from(networkContacts).where(eq(networkContacts.id, contactId)).get();
   const lastContactOn = contact?.lastContactOn && contact.lastContactOn > occurredOn ? contact.lastContactOn : occurredOn;
-  tx.update(networkContacts).set({ lastContactOn, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
+  tx.update(networkContacts).set({ lastContactOn, notYetSpoken: false, updatedAt: new Date() }).where(eq(networkContacts.id, contactId)).run();
+}
+
+/** We have spoken to them now (see the rule above). */
+export function clearNotYetSpoken(tx: Transaction, contactId: string) {
+  tx.update(networkContacts).set({ notYetSpoken: false }).where(eq(networkContacts.id, contactId)).run();
 }
 
 /** Logs a touchpoint and moves the contact's last-contact date forward, never back. */
@@ -106,7 +125,10 @@ export function editInteraction(
     .set({ occurredOn: input.occurredOn, channel: input.channel, note: input.note })
     .where(eq(networkInteractions.id, existing.id))
     .run();
-  if (existing.occurredOn === input.occurredOn) return;
+  if (existing.occurredOn === input.occurredOn) {
+    clearNotYetSpoken(tx, existing.contactId);
+    return;
+  }
   // The row already carries the new date, so the fallback may pick it up itself.
   syncLastContactAfterRemoval(tx, existing.contactId, existing.occurredOn);
   bumpLastContact(tx, existing.contactId, input.occurredOn);

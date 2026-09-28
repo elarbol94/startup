@@ -395,6 +395,7 @@
       "saved": "Saved for {name}",
       "open": "Open",
       "metToday": "We talked today",
+      "notYetSpoken": "Not spoken yet (only heard of them)",
       "continue": "Continue capture",
       "close": "Close",
       "discard": "Discard draft",
@@ -563,6 +564,12 @@
       "anyOrganization": "All organisations",
       "municipality": "Municipality",
       "anyMunicipality": "All municipalities",
+      "spoken": "Spoken",
+      "anySpoken": "Spoken or not",
+      "spokenStates": {
+        "no": "Not spoken yet",
+        "yes": "Already spoken"
+      },
       "sort": "Sort",
       "sorts": {
         "name": "Name (A–Z)",
@@ -583,6 +590,11 @@
       "nextOn": "Next on {date}",
       "lastContact": "Last contact {date}",
       "markContactedFor": "Spoke to {name} today"
+    },
+    "notYetSpoken": {
+      "badge": "Not spoken yet",
+      "field": "Not spoken yet",
+      "hint": "We only know of this person. Cleared automatically once a conversation is logged."
     }
   },
   "municipalities": {

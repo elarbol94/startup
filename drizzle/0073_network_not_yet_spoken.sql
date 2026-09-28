@@ -1,0 +1,1 @@
+ALTER TABLE `network_contacts` ADD `not_yet_spoken` integer DEFAULT false NOT NULL;

@@ -85,6 +85,7 @@ export function QuickCaptureDialog({
         metContext: existingId ? "" : form.metContext,
         tags: form.tags,
         metToday: form.metToday,
+        notYetSpoken: existingId ? false : form.notYetSpoken,
         municipalityCode: existingId ? null : form.municipality?.code ?? null,
       }),
       (result) => {
@@ -198,9 +199,21 @@ export function QuickCaptureDialog({
               <PopularTags value={form.tags} suggestions={tags} onChange={(next) => setForm((current) => ({ ...current, tags: next }))} />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.metToday} onCheckedChange={(checked) => setForm((current) => ({ ...current, metToday: checked === true }))} />
+              <Checkbox
+                checked={form.metToday}
+                onCheckedChange={(checked) => setForm((current) => ({ ...current, metToday: checked === true, notYetSpoken: checked === true ? false : current.notYetSpoken }))}
+              />
               {t("quick.metToday")}
             </label>
+            {!existingId && (
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.notYetSpoken}
+                  onCheckedChange={(checked) => setForm((current) => ({ ...current, notYetSpoken: checked === true, metToday: checked === true ? false : current.metToday }))}
+                />
+                {t("quick.notYetSpoken")}
+              </label>
+            )}
             <p className="text-xs text-muted-foreground">{existingId ? t("quick.existingHint") : t("quick.privateHint")}</p>
             <DialogFooter>
               {hasDraft && (

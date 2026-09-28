@@ -17,23 +17,24 @@ describe("parseContactListParams", () => {
   it("reads every filter", () => {
     expect(parseContactListParams({
       q: "  Graz ", tag: "t1", relationship: "friend", closeness: "close", scope: "mine",
-      organization: "o1", municipality: "61120", sort: "lastContact",
+      organization: "o1", municipality: "61120", spoken: "no", sort: "lastContact",
     })).toEqual({
       query: "Graz", tagId: "t1", relationship: "friend", closeness: "close", scope: "mine",
-      organizationId: "o1", municipalityCode: "61120", sort: "lastContact",
+      organizationId: "o1", municipalityCode: "61120", spoken: "no", sort: "lastContact",
     });
   });
 
   it("falls back instead of failing on unknown or malformed values", () => {
     expect(parseContactListParams({
-      relationship: "enemy", closeness: "", scope: "everyone", municipality: "6112", sort: "random", tag: "",
+      relationship: "enemy", closeness: "", scope: "everyone", municipality: "6112", sort: "random", tag: "", spoken: "maybe",
     })).toEqual(defaultContactListFilter);
+    expect(parseContactListParams({ spoken: "" })).toEqual(defaultContactListFilter);
     expect(parseContactListParams({ organization: "x".repeat(101), municipality: "61120a" })).toEqual(defaultContactListFilter);
   });
 
   it("uses the first of repeated params", () => {
-    expect(parseContactListParams({ tag: ["a", "b"], sort: ["recent", "name"], scope: ["bogus", "team"] }))
-      .toMatchObject({ tagId: "a", sort: "recent", scope: "all" });
+    expect(parseContactListParams({ tag: ["a", "b"], sort: ["recent", "name"], scope: ["bogus", "team"], spoken: ["yes", "no"] }))
+      .toMatchObject({ tagId: "a", sort: "recent", scope: "all", spoken: "yes" });
   });
 
   it("caps the search text", () => {
@@ -46,6 +47,7 @@ describe("isContactListFiltered", () => {
     expect(isContactListFiltered({ ...defaultContactListFilter, sort: "recent" })).toBe(false);
     expect(isContactListFiltered({ ...defaultContactListFilter, scope: "team" })).toBe(true);
     expect(isContactListFiltered({ ...defaultContactListFilter, query: "x" })).toBe(true);
+    expect(isContactListFiltered({ ...defaultContactListFilter, spoken: "no" })).toBe(true);
   });
 });
 
@@ -56,6 +58,7 @@ describe("networkFilterHref", () => {
     expect(networkFilterHref(current, { closeness: "close" })).toBe("/network?q=graz&tag=t1&closeness=close&sort=recent");
     expect(networkFilterHref(current, { municipalityCode: "61120", scope: "mine" }))
       .toBe("/network?q=graz&tag=t1&scope=mine&municipality=61120&sort=recent");
+    expect(networkFilterHref(current, { spoken: "no" })).toBe("/network?q=graz&tag=t1&spoken=no&sort=recent");
   });
 
   it("removes cleared values and defaults", () => {
@@ -69,7 +72,7 @@ describe("networkFilterHref", () => {
   });
 
   it("round-trips through the parser", () => {
-    const filter = { ...current, relationship: "event" as const, organizationId: "o 1" };
+    const filter = { ...current, relationship: "event" as const, organizationId: "o 1", spoken: "no" as const };
     const params = new URLSearchParams(networkFilterHref(filter).split("?")[1]);
     expect(parseContactListParams(Object.fromEntries(params))).toEqual(filter);
   });

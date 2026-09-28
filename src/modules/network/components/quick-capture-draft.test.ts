@@ -23,4 +23,11 @@ describe("quick capture drafts", () => {
     expect(restoreCaptureForm("text")).toBeNull();
     expect(restoreCaptureForm({ kind: "intro" })).toBeNull();
   });
+
+  it("restores 'not spoken yet' and never together with 'met today'", () => {
+    expect(hasCaptureContent({ ...emptyCaptureForm, notYetSpoken: true, metToday: false })).toBe(false);
+    expect(restoreCaptureForm({ name: "Lena", notYetSpoken: true, metToday: true }))
+      .toEqual({ ...emptyCaptureForm, name: "Lena", notYetSpoken: true, metToday: false });
+    expect(restoreCaptureForm({ name: "Lena", notYetSpoken: "yes" })).toEqual({ ...emptyCaptureForm, name: "Lena" });
+  });
 });

@@ -395,6 +395,7 @@
       "saved": "Für {name} gespeichert",
       "open": "Öffnen",
       "metToday": "Heute gesprochen",
+      "notYetSpoken": "Noch nicht gesprochen (nur davon gehört)",
       "continue": "Erfassung fortsetzen",
       "close": "Schließen",
       "discard": "Entwurf verwerfen",
@@ -563,6 +564,12 @@
       "anyOrganization": "Alle Organisationen",
       "municipality": "Gemeinde",
       "anyMunicipality": "Alle Gemeinden",
+      "spoken": "Gesprochen",
+      "anySpoken": "Gesprochen oder nicht",
+      "spokenStates": {
+        "no": "Noch nicht gesprochen",
+        "yes": "Schon gesprochen"
+      },
       "sort": "Sortierung",
       "sorts": {
         "name": "Name (A–Z)",
@@ -583,6 +590,11 @@
       "nextOn": "Nächstes Mal am {date}",
       "lastContact": "Zuletzt am {date}",
       "markContactedFor": "Heute mit {name} gesprochen"
+    },
+    "notYetSpoken": {
+      "badge": "Noch nicht gesprochen",
+      "field": "Noch nicht gesprochen",
+      "hint": "Wir kennen die Person nur vom Hörensagen. Wird automatisch entfernt, sobald ein Gespräch eingetragen wird."
     }
   },
   "municipalities": {

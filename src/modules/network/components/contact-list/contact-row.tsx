@@ -35,6 +35,7 @@ export async function ContactRow({ contact }: { contact: NetworkContactListItem 
         )}
       </div>
       <div className="flex flex-wrap items-center gap-1 sm:justify-end">
+        {contact.notYetSpoken && <Badge variant="outline" data-testid="network-not-spoken-badge">{t("notYetSpoken.badge")}</Badge>}
         {contact.tags.map((tag) => <Badge key={tag.id} variant="secondary">{tag.name}</Badge>)}
         {contact.lastContactOn && (
           <span className="text-xs whitespace-nowrap text-muted-foreground">

@@ -6,6 +6,7 @@ import { requireUserOrThrow } from "@/lib/auth";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import { TIME_ZONE } from "@/modules/time/lib/entry-time";
 import {
+  clearNotYetSpoken,
   contactFor,
   fail,
   recordInteraction,
@@ -30,7 +31,8 @@ import {
 /**
  * Quick capture right after a conversation: adds a new contact (private) or
  * picks an existing one, records what they said as an open lead and merges
- * the tags.
+ * the tags. "Not spoken yet" only applies to a new contact and cannot be
+ * combined with "met today".
  */
 export async function quickCaptureContact(input: QuickCaptureInput): Promise<NetworkActionResult<{ contactId: string }>> {
   const viewer = await requireUserOrThrow();
@@ -48,7 +50,7 @@ export async function quickCaptureContact(input: QuickCaptureInput): Promise<Net
   const contactId = db.transaction((tx) => {
     const id = data.contactId ?? tx
       .insert(networkContacts)
-      .values({ ownerId: viewer.id, name: data.name, metContext: data.metContext, ...municipality })
+      .values({ ownerId: viewer.id, name: data.name, metContext: data.metContext, notYetSpoken: data.notYetSpoken, ...municipality })
       .returning({ id: networkContacts.id })
       .get().id;
     if (data.contactId) {
@@ -63,6 +65,7 @@ export async function quickCaptureContact(input: QuickCaptureInput): Promise<Net
         .where(and(eq(networkInteractions.contactId, id), eq(networkInteractions.occurredOn, occurredOn)))
         .get();
       if (!logged) recordInteraction(tx, { contactId: id, occurredOn, channel: "meeting", note: "", userId: viewer.id });
+      else clearNotYetSpoken(tx, id);
     }
     if (data.note) {
       tx.insert(networkLeads).values({ contactId: id, kind: data.kind, summary: data.note, createdBy: viewer.id }).run();
@@ -97,6 +100,8 @@ export async function updateNetworkContact(input: ContactInput): Promise<Network
   const municipality = municipalityColumns(municipalityCode);
   if (!municipality) return fail("invalid");
   db.transaction((tx) => {
+    // `notYetSpoken` is stored as submitted, even with a last-contact date:
+    // an explicit choice in the form wins (see the rule in action-helpers.ts).
     const organization = resolveOrganization(tx, values.organization, viewer.id);
     tx.update(networkContacts)
       .set({ ...values, ...municipality, organization: organization?.name ?? "", organizationId: organization?.id ?? null, updatedAt: new Date() })

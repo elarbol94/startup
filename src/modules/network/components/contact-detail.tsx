@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ArrowLeft, CalendarCheck, Lock, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
 import type { Suggestion } from "../network-utils";
@@ -87,7 +88,12 @@ export function ContactDetail({
       <section className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
+              {contact.notYetSpoken && (
+                <Badge variant="outline" title={t("notYetSpoken.hint")} data-testid="network-not-spoken-badge">{t("notYetSpoken.badge")}</Badge>
+              )}
+            </div>
             {(contact.role || contact.organization) && (
               <p className="text-sm text-muted-foreground">
                 {contact.role}

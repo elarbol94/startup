@@ -43,7 +43,7 @@ beforeEach(() => {
 
   contact({ id: "c1", name: "Anna", ownerId: "aaron", relationship: "friend", closeness: "close", organization: "TU Graz", organizationId: "tu", municipalityCode: "61120", municipalityName: "Trofaiach", lastContactOn: "2026-03-01", createdAt: new Date("2026-01-03") });
   contact({ id: "c2", name: "Bernd", ownerId: "aaron", visibility: "team", relationship: "professional", closeness: "known", organization: "TU Graz", organizationId: "tu", lastContactOn: "2026-05-01", createdAt: new Date("2026-01-01") });
-  contact({ id: "c3", name: "Clara", ownerId: "colleague", visibility: "team", relationship: "professional", closeness: "close", municipalityCode: "60101", municipalityName: "Graz", createdAt: new Date("2026-01-05") });
+  contact({ id: "c3", name: "Clara", ownerId: "colleague", visibility: "team", notYetSpoken: true, relationship: "professional", closeness: "close", municipalityCode: "60101", municipalityName: "Graz", createdAt: new Date("2026-01-05") });
   // Colleague's private contact: must never appear for anyone else, whatever the filter.
   contact({ id: "c4", name: "Dora", ownerId: "colleague", relationship: "professional", closeness: "close", organization: "Klimabündnis", organizationId: "kb", municipalityCode: "62345", municipalityName: "Leoben", createdAt: new Date("2026-01-09") });
 
@@ -86,6 +86,13 @@ describe("listNetworkContacts filters", () => {
     expect(names(listNetworkContacts(aaron, { municipalityCode: "60101" }))).toEqual(["Clara"]);
     expect(names(listNetworkContacts(aaron, { tagId: "t-design", closeness: "close", query: "trofaiach" }))).toEqual(["Anna"]);
     expect(names(listNetworkContacts(aaron, { relationship: "event" }))).toEqual([]);
+  });
+
+  it("filters by 'not spoken yet' and exposes the flag on each row", () => {
+    expect(names(listNetworkContacts(aaron, { spoken: "no" }))).toEqual(["Clara"]);
+    expect(names(listNetworkContacts(aaron, { spoken: "yes" }))).toEqual(["Anna", "Bernd"]);
+    expect(names(listNetworkContacts(aaron, { spoken: "no", scope: "mine" }))).toEqual([]);
+    expect(listNetworkContacts(aaron).contacts.map((item) => item.notYetSpoken)).toEqual([false, false, true]);
   });
 
   it("offers only facets of visible contacts and ignores unknown or hidden ones", () => {

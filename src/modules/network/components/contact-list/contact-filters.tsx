@@ -12,6 +12,7 @@ import { contactClosenessLevels, contactRelationships } from "../../constants";
 import {
   contactScopes,
   contactSorts,
+  contactSpokenStates,
   networkFilterHref,
   parseContactListParams,
   type ContactListFilter,
@@ -90,6 +91,10 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
             {municipalities.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}
           </FilterSelect>
         )}
+        <FilterSelect name="spoken" label={t("filters.spoken")} value={filter.spoken}>
+          <option value="">{t("filters.anySpoken")}</option>
+          {contactSpokenStates.map((value) => <option key={value} value={value}>{t(`filters.spokenStates.${value}`)}</option>)}
+        </FilterSelect>
         <FilterSelect name="sort" label={t("filters.sort")} value={filter.sort}>
           {contactSorts.map((sort) => <option key={sort} value={sort}>{t(`filters.sorts.${sort}`)}</option>)}
         </FilterSelect>

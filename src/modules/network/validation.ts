@@ -40,6 +40,8 @@ export const contactSchema = z.object({
   municipalityCode: municipalityCodeSchema,
   /** Keep-in-touch cadence in days; null (or omitted) means no reminder. */
   reconnectEveryDays: z.number().int().min(MIN_RECONNECT_DAYS).max(MAX_RECONNECT_DAYS).nullish().transform((value) => value ?? null),
+  /** "Not spoken yet": we know of them but have not talked to them. */
+  notYetSpoken: z.boolean().default(false),
 });
 export type ContactInput = z.input<typeof contactSchema>;
 
@@ -69,7 +71,12 @@ export const quickCaptureSchema = z.object({
   metToday: z.boolean().default(false),
   /** Where a new contact lives; ignored when adding to an existing contact. */
   municipalityCode: municipalityCodeSchema,
-}).refine((value) => value.contactId || value.name, { path: ["name"] });
+  /** Mark a new contact as "not spoken yet"; ignored when adding to an existing contact. */
+  notYetSpoken: z.boolean().default(false),
+})
+  .refine((value) => value.contactId || value.name, { path: ["name"] })
+  // "Met today" and "not spoken yet" contradict each other.
+  .refine((value) => !(value.metToday && value.notYetSpoken), { path: ["notYetSpoken"] });
 export type QuickCaptureInput = z.input<typeof quickCaptureSchema>;
 
 export const contactTagsSchema = z.object({ contactId: idSchema, tags: tagsSchema });

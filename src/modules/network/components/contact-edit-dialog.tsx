@@ -4,6 +4,7 @@ import { useId, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -39,6 +40,7 @@ type FormState = {
   lastContactOn: string;
   /** Days as a string for the select; "" means no reminder. */
   reconnectEveryDays: string;
+  notYetSpoken: boolean;
   municipality: MunicipalityValue;
 };
 
@@ -56,6 +58,7 @@ function initialForm(contact: NetworkContactDetail): FormState {
     notes: contact.notes,
     lastContactOn: contact.lastContactOn ?? "",
     reconnectEveryDays: contact.reconnectEveryDays ? String(contact.reconnectEveryDays) : "",
+    notYetSpoken: contact.notYetSpoken,
     municipality: contact.municipalityCode ? { code: contact.municipalityCode, name: contact.municipalityName ?? contact.municipalityCode } : null,
   };
 }
@@ -116,7 +119,7 @@ function ContactForm({
     );
   }
 
-  const field = (key: Exclude<keyof FormState, "municipality" | "reconnectEveryDays">, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
+  const field = (key: Exclude<keyof FormState, "municipality" | "reconnectEveryDays" | "notYetSpoken">, options: { type?: string; maxLength?: number; placeholder?: string; list?: string } = {}) => (
     <div className="space-y-1.5">
       <Label htmlFor={`${id}-${key}`}>{t(`fields.${key}`)}</Label>
       <Input
@@ -189,6 +192,16 @@ function ContactForm({
                 <option key={days} value={String(days)}>{t("reconnect.every", { days })}</option>
               ))}
             </select>
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={form.notYetSpoken}
+                onCheckedChange={(checked) => set({ notYetSpoken: checked === true })}
+              />
+              {t("notYetSpoken.field")}
+            </label>
+            <p className="text-xs text-muted-foreground">{t("notYetSpoken.hint")}</p>
           </div>
           {field("email", { type: "email", maxLength: 254 })}
           {field("phone", { type: "tel", maxLength: 60 })}
