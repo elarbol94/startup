@@ -190,6 +190,37 @@ test.describe("office documents (simulated document server)", () => {
     expect(query("SELECT target_page_id FROM wiki_links WHERE source_page_id = ?", pageId)).toEqual([]);
   });
 
+  test("converts an old-editor document from the admin settings", async ({ page }) => {
+    test.setTimeout(180_000);
+    await loginAsAnyUser(page);
+    const [user] = query<{ id: string }>('SELECT id FROM "user" LIMIT 1');
+    const id = `legacy-${Date.now()}`;
+    const body = { type: "doc", content: [
+      { type: "heading", attrs: { level: 1 }, content: [{ type: "text", text: "Altes Konzept" }] },
+      { type: "paragraph", content: [{ type: "text", text: "Mondrakete und " }, { type: "text", text: "Link", marks: [{ type: "link", attrs: { href: "https://example.org/" } }] }] },
+      { type: "taskList", content: [{ type: "taskItem", attrs: { checked: true }, content: [{ type: "paragraph", content: [{ type: "text", text: "Erledigt" }] }] }] },
+    ] };
+    const db = database();
+    try {
+      db.prepare("INSERT INTO wiki_pages (id, title, slug, content_json, document_mode, created_by, updated_by, created_at, updated_at) VALUES (?, 'Altes Konzept', ?, ?, 1, ?, ?, ?, ?)")
+        .run(id, id, JSON.stringify(body), user.id, user.id, Date.now(), Date.now());
+    } finally { db.close(); }
+
+    await page.goto("/settings/documents");
+    const row = page.getByRole("listitem").filter({ hasText: "Altes Konzept" });
+    page.once("dialog", (dialog) => void dialog.accept());
+    await row.getByRole("button", { name: "Umwandeln" }).click();
+    await expect(row.getByText("Umgewandelt", { exact: true })).toBeVisible({ timeout: 90_000 });
+    expect(query<{ document_engine: string; content_text: string }>("SELECT document_engine, content_text FROM wiki_pages WHERE id = ?", id)[0])
+      .toMatchObject({ document_engine: "office" });
+    expect(query<{ kind: string }>("SELECT kind FROM wiki_page_revisions WHERE page_id = ?", id)).toEqual([{ kind: "conversion" }]);
+
+    await page.goto(`/wiki/pages/${id}`);
+    await expect(page.getByText(/Gespeichert: Version 1/)).toBeVisible();
+    const legacy = await page.request.get(`/api/wiki/pages/${id}/export?format=html&disposition=inline`);
+    expect(await legacy.text()).toContain("Mondrakete");
+  });
+
   test("keeps office documents out of the TipTap and presentation paths", async ({ page }) => {
     await loginAsAnyUser(page);
     const pageId = await createDocument(page, "Office guard check");

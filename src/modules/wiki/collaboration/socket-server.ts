@@ -171,6 +171,14 @@ export function startCollaborationSocketServer() {
       const document = server.hocuspocus.documents.get(documentName(kind, id));
       if (document) Y.applyUpdate(document, state, DATABASE_ORIGIN);
     },
+    freeze(kind, id) {
+      const name = documentName(kind, id);
+      const document = server.hocuspocus.documents.get(name);
+      if (!document) return null;
+      for (const connection of document.getConnections()) send(connection, { type: "denied" });
+      server.hocuspocus.closeConnections(name);
+      return Y.encodeStateAsUpdate(document);
+    },
   });
 
   holder.__wikiSocketServer = server.listen().then(() => {

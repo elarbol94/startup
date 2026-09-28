@@ -78,3 +78,22 @@ export function getOfficeConnections(pageId: string) {
 }
 
 export type OfficeConnections = ReturnType<typeof getOfficeConnections>;
+
+/** TipTap pages with document layout (candidates for conversion) and converted ones. */
+export function listConversionCandidates() {
+  return db.select({ id: wikiPages.id, title: wikiPages.title, slug: wikiPages.slug, engine: wikiPages.documentEngine, updatedAt: wikiPages.updatedAt })
+    .from(wikiPages)
+    .where(and(isNull(wikiPages.deletedAt), eq(wikiPages.documentMode, true)))
+    .orderBy(asc(wikiPages.title)).all()
+    .map((page) => ({ ...page, updatedAt: page.updatedAt.getTime(), converted: page.engine !== "tiptap" && hasConversionVersion(page.id) }));
+}
+
+function hasConversionVersion(pageId: string) {
+  return Boolean(db.select({ id: wikiOfficeVersions.id }).from(wikiOfficeVersions)
+    .where(and(eq(wikiOfficeVersions.pageId, pageId), eq(wikiOfficeVersions.kind, "conversion"))).get());
+}
+
+/** Whether an office page was converted from the TipTap editor (its old body stays readable). */
+export function wasConverted(pageId: string) {
+  return hasConversionVersion(pageId);
+}
