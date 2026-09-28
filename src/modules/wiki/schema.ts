@@ -445,6 +445,8 @@ export const wikiNotifications = sqliteTable(
     pageId: text("page_id").references(() => wikiPages.id, { onDelete: "cascade" }),
     threadId: text("thread_id").references(() => wikiCommentThreads.id, { onDelete: "cascade" }),
     taskId: text("task_id"),
+    /** ONLYOFFICE comment deep link (DocsAPI `actionLink`, JSON) for office documents. */
+    officeActionLink: text("office_action_link"),
     readAt: integer("read_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   },

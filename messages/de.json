@@ -5329,6 +5329,39 @@
     },
     "exportPdf": "Als PDF exportieren",
     "exportDocx": "Als DOCX exportieren",
-    "exportStoredPdf": "Gespeicherte Version als PDF"
+    "exportStoredPdf": "Gespeicherte Version als PDF",
+    "checkpointStoredPdf": "Version gespeichert – PDF liegt unter Anhänge.",
+    "insert": {
+      "cite": {
+        "title": "Zitat einfügen",
+        "description": "Quellen wählen; die Nummerierung und das Literaturverzeichnis werden danach aktualisiert.",
+        "search": "Quellen suchen",
+        "locator": "Fundstelle (z. B. Seite 12)",
+        "insert": "{count, plural, =0 {Zitat einfügen} one {1 Quelle zitieren} other {# Quellen zitieren}}"
+      },
+      "evidence": {
+        "title": "PDF-Nachweis einfügen",
+        "description": "Eine markierte Stelle aus einem PDF wird mit Link zum Leser eingefügt.",
+        "search": "Markierungen suchen"
+      },
+      "link": {
+        "title": "Wiki-Link einfügen",
+        "description": "Der Link erscheint auf der verlinkten Seite als Rückverweis.",
+        "search": "Seiten suchen"
+      },
+      "results": "Ergebnisse",
+      "empty": "Nichts gefunden.",
+      "typeToSearch": "Suchbegriff eingeben.",
+      "cancel": "Abbrechen"
+    },
+    "connections": {
+      "title": "Verknüpfungen im Text",
+      "empty": "Noch keine Zitate, Nachweise, Aufgaben oder Fristen im Text.",
+      "tasks": "Aufgaben",
+      "deadlines": "Fristen",
+      "sources": "Zitierte Quellen",
+      "evidence": "PDF-Nachweise",
+      "jump": "Zur Stelle im Text springen"
+    }
   }
 }

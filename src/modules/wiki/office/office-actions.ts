@@ -6,13 +6,14 @@ import { z } from "zod";
 import { db } from "@/db";
 import { user, wikiNotifications } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
-import { MAX_UPLOAD_BYTES } from "@/lib/files";
+import { MAX_UPLOAD_BYTES, saveAttachmentBuffer } from "@/lib/files";
 import { blankDocx } from "./blank-docx";
-import { requireOfficeConfig } from "./config";
+import { requireOfficeConfig, type OfficeConfig } from "./config";
+import { convertVersionToPdf } from "./convert-pdf";
 import { createOfficePage } from "./create";
 import { DocxLimitError } from "./docx-safety";
 import { defaultOperationDeps, startCheckpoint, startRestore } from "./operations";
-import { getOfficePage } from "./queries";
+import { getOfficePage, getOfficeVersion } from "./queries";
 import { OfficeConflictError } from "./sessions";
 import { DOCX_MIME, prepareDocx } from "./store";
 import { mentionEmail, mentionEmailUserId } from "./users";
@@ -83,15 +84,37 @@ export async function saveOfficeCheckpoint(input: { pageId: string }) {
   const currentUser = await requireUserOrThrow();
   const page = officePageOrThrow(pageSchema.parse(input).pageId);
   try {
-    const operation = await startCheckpoint(page.id, currentUser.id, defaultOperationDeps(requireOfficeConfig()));
-    return { state: operation.state, reason: operation.failureReason, stored: operation.lastCommandResult === "stored" };
+    const config = requireOfficeConfig();
+    const operation = await startCheckpoint(page.id, currentUser.id, defaultOperationDeps(config));
+    const stored = operation.state === "done" && operation.lastCommandResult === "stored";
+    const pdf = stored && operation.resultVersionId ? await attachVersionPdf(config, page, operation.resultVersionId, currentUser.id) : false;
+    if (pdf) revalidatePath(`/wiki/pages/${page.slug}`);
+    return { state: operation.state, reason: operation.failureReason, stored, pdf };
   } catch (error) {
-    if (error instanceof OfficeConflictError) return { state: "failed" as const, reason: error.code, stored: false };
+    if (error instanceof OfficeConflictError) return { state: "failed" as const, reason: error.code, stored: false, pdf: false };
     throw error;
   }
 }
 
-const mentionSchema = pageSchema.extend({ emails: z.array(z.string().max(320)).max(50) });
+/**
+ * Stores a PDF of a saved version as a page attachment ("Titel – Version n.pdf"),
+ * ready to share or submit. Best effort: the version itself is already stored.
+ */
+async function attachVersionPdf(config: OfficeConfig, page: { id: string; title: string }, versionId: string, userId: string) {
+  const version = getOfficeVersion(page.id, versionId);
+  if (!version) return false;
+  try {
+    const pdf = await convertVersionToPdf(config, page, version);
+    const fileName = `${page.title.replace(/[\\/:*?"<>|]+/g, " ").trim().slice(0, 120) || "Dokument"} – Version ${version.version}.pdf`;
+    saveAttachmentBuffer({ file: new File([new Uint8Array(pdf)], fileName, { type: "application/pdf" }), buffer: pdf, entityType: "wikiPage", entityId: page.id, userId });
+    return true;
+  } catch (error) {
+    console.warn(JSON.stringify({ event: "office_version_pdf_failed", pageId: page.id, versionId, reason: error instanceof Error ? error.message : String(error) }));
+    return false;
+  }
+}
+
+const mentionSchema = pageSchema.extend({ emails: z.array(z.string().max(320)).max(50), actionLink: z.string().max(4000).optional() });
 
 /** ONLYOFFICE comment @mentions (onRequestSendNotify) → wiki notifications. */
 export async function notifyOfficeMentions(input: z.input<typeof mentionSchema>) {
@@ -102,7 +125,7 @@ export async function notifyOfficeMentions(input: z.input<typeof mentionSchema>)
   if (!ids.length) return { notified: 0 };
   const recipients = db.select({ id: user.id }).from(user).where(and(inArray(user.id, ids), isNull(user.removedAt))).all();
   for (const recipient of recipients) {
-    db.insert(wikiNotifications).values({ userId: recipient.id, actorId: currentUser.id, type: "mention", pageId: page.id }).run();
+    db.insert(wikiNotifications).values({ userId: recipient.id, actorId: currentUser.id, type: "mention", pageId: page.id, officeActionLink: data.actionLink ?? null }).run();
   }
   if (recipients.length) revalidatePath("/wiki", "layout");
   return { notified: recipients.length };

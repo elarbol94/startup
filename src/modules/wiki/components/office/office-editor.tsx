@@ -1,27 +1,58 @@
 "use client";
 
 import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
-import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
-import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import { notifyOfficeMentions, officeMentionUsers } from "../../office/office-actions";
+import { OfficeInsertDialog } from "./office-insert-dialog";
+import { useOfficeBridge, type OfficeCommand } from "./use-office-bridge";
 import { useOnlyofficeScript, type DocEditorInstance } from "./use-onlyoffice-script";
 
-export type OfficeEditorHandle = { downloadAs: (format: "pdf" | "docx") => boolean };
+export type OfficeEditorHandle = {
+  downloadAs: (format: "pdf" | "docx") => boolean;
+  /** Sends a command to the workspace plugin (e.g. jump to a linked passage). */
+  send: (command: OfficeCommand) => void;
+};
 
-type ConfigResponse = { config: Record<string, unknown>; apiUrl: string };
+type ConfigResponse = { config: Record<string, unknown>; apiUrl: string; bridgeId: string };
 type LoadState = { kind: "loading" } | { kind: "ready"; data: ConfigResponse } | { kind: "unavailable" } | { kind: "error"; code: string };
 
-type BridgeMessage = { type: "mp-office"; action: "createTask" | "createDeadline"; pageId: string; quote: string };
+/**
+ * Tabs we do not use (Draw, Protection, the plugin manager: the Workspace tab
+ * replaces it). The Community edition ignores `customization.layout`, but the
+ * editor frame is same-origin, so a stylesheet can hide them. If ONLYOFFICE
+ * changes its markup the tabs simply show again.
+ */
+const HIDDEN_TABS = ["draw", "protect", "plugins"];
 
-function isBridgeMessage(data: unknown): data is BridgeMessage {
-  const message = data as Partial<BridgeMessage> | null;
-  return Boolean(message && message.type === "mp-office" && typeof message.pageId === "string" && typeof message.quote === "string"
-    && (message.action === "createTask" || message.action === "createDeadline"));
+function hideUnusedTabs(container: HTMLElement) {
+  const frame = container.querySelector<HTMLIFrameElement>('iframe[name="frameEditor"]');
+  const document = frame?.contentDocument;
+  if (!document || document.getElementById("workspace-tabs")) return;
+  const style = document.createElement("style");
+  style.id = "workspace-tabs";
+  style.textContent = HIDDEN_TABS.map((tab) => `.ribtab:has(> [data-tab="${tab}"])`).join(",\n") + " { display: none !important; }";
+  document.head.appendChild(style);
+}
+
+/**
+ * The editor remembers its own theme in (our origin's) localStorage, which
+ * overrides `customization.uiTheme`. Drop it when it no longer matches the app.
+ */
+function followAppTheme(theme: "light" | "dark") {
+  const wanted = theme === "dark" ? "theme-dark" : "theme-light";
+  try {
+    const stored = JSON.parse(window.localStorage.getItem("ui-theme") ?? "null") as { id?: string } | null;
+    if (stored?.id !== wanted) {
+      window.localStorage.removeItem("ui-theme");
+      window.localStorage.removeItem("ui-theme-id");
+    }
+  } catch {
+    window.localStorage.removeItem("ui-theme");
+  }
 }
 
 /**
@@ -32,14 +63,14 @@ function isBridgeMessage(data: unknown): data is BridgeMessage {
 export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
   ref?: Ref<OfficeEditorHandle>;
   page: { id: string; slug: string; title: string };
-  query: { insertEvidence?: string; task?: string; deadline?: string };
+  query: { insertEvidence?: string; task?: string; deadline?: string; officeAction?: string };
   onSynced: (synced: boolean) => void;
   onUnavailable: () => void;
 }) {
   const t = useTranslations("officeDocuments");
-  const router = useRouter();
-  const { openTaskCreator } = useTaskCreator();
-  const { openDeadlineCreator } = useDeadlineCreator();
+  // The editor follows the app's appearance; it reloads when that changes.
+  const { resolvedTheme } = useTheme();
+  const theme = resolvedTheme === "dark" ? "dark" : resolvedTheme === "light" ? "light" : null;
   const elementId = `office-editor-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<LoadState>({ kind: "loading" });
@@ -49,6 +80,8 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
   const callbacks = useRef({ onSynced, onUnavailable });
   useEffect(() => { callbacks.current = { onSynced, onUnavailable }; });
   const script = useOnlyofficeScript(state.kind === "ready" ? state.data.apiUrl : null, attempt);
+  const bridge = useOfficeBridge(state.kind === "ready" ? state.data.bridgeId : null, page);
+  const send = bridge.send;
 
   useImperativeHandle(ref, () => ({
     downloadAs(format) {
@@ -56,7 +89,8 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
       editor.current.downloadAs(format);
       return true;
     },
-  }), []);
+    send,
+  }), [send]);
 
   // Fetch a fresh signed config (joins the current session).
   useEffect(() => {
@@ -65,6 +99,9 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
     if (query.insertEvidence) params.set("insertEvidence", query.insertEvidence);
     if (query.task) params.set("task", query.task);
     if (query.deadline) params.set("deadline", query.deadline);
+    if (query.officeAction) params.set("officeAction", query.officeAction);
+    if (!theme) return;
+    params.set("theme", theme);
     let retry: number | undefined;
     const load = () => fetch(`/api/wiki/office/${encodeURIComponent(page.id)}/config?${params}`, { cache: "no-store" }).then(async (response) => {
       if (cancelled) return;
@@ -80,7 +117,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
     }, () => { if (!cancelled) setState({ kind: "error", code: "load" }); });
     void load();
     return () => { cancelled = true; window.clearTimeout(retry); };
-  }, [page.id, query.insertEvidence, query.task, query.deadline, attempt]);
+  }, [page.id, query.insertEvidence, query.task, query.deadline, query.officeAction, theme, attempt]);
 
   // Create the editor once the script and config are ready. Creation is
   // deferred a tick and always gets a fresh element: an immediate
@@ -93,6 +130,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
     const config = state.data.config;
     let instance: DocEditorInstance | null = null;
     const timer = window.setTimeout(() => {
+      if (theme) followAppTheme(theme);
       const host = document.createElement("div");
       host.id = `${elementId}-${++mounts.current}`;
       container.replaceChildren(host);
@@ -101,14 +139,16 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
         width: "100%",
         height: "100%",
         events: {
+          onAppReady: () => hideUnusedTabs(container),
           onDocumentStateChange: (event: { data: boolean }) => callbacks.current.onSynced(!event.data),
           onError: () => setState({ kind: "error", code: "editor" }),
           onOutdatedVersion: () => setAttempt((value) => value + 1),
           onRequestUsers: (event: { data?: { c?: string } }) => {
             void officeMentionUsers().then((users) => editor.current?.setUsers({ c: event.data?.c, users }));
           },
-          onRequestSendNotify: (event: { data?: { emails?: string[] } }) => {
-            void notifyOfficeMentions({ pageId: page.id, emails: event.data?.emails ?? [] }).catch(() => toast.error(t("mentionFailed")));
+          onRequestSendNotify: (event: { data?: { emails?: string[]; actionLink?: unknown } }) => {
+            const actionLink = event.data?.actionLink ? JSON.stringify(event.data.actionLink) : undefined;
+            void notifyOfficeMentions({ pageId: page.id, emails: event.data?.emails ?? [], actionLink }).catch(() => toast.error(t("mentionFailed")));
           },
           onDownloadAs: (event: { data?: { url?: string } }) => {
             const url = event.data?.url;
@@ -128,27 +168,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
       try { instance?.destroyEditor(); } catch { /* already gone */ }
       container.replaceChildren();
     };
-  }, [state, script.api, elementId, page.id, t]);
-
-  // The plugin asks the page to open the app's task/deadline dialogs.
-  useEffect(() => {
-    function onMessage(event: MessageEvent) {
-      if (event.origin !== window.location.origin || !isBridgeMessage(event.data) || event.data.pageId !== page.id || !event.ports[0]) return;
-      const port = event.ports[0];
-      const origin = {
-        type: "wikiPage" as const,
-        entityId: page.id,
-        route: `/wiki/pages/${encodeURIComponent(page.slug)}`,
-        label: page.title,
-        anchor: { quote: event.data.quote },
-      };
-      const onCreated = (id: string) => { port.postMessage({ id }); router.refresh(); };
-      if (event.data.action === "createTask") openTaskCreator({ initialTitle: event.data.quote, origin, showProjectSchedule: true, onCreated });
-      else openDeadlineCreator({ initialTitle: event.data.quote, origin, onCreated });
-    }
-    window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
-  }, [openDeadlineCreator, openTaskCreator, page.id, page.slug, page.title, router]);
+  }, [state, script.api, elementId, page.id, t, theme]);
 
   const failed = state.kind === "error" || script.error;
   return <div className="relative h-full min-h-[32rem] overflow-hidden rounded-md border bg-background">
@@ -160,5 +180,6 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable }: {
         <Button type="button" variant="outline" size="sm" onClick={() => { setState({ kind: "loading" }); setAttempt((value) => value + 1); }}><RefreshCw className="size-4" />{t("retry")}</Button>
       </div>
     </div>}
+    <OfficeInsertDialog pageId={page.id} kind={bridge.dialog} onClose={bridge.closeDialog} onInsert={bridge.insert} />
   </div>;
 }

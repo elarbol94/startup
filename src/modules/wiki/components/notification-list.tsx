@@ -16,7 +16,7 @@ export function NotificationList({ items }: { items: ReturnType<typeof listNotif
     const message = `${item.actorName} ${t(`notificationTypes.${item.type}`)} ${title}`;
     const href = item.taskTitle && item.taskId
       ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task")
-      : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null;
+      : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}${item.officeActionLink ? `?officeAction=${encodeURIComponent(item.officeActionLink)}` : ""}` : null;
     const when = format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" });
     return <ItemDetails key={item.id} title={title} description={[message, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || details("unavailable")} href={href}
       fields={[{ label: details("actor"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: details("date"), value: when }]}

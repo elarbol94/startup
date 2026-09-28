@@ -16,7 +16,7 @@ import { getAppSettings } from "@/modules/settings/queries";
 import { getPersonnelWorkspace } from "@/modules/personnel/queries";
 import { listFundingProjects } from "@/modules/funding/queries";
 
-export default async function WikiPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ task?: string; deadline?: string; insertEvidence?: string }> }) {
+export default async function WikiPage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ task?: string; deadline?: string; insertEvidence?: string; officeAction?: string }> }) {
   await connection();
   const currentUser = await requireUser(); const [{ slug }, query] = await Promise.all([params, searchParams]);
   const requestedSlug = decodeURIComponent(slug);
@@ -40,7 +40,7 @@ export default async function WikiPage({ params, searchParams }: { params: Promi
       backlinks={getBacklinks(page.id)}
       favorite={isFavoritePage(page.id, currentUser.id)}
       attachments={attachmentsList}
-      query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline }}
+      query={{ insertEvidence: query.insertEvidence, task: query.task, deadline: query.deadline, officeAction: query.officeAction }}
     />;
   }
   const meta = getPageMeta(page.id);
