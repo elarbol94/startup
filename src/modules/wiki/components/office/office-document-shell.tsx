@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
@@ -24,6 +24,29 @@ import { OfficeVersionsDialog } from "./office-versions-dialog";
 import { useOfficeStatus } from "./use-office-status";
 
 type PageRef = { id: string; title: string; slug: string };
+
+/**
+ * The editor must end at the bottom of the window (its status bar with the
+ * language and zoom controls lives there), below whatever app chrome sits
+ * above it. Height = window height minus the element's top offset.
+ */
+function useFitToViewport() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+    const fit = () => {
+      const top = element.getBoundingClientRect().top + window.scrollY;
+      element.style.height = `${Math.max(480, window.innerHeight - top)}px`;
+    };
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(document.body);
+    window.addEventListener("resize", fit);
+    return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
+  }, []);
+  return ref;
+}
 
 /** Page chrome for office (DOCX) documents: header, editor, workspace side panels. */
 export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query, converted = false }: {
@@ -52,6 +75,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const currentSlug = useRef(page.slug);
   const { status, refresh } = useOfficeStatus(page.id, true);
   const { isFocused } = useFocusMode();
+  const root = useFitToViewport();
 
   async function rename(title: string) {
     const renamed = await renamePage(page.id, title);
@@ -96,7 +120,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
     router.push("/wiki/inbox");
   }
 
-  return <div className="mx-auto flex h-dvh max-w-[120rem] flex-col px-3 py-3 md:px-6">
+  return <div ref={root} className="mx-auto flex h-dvh max-w-[120rem] flex-col px-3 py-3 md:px-6">
     <header className="mb-2 flex flex-wrap items-start justify-between gap-3 border-b border-border/60 pb-2">
       <div className="flex min-w-0 items-start gap-2">
         <Link href="/wiki" aria-label={tWiki("backToWikiStart")} title={tWiki("backToWikiStart")} className="mt-1 grid size-8 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"><ArrowLeft className="size-4" /></Link>

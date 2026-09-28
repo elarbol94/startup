@@ -148,7 +148,7 @@ export async function planConversion(pageId: string, options: { origin: string; 
 
   const german = (options.locale ?? "de") === "de";
   const docx = await generateDocumentDocx(row.title, doc, settings, { figureLabel: german ? "Abbildung" : "Figure", tableLabel: german ? "Tabelle" : "Table" },
-    (nodeId) => images.get(nodeId), { origin: options.origin, comments: threads.exported });
+    (nodeId) => images.get(nodeId), { origin: options.origin, comments: threads.exported, language: row.proofingLanguage });
   const prepared = prepareDocx(docx);
 
   const expected = expectedRelations(doc);
