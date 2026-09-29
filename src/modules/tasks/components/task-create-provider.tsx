@@ -105,6 +105,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   const [request, setRequest] = useState<OpenTaskOptions>({});
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [linkOrigin, setLinkOrigin] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [startDate, setStartDate] = useState("");
@@ -123,6 +124,9 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
     setPlannerOpen(false);
     setTitle(next.task?.title ?? next.initialTitle ?? "");
     setDescription(next.task?.description ?? "");
+    // Openers that pass an origin (a text selection, a document, a contact)
+    // link to it by default; the generic button and shortcut start standalone.
+    setLinkOrigin(Boolean(next.origin));
     setAssigneeIds(next.task?.assigneeIds ?? []);
     setPriority(next.task?.priority ?? "medium");
     setDueDate(next.task?.dueDate ?? "");
@@ -219,7 +223,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
         ...(request.showProjectSchedule && !request.task ? { startDate: startDate || null } : {}),
         status,
         projectId: projectId === NONE ? null : projectId,
-        context: request.task && !request.origin
+        context: (request.task ? !request.origin : !linkOrigin)
           ? null
           : {
               ...origin,
@@ -258,6 +262,11 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                   origin={origin}
                   typeLabel={t(`origins.${origin.type}`)}
                   tone="task"
+                  link={request.task ? undefined : {
+                    checked: linkOrigin,
+                    label: t("linkOrigin"),
+                    onChange: setLinkOrigin,
+                  }}
                 />
               )}
               {request.task && (

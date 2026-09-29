@@ -1464,6 +1464,7 @@
       "done": "Done",
       "all": "All"
     },
+    "linkOrigin": "Link to this page",
     "origins": {
       "wikiPage": "Wiki document",
       "wikiSource": "Source",

@@ -1464,6 +1464,7 @@
       "done": "Erledigt",
       "all": "Alle"
     },
+    "linkOrigin": "Mit dieser Seite verknüpfen",
     "origins": {
       "wikiPage": "Wiki-Dokument",
       "wikiSource": "Quelle",

@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import type { TaskOrigin } from "../types";
 
@@ -8,13 +9,16 @@ export function WorkItemOriginCard({
   origin,
   typeLabel,
   tone,
+  link,
 }: {
   origin: TaskOrigin;
   typeLabel: string;
   tone: "task" | "deadline";
+  /** Makes the link optional: an unchecked card is dimmed and not saved. */
+  link?: { checked: boolean; label: string; onChange: (checked: boolean) => void };
 }) {
-  return (
-    <div className="flex items-center gap-3 rounded-xl border bg-muted/35 px-3.5 py-3">
+  const content = (
+    <>
       <span className={cn(
         "grid size-8 shrink-0 place-items-center rounded-lg",
         tone === "task"
@@ -27,7 +31,22 @@ export function WorkItemOriginCard({
         <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{typeLabel}</p>
         <p className="truncate text-sm">{origin.label || origin.route}</p>
       </div>
-    </div>
+    </>
+  );
+  if (!link) {
+    return <div className="flex items-center gap-3 rounded-xl border bg-muted/35 px-3.5 py-3">{content}</div>;
+  }
+  return (
+    <label className={cn(
+      "flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 transition-colors",
+      link.checked ? "bg-muted/35" : "border-dashed text-muted-foreground [&>span:first-of-type]:opacity-50",
+    )}>
+      {content}
+      <span className="ml-auto flex shrink-0 items-center gap-2 text-xs font-medium">
+        {link.label}
+        <Checkbox checked={link.checked} onCheckedChange={(checked) => link.onChange(checked === true)} />
+      </span>
+    </label>
   );
 }
 
