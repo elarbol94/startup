@@ -10,6 +10,7 @@ import { DOMParser, XMLSerializer, type Element as XmlElement, type Node as XmlN
 import type { TiptapNode } from "./tiptap";
 import type { DocumentSettingsV1 } from "./document-settings";
 import type { DocumentImageResolver } from "./document-image";
+import { houseDocxStyles } from "./docx-styles";
 import { collectAnnexes, collectHeadings, collectTables } from "./document-renderer";
 import { resolveCrossReferenceLabels } from "./figure-caption";
 import { documentFigures, figureCrop, figureWidth, hasFigureList, isFigure, stripFigureNumber, type FigureCrop } from "./figure";
@@ -248,10 +249,7 @@ export async function generateDocumentDocx(title: string, doc: TiptapNode, setti
     ? [{ id: index, author: comment.author, date: comment.date, children: [new Paragraph(comment.text)] }] : []) : [];
   const document = new Document({ creator: settings.metadata.author, title, subject: settings.metadata.subject, features: { updateFields: true },
     ...(comments.length ? { comments: { children: comments } } : {}),
-    styles: {
-      ...(office?.language ? { default: { document: { run: { language: { value: office.language } } } } } : {}),
-      paragraphStyles: [{ id: "Caption", name: "Caption", basedOn: "Normal", run: { size: 20 }, paragraph: { spacing: { after: 120 } } }],
-    },
+    styles: houseDocxStyles(office?.language),
     numbering: { config: [{ reference: "proposal-numbering", levels: [{ level: 0, format: "decimal", text: "%1.", alignment: "start" }] }] },
     sections: [{ properties: { page: { size: { width: Math.round((settings.page.size === "A4" ? 210 : 215.9) * 56.693), height: Math.round((settings.page.size === "A4" ? 297 : 279.4) * 56.693), orientation: settings.page.orientation }, margin: Object.fromEntries(Object.entries(settings.page.marginsMm).map(([key, value]) => [key, Math.round(value * 56.693)])) } }, children: [new Paragraph({ text: title, heading: HeadingLevel.TITLE }), ...content] }],
   });

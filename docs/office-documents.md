@@ -160,8 +160,17 @@ page was already in the trash and an admin chose to delete it permanently.
 
 The plugin (`public/onlyoffice-plugins/management`) runs in the background for
 every editor. It adds a **Workspace** tab to the toolbar with these buttons:
-Zitat, Literatur aktualisieren, PDF-Nachweis, Wiki-Link, Aufgabe, Frist and
-Verknüpfung entfernen.
+Zitat, Literatur aktualisieren, PDF-Nachweis, Wiki-Link, Aufgabe, Frist,
+Verknüpfung entfernen, Grammatik and Dokument formatieren.
+
+**House styles.** New and converted documents use the paragraph styles in
+`src/modules/wiki/lib/docx-styles.ts`: body text with 6 pt after each
+paragraph and 1.15 line spacing, bold headings with space above and below that
+stay with the next paragraph, and captions. "Dokument formatieren" applies the
+same values to the styles of the open document (older documents had no heading
+spacing). It changes styles only: text formatted directly keeps its formatting.
+The plugin keeps its own copy of the values; `docx-styles.test.ts` checks that
+both match.
 
 **How the buttons reach the app.** Buttons that need a choice ask the page,
 through a `BroadcastChannel` named per editor instance (`bridgeId` from the

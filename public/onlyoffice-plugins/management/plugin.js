@@ -10,6 +10,10 @@
  * Connections are stored as tagged content controls: mp:cite:{"ids":[…],"loc":"…"},
  * mp:evidence:{"id":…}, mp:task:{"id":…}, mp:deadline:{"id":…} and mp:bibliography.
  * The app re-reads them from every saved DOCX (src/modules/wiki/office/docx-extract.ts).
+ *
+ * "Format document" applies the house paragraph styles (HOUSE_STYLES below) to
+ * the open document's styles, so older documents get the same heading and
+ * paragraph spacing as new ones.
  */
 (function (window) {
   "use strict";
@@ -24,7 +28,19 @@
     "Not found in the text.": "Im Text nicht gefunden.", "Citations updated.": "Zitate und Literaturverzeichnis aktualisiert.",
     "Done.": "Erledigt.", "Failed. Please try again.": "Fehlgeschlagen. Bitte erneut versuchen.", "Bibliography": "Literaturverzeichnis", "Page": "S.",
     "Place the cursor outside the bibliography.": "Bitte den Cursor außerhalb des Literaturverzeichnisses setzen.",
+    "Format document": "Dokument formatieren", "Headings and paragraphs formatted.": "Überschriften und Absätze formatiert.",
   };
+  // Same values as src/modules/wiki/lib/docx-styles.ts (checked by docx-styles.test.ts).
+  var HOUSE_FONT = "Calibri";
+  var HOUSE_STYLES = [
+    { "name": "Normal", "size": 22, "before": 0, "after": 120, "line": 276 },
+    { "name": "Title", "size": 52, "color": "1F3864", "before": 0, "after": 360, "line": 240, "keepNext": true },
+    { "name": "Heading 1", "size": 32, "bold": true, "color": "1F3864", "before": 480, "after": 160, "line": 240, "keepNext": true, "keepLines": true },
+    { "name": "Heading 2", "size": 26, "bold": true, "color": "2E74B5", "before": 360, "after": 120, "line": 240, "keepNext": true, "keepLines": true },
+    { "name": "Heading 3", "size": 24, "bold": true, "color": "1F4D78", "before": 240, "after": 80, "line": 240, "keepNext": true, "keepLines": true },
+    { "name": "Heading 4", "size": 22, "bold": true, "italic": true, "color": "2E74B5", "before": 200, "after": 60, "line": 240, "keepNext": true, "keepLines": true },
+    { "name": "Caption", "size": 18, "italic": true, "color": "595959", "before": 60, "after": 240 }
+  ];
   function tr(text) { return String((plugin.info && plugin.info.lang) || "").indexOf("de") === 0 && DE[text] ? DE[text] : text; }
   function tag(kind, data) { return kind === "bibliography" ? "mp:bibliography" : "mp:" + kind + ":" + JSON.stringify(data); }
   function parseTag(value) {
@@ -183,6 +199,38 @@
     });
   }
 
+  // --- House styles ------------------------------------------------------------
+
+  /** Rewrites the document's paragraph styles; paragraphs using them follow. */
+  function formatDocument() {
+    Asc.scope.styles = HOUSE_STYLES;
+    Asc.scope.font = HOUSE_FONT;
+    return command(function () {
+      var doc = Api.GetDocument();
+      var normal = doc.GetStyle("Normal") || doc.GetDefaultStyle("paragraph");
+      for (var i = 0; i < Asc.scope.styles.length; i++) {
+        var spec = Asc.scope.styles[i];
+        var style = spec.name === "Normal" ? normal : doc.GetStyle(spec.name);
+        if (!style) {
+          style = doc.CreateStyle(spec.name, "paragraph");
+          style.SetBasedOn(normal);
+        }
+        var text = style.GetTextPr();
+        if (spec.name === "Normal") text.SetFontFamily(Asc.scope.font);
+        text.SetFontSize(spec.size);
+        text.SetBold(Boolean(spec.bold));
+        text.SetItalic(Boolean(spec.italic));
+        if (spec.color) text.SetColor(parseInt(spec.color.slice(0, 2), 16), parseInt(spec.color.slice(2, 4), 16), parseInt(spec.color.slice(4, 6), 16), false);
+        var paragraph = style.GetParaPr();
+        paragraph.SetSpacingBefore(spec.before, false);
+        paragraph.SetSpacingAfter(spec.after, false);
+        if (spec.line) paragraph.SetSpacingLine(spec.line, "auto");
+        paragraph.SetKeepNext(Boolean(spec.keepNext));
+        paragraph.SetKeepLines(Boolean(spec.keepLines));
+      }
+    });
+  }
+
   // --- Grammar check (LanguageTool through the app) ------------------------------
 
   /** Non-empty paragraphs with their index in document order. */
@@ -285,6 +333,7 @@
       ["deadline", "Deadline", function () { request("deadline").catch(fail); }],
       ["remove", "Remove link", function () { removeControlAtCursor().catch(fail); }],
       ["grammar", "Grammar", function () { post({ type: "request", action: "grammar" }); }],
+      ["format", "Format document", function () { formatDocument().then(function () { notify("success", tr("Headings and paragraphs formatted.")); }, fail); }],
     ];
     buttons.forEach(function (entry, index) {
       var button = new Asc.ButtonToolbar(tab);
