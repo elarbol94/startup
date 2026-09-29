@@ -1441,6 +1441,8 @@
     "save": "Save changes",
     "title": "Task",
     "titlePlaceholder": "What needs to be done?",
+    "description": "Description",
+    "descriptionPlaceholder": "Details, context or next steps (optional)",
     "dialogDescription": "Capture what needs doing and where the task belongs.",
     "titleRequired": "Give the task a title.",
     "saveError": "The task could not be saved. Your input is still here — try again.",

@@ -67,6 +67,14 @@ describe("dashboard workflow", () => {
     expect(listTaskOverview({ includeProjects: true, assigneeId: "actor" })).toHaveLength(1);
     expect(listTaskOverview({ includeProjects: true, assigneeId: "unassigned" })).toHaveLength(0);
   });
+  it("saves, keeps and clears a task description", async () => {
+    const { id } = await upsertContextualTask({ title: "Described", description: "  Why and how  " });
+    expect(row(id).description).toBe("Why and how");
+    await upsertContextualTask({ id, title: "Renamed" });
+    expect(row(id).description).toBe("Why and how");
+    await upsertContextualTask({ id, title: "Renamed", description: "" });
+    expect(row(id).description).toBe("");
+  });
   it("maps custom project columns in both directions without duplicate cards", async () => {
     const { id } = await upsertContextualTask({ title: "Project task", projectId: "p" });
     await moveDashboardTask({ taskId: id, stage: "in_progress" });

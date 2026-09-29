@@ -154,6 +154,7 @@ export function TaskOverview({
       task: {
         id: task.id,
         title: task.title,
+        description: task.description,
         assigneeIds: task.assigneeIds,
         assignees: task.assignees,
         priority: task.priority,

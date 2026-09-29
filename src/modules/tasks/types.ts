@@ -14,6 +14,7 @@ export type TaskOrigin = {
 export type EditableTask = {
   id: string;
   title: string;
+  description: string;
   assigneeIds: string[];
   assignees: Array<{ id: string; name: string }>;
   priority: TaskPriority;

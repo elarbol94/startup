@@ -40,7 +40,8 @@ const contextualTaskSchema = z.object({
   id: z.string().optional(),
   kind: z.enum(["task", "deadline"]).default("task"),
   title: z.string().trim().min(1).max(300),
-  description: z.string().trim().max(5000).default(""),
+  // Omitted keeps the current description of an existing task.
+  description: z.string().trim().max(5000).optional(),
   assigneeId: z.string().nullable().default(null),
   assigneeIds: z.array(z.string().min(1)).optional(),
   priority: z.enum(["low", "medium", "high"]).default("medium"),
@@ -110,6 +111,7 @@ export async function getContextualTaskForEdit(id: string) {
     .select({
       id: tasks.id,
       title: tasks.title,
+      description: tasks.description,
       ...taskAssigneeFields,
       priority: tasks.priority,
       dueDate: tasks.dueDate,
@@ -221,9 +223,7 @@ export async function upsertContextualTask(
         ? columnId
         : current?.lastOpenColumnId ?? openColumn?.id ?? null,
       title: data.title,
-      description: data.kind === "deadline"
-        ? data.description
-        : existing?.description ?? data.description,
+      description: data.description ?? (data.kind === "deadline" ? "" : existing?.description ?? ""),
       assigneeId: data.kind === "deadline" ? data.assigneeId : null,
       dueDate: data.kind === "deadline" ? data.localDate : data.dueDate,
       startDate: data.kind === "deadline" ? data.localDate : data.startDate !== undefined ? data.startDate : existing?.startDate ?? null,

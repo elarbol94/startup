@@ -1441,6 +1441,8 @@
     "save": "Änderungen speichern",
     "title": "Aufgabe",
     "titlePlaceholder": "Was ist zu erledigen?",
+    "description": "Beschreibung",
+    "descriptionPlaceholder": "Details, Hintergrund oder nächste Schritte (optional)",
     "dialogDescription": "Halte fest, was zu tun ist und wo die Aufgabe hingehört.",
     "titleRequired": "Gib der Aufgabe einen Titel.",
     "saveError": "Die Aufgabe konnte nicht gespeichert werden. Deine Eingaben bleiben erhalten – versuche es erneut.",

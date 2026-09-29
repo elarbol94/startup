@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -103,6 +104,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
   const [options, setOptions] = useState<Awaited<ReturnType<typeof getContextualTaskOptions>> | null>(null);
   const [request, setRequest] = useState<OpenTaskOptions>({});
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [startDate, setStartDate] = useState("");
@@ -120,6 +122,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
     setStartDate("");
     setPlannerOpen(false);
     setTitle(next.task?.title ?? next.initialTitle ?? "");
+    setDescription(next.task?.description ?? "");
     setAssigneeIds(next.task?.assigneeIds ?? []);
     setPriority(next.task?.priority ?? "medium");
     setDueDate(next.task?.dueDate ?? "");
@@ -209,6 +212,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
       const result = await upsertContextualTask({
         id: request.task?.id,
         title,
+        description,
         assigneeIds,
         priority,
         dueDate: dueDate || null,
@@ -257,7 +261,7 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                 />
               )}
               {request.task && (
-                <><BugReportDetails key={request.task.id} taskId={request.task.id} showDescription /><ContextPanel
+                <><BugReportDetails key={request.task.id} taskId={request.task.id} /><ContextPanel
                   subjectType="task"
                   subjectId={request.task.id}
                   subjectLabel={request.task.title}
@@ -284,6 +288,17 @@ export function TaskCreateProvider({ children }: { children: ReactNode }) {
                 placeholder={t("titlePlaceholder")}
               />
               <WorkItemFieldError>{errors.title}</WorkItemFieldError>
+              </div>
+              <div className="space-y-2">
+              <Label htmlFor="context-task-description">{t("description")}</Label>
+              <Textarea
+                id="context-task-description"
+                rows={4}
+                maxLength={5000}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={t("descriptionPlaceholder")}
+              />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
