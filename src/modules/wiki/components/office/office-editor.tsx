@@ -6,9 +6,11 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useUserIdentities } from "@/components/user-identity";
 import { notifyOfficeMentions, officeMentionUsers } from "../../office/office-actions";
 import { OfficeInsertDialog } from "./office-insert-dialog";
 import { useOfficeBridge, type OfficeCommand, type PluginEvent } from "./use-office-bridge";
+import { applyOfficeUserColors } from "./office-user-colors";
 import { useOnlyofficeScript, type DocEditorInstance } from "./use-onlyoffice-script";
 
 export type OfficeEditorHandle = {
@@ -28,9 +30,12 @@ type LoadState = { kind: "loading" } | { kind: "ready"; data: ConfigResponse } |
  */
 const HIDDEN_TABS = ["draw", "protect", "plugins"];
 
+function editorFrame(container: HTMLElement) {
+  return container.querySelector<HTMLIFrameElement>('iframe[name="frameEditor"]');
+}
+
 function hideUnusedTabs(container: HTMLElement) {
-  const frame = container.querySelector<HTMLIFrameElement>('iframe[name="frameEditor"]');
-  const document = frame?.contentDocument;
+  const document = editorFrame(container)?.contentDocument;
   if (!document || document.getElementById("workspace-tabs")) return;
   const style = document.createElement("style");
   style.id = "workspace-tabs";
@@ -80,6 +85,13 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
   const mounts = useRef(0);
   const callbacks = useRef({ onSynced, onUnavailable });
   useEffect(() => { callbacks.current = { onSynced, onUnavailable }; });
+  // Users keep their app colour in the editor (comments, cursors, track changes).
+  const identities = useUserIdentities();
+  const identitiesRef = useRef(identities);
+  useEffect(() => {
+    identitiesRef.current = identities;
+    if (containerRef.current) applyOfficeUserColors(editorFrame(containerRef.current), identities);
+  }, [identities]);
   const script = useOnlyofficeScript(state.kind === "ready" ? state.data.apiUrl : null, attempt);
   const bridge = useOfficeBridge(state.kind === "ready" ? state.data.bridgeId : null, page, onPluginEvent);
   const send = bridge.send;
@@ -140,7 +152,10 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
         width: "100%",
         height: "100%",
         events: {
-          onAppReady: () => hideUnusedTabs(container),
+          onAppReady: () => {
+            hideUnusedTabs(container);
+            applyOfficeUserColors(editorFrame(container), identitiesRef.current);
+          },
           onDocumentStateChange: (event: { data: boolean }) => callbacks.current.onSynced(!event.data),
           onError: () => setState({ kind: "error", code: "editor" }),
           onOutdatedVersion: () => setAttempt((value) => value + 1),
@@ -162,6 +177,9 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
         },
       });
       editor.current = instance;
+      // Colour the users before the editor draws its first avatars.
+      const frame = editorFrame(container);
+      frame?.addEventListener("load", () => applyOfficeUserColors(frame, identitiesRef.current), { once: true });
     }, 0);
     return () => {
       window.clearTimeout(timer);

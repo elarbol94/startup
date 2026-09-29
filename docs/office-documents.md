@@ -242,6 +242,16 @@ offsets would drift.
   because they need a commercial licence. The editor frame is same-origin, so
   the page injects a small stylesheet on `onAppReady` instead. If ONLYOFFICE
   changes its markup, those tabs simply show again.
+- **User colours.** Each user has their app colour (Settings → Profile) in the
+  editor too: comment avatars, co-editors' cursors and selections, track
+  changes and the header avatars. There is no DocsAPI option for this, so
+  `office-user-colors.ts` seeds the editor's colour cache
+  (`AscCommon.setUserColorById`) through the same-origin frame and wraps
+  `AscCommon.getUserColorById` so co-editing connection ids (`user.id` plus an
+  index) and author names resolve too. It runs on the frame's `load` event,
+  on `onAppReady` and whenever the app's identities change. These are
+  internal ONLYOFFICE functions: if an image upgrade removes them, the editor
+  falls back to its own colours.
 - **Logo.** The ONLYOFFICE logo stays; the licence requires it.
 - **Focus mode.** The focus-mode button hides the app chrome and the details
   panel.
@@ -333,6 +343,7 @@ Linux, `host.docker.internal` resolves through `extra_hosts: host-gateway`.
 - Restoring an old version works while another editor is connected.
 - Restarting the document server mid-edit still delivers the final callback.
 - An @mention in a comment creates a wiki notification.
+- Two users see their app colours on comments, cursors and track changes.
 
 ## Spike results (9.4.0.1, 2026-09-28)
 

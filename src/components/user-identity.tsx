@@ -12,6 +12,10 @@ const Identities = createContext<Identity[]>([]);
 export function useIdentityColor(userId: string, fallback: string) {
   return useContext(Identities).find(person => person.id === userId)?.markColor ?? fallback;
 }
+/** Every user's id, name and personal colour (refreshed while the app is open). */
+export function useUserIdentities() {
+  return useContext(Identities);
+}
 export const IDENTITY_CHANGED = "user-identity-changed";
 
 export function UserIdentityProvider({ currentUserId, identities, children }: {
