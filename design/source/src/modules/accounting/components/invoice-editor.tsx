@@ -1,0 +1,399 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { formatCents, parseAmountToCents } from "@/lib/money";
+import { upsertInvoice, type InvoiceInput } from "@/modules/accounting/invoice-actions";
+import { computeInvoiceTotals, type InvoiceItemInput } from "@/modules/accounting/lib/invoice";
+import { toLocalIsoDate } from "@/modules/accounting/lib/date";
+import { VAT_RATES } from "@/modules/accounting/lib/vat";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
+import { ProjectPicker, useProjectLinkDraft } from "@/modules/context/components/project-links-field";
+import type { ProjectRefDto } from "@/modules/context/project-link-refs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type CustomerRef = { id: string; name: string };
+
+type ItemDraft = {
+  description: string;
+  quantityText: string;
+  unitPriceText: string;
+  vatRate: number;
+};
+
+export type InvoiceEditorInitial = {
+  id: string;
+  customerId: string;
+  issueDate: string;
+  dueDate: string | null;
+  notes: string;
+  items: Array<{
+    description: string;
+    quantityThousandths: number;
+    unitPriceCents: number;
+    vatRate: number;
+  }>;
+} | null;
+
+function parseQuantity(text: string): number | null {
+  const normalized = text.trim().replace(",", ".");
+  if (!/^\d+(\.\d{1,3})?$/.test(normalized)) return null;
+  const value = Math.round(parseFloat(normalized) * 1000);
+  return value > 0 ? value : null;
+}
+
+function formatQuantity(thousandths: number): string {
+  return (thousandths / 1000).toString().replace(".", ",");
+}
+
+export function InvoiceEditor({
+  customers,
+  initial,
+  defaultVatRate,
+  vatExempt,
+  presetProjects = [],
+}: {
+  customers: CustomerRef[];
+  initial: InvoiceEditorInitial;
+  defaultVatRate: number;
+  vatExempt: boolean;
+  /** Projects a new invoice starts linked to (saved invoices edit them in the page header). */
+  presetProjects?: ProjectRefDto[];
+}) {
+  const t = useTranslations("invoices");
+  const tAccounting = useTranslations("accounting");
+  const tCommon = useTranslations("common");
+  const tProjects = useTranslations("projectLinks");
+  const locale = useLocale();
+  const router = useRouter();
+
+  const today = toLocalIsoDate();
+  const projectLinks = useProjectLinkDraft("invoice", initial?.id ?? null, presetProjects);
+  const [customerId, setCustomerId] = useState(initial?.customerId ?? "");
+  const [issueDate, setIssueDate] = useState(initial?.issueDate ?? today);
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [items, setItems] = useState<ItemDraft[]>(
+    initial?.items.map((item) => ({
+      description: item.description,
+      quantityText: formatQuantity(item.quantityThousandths),
+      unitPriceText: (item.unitPriceCents / 100).toFixed(2).replace(".", ","),
+      vatRate: vatExempt ? 0 : item.vatRate,
+    })) ?? [
+      {
+        description: "",
+        quantityText: "1",
+        unitPriceText: "",
+        vatRate: defaultVatRate,
+      },
+    ],
+  );
+  const [pending, setPending] = useState(false);
+
+  function updateItem(index: number, patch: Partial<ItemDraft>) {
+    setItems((current) =>
+      current.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  }
+
+  const parsedItems: Array<InvoiceItemInput | null> = items.map((item) => {
+    const quantityThousandths = parseQuantity(item.quantityText);
+    const unitPriceCents = parseAmountToCents(item.unitPriceText);
+    if (
+      !item.description.trim() ||
+      quantityThousandths === null ||
+      unitPriceCents === null ||
+      unitPriceCents < 0
+    ) {
+      return null;
+    }
+    return {
+      description: item.description.trim(),
+      quantityThousandths,
+      unitPriceCents,
+      vatRate: item.vatRate,
+    };
+  });
+
+  const allValid =
+    parsedItems.length > 0 && parsedItems.every((item) => item !== null);
+  const totals = useMemo(() => {
+    if (!allValid) return null;
+    try {
+      return computeInvoiceTotals(parsedItems as InvoiceItemInput[]);
+    } catch {
+      return null;
+    }
+  }, [allValid, parsedItems]);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!allValid || !customerId) return;
+    if (initial?.id && initial.issueDate && initial.issueDate.slice(0, 4) !== issueDate.slice(0, 4)) {
+      toast.error(t("yearChangeBlocked"));
+      return;
+    }
+    setPending(true);
+    try {
+      const input: InvoiceInput = {
+        id: initial?.id,
+        customerId,
+        issueDate,
+        dueDate: dueDate || null,
+        notes,
+        items: parsedItems as InvoiceItemInput[],
+      };
+      const { id } = await upsertInvoice(input);
+      if (!initial?.id) {
+        await projectLinks.persist(id).catch(() => toast.error(tProjects("saveError")));
+      }
+      toast.success(tCommon("saved"));
+      router.push(`/accounting/invoices/${id}`);
+      router.refresh();
+    } catch {
+      toast.error(tCommon("error"));
+      setPending(false);
+    }
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="flex max-w-3xl flex-col gap-6">
+      <div className="grid gap-4 sm:grid-cols-3">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-customer">{t("customer")}</Label>
+          <Select
+            value={customerId}
+            onValueChange={(value) => setCustomerId(value ?? "")}
+          >
+            <SelectTrigger className="w-full" id="invoice-customer">
+              <SelectValue>
+                {customers.find((c) => c.id === customerId)?.name ?? ""}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {customers.map((customer) => (
+                <SelectItem key={customer.id} value={customer.id}>
+                  {customer.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-issue-date">{t("issueDate")}</Label>
+          <Input
+            id="invoice-issue-date"
+            type="date"
+            value={issueDate}
+            onChange={(e) => setIssueDate(e.target.value)}
+            required
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-due-date">{t("dueDate")}</Label>
+          <Input
+            id="invoice-due-date"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-medium">{t("items")}</p>
+        <div className="overflow-x-auto pb-1">
+        <div className="flex flex-col gap-3 md:min-w-[640px] md:gap-2">
+          <div className="hidden md:grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+            <span>{t("itemDescription")}</span>
+            <span>{t("quantity")}</span>
+            <span>{t("unitPrice")}</span>
+            <span>{tAccounting("vat")}</span>
+            <span className="text-right">{t("lineTotal")}</span>
+            <span />
+          </div>
+          {items.map((item, index) => {
+            const parsed = parsedItems[index];
+            return (
+              <div
+                key={index}
+                className="grid grid-cols-2 items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_90px_120px_90px_100px_32px] md:items-center md:gap-2 md:border-0 md:p-0"
+              >
+                <div className="min-w-0 space-y-1 col-span-2 md:col-span-1">
+                  <Label className="md:hidden" htmlFor={`invoice-description-${index}`}>{t("itemDescription")}</Label>
+                <Input
+                  id={`invoice-description-${index}`}
+                  aria-label={`${t("itemDescription")} ${index + 1}`}
+                  value={item.description}
+                  onChange={(e) => updateItem(index, { description: e.target.value })}
+                  placeholder={t("itemDescription")}
+                  data-testid={`item-description-${index}`}
+                />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-quantity-${index}`}>{t("quantity")}</Label>
+                <Input
+                  id={`invoice-quantity-${index}`}
+                  aria-label={`${t("quantity")} ${index + 1}`}
+                  value={item.quantityText}
+                  onChange={(e) => updateItem(index, { quantityText: e.target.value })}
+                  inputMode="decimal"
+                  data-testid={`item-quantity-${index}`}
+                />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-price-${index}`}>{t("unitPrice")}</Label>
+                <Input
+                  id={`invoice-price-${index}`}
+                  aria-label={`${t("unitPrice")} ${index + 1}`}
+                  value={item.unitPriceText}
+                  onChange={(e) => updateItem(index, { unitPriceText: e.target.value })}
+                  inputMode="decimal"
+                  placeholder="0,00"
+                  data-testid={`item-price-${index}`}
+                />
+                </div>
+                <div className="min-w-0 space-y-1">
+                  <Label className="md:hidden" htmlFor={`invoice-vat-${index}`}>{tAccounting("vat")}</Label>
+                <Select
+                  value={String(item.vatRate)}
+                  onValueChange={(value) =>
+                    updateItem(index, { vatRate: Number(value) })
+                  }
+                >
+                  <SelectTrigger id={`invoice-vat-${index}`} className="w-full" aria-label={`${tAccounting("vat")} ${index + 1}`}>
+                    <SelectValue>{item.vatRate} %</SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {VAT_RATES
+                      .filter((rate) => !vatExempt || rate === 0)
+                      .map((rate) => (
+                      <SelectItem key={rate} value={String(rate)}>
+                        {rate} %
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                </div>
+                <span className="min-w-0 self-center text-right text-sm tabular-nums">
+                  <span className="mb-1 block text-xs text-muted-foreground md:hidden">{t("lineTotal")}</span>
+                  {parsed
+                    ? formatCents(
+                        Math.floor(
+                          (parsed.quantityThousandths * parsed.unitPriceCents) /
+                            1000 +
+                            0.5,
+                        ),
+                        locale,
+                      )
+                    : "–"}
+                </span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  className="col-span-2 justify-self-end md:col-span-1"
+                  aria-label={tCommon("delete")}
+                  disabled={items.length === 1}
+                  onClick={() =>
+                    setItems((current) => current.filter((_, i) => i !== index))
+                  }
+                >
+                  <Trash2 className="size-3.5" />
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="self-start"
+          onClick={() =>
+            setItems((current) => [
+              ...current,
+              {
+                description: "",
+                quantityText: "1",
+                unitPriceText: "",
+                vatRate: defaultVatRate,
+              },
+            ])
+          }
+        >
+          <Plus className="size-4" />
+          {t("addItem")}
+        </Button>
+      </div>
+
+      {totals && (
+        <div className="flex flex-col items-end gap-1 text-sm">
+          <span>
+            {t("subtotal")}:{" "}
+            <span className="tabular-nums">{formatCents(totals.netCents, locale)}</span>
+          </span>
+          {totals.byRate
+            .filter((group) => group.vatRate > 0)
+            .map((group) => (
+              <span key={group.vatRate}>
+                {t("vatAmount", { rate: group.vatRate })}:{" "}
+                <span className="tabular-nums">
+                  {formatCents(group.vatCents, locale)}
+                </span>
+              </span>
+            ))}
+          <span className="text-base font-semibold">
+            {t("total")}:{" "}
+            <span className="tabular-nums">
+              {formatCents(totals.grossCents, locale)}
+            </span>
+          </span>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="invoice-notes">{t("notes")}</Label>
+        <Textarea
+          id="invoice-notes"
+          rows={2}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          maxLength={2000}
+        />
+      </div>
+
+      {!initial?.id && (
+        <div className="flex flex-col gap-2">
+          <Label>{tProjects("projects")}</Label>
+          <ProjectPicker value={projectLinks.value} onChange={projectLinks.onChange} />
+        </div>
+      )}
+
+      {initial?.id && <EvidencePanel targetType="invoice" targetId={initial.id} />}
+
+      <Button
+        type="submit"
+        disabled={pending || !allValid || !customerId}
+        className="self-start"
+      >
+        {pending && <Loader2 className="size-4 animate-spin" />}
+        {tCommon("save")}
+      </Button>
+    </form>
+  );
+}

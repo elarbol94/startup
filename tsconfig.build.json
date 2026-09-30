@@ -1,4 +1,4 @@
 {
   "extends": "./tsconfig.json",
-  "exclude": ["node_modules", ".next/dev/types"]
+  "exclude": ["node_modules", "design", ".next/dev/types"]
 }

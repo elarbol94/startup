@@ -1,0 +1,79 @@
+.pageShell {
+  --total-scale-factor: 1;
+  position: relative;
+  margin: 0 auto;
+  background: white;
+  user-select: none;
+  box-shadow: 0 8px 30px rgb(15 23 42 / 0.16);
+}
+
+.textLayer {
+  position: absolute;
+  text-align: initial;
+  user-select: text;
+  touch-action: pan-x pan-y;
+  inset: 0;
+  overflow: clip;
+  opacity: 1;
+  line-height: 1;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-size-adjust: none;
+  transform-origin: 0 0;
+  z-index: 2;
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+}
+
+.textLayer :global(span), .textLayer :global(br) {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  user-select: text;
+}
+
+.textLayer > :global(:not(.markedContent)), .textLayer :global(.markedContent span:not(.markedContent)) {
+  z-index: 1;
+  --font-height: 0;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  --scale-x: 1;
+  --rotate: 0deg;
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.textLayer :global(.markedContent) { display: contents; }
+.textLayer ::selection { background: rgb(79 70 229 / 0.28); }
+.searchOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.searchMatch {
+  position: absolute;
+  background: rgb(250 204 21 / 0.42);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgb(202 138 4 / 0.2);
+}
+
+.searchMatchActive {
+  background: rgb(249 115 22 / 0.5);
+  box-shadow: 0 0 0 2px rgb(234 88 12 / 0.35);
+}
+
+.readerGrid,
+.gridOnlyReader { grid-template-columns: minmax(0, 1fr); }
+
+
+@media (min-width: 48rem) {
+  .gridWithThumbnailsAndAnnotations { grid-template-columns: var(--pdf-thumbnail-width, 8.25rem) minmax(0, 1fr) var(--pdf-comment-width, 19rem); }
+  .gridWithThumbnails { grid-template-columns: var(--pdf-thumbnail-width, 8.25rem) minmax(0, 1fr); }
+  .gridWithAnnotations { grid-template-columns: minmax(0, 1fr) var(--pdf-comment-width, 19rem); }
+}
+
+.textLayer :global(br)::selection { background: transparent; }

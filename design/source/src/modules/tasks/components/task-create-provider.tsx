@@ -1,0 +1,386 @@
+"use client";
+import { BugReportDetails } from "@/modules/projects/bugs/report-details";
+
+import { TaskAssigneeSelect } from "@/modules/tasks/components/task-assignee-select";
+
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Check, ClipboardPlus, Loader2, Save } from "lucide-react";
+import {
+  getContextualTaskOptions,
+  getContextualTaskForEdit,
+  upsertContextualTask,
+} from "@/modules/projects/contextual-task-actions";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  WorkItemFieldError,
+  WorkItemOriginCard,
+  WorkItemSaveError,
+} from "./work-item-form";
+import type {
+  EditableTask,
+  TaskOrigin,
+  TaskPriority,
+  TaskStatus,
+} from "../types";
+import { TaskProjectPlanner } from "./task-project-planner";
+import { ContextPanel } from "@/modules/context/components/context-panel";
+import { canonicalTaskHref } from "@/modules/context/routes";
+import { projectIdFromPath } from "@/modules/projects/current-project";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
+
+type OpenTaskOptions = {
+  origin?: TaskOrigin;
+  task?: EditableTask;
+  initialTitle?: string;
+  /** Project for a new task; defaults to the project whose page is open. */
+  projectId?: string;
+  showProjectSchedule?: boolean;
+  onCreated?: (taskId: string) => void;
+};
+
+type TaskCreatorContextValue = {
+  openTaskCreator: (options?: OpenTaskOptions) => void;
+};
+
+const TaskCreatorContext = createContext<TaskCreatorContextValue | null>(null);
+const NONE = "none";
+
+export function useTaskCreator() {
+  const value = useContext(TaskCreatorContext);
+  if (!value) throw new Error("useTaskCreator must be used inside TaskCreateProvider");
+  return value;
+}
+
+function defaultOrigin(pathname: string, search: string): TaskOrigin {
+  const sourceMatch = pathname.match(/^\/wiki\/sources\/([^/]+)$/);
+  const wikiMatch = pathname.match(/^\/wiki\/pages\/([^/]+)$/);
+  return {
+    type: sourceMatch ? "wikiSource" : wikiMatch ? "wikiPage" : "app",
+    entityId: decodeURIComponent(sourceMatch?.[1] ?? wikiMatch?.[1] ?? pathname),
+    route: `${pathname}${search ? `?${search}` : ""}`,
+    label: pathname === "/" ? "Dashboard" : pathname,
+  };
+}
+
+export function TaskCreateProvider({ children }: { children: ReactNode }) {
+  const t = useTranslations("tasks");
+  const tCommon = useTranslations("common");
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepLinkedTaskId = pathname === "/" ? searchParams.get("task") : null;
+  const lastDeepLink = useRef<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<Awaited<ReturnType<typeof getContextualTaskOptions>> | null>(null);
+  const [request, setRequest] = useState<OpenTaskOptions>({});
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
+  const [linkOrigin, setLinkOrigin] = useState(false);
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
+  const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [startDate, setStartDate] = useState("");
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const submitting = useRef(false);
+  const [dueDate, setDueDate] = useState("");
+  const [status, setStatus] = useState<TaskStatus>("open");
+  const [projectId, setProjectId] = useState(NONE);
+  const [pending, setPending] = useState(false);
+  const [errors, setErrors] = useState<{ title?: string; save?: string }>({});
+
+  const openTaskCreator = useCallback((next: OpenTaskOptions = {}) => {
+    if (submitting.current) return;
+    setRequest(next);
+    setStartDate("");
+    setPlannerOpen(false);
+    setTitle(next.task?.title ?? next.initialTitle ?? "");
+    setDescription(next.task?.description ?? "");
+    // Openers that pass an origin (a text selection, a document, a contact)
+    // link to it by default; the generic button and shortcut start standalone.
+    setLinkOrigin(Boolean(next.origin));
+    setAssigneeIds(next.task?.assigneeIds ?? []);
+    setPriority(next.task?.priority ?? "medium");
+    setDueDate(next.task?.dueDate ?? "");
+    setStatus(next.task?.status ?? "open");
+    setProjectId(next.task ? next.task.projectId ?? NONE : next.projectId ?? projectIdFromPath(pathname) ?? NONE);
+    setErrors({});
+    setOpen(true);
+    if (!options) {
+      void getContextualTaskOptions()
+        .then(setOptions)
+        .catch(() => toast.error(tCommon("error")));
+    }
+  }, [options, pathname, tCommon]);
+
+  useEffect(() => {
+    if (!deepLinkedTaskId) {
+      if (lastDeepLink.current) {
+        lastDeepLink.current = null;
+        setOpen(false);
+      }
+      return;
+    }
+    if (lastDeepLink.current === deepLinkedTaskId) return;
+    let active = true;
+    lastDeepLink.current = deepLinkedTaskId;
+    void getContextualTaskForEdit(deepLinkedTaskId)
+      .then((task) => {
+        if (active) openTaskCreator({ task });
+      })
+      .catch(() => {
+        if (!active) return;
+        lastDeepLink.current = null;
+        toast.error(tCommon("error"));
+      });
+    return () => {
+      active = false;
+    };
+  }, [deepLinkedTaskId, openTaskCreator, tCommon]);
+
+  function setDialogOpen(next: boolean) {
+    if (submitting.current) return;
+    setOpen(next);
+    if (!next) setPlannerOpen(false);
+    if (next || pathname !== "/") return;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("task");
+    const query = params.toString();
+    window.history.replaceState(null, "", `/${query ? `?${query}` : ""}`);
+    lastDeepLink.current = null;
+  }
+
+  useEffect(() => {
+    function onShortcut(event: KeyboardEvent) {
+      if (!event.defaultPrevented && matchesShortcut(event, GLOBAL_SHORTCUTS.newTask)) {
+        event.preventDefault();
+        openTaskCreator();
+      }
+    }
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, [openTaskCreator]);
+
+  const value = useMemo(() => ({ openTaskCreator }), [openTaskCreator]);
+  const origin = request.origin ?? defaultOrigin(
+    pathname,
+    typeof window === "undefined" ? "" : window.location.search.slice(1),
+  );
+  const projectLabel = projectId === NONE
+    ? t("noProject")
+    : options?.projects.find((project) => project.id === projectId)?.name ?? projectId;
+
+  async function submit(event: React.FormEvent) {
+    event.preventDefault();
+    if (submitting.current) return;
+    if (!title.trim()) {
+      setErrors({ title: t("titleRequired") });
+      return;
+    }
+    if (request.showProjectSchedule && startDate && (!dueDate || dueDate < startDate)) {
+      setErrors({ save: t("planner.invalidDates") });
+      return;
+    }
+    submitting.current = true;
+    setPending(true);
+    setErrors({});
+    try {
+      const result = await upsertContextualTask({
+        id: request.task?.id,
+        title,
+        description,
+        assigneeIds,
+        priority,
+        dueDate: dueDate || null,
+        ...(request.showProjectSchedule && !request.task ? { startDate: startDate || null } : {}),
+        status,
+        projectId: projectId === NONE ? null : projectId,
+        context: (request.task ? !request.origin : !linkOrigin)
+          ? null
+          : {
+              ...origin,
+              anchorJson: JSON.stringify(origin.anchor ?? {}),
+            },
+      });
+      request.onCreated?.(result.id);
+      toast.success(request.task ? t("updated") : t("created"));
+      submitting.current = false;
+      setDialogOpen(false);
+      router.refresh();
+    } catch {
+      setErrors({ save: t("saveError") });
+    } finally {
+      submitting.current = false;
+      setPending(false);
+    }
+  }
+
+  return (
+    <TaskCreatorContext.Provider value={value}>
+      {children}
+      <Dialog open={open} onOpenChange={setDialogOpen}>
+        <DialogContent className="flex max-h-[min(92dvh,46rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-xl">
+          <DialogHeader className="shrink-0 space-y-1 px-6 pb-5 pt-6">
+            <div className="mb-2 grid size-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-300">
+              <ClipboardPlus className="size-5" />
+            </div>
+            <DialogTitle className="text-xl">{request.task ? t("editTask") : t("createTask")}</DialogTitle>
+            <p className="text-sm text-muted-foreground">{t("dialogDescription")}</p>
+          </DialogHeader>
+          <form noValidate onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
+            <div className="space-y-5 overflow-y-auto px-6 pb-5">
+              {(!request.task || request.origin) && (
+                <WorkItemOriginCard
+                  origin={origin}
+                  typeLabel={t(`origins.${origin.type}`)}
+                  tone="task"
+                  link={request.task ? undefined : {
+                    checked: linkOrigin,
+                    label: t("linkOrigin"),
+                    onChange: setLinkOrigin,
+                  }}
+                />
+              )}
+              {request.task && (
+                <><BugReportDetails key={request.task.id} taskId={request.task.id} /><ContextPanel
+                  subjectType="task"
+                  subjectId={request.task.id}
+                  subjectLabel={request.task.title}
+                  subjectHref={canonicalTaskHref(
+                    request.task.id,
+                    request.task.projectId,
+                  )}
+                  compact
+                /></>
+              )}
+              <div className="space-y-2">
+              <Label htmlFor="context-task-title">{t("title")}</Label>
+              <Input
+                id="context-task-title"
+                autoFocus
+                required
+                maxLength={300}
+                value={title}
+                aria-invalid={Boolean(errors.title)}
+                onChange={(event) => {
+                  setTitle(event.target.value);
+                  setErrors((current) => ({ ...current, title: undefined, save: undefined }));
+                }}
+                placeholder={t("titlePlaceholder")}
+              />
+              <WorkItemFieldError>{errors.title}</WorkItemFieldError>
+              </div>
+              <div className="space-y-2">
+              <Label htmlFor="context-task-description">{t("description")}</Label>
+              <Textarea
+                id="context-task-description"
+                rows={4}
+                maxLength={5000}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder={t("descriptionPlaceholder")}
+              />
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="context-task-assignee">{t("assignee")}</Label>
+                <TaskAssigneeSelect id="context-task-assignee" value={assigneeIds} onChange={setAssigneeIds}
+                  members={options?.members ?? []} assignedMembers={request.task?.assignees} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="context-task-priority">{t("priority")}</Label>
+                <Select value={priority} onValueChange={(value) => setPriority(value as TaskPriority)}>
+                  <SelectTrigger id="context-task-priority" className="w-full"><SelectValue>{t(`priorities.${priority}`)}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">{t("priorities.low")}</SelectItem>
+                    <SelectItem value="medium">{t("priorities.medium")}</SelectItem>
+                    <SelectItem value="high">{t("priorities.high")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="context-task-due">{t("dueDate")}</Label>
+                <Input id="context-task-due" type="date" min={startDate || undefined} value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="context-task-status">{t("status")}</Label>
+                <Select value={status} onValueChange={(value) => setStatus(value as TaskStatus)}>
+                  <SelectTrigger id="context-task-status" className="w-full"><SelectValue>{t(`statuses.${status}`)}</SelectValue></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">{t("statuses.open")}</SelectItem>
+                    <SelectItem value="done">{t("statuses.done")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              </div>
+              <div className="space-y-2">
+              <Label htmlFor="context-task-project">{t("project")}</Label>
+              <Select value={projectId} onValueChange={(value) => {
+                const next = value ?? NONE;
+                setProjectId(next);
+                setPlannerOpen(Boolean(request.showProjectSchedule && !request.task && next !== NONE));
+              }}>
+                <SelectTrigger id="context-task-project" className="w-full"><SelectValue>{projectLabel}</SelectValue></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>{t("noProject")}</SelectItem>
+                  {options?.projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>{project.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              </div>
+              {request.showProjectSchedule && !request.task && projectId !== NONE && <Button type="button" variant="outline" onClick={() => setPlannerOpen(true)}>{t("planner.open")}</Button>}
+              {request.showProjectSchedule && startDate && <p className="text-sm text-muted-foreground">{t("planner.startDate")}: {startDate}</p>}
+              <WorkItemSaveError>{errors.save}</WorkItemSaveError>
+            </div>
+            <DialogFooter className="shrink-0 border-t bg-background px-6 py-4">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>{tCommon("cancel")}</Button>
+              <Button type="submit" disabled={pending}>
+                {pending ? <Loader2 className="animate-spin" /> : request.task ? <Save /> : <Check />}
+                {request.task ? t("save") : t("create")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+        {open && plannerOpen && projectId !== NONE && <TaskProjectPlanner
+          key={projectId}
+          projectId={projectId}
+          projectName={projectLabel}
+          title={title}
+          startDate={startDate}
+          dueDate={dueDate}
+          onDatesChange={(dates) => { setStartDate(dates.startDate); setDueDate(dates.dueDate); }}
+          onClose={() => setPlannerOpen(false)}
+        />}
+      </Dialog>
+    </TaskCreatorContext.Provider>
+  );
+}

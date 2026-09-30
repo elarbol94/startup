@@ -1,0 +1,38 @@
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { toast } from "sonner";
+import { Loader2, Upload } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { PptxImportWarning } from "../lib/presentation-pptx";
+
+export function PresentationImport({ open: controlledOpen, onOpenChange, hideTrigger = false }: { open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean } = {}) {
+  const t = useTranslations("presentationStudio"), router = useRouter();
+  const [localOpen, setLocalOpen] = useState(false), [busy, setBusy] = useState(false);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = onOpenChange ?? setLocalOpen;
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [result, setResult] = useState<{ id: string; warnings: PptxImportWarning[] } | null>(null);
+  const upload = async (file: File) => {
+    setBusy(true);
+    try {
+      const body = new FormData(); body.append("file", file);
+      const response = await fetch("/api/wiki/presentations/import", { method: "POST", body });
+      if (!response.ok) throw new Error("Import failed");
+      setResult(await response.json());
+    } catch { toast.error(t("importFailed")); } finally { setBusy(false); }
+  };
+  return <>{!hideTrigger && <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>{t("importPptx")}</Button>}<Dialog open={open} onOpenChange={(open) => { if (!busy) setOpen(open); }}><DialogContent><DialogHeader><DialogTitle>{t("importPptx")}</DialogTitle><DialogDescription>{t("importHint")}</DialogDescription></DialogHeader>
+    {!result ? <div className="space-y-2 text-sm">
+      {/* A styled, localised picker instead of the browser's native "Choose File" control. */}
+      <label className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer has-[:disabled]:pointer-events-none has-[:disabled]:opacity-50 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50")}>
+        {busy ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}{busy ? t("importing") : t("choosePptx")}
+        <input type="file" aria-label={t("choosePptx")} className="sr-only" accept=".pptx" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) { setFileName(file.name); void upload(file); } event.target.value = ""; }} />
+      </label>
+      <p className="text-xs text-muted-foreground" aria-live="polite">{fileName ?? t("noFileChosen")}</p>
+    </div> : <div className="space-y-3"><h3 className="font-medium">{t("importWarnings")}</h3><ul className="max-h-72 list-disc overflow-auto pl-5 text-sm">{result.warnings.map((warning, i) => <li key={i}>{t(`pptxWarnings.${warning.code}`, { slide: warning.slide })}</li>)}{!result.warnings.length && <li>{t("pptxWarnings.none")}</li>}</ul><Button type="button" onClick={() => { router.push(`/wiki/presentations/${result.id}`); setOpen(false); setResult(null); }}>{t("openImported")}</Button></div>}
+  </DialogContent></Dialog></>;
+}
