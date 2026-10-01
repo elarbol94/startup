@@ -4,6 +4,7 @@
 
 import { useEffect, useRef, type RefObject } from "react";
 import { useRouter } from "next/navigation";
+import { usePlanningFocusExit } from "@/components/focus-mode";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import type {
@@ -203,6 +204,9 @@ export function usePortfolioFocus({
       router.replace(projectsFocusHref(null), { scroll: false });
     }
   }
+
+  // Leaving focus mode (Mod+Shift+F, focus bar) also leaves focused planning.
+  usePlanningFocusExit(!embedded && Boolean(focusedTaskId), exitTaskFocus);
 
   async function copyFocusLink() {
     if (!focusedTaskId) return;

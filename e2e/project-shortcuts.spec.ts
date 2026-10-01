@@ -89,3 +89,27 @@ test("timeline: C toggles the critical path, Shift+N adds a subtask in focus mod
     page.getByTestId("schedule-inspector-dock").getByRole("heading", { name: "Unteraufgabe hinzufügen" }),
   ).toBeVisible();
 });
+
+test("timeline: the focus mode shortcut leaves focused planning", async ({ page }) => {
+  await login(page);
+  await page.goto("/projects");
+  await page.waitForLoadState("networkidle");
+
+  const row = projectRow(page);
+  if (await row.getAttribute("aria-expanded") !== "true") {
+    await row.getByRole("button", { name: "Projekt ein- oder ausklappen", exact: true }).click();
+  }
+  await page.locator('[data-row-kind="task"]').filter({ hasText: TASK })
+    .getByRole("button", { name: `Aktionen für ${TASK}` }).click();
+  await page.getByRole("menuitem", { name: "Auf Aufgabe fokussieren" }).click();
+  await expect(page.getByTestId("gantt-focus-rail")).toContainText(TASK);
+  await expect(page).toHaveURL(/[?&]focus=/);
+  await expect(page.getByTestId("app-sidebar").filter({ visible: true })).toHaveCount(0);
+
+  await press(page, "Control+Shift+F");
+  await expect(page.getByTestId("gantt-focus-rail")).toHaveCount(0);
+  await expect(page).not.toHaveURL(/[?&]focus=/);
+  await expect(page.getByTestId("app-sidebar").filter({ visible: true })).toBeVisible();
+  // Leaving planning must not switch the global focus mode on instead.
+  await expect(page.getByTestId("focus-pill")).toHaveCount(0);
+});

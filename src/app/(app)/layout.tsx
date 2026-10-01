@@ -13,6 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { TaskCreateProvider } from "@/modules/tasks/components/task-create-provider";
 import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-create-provider";
 import { ContactCaptureProvider } from "@/modules/network/components/contact-capture-provider";
+import { FocusModeProvider } from "@/components/focus-mode";
+import { FocusBootstrapScript } from "@/components/focus/focus-bootstrap-script";
 
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
@@ -66,12 +68,37 @@ export default async function AppLayout({
   ensureUserMarkColor(currentUser.id);
   return (
     <UserIdentityProvider currentUserId={currentUser.id} identities={listUserIdentities()}>
+    <FocusBootstrapScript userId={currentUser.id} />
+    <FocusModeProvider userId={currentUser.id}>
     <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>
       <DeadlineCreateProvider>
       <ContactCaptureProvider userId={currentUser.id}>
       <BugReportProvider>
       <style>{`
+        /* Focus mode (see src/lib/focus-mode.ts). The attributes on <html> are set before
+           the first paint, so these rules hide the chrome without a flash. */
+        html[data-focus-global="true"] [data-app-shell] > [data-app-chrome],
+        html[data-focus-reader="true"] [data-app-shell] > [data-app-chrome],
+        html[data-focus-global="true"] [data-focus-chrome],
+        html[data-focus-reader="true"] [data-focus-chrome] {
+          display: none;
+        }
+        html[data-focus-global="true"],
+        html[data-focus-reader="true"] {
+          --app-rail-width: 0px !important;
+          --research-rail-width: 0px !important;
+        }
+        html[data-focus-reader="true"] [data-app-shell]:not([data-workspace-embedded]) [data-workspace-content],
+        html[data-focus-global="true"] [data-app-shell][data-focus-tabs-revealed] [data-workspace-content] {
+          height: calc(100dvh - 2.75rem);
+        }
+        html[data-focus-global="true"] [data-app-shell]:not([data-focus-tabs-revealed]) [data-workspace-toolbar] {
+          display: none;
+        }
+        html[data-focus-global="true"] [data-app-shell]:not([data-focus-tabs-revealed]):not([data-workspace-embedded]) [data-workspace-content] {
+          height: 100dvh;
+        }
         [data-app-shell]:has([data-project-focus-root="true"]) > [data-app-chrome] {
           display: none;
         }
@@ -93,6 +120,7 @@ export default async function AppLayout({
       </DeadlineCreateProvider>
     </TaskCreateProvider>
     </WikiNavigation>
+    </FocusModeProvider>
     </UserIdentityProvider>
   );
 }

@@ -11,14 +11,13 @@ import { Input } from "@/components/ui/input";
 import { moduleNav } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
-import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget } from "./model";
+import { FocusPill } from "@/components/focus/focus-pill";
+import { useFocusMode } from "@/components/focus-mode";
+import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame } from "./model";
 
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
 const subscribeFrame = () => () => {};
-function isWorkspaceFrame() {
-  try { return window.frameElement?.getAttribute("data-workspace-pane") === "true"; } catch { return false; }
-}
 
 export function AppWorkspace({ children, navigation, userId }: { children: ReactNode; navigation: ReactNode; userId: string }) {
   const t = useTranslations("appWorkspace");
@@ -47,6 +46,14 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
   const surface = useRef<HTMLDivElement>(null);
   const frames = useRef(new Map<string, HTMLIFrameElement>());
   const [sideOnOpen, setSideOnOpen] = useState(false);
+  // Global focus hides the tab strip; the focus bar can bring it back temporarily.
+  const { globalFocused } = useFocusMode();
+  const [focusTabsRevealed, setFocusTabsRevealed] = useState(false);
+  const [tabsRevealFocus, setTabsRevealFocus] = useState(globalFocused);
+  if (tabsRevealFocus !== globalFocused) {
+    setTabsRevealFocus(globalFocused);
+    setFocusTabsRevealed(false);
+  }
   const href = pathname + (search.size ? `?${search.toString()}` : "");
   const wide = width >= MIN_SPLIT_WIDTH;
   const showSplit = wide && split && secondary !== null;
@@ -234,7 +241,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
   const sections = moduleNav.filter(item => `${nav(item.key)} ${item.href}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
   const buttonClass = "inline-flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
 
-  return <div className="flex min-h-screen flex-1 flex-col md:flex-row" data-app-shell data-workspace-embedded={embedded || undefined}>
+  return <div className="flex min-h-screen flex-1 flex-col md:flex-row" data-app-shell data-workspace-embedded={embedded || undefined} data-focus-tabs-revealed={focusTabsRevealed || undefined}>
     {!embedded && <div className="contents" data-app-chrome>{navigation}</div>}
     <main data-app-main className={cn("rail-content-transition min-w-0 flex-1 duration-[220ms] motion-reduce:transition-none", !embedded && "md:pl-[var(--app-rail-width,3.5rem)]")}>
       <div ref={surface} className="min-w-0" data-workspace-root>
@@ -275,6 +282,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
       </div>
     </main>
     {!embedded && <>
+      <FocusPill hasTabs={tabs.length > 0} tabsRevealed={focusTabsRevealed} onToggleTabs={() => setFocusTabsRevealed(value => !value)} />
       <Dialog open={picker} onOpenChange={setPicker}><DialogContent className="flex max-h-[80dvh] flex-col gap-3 sm:max-w-xl"><DialogHeader><DialogTitle>{t(sideOnOpen ? "openBeside" : "newTab")}</DialogTitle><DialogDescription>{t("pickerHint")}</DialogDescription></DialogHeader>
         <div className="relative"><Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" /><Input autoFocus className="pl-9" aria-label={t("search")} placeholder={t("search")} maxLength={200} value={query} onChange={event => { setQuery(event.target.value); setResults([]); setLoading(true); }} /></div>
         <div className="min-h-0 overflow-y-auto">

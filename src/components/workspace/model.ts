@@ -1,4 +1,9 @@
 export const MIN_SPLIT_WIDTH = 1100;
+
+/** Pages opened as workspace tabs render inside an iframe without the app chrome. */
+export function isWorkspaceFrame(): boolean {
+  try { return window.frameElement?.getAttribute("data-workspace-pane") === "true"; } catch { return false; }
+}
 export const MAX_WORKSPACE_TABS = 8;
 
 /** Only authenticated app pages may be embedded; never actions, files or external URLs. */

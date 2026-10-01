@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
-import { FocusModeProvider } from "@/components/focus-mode";
 import { WebVitals } from "@/components/web-vitals";
 import { HtmlLocaleSync } from "@/components/html-locale-sync";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -36,7 +35,7 @@ export default function RootLayout({
         <ThemeProvider>
           <NextIntlClientProvider>
             <HtmlLocaleSync />
-            <FocusModeProvider>{children}</FocusModeProvider>
+            {children}
           </NextIntlClientProvider>
           <WebVitals />
           <Toaster />

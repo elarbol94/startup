@@ -4668,6 +4668,14 @@
       "invalidWork": "The selected project or task is no longer available."
     }
   },
+  "focus": {
+    "enter": "Start focus mode",
+    "exit": "Leave focus",
+    "controls": "Focus mode",
+    "showTabs": "Show tabs",
+    "hideTabs": "Hide tabs",
+    "keywords": "focus fokus zen distraction-free"
+  },
   "shortcuts": {
     "ctrl": "Ctrl",
     "then": "then"

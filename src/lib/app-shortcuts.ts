@@ -15,6 +15,7 @@ export const GLOBAL_SHORTCUTS = {
   newDeadline: "Mod+Shift+D",
   reportBug: "Mod+Y",
   switchTab: "Alt+Q",
+  focusMode: "Mod+Shift+F",
 } as const;
 
 export const NAVIGATION_SHORTCUTS: Record<ModuleNavItem["key"] | "settings", string> = {

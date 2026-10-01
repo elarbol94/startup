@@ -106,7 +106,7 @@ export function ResearchSidebar({
 }) {
   const t = useTranslations("wiki");
   const { openSearch, userId } = useWikiNavigation();
-  const { isFocused } = useFocusMode();
+  const { chromeHidden } = useFocusMode();
   // The labelled panel is the default; collapsing to the icon rail is remembered per
   // user in this browser. While collapsed, hovering/focusing expands it as an overlay
   // without shifting the page content.
@@ -115,9 +115,9 @@ export function ResearchSidebar({
   const [peeking, setPeeking] = useState(false);
   const expanded = !collapsed || peeking;
   useEffect(() => {
-    document.documentElement.style.setProperty("--research-rail-width", isFocused ? "0px" : collapsed ? "3.5rem" : "13rem");
+    document.documentElement.style.setProperty("--research-rail-width", chromeHidden ? "0px" : collapsed ? "3.5rem" : "13rem");
     return () => { document.documentElement.style.removeProperty("--research-rail-width"); };
-  }, [collapsed, isFocused]);
+  }, [collapsed, chromeHidden]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeMobile = useCallback(() => setMobileOpen(false), []);
   const { dialog: quickNoteDialog, create: createNote, creating } = useQuickNoteCreator({ onCreated: closeMobile });
@@ -391,11 +391,11 @@ export function ResearchSidebar({
   }
 
   // The Ctrl+Shift+N shortcut still works in focus mode, so its title prompt must render.
-  if (isFocused) return <>{quickNoteDialog}</>;
+  if (chromeHidden) return <>{quickNoteDialog}</>;
 
   return (
     <>
-      <header data-testid="research-mobile-header" className="flex h-14 shrink-0 items-center gap-2 border-b bg-sidebar px-3 md:hidden">
+      <header data-testid="research-mobile-header" data-focus-chrome className="flex h-14 shrink-0 items-center gap-2 border-b bg-sidebar px-3 md:hidden">
         <Button
           type="button"
           variant="ghost"
@@ -440,6 +440,7 @@ export function ResearchSidebar({
 
       <aside
         data-testid="research-sidebar"
+        data-focus-chrome
         data-expanded={expanded}
         className={cn(
           "research-rail-transition fixed inset-y-0 left-[var(--app-rail-width,3.5rem)] z-30 hidden h-dvh shrink-0 flex-col border-r bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex",

@@ -79,7 +79,7 @@ export function PdfReader({
   const shortcutKeys = { ctrl: t("shortcuts.keys.ctrl"), delete: t("shortcuts.keys.delete") };
   const showShortcut = (binding: string) => displayShortcut(binding, shortcutKeys);
   const pdfLoadFailedMessage = t("pdfLoadFailed");
-  const { isFocused, toggleFocused } = useFocusMode();
+  const { isFocused, handleFocusShortcut } = useFocusMode();
   const [showThumbnails, setShowThumbnails] = useState(true);
   const [thumbnailWidth, setThumbnailWidth] = useState(132);
   const [navigatorTab, setNavigatorTab] = useState<NavigatorTab>("pages");
@@ -365,7 +365,7 @@ export function PdfReader({
       case "openOriginal": window.open(`/api/files/${attachmentId}`, "_blank", "noopener,noreferrer"); break;
       case "download": window.location.assign(`/api/files/${attachmentId}?download=1`); break;
       case "printPdf": window.open(`/api/files/${attachmentId}#toolbar=1`, "_blank", "noopener,noreferrer"); break;
-      case "focusMode": toggleFocused(); break;
+      case "focusMode": handleFocusShortcut(); break;
       case "shortcuts": setShortcutsOpen(true); break;
     }
   }

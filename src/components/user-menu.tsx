@@ -3,11 +3,15 @@
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { Bug, Check, Globe, LogOut } from "lucide-react";
+import { Bug, Check, Globe, LogOut, Maximize2 } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { setLocale } from "@/i18n/actions";
 import { locales, type Locale } from "@/i18n/config";
 import { UserIdentity } from "@/components/user-identity";
+import { useFocusMode } from "@/components/focus-mode";
+import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { useBugReporter } from "@/modules/projects/bugs/report-provider";
 import {
   DropdownMenu,
@@ -41,6 +45,8 @@ export function UserMenu({
   const tCommon = useTranslations("common");
   const tBugs = useTranslations("bugReports");
   const openBugReporter = useBugReporter();
+  const tFocus = useTranslations("focus");
+  const { setGlobalFocused } = useFocusMode();
   const [loggingOut, setLoggingOut] = useState(false);
   const [, startTransition] = useTransition();
 
@@ -95,6 +101,17 @@ export function UserMenu({
             ))}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuItem
+          aria-keyshortcuts={ariaKeyShortcuts(GLOBAL_SHORTCUTS.focusMode)}
+          onClick={() => {
+            onNavigate?.();
+            setGlobalFocused(true);
+          }}
+        >
+          <Maximize2 className="mr-2 size-4" />
+          {tFocus("enter")}
+          <DropdownMenuShortcut aria-hidden="true"><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.focusMode} /></DropdownMenuShortcut>
+        </DropdownMenuItem>
         <DropdownMenuItem
           aria-keyshortcuts="Control+Y"
           onClick={() => {

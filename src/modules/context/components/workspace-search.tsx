@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   BookOpen,
+  Maximize2,
+  Minimize2,
   ClipboardCheck,
   FileSearch,
   FolderKanban,
@@ -26,6 +28,15 @@ import type {
 } from "../types";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
 import { matchesShortcut } from "@/lib/shortcuts";
+import { useFocusMode } from "@/components/focus-mode";
+import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
+
+/** Opens the search dialog from controls outside the sidebar (e.g. the focus mode bar). */
+export const OPEN_WORKSPACE_SEARCH_EVENT = "app-open-workspace-search";
+
+export function openWorkspaceSearch() {
+  window.dispatchEvent(new Event(OPEN_WORKSPACE_SEARCH_EVENT));
+}
 
 function ResultIcon({ type }: { type: ContextEntityType }) {
   if (type === "project") return <FolderKanban className="size-4" />;
@@ -43,6 +54,8 @@ export function WorkspaceSearch({
 }) {
   const locale = useLocale();
   const de = locale !== "en";
+  const tFocus = useTranslations("focus");
+  const { globalFocused, setGlobalFocused, exitFocus } = useFocusMode();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<WorkspaceSearchResultDto[]>([]);
   const [pending, setPending] = useState(false);
@@ -56,8 +69,13 @@ export function WorkspaceSearch({
         onOpenChange(true);
       }
     }
+    const openFromEvent = () => onOpenChange(true);
     window.addEventListener("keydown", shortcut);
-    return () => window.removeEventListener("keydown", shortcut);
+    window.addEventListener(OPEN_WORKSPACE_SEARCH_EVENT, openFromEvent);
+    return () => {
+      window.removeEventListener("keydown", shortcut);
+      window.removeEventListener(OPEN_WORKSPACE_SEARCH_EVENT, openFromEvent);
+    };
   }, [onOpenChange]);
 
   useEffect(() => {
@@ -100,6 +118,13 @@ export function WorkspaceSearch({
     }
   }
 
+  const focusLabel = globalFocused ? tFocus("exit") : tFocus("enter");
+  const trimmedQuery = query.trim().toLocaleLowerCase();
+  const showFocusAction =
+    trimmedQuery.length < 2 ||
+    [focusLabel, tFocus("keywords")].some((text) => text.toLocaleLowerCase().includes(trimmedQuery));
+  const FocusIcon = globalFocused ? Minimize2 : Maximize2;
+
   return (
     <Dialog
       open={open}
@@ -135,6 +160,24 @@ export function WorkspaceSearch({
           </kbd>
         </div>
         <div className="max-h-[min(32rem,65dvh)] overflow-y-auto p-2">
+          {showFocusAction && (
+            <button
+              type="button"
+              data-testid="search-focus-action"
+              onClick={() => {
+                changeOpen(false);
+                if (globalFocused) exitFocus();
+                else setGlobalFocused(true);
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                <FocusIcon className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{focusLabel}</span>
+              <ShortcutKeys shortcut={GLOBAL_SHORTCUTS.focusMode} className="text-xs text-muted-foreground" />
+            </button>
+          )}
           {pending ? (
             <div
               className="grid place-items-center py-10"

@@ -14,7 +14,7 @@ async function AuthenticatedResearchSidebar() {
 export default function WikiLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="rail-content-transition -m-4 flex min-h-[calc(100vh-0px)] flex-col duration-[220ms] ease-out motion-reduce:transition-none sm:-m-6 md:flex-row md:pl-[var(--research-rail-width,13rem)]" data-wiki-layout>
-      <Suspense fallback={<aside className="h-14 border-b md:fixed md:inset-y-0 md:left-[var(--app-rail-width,3.5rem)] md:h-dvh md:w-[var(--research-rail-width,13rem)] md:border-r md:border-b-0" />}>
+      <Suspense fallback={<aside data-focus-chrome className="h-14 border-b md:fixed md:inset-y-0 md:left-[var(--app-rail-width,3.5rem)] md:h-dvh md:w-[var(--research-rail-width,13rem)] md:border-r md:border-b-0" />}>
         <AuthenticatedResearchSidebar />
       </Suspense>
       <section className="min-w-0 flex-1 overflow-x-clip" data-wiki-content>{children}</section>

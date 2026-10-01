@@ -34,7 +34,6 @@ import {
   UserPlus,
   X,
 } from "lucide-react";
-import { useFocusMode } from "@/components/focus-mode";
 import { UserMenu } from "@/components/user-menu";
 import { Button } from "@/components/ui/button";
 import {
@@ -480,7 +479,6 @@ export function AppSidebar({
   const tCommon = useTranslations("common");
   const productName = companyName?.trim() || tCommon("appName");
   const pathname = usePathname();
-  const { isFocused } = useFocusMode();
   const [expanded, setExpanded] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -503,8 +501,6 @@ export function AppSidebar({
     document.documentElement.style.setProperty("--app-rail-width", expanded ? "15rem" : "3.5rem");
     return () => { document.documentElement.style.removeProperty("--app-rail-width"); };
   }, [expanded]);
-
-  if (isFocused) return null;
 
   return (
     <>
