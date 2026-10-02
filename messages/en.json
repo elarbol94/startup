@@ -4696,6 +4696,7 @@
     },
     "loading": "Loading editor …",
     "loadFailed": "The editor could not be loaded.",
+    "resumePosition": "Continue where you left off",
     "retry": "Try again",
     "restoreInProgress": "A version is being restored. The editor will reopen shortly.",
     "unavailable": "The office editor is not reachable right now. You can download the last stored version.",

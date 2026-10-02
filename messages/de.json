@@ -4696,6 +4696,7 @@
     },
     "loading": "Editor wird geladen …",
     "loadFailed": "Der Editor konnte nicht geladen werden.",
+    "resumePosition": "Dort weitermachen, wo du aufgehört hast",
     "retry": "Erneut versuchen",
     "restoreInProgress": "Eine Version wird gerade wiederhergestellt. Der Editor öffnet sich gleich wieder.",
     "unavailable": "Der Office-Editor ist gerade nicht erreichbar. Du kannst die zuletzt gespeicherte Version herunterladen.",
