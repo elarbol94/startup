@@ -426,16 +426,9 @@ export function listDeadlinesForContext(
 }
 
 export function getPersonalWorkSummary(userId: string) {
-  const taskRows = db
-    .select({ dueDate: tasks.dueDate })
-    .from(tasks)
-    .where(and(
-      eq(tasks.kind, "task"),
-      isNull(tasks.projectId),
-      eq(tasks.status, "open"),
-      assignedTo(userId),
-    ))
-    .all();
+  // Same rows as the dashboard "Tasks" widget: standalone and project tasks, where a
+  // project task is open while its board column is not a completed one.
+  const taskRows = listTaskOverview({ includeProjects: true, assigneeId: userId, status: "open" });
 
   const deadlineRows = listDeadlineOverview({ assigneeId: userId, status: "open" });
 

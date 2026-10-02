@@ -5,11 +5,13 @@ import { useFormatter, useTranslations } from "next-intl";
 import { ItemDetails } from "@/modules/tasks/components/item-details";
 import { withWorkItemFocus } from "@/modules/context/routes";
 import type { listNotifications } from "../research-queries";
+import { useMarkNotificationRead } from "./use-mark-notification-read";
 
 export function NotificationList({ items }: { items: ReturnType<typeof listNotifications> }) {
   const t = useTranslations("wiki");
   const details = useTranslations("overviewDetails");
   const format = useFormatter();
+  const markRead = useMarkNotificationRead();
   if (!items.length) return <p className="p-6 text-sm text-muted-foreground">{t("noNotifications")}</p>;
   return <div className="divide-y">{items.map((item) => {
     const title = item.taskTitle || item.pageTitle || t("notifications");
@@ -20,7 +22,7 @@ export function NotificationList({ items }: { items: ReturnType<typeof listNotif
     const when = format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" });
     return <ItemDetails key={item.id} title={title} description={[message, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || details("unavailable")} href={href}
       fields={[{ label: details("actor"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: details("date"), value: when }]}
-      className={`flex w-full gap-3 p-4 hover:bg-accent ${item.readAt ? "" : "bg-indigo-50/40 dark:bg-indigo-950/20"}`}>
+      onOpen={markRead(item)} className={`flex w-full gap-3 p-4 hover:bg-accent ${item.readAt ? "" : "bg-indigo-50/40 dark:bg-indigo-950/20"}`}>
       <span aria-hidden className={`mt-1.5 size-2 shrink-0 rounded-full ${item.readAt ? "bg-muted-foreground/30" : "bg-indigo-500"}`} />
       <span className="min-w-0"><span className="block break-words text-sm"><UserIdentity userId={item.actorId} name={item.actorName} /> {t(`notificationTypes.${item.type}`)} <strong>{title}</strong></span><span className="mt-1 block text-xs text-muted-foreground">{when}</span></span>
     </ItemDetails>;

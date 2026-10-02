@@ -7,12 +7,14 @@ import { Bell } from "lucide-react";
 import { withWorkItemFocus } from "@/modules/context/routes";
 import type { listNotifications } from "@/modules/wiki/research-queries";
 import { ItemDetails } from "./item-details";
+import { useMarkNotificationRead } from "@/modules/wiki/components/use-mark-notification-read";
 import { OverviewColumnPicker, OverviewTable, useOverviewTable } from "./overview-table";
 export function OverviewNews({ items }: { items: ReturnType<typeof listNotifications> }) {
   const t = useTranslations("overviewLayout");
   const wiki = useTranslations("wiki");
   const format = useFormatter();
   const timezone = useTimeZone() ?? "Europe/Vienna";
+  const markRead = useMarkNotificationRead();
   const rows = items.map(item => ({ ...item, title: item.taskTitle || item.pageTitle || wiki("notifications") }));
   const filters = useOverviewFilters("news", [
     { id: "search", label: t("titleColumn"), type: "search" },
@@ -26,7 +28,7 @@ export function OverviewNews({ items }: { items: ReturnType<typeof listNotificat
     { id: "title", label: t("titleColumn"), width: 230, wrap: true, value: item => item.title, render: item => <ItemDetails title={item.title} description={[`${item.actorName} ${wiki(`notificationTypes.${item.type}`)} ${item.title}`, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || "—"}
       href={item.taskTitle && item.taskId ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task") : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null}
       fields={[{ label: t("actorColumn"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: t("dateColumn"), value: format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" }) }]}
-      className="block w-full rounded font-medium"><span className={`block truncate ${item.readAt ? "" : "text-indigo-600 dark:text-indigo-300"}`}>{item.title}</span></ItemDetails> },
+      onOpen={markRead(item)} className="block w-full rounded font-medium"><span className={`block truncate ${item.readAt ? "" : "text-indigo-600 dark:text-indigo-300"}`}>{item.title}</span></ItemDetails> },
     { id: "actor", label: t("actorColumn"), value: item => item.actorName, render: item => <UserIdentity userId={item.actorId} name={item.actorName} compact /> },
     { id: "type", label: t("activityColumn"), value: item => wiki(`notificationTypes.${item.type}`) },
     { id: "date", label: t("dateColumn"), width: 180, value: item => item.createdAt.getTime(), render: item => <span className="text-xs text-muted-foreground">{format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}</span> },
