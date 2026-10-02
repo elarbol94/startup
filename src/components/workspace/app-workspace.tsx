@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Columns2, Plus, X, Search, PanelTop, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { moduleNav } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
+import { APP_NAVIGATION_EVENT, requestAppNavigation, type AppNavigationRequest } from "@/lib/app-navigation";
 import { FocusPill } from "@/components/focus/focus-pill";
 import { useFocusMode } from "@/components/focus-mode";
-import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame } from "./model";
+import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame, workspaceNavigationTarget } from "./model";
 
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
@@ -23,6 +24,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
   const t = useTranslations("appWorkspace");
   const nav = useTranslations("nav");
   const pathname = usePathname();
+  const router = useRouter();
   const search = useSearchParams();
   const embedded = useSyncExternalStore(subscribeFrame, isWorkspaceFrame, () => false);
   const [sessionReady, setSessionReady] = useState(false);
@@ -128,6 +130,51 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
   }, [embedded]);
+
+  // Sidebar, search and shortcut navigation goes to the visible tab, not the hidden main page.
+  const navigateActiveTab = useRef<(href: string) => boolean>(() => false);
+  useEffect(() => {
+    navigateActiveTab.current = value => {
+      const target = workspaceNavigationTarget(active, tabs.map(tab => tab.id), value, window.location.origin);
+      const child = target && frames.current.get(target.id)?.contentWindow;
+      if (!target || !child) return false;
+      child.postMessage({ type: "app-workspace-navigate", href: target.href }, window.location.origin);
+      return true;
+    };
+  });
+  useEffect(() => {
+    if (embedded) {
+      const receive = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin || event.source !== window.parent || event.data?.type !== "app-workspace-navigate" || typeof event.data.href !== "string") return;
+        const next = workspaceHref(event.data.href, window.location.origin);
+        if (next) requestAppNavigation(next, () => router.push(next));
+      };
+      window.addEventListener("message", receive);
+      return () => window.removeEventListener("message", receive);
+    }
+    // In split view the main page stays usable; its own controls keep navigating it.
+    const fromMainPage = () => primary.current?.contains(document.activeElement) === true;
+    const onRequest = (event: Event) => {
+      if (event.defaultPrevented || fromMainPage()) return;
+      if (!navigateActiveTab.current((event as CustomEvent<AppNavigationRequest>).detail.href)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    };
+    const onClick = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+      const anchor = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!anchor || (anchor.target && anchor.target !== "_self") || anchor.hasAttribute("download") || !anchor.closest("[data-app-chrome], [data-workspace-navigation]")) return;
+      // Only prevent the default so the link's own handlers (closing menus and dialogs) still run.
+      if (navigateActiveTab.current(anchor.href)) event.preventDefault();
+    };
+    // Capture on window runs before the main page's editor guards, which would otherwise claim the navigation.
+    window.addEventListener(APP_NAVIGATION_EVENT, onRequest, true);
+    window.addEventListener("click", onClick, true);
+    return () => {
+      window.removeEventListener(APP_NAVIGATION_EVENT, onRequest, true);
+      window.removeEventListener("click", onClick, true);
+    };
+  }, [embedded, router]);
 
   // Alt+Q cycles tabs like Firefox's Ctrl+Tab: hold Alt and press Q repeatedly to reach
   // older tabs (Shift+Q goes back); releasing Alt settles the order. Panes are iframes,

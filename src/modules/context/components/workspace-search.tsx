@@ -130,7 +130,7 @@ export function WorkspaceSearch({
       open={open}
       onOpenChange={changeOpen}
     >
-      <DialogContent className="top-[14vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-2xl">
+      <DialogContent data-workspace-navigation className="top-[14vh] translate-y-0 gap-0 overflow-hidden p-0 sm:max-w-2xl">
         <DialogHeader className="sr-only">
           <DialogTitle>
             {de ? "Arbeitsbereich durchsuchen" : "Search workspace"}

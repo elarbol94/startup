@@ -95,7 +95,8 @@ export function WikiNavigation({ userId, children }: { userId: string; children:
   }, [open, query, recentRaw]);
   useEffect(() => { document.getElementById(`wiki-jump-${selected}`)?.scrollIntoView({ block: "nearest" }); }, [selected]);
   function navigate(href: string) {
-    requestAppNavigation(href, () => { setOpen(false); router.push(href); });
+    setOpen(false);
+    requestAppNavigation(href, () => router.push(href));
   }
   return <NavigationContext.Provider value={{ openSearch, userId }}>
     {children}
