@@ -3,13 +3,15 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { contactClosenessLevels, contactRelationships } from "../../constants";
 import {
+  CONTACT_SEARCH_DEBOUNCE_MS,
+  contactFiltersFormKey,
   contactScopes,
   contactSorts,
   contactSpokenStates,
@@ -38,32 +40,61 @@ function FilterSelect({ name, label, value, children }: { name: string; label: s
 
 /**
  * Search, filters and sort for the contact list. A plain GET form, so it works
- * without JavaScript; with it, changes apply at once and the URL stays clean
- * (defaults and empty values are left out).
+ * without JavaScript; with it, changes apply at once (the search text shortly
+ * after the last keystroke) and the URL stays clean (defaults and empty values
+ * are left out).
  */
 export function ContactFilters({ filter, organizations, municipalities, clearHref }: Props) {
   const t = useTranslations("network");
   const router = useRouter();
 
-  function apply(form: HTMLFormElement) {
+  const searchInput = useRef<HTMLInputElement>(null);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function cancelSearch() {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+  }
+  useEffect(() => cancelSearch, []);
+
+  // The form is not remounted for query changes (see `contactFiltersFormKey`), so a
+  // query set from outside (back button, links) is copied into the field unless
+  // the user is typing in it.
+  useEffect(() => {
+    const input = searchInput.current;
+    if (input && document.activeElement !== input && input.value.trim() !== filter.query) input.value = filter.query;
+  }, [filter.query]);
+
+  function apply(form: HTMLFormElement, { replace = false } = {}) {
+    cancelSearch();
     const values = Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, String(value)]));
-    router.push(networkFilterHref(parseContactListParams(values)));
+    const href = networkFilterHref(parseContactListParams(values));
+    // Live search replaces the entry so every keystroke does not add to the history.
+    if (replace) router.replace(href, { scroll: false });
+    else router.push(href);
   }
   function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     apply(event.currentTarget);
   }
+  function onChange(event: FormEvent<HTMLFormElement>) {
+    const target = event.target;
+    if (target instanceof HTMLSelectElement && target.form) apply(target.form);
+    else if (target instanceof HTMLInputElement && target.name === "q" && target.form) {
+      const form = target.form;
+      cancelSearch();
+      searchTimer.current = setTimeout(() => apply(form, { replace: true }), CONTACT_SEARCH_DEBOUNCE_MS);
+    }
+  }
 
   return (
     // `key` resets the uncontrolled fields when the applied filter changes (e.g. via a tag link).
-    <form key={networkFilterHref(filter)} action="/network" className="space-y-2" role="search" onSubmit={onSubmit} onChange={(event) => {
-      if (event.target instanceof HTMLSelectElement && event.target.form) apply(event.target.form);
-    }}>
+    <form key={contactFiltersFormKey(filter)} action="/network" className="space-y-2" role="search" onSubmit={onSubmit} onChange={onChange}>
       {filter.tagId && <input type="hidden" name="tag" value={filter.tagId} />}
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" type="search" defaultValue={filter.query} placeholder={t("list.searchPlaceholder")} aria-label={t("list.search")} className="pl-8" />
+          <Input ref={searchInput} name="q" type="search" defaultValue={filter.query} placeholder={t("list.searchPlaceholder")} aria-label={t("list.search")} className="pl-8" />
         </div>
         <Button type="submit" variant="outline">{t("list.search")}</Button>
       </div>
