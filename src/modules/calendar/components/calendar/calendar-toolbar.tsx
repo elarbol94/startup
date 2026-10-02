@@ -1,20 +1,39 @@
 "use client";
 
-// Calendar page header: period label, period navigation, view switcher, filter and new-event buttons.
+// Calendar page header: period label, period navigation, view switcher, "my calendars", filter,
+// shortcut help and new-event buttons, with keyboard hints in the tooltips.
 // Used by calendar-client.tsx.
 import { useTranslations } from "next-intl";
 import { ArrowLeft, ArrowRight, Plus, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { localDateInZone } from "../../date-utils";
-import type { CalendarView, CalendarWorkspace } from "../../types";
-import { CALENDAR_VIEWS, MOBILE_VIEW_STORAGE_KEY, type FilterState } from "./calendar-types";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { cn } from "@/lib/utils";
+import type { CalendarView } from "../../types";
+import {
+  CALENDAR_VIEW_LABELS,
+  CALENDAR_VIEWS,
+  MOBILE_VIEW_STORAGE_KEY,
+  type CalendarNavigateTarget,
+  type FilterState,
+} from "./calendar-types";
+import { CalendarShortcutKeys, CalendarShortcutsHelp } from "./calendar-shortcuts-help";
+import { CALENDAR_PAGE_SHORTCUTS as KEYS, CALENDAR_VIEW_SHORTCUTS } from "./use-calendar-shortcuts";
+
+const VIEW_HINTS = {
+  day: "hintViewDay",
+  workweek: "hintViewWorkweek",
+  week: "hintViewWeek",
+  month: "hintViewMonth",
+  agenda: "hintViewAgenda",
+  team: "hintViewTeam",
+} as const satisfies Record<CalendarView, string>;
 
 export function CalendarToolbar({
   periodLabel,
   t,
   movePeriod,
+  goToday,
   navigate,
-  workspace,
   view,
   ownCalendarIds,
   filters,
@@ -23,73 +42,67 @@ export function CalendarToolbar({
   activeFilterCount,
   openNewEvent,
   defaultCalendarId,
+  helpOpen,
+  setHelpOpen,
 }: {
   periodLabel: string;
   t: ReturnType<typeof useTranslations<"calendar">>;
   movePeriod: (direction: number) => void;
-  navigate: (next: { view?: CalendarView; date?: string; filters?: FilterState }) => void;
-  workspace: CalendarWorkspace;
+  goToday: () => void;
+  navigate: (next: CalendarNavigateTarget) => void;
   view: CalendarView;
   ownCalendarIds: string[];
   filters: FilterState;
   selectCalendars: (ids: string[]) => void;
   setFiltersOpen: (open: boolean) => void;
   activeFilterCount: number;
-  openNewEvent: (day?: string, hour?: number) => void;
+  openNewEvent: () => void;
   defaultCalendarId: string | undefined;
+  helpOpen: boolean;
+  setHelpOpen: (open: boolean) => void;
 }) {
+  const onlyOwnCalendars =
+    ownCalendarIds.length > 0 &&
+    filters.calendars.length === ownCalendarIds.length &&
+    ownCalendarIds.every((id) => filters.calendars.includes(id));
   return (
     <header className="flex flex-col gap-3 2xl:flex-row 2xl:items-end 2xl:justify-between">
-      <div>
-        <div className="mt-1 flex flex-wrap items-baseline gap-x-4 gap-y-1">
-          <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{periodLabel}</h1>
-        </div>
-      </div>
+      <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{periodLabel}</h1>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 items-center rounded-lg border bg-background p-0.5">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("previous")}
-            onClick={() => movePeriod(-1)}
-          >
-            <ArrowLeft />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              navigate({
-                date: localDateInZone(
-                  new Date(),
-                  workspace.preferences.timezone,
-                ),
-              })
-            }
-          >
-            {t("today")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("next")}
-            onClick={() => movePeriod(1)}
-          >
-            <ArrowRight />
-          </Button>
-        </div>
-        <div className="hidden items-center rounded-lg border bg-background p-0.5 sm:flex">
-          {CALENDAR_VIEWS.map((mode) => (
-            <Button
-              key={mode}
-              variant={view === mode ? "secondary" : "ghost"}
-              size="sm"
-              aria-current={view === mode ? "page" : undefined}
-              onClick={() => navigate({ view: mode })}
-              className="inline-flex"
-            >
-              {t(mode)}
+          <ShortcutTooltip label={t("previous")} keys={<CalendarShortcutKeys shortcuts={[KEYS.previous, KEYS.previousAlt]} />} hint={t("hintPrevious")}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("previous")} onClick={() => movePeriod(-1)}>
+              <ArrowLeft />
             </Button>
+          </ShortcutTooltip>
+          <ShortcutTooltip label={t("shortcutToday")} shortcut={KEYS.today} hint={t("hintToday")}>
+            <Button variant="ghost" size="sm" onClick={goToday}>
+              {t("today")}
+            </Button>
+          </ShortcutTooltip>
+          <ShortcutTooltip label={t("next")} keys={<CalendarShortcutKeys shortcuts={[KEYS.next, KEYS.nextAlt]} />} hint={t("hintNext")}>
+            <Button variant="ghost" size="icon-sm" aria-label={t("next")} onClick={() => movePeriod(1)}>
+              <ArrowRight />
+            </Button>
+          </ShortcutTooltip>
+        </div>
+        <div
+          role="group"
+          aria-label={t("coreViewSwitcher")}
+          className="hidden min-h-11 items-center rounded-lg border bg-background p-0.5 sm:flex"
+        >
+          {CALENDAR_VIEWS.map((mode) => (
+            <ShortcutTooltip key={mode} label={t(CALENDAR_VIEW_LABELS[mode])} shortcut={CALENDAR_VIEW_SHORTCUTS[mode]} hint={t(VIEW_HINTS[mode])}>
+              <Button
+                variant={view === mode ? "secondary" : "ghost"}
+                size="sm"
+                aria-current={view === mode ? "page" : undefined}
+                onClick={() => navigate({ view: mode })}
+                className={cn("inline-flex px-2.5", view === mode && "shadow-xs")}
+              >
+                {mode === "workweek" ? t("coreViewWorkweekShort") : t(CALENDAR_VIEW_LABELS[mode])}
+              </Button>
+            </ShortcutTooltip>
           ))}
         </div>
         <label className="sr-only" htmlFor="calendar-mobile-view">{t("view")}</label>
@@ -105,25 +118,39 @@ export function CalendarToolbar({
             navigate({ view: next });
           }}
         >
-          {CALENDAR_VIEWS.map((mode) => <option key={mode} value={mode}>{t(mode)}</option>)}
+          {CALENDAR_VIEWS.map((mode) => (
+            <option key={mode} value={mode}>
+              {t(CALENDAR_VIEW_LABELS[mode])}
+            </option>
+          ))}
         </select>
-        <Button variant="outline" className="h-11 flex-1 px-3 sm:flex-none" disabled={!ownCalendarIds.length}
-          aria-pressed={ownCalendarIds.length > 0 && filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id))}
-          onClick={() => selectCalendars(filters.calendars.length === ownCalendarIds.length && ownCalendarIds.every((id) => filters.calendars.includes(id)) ? [] : ownCalendarIds)}>{t("myCalendars")}</Button>
-        <Button
-          variant="outline"
-          className="h-11 px-3"
-          aria-label={t("filters")}
-          onClick={() => setFiltersOpen(true)}
-        >
-          <SlidersHorizontal className="size-4" />
-          <span className="hidden sm:inline">{t("filters")}</span>
-          {activeFilterCount > 0 ? <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] text-background">{activeFilterCount}</span> : null}
-        </Button>
-        <Button className="h-11 px-3" onClick={() => openNewEvent()} disabled={!defaultCalendarId} aria-label={t("newEvent")}>
-          <Plus />
-          <span className="hidden sm:inline">{t("newEvent")}</span>
-        </Button>
+        <ShortcutTooltip label={t("myCalendars")} hint={t("hintMyCalendars")}>
+          <Button
+            variant="outline"
+            className="h-11 flex-1 px-3 sm:flex-none"
+            disabled={!ownCalendarIds.length}
+            aria-pressed={onlyOwnCalendars}
+            onClick={() => selectCalendars(onlyOwnCalendars ? [] : ownCalendarIds)}
+          >
+            {t("myCalendars")}
+          </Button>
+        </ShortcutTooltip>
+        <ShortcutTooltip label={t("filters")} hint={t("hintFilters")}>
+          <Button variant="outline" className="h-11 px-3" aria-label={t("filters")} onClick={() => setFiltersOpen(true)}>
+            <SlidersHorizontal className="size-4" />
+            <span className="hidden sm:inline">{t("filters")}</span>
+            {activeFilterCount > 0 ? (
+              <span className="rounded-full bg-foreground px-1.5 py-0.5 text-[10px] text-background">{activeFilterCount}</span>
+            ) : null}
+          </Button>
+        </ShortcutTooltip>
+        <CalendarShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} t={t} />
+        <ShortcutTooltip label={t("newEvent")} keys={<CalendarShortcutKeys shortcuts={[KEYS.newEvent, KEYS.newEventAlt]} />} hint={t("hintNewEvent")}>
+          <Button className="h-11 px-3" onClick={() => openNewEvent()} disabled={!defaultCalendarId} aria-label={t("newEvent")}>
+            <Plus />
+            <span className="hidden sm:inline">{t("newEvent")}</span>
+          </Button>
+        </ShortcutTooltip>
       </div>
     </header>
   );

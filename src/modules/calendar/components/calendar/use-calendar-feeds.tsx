@@ -12,6 +12,7 @@ import {
   syncCalendarSubscriptionNow,
 } from "../../subscription-actions";
 import type { CalendarSource } from "../../types";
+import { canAddEvents } from "./calendar-types";
 import {
   feedErrorMessage,
   ImportCalendarDialog,
@@ -30,9 +31,7 @@ export function useCalendarFeeds({
   const [subscribeOpen, setSubscribeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [confirmDialog, confirm] = useConfirm();
-  const importTargets = calendars.filter(
-    (calendar) => !calendar.subscription && (calendar.role === "owner" || calendar.role === "editor"),
-  );
+  const importTargets = calendars.filter(canAddEvents);
 
   async function syncNow(calendar: CalendarSource) {
     const toastId = toast.loading(t("feeds.syncNow"));
@@ -99,3 +98,4 @@ export function useCalendarFeeds({
     dialogs,
   };
 }
+export type CalendarFeeds = ReturnType<typeof useCalendarFeeds>;

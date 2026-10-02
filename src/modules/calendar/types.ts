@@ -43,6 +43,10 @@ export type CalendarItem = {
   assigneeId: string | null;
   assigneeName: string | null;
   attendeeIds: string[];
+  /** Per-attendee RSVP state for events (empty for busy-only entries and non-events). */
+  attendeeResponses?: Record<string, CalendarResponse>;
+  /** The current user's RSVP when they are invited to this event; null otherwise. */
+  myResponse: CalendarResponse | null;
   occurrenceKey: string | null;
   recurring: boolean;
   recurrenceRule: string | null;

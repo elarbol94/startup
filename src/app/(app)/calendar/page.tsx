@@ -1,20 +1,14 @@
 import { headers } from "next/headers";
 import { requireUser } from "@/lib/auth";
-import {
-  addDays,
-  endOfMonthWindow,
-  isValidDate,
-  localDateInZone,
-  startOfWeek,
-} from "@/modules/calendar/date-utils";
+import { calendarViewRange } from "@/modules/calendar/calendar-period";
+import { isValidDate, localDateInZone } from "@/modules/calendar/date-utils";
 import { CalendarClient } from "@/modules/calendar/components/calendar-client";
-import {
-  getCalendarTimezone,
-  listCalendarWorkspace,
-} from "@/modules/calendar/queries";
+import { getCalendarPageSettings } from "@/modules/calendar/page-queries";
+import { listCalendarWorkspace } from "@/modules/calendar/queries";
+import { calendarViews } from "@/modules/calendar/schema";
 import type { CalendarView } from "@/modules/calendar/types";
 
-const views = new Set<CalendarView>(["week", "month", "agenda", "team"]);
+const views = new Set<CalendarView>(calendarViews);
 
 export default async function CalendarPage({
   searchParams,
@@ -40,30 +34,16 @@ export default async function CalendarPage({
   const isPhone =
     requestHeaders.get("sec-ch-ua-mobile") === "?1" ||
     /iPhone|iPod|Android.+Mobile|Mobi/i.test(requestHeaders.get("user-agent") ?? "");
+  const settings = getCalendarPageSettings(currentUser.id);
   const view = views.has(query.view as CalendarView)
     ? (query.view as CalendarView)
     : isPhone
       ? "agenda"
-      : "week";
-  const fallbackDate = localDateInZone(
-    new Date(),
-    getCalendarTimezone(currentUser.id),
-  );
-  const date = isValidDate(query.date ?? "") ? query.date! : fallbackDate;
-
-  let from: string;
-  let to: string;
-  if (view === "month") {
-    const month = endOfMonthWindow(date);
-    from = startOfWeek(month.start, 1);
-    to = addDays(from, 42);
-  } else if (view === "agenda") {
-    from = date;
-    to = addDays(date, 30);
-  } else {
-    from = startOfWeek(date, 1);
-    to = addDays(from, 7);
-  }
+      : settings.defaultView;
+  // "Today" in the user's calendar timezone, so the first render already highlights it.
+  const today = localDateInZone(new Date(), settings.timezone);
+  const date = isValidDate(query.date ?? "") ? query.date! : today;
+  const { from, to } = calendarViewRange(view, date, settings.weekStartsOn);
 
   const workspace = listCalendarWorkspace({
     userId: currentUser.id,
@@ -78,6 +58,7 @@ export default async function CalendarPage({
       view={view}
       viewWasExplicit={views.has(query.view as CalendarView)}
       date={date}
+      today={today}
       range={{ from, to }}
       initialFilters={{
         sources: query.sources?.split(",").filter(Boolean) ?? [],

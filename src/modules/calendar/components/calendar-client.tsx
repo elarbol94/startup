@@ -1,82 +1,41 @@
 "use client";
 
-// Calendar page client: owns page state (filters, drafts, dialogs, selection) and assembles
-// the toolbar, views, side panel and dialogs from ./calendar/.
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  useTransition,
-  type FormEvent,
-} from "react";
-import { useRouter } from "next/navigation";
+// Calendar page client: wires the page hooks (URL state, dialogs, selection, time changes,
+// shortcuts) to the toolbar, sidebar, active view, detail panel and dialogs from ./calendar/.
+import { useMemo, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
-import { moveCalendarEvent } from "../actions";
-import {
-  createCalendar,
-  updateCalendar,
-} from "../calendar-management-actions";
-import { updateCalendarSubscriptionUrl } from "../subscription-actions";
-import { saveCalendarView } from "../preference-actions";
-import {
-  addDays,
-  dateRange,
-  daysBetween,
-  isoDate,
-  localDateInZone,
-  parseDate,
-} from "../date-utils";
-import type {
-  CalendarItem,
-  CalendarView,
-  CalendarWorkspace,
-} from "../types";
 import { cn } from "@/lib/utils";
-import { canonicalTaskHref } from "@/modules/context/routes";
-import {
-  CALENDAR_VIEWS,
-  MOBILE_VIEW_STORAGE_KEY,
-  type CalendarDraft,
-  type EventDraft,
-  type FilterState,
-  type ImportableDraftField,
-} from "./calendar/calendar-types";
-import { SOURCE_TYPES } from "./calendar/calendar-filter-utils";
-import { blankDraft, itemDraft } from "./calendar/event-draft-utils";
+import { saveCalendarView } from "../preference-actions";
+import { dateRange } from "../date-utils";
+import type { CalendarView, CalendarWorkspace } from "../types";
+import { canAddEvents, type FilterState } from "./calendar/calendar-types";
+import { busyDaysFor, periodLabel } from "./calendar/calendar-client-utils";
+import { createCalendarDropHandlers } from "./calendar/calendar-drag-drop";
+import { useCalendarConfirm } from "./calendar/use-calendar-confirm";
 import { useCalendarFilteredItems } from "./calendar/use-calendar-filtered-items";
+import { useCalendarNavigation } from "./calendar/use-calendar-navigation";
 import { useCalendarReminderPolling } from "./calendar/use-calendar-reminders";
-import { createCalendarDropHandlers, dragPayload } from "./calendar/calendar-drag-drop";
+import { useCalendarSelection } from "./calendar/use-calendar-selection";
+import { useCalendarSettingsState } from "./calendar/use-calendar-settings-state";
+import { focusCalendarSearch, useCalendarShortcuts } from "./calendar/use-calendar-shortcuts";
+import { useCalendarShowColors } from "./calendar/use-calendar-show-colors";
+import { useCalendarToday } from "./calendar/use-calendar-today";
+import { useCalendarFeeds } from "./calendar/use-calendar-feeds";
+import { useEventDialogState } from "./calendar/use-event-dialog-state";
+import { useEventTimeChange } from "./calendar/use-event-time-change";
 import { CalendarToolbar } from "./calendar/calendar-toolbar";
-import { FlowWeek } from "./calendar/flow-week";
-import { MonthView } from "./calendar/month-view";
-import { AgendaView } from "./calendar/agenda-view";
-import { TeamView } from "./calendar/team-view";
-import { Inspector } from "./calendar/inspector";
-import { UnscheduledTray } from "./calendar/unscheduled-tray";
+import { CalendarSidebar } from "./calendar/sidebar/calendar-sidebar";
+import { CalendarViewArea } from "./calendar/calendar-view-area";
+import { CalendarDetailPanel } from "./calendar/calendar-detail-panel";
+import { QuickCreatePopover } from "./calendar/quick-create/quick-create-popover";
 import { CalendarFiltersDialog } from "./calendar/calendar-filters-dialog";
 import { EventDialog } from "./calendar/event-dialog";
 import { EventImportSection } from "./calendar/event-import-section";
 import { CalendarSettingsDialog } from "./calendar/calendar-settings-dialog";
-import { feedErrorMessage } from "./calendar/calendar-feed-dialogs";
-import { useCalendarFeeds } from "./calendar/use-calendar-feeds";
 
-const subscribeToClock = (onStoreChange: () => void) => {
-  const timer = window.setInterval(onStoreChange, 60_000);
-  return () => window.clearInterval(timer);
-};
-
-// New events start linked to the project they were opened from, or to the one
-// project the calendar is filtered to.
-function pickProjects(projects: CalendarWorkspace["projects"], projectIds: string[]) {
-  return projects
-    .filter((project) => projectIds.includes(project.id))
-    .map((project) => ({ ...project, archived: false }));
-}
+type QuickCreateSlot = { day: string; startMinutes: number; endMinutes: number; anchor: DOMRect };
 
 export function CalendarClient({
   currentUser,
@@ -84,6 +43,7 @@ export function CalendarClient({
   view,
   viewWasExplicit,
   date,
+  today: serverToday,
   range,
   initialFilters,
   openNewEvent: shouldOpenNewEvent = false,
@@ -94,6 +54,8 @@ export function CalendarClient({
   view: CalendarView;
   viewWasExplicit: boolean;
   date: string;
+  /** Today in the user's calendar timezone, computed on the server. */
+  today: string;
   range: { from: string; to: string };
   initialFilters: FilterState;
   openNewEvent?: boolean;
@@ -102,343 +64,62 @@ export function CalendarClient({
 }) {
   const t = useTranslations("calendar");
   const locale = useLocale();
-  const router = useRouter();
+  const timezone = workspace.preferences.timezone;
   const [textPrompt, askText] = useTextPrompt();
-  const feeds = useCalendarFeeds({ calendars: workspace.calendars, refresh: () => router.refresh(), t });
-  // Subscribed calendars are read-only mirrors, so new events never default to one.
-  const writableCalendars = workspace.calendars.filter((calendar) => !calendar.subscription);
-  const defaultCalendarId = writableCalendars.find((calendar) => calendar.role === "owner")?.id
-    ?? writableCalendars.find((calendar) => calendar.role === "editor")?.id;
+  const [confirmDialog, confirm] = useCalendarConfirm();
   const [pending, startTransition] = useTransition();
-  const [filters, setFilters] = useState<FilterState>(initialFilters);
-  const incomingFilterKey = JSON.stringify(initialFilters);
-  const [syncedFilterKey, setSyncedFilterKey] = useState(incomingFilterKey);
-  if (syncedFilterKey !== incomingFilterKey) {
-    setSyncedFilterKey(incomingFilterKey);
-    setFilters(initialFilters);
-  }
-  const [eventOpen, setEventOpen] = useState(shouldOpenNewEvent);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [showCalendarColors, setShowCalendarColors] = useState(false);
-  const [calendarDraft, setCalendarDraft] = useState<CalendarDraft>({
-    name: "",
-    color: "#6D5EF7",
-    visibility: "private",
-  });
-  const importFileInput = useRef<HTMLInputElement>(null);
-  const [importUrl, setImportUrl] = useState("");
-  const [importBusy, setImportBusy] = useState(false);
-  const [importError, setImportError] = useState("");
-  const [importResult, setImportResult] = useState<{
-    label: string;
-    fields: string[];
-    method: "ai" | "parser";
-  } | null>(null);
-  const [manuallyEditedFields, setManuallyEditedFields] = useState<
-    Set<ImportableDraftField>
-  >(() => new Set());
-  const presetProjects = pickProjects(workspace.projects, presetProjectId ? [presetProjectId] : []);
-  const [draft, setDraft] = useState<EventDraft>(() =>
-    blankDraft(
-      defaultCalendarId ?? "",
-      workspace.preferences.timezone,
-      date,
-      9,
-      presetProjects,
-    ),
-  );
-  const [selected, setSelected] = useState<CalendarItem | null>(null);
-  const [conflicts, setConflicts] = useState<
-    { id: string; title: string; startAt: string; endAt: string }[]
-  >([]);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const clientToday = useSyncExternalStore(
-    subscribeToClock,
-    () =>
-      localDateInZone(
-        new Date(),
-        workspace.preferences.timezone,
-      ),
-    () => null,
-  );
-  useEffect(() => {
-    if (viewWasExplicit) return;
-    if (!window.matchMedia("(max-width: 767px)").matches) return;
-    // Phones default to the agenda unless the person picked another view on this device.
-    let preferred: CalendarView = "agenda";
-    try {
-      const stored = window.localStorage.getItem(MOBILE_VIEW_STORAGE_KEY);
-      if (stored && (CALENDAR_VIEWS as readonly string[]).includes(stored)) preferred = stored as CalendarView;
-    } catch {}
-    if (preferred === view) return;
-    const params = new URLSearchParams(window.location.search);
-    params.set("view", preferred);
-    params.set("date", date);
-    router.replace(`/calendar?${params.toString()}`);
-  }, [date, router, view, viewWasExplicit]);
-  const { visibleSources, displayItems, filteredUnscheduledTasks } = useCalendarFilteredItems(
-    workspace,
-    filters,
-    showCalendarColors,
-  );
-  const subscriptionHost = (item: CalendarItem) =>
-    workspace.calendars.find((calendar) => calendar.id === item.calendarId)?.subscription?.host;
+  const today = useCalendarToday(serverToday, timezone);
+  const nav = useCalendarNavigation({ view, viewWasExplicit, date, today, initialFilters, workspace });
+  const { router, filters } = nav;
+  // Subscribed calendars are read-only mirrors, so new events never default to one.
+  const writableCalendars = workspace.calendars.filter(canAddEvents);
+  const defaultCalendarId = writableCalendars.find((calendar) => calendar.role === "owner")?.id
+    ?? writableCalendars[0]?.id;
   const ownCalendarIds = workspace.calendars.filter((calendar) => calendar.role === "owner").map((calendar) => calendar.id);
-  function selectCalendars(ids: string[]) {
-    updateFilters({ sources: [], people: [], projects: [], calendars: ids, query: "" });
-  }
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [quickCreate, setQuickCreate] = useState<QuickCreateSlot | null>(null);
+  const [showCalendarColors, setShowCalendarColors] = useCalendarShowColors();
+  const { visibleSources, displayItems, filteredUnscheduledTasks } = useCalendarFilteredItems(workspace, filters, showCalendarColors);
+  const days = useMemo(() => dateRange(range.from, range.to), [range.from, range.to]);
+  const busyDays = useMemo(() => busyDaysFor(displayItems, range, timezone), [displayItems, range, timezone]);
 
-
-  const days = useMemo(
-    () => dateRange(range.from, range.to),
-    [range.from, range.to],
-  );
-  const weekDays = days.slice(0, 7);
-
-  useCalendarReminderPolling(locale, t);
-
-  const previousOpenNewEvent = useRef(shouldOpenNewEvent);
-  useEffect(() => {
-    const wasRequested = previousOpenNewEvent.current;
-    previousOpenNewEvent.current = shouldOpenNewEvent;
-    if (!shouldOpenNewEvent || wasRequested || !defaultCalendarId) return;
-    setConflicts([]);
-    setDraft(
-      blankDraft(
-        defaultCalendarId,
-        workspace.preferences.timezone,
-        date,
-        9,
-        pickProjects(workspace.projects, presetProjectId ? [presetProjectId] : []),
-      ),
-    );
-    setImportUrl("");
-    setImportBusy(false);
-    setImportError("");
-    setImportResult(null);
-    setManuallyEditedFields(new Set());
-    setEventOpen(true);
-  }, [
+  const events = useEventDialogState({
+    workspace,
     date,
     defaultCalendarId,
-    presetProjectId,
     shouldOpenNewEvent,
-    workspace.preferences.timezone,
-    workspace.projects,
-  ]);
-
-  function buildUrl(next: {
-    view?: CalendarView;
-    date?: string;
-    filters?: FilterState;
-  }) {
-    const params = new URLSearchParams();
-    params.set("view", next.view ?? view);
-    params.set("date", next.date ?? date);
-    const values = next.filters ?? filters;
-    if (values.sources.length > 0) params.set("sources", values.sources.join(","));
-    if (values.people.length > 0) params.set("people", values.people.join(","));
-    if (values.projects.length > 0)
-      params.set("projects", values.projects.join(","));
-    if (values.calendars.length > 0)
-      params.set("calendars", values.calendars.join(","));
-    if (values.query) params.set("query", values.query);
-    return `/calendar?${params.toString()}`;
-  }
-
-  function navigate(next: {
-    view?: CalendarView;
-    date?: string;
-    filters?: FilterState;
-  }) {
-    router.push(buildUrl(next));
-  }
-
-  function closeEventDialog() {
-    setEventOpen(false);
-    if (shouldOpenNewEvent) router.replace(buildUrl({}));
-  }
-
-  function resetImport() {
-    setImportUrl("");
-    setImportBusy(false);
-    setImportError("");
-    setImportResult(null);
-    setManuallyEditedFields(new Set());
-  }
-
-  function editDraft<K extends ImportableDraftField>(
-    field: K,
-    value: EventDraft[K],
-  ) {
-    setDraft((current) => {
-      const next = { ...current, [field]: value };
-      if (field === "startDate") {
-        next.endDate = addDays(String(value), Math.max(current.allDay ? 1 : 0, daysBetween(current.startDate, current.endDate)));
-      }
-      if (field === "allDay") {
-        next.endDate = addDays(current.endDate, value ? 1 : -1);
-        if (next.endDate < next.startDate) next.endDate = next.startDate;
-      }
-      return next;
-    });
-    setManuallyEditedFields((current) => new Set(current).add(field));
-  }
-
-  function updateFilters(next: FilterState) {
-    setFilters(next);
-    router.replace(buildUrl({ filters: next }));
-  }
-
-  function toggleFilter(
-    group: "sources" | "people" | "projects" | "calendars",
-    value: string,
-  ) {
-    const current =
-      group === "sources" && filters.sources.length === 0
-        ? [...SOURCE_TYPES]
-        : group === "calendars" && filters.calendars.length === 0
-          ? workspace.calendars.map((calendar) => calendar.id)
-          : filters[group];
-    const values = current.includes(value)
-      ? current.filter((item) => item !== value)
-      : [...current, value];
-    updateFilters({ ...filters, [group]: values.length === 0 && (group === "sources" || group === "calendars") ? ["__none__"] : values.filter((id) => id !== "__none__") });
-  }
-
-  function movePeriod(direction: number) {
-    if (view === "month") {
-      const current = parseDate(date);
-      navigate({
-        date: isoDate(
-          new Date(
-            Date.UTC(
-              current.getUTCFullYear(),
-              current.getUTCMonth() + direction,
-              1,
-            ),
-          ),
-        ),
-      });
-      return;
-    }
-    const amount = view === "agenda" ? 30 : 7;
-    navigate({ date: addDays(date, amount * direction) });
-  }
-
-  function openNewEvent(day = date, hour = 9) {
-    if (!defaultCalendarId) {
-      toast.error(t("noEditableCalendar"));
-      return;
-    }
-    setConflicts([]);
-    setDraft(
-      blankDraft(
-        defaultCalendarId,
-        workspace.preferences.timezone,
-        day,
-        hour,
-        pickProjects(workspace.projects, filters.projects.length === 1 ? filters.projects : []),
-      ),
-    );
-    resetImport();
-    setEventOpen(true);
-  }
-
-  function openNewCalendar() {
-    setCalendarDraft({ name: "", color: "#6D5EF7", visibility: "private" });
-    setCalendarOpen(true);
-  }
-
-  function openEditCalendar(calendar: CalendarWorkspace["calendars"][number]) {
-    setCalendarDraft({
-      id: calendar.id,
-      name: calendar.name,
-      color: calendar.color,
-      visibility: calendar.visibility,
-      subscriptionHost: calendar.subscription?.host,
-      feedUrl: "",
-    });
-    setCalendarOpen(true);
-  }
-
-  function submitCalendar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    startTransition(() => {
-      void (calendarDraft.id
-        ? updateCalendar({
-            calendarId: calendarDraft.id,
-            name: calendarDraft.name,
-            color: calendarDraft.color,
-            visibility: calendarDraft.visibility,
-          })
-        : createCalendar({
-            name: calendarDraft.name,
-            color: calendarDraft.color,
-            visibility: calendarDraft.visibility,
-          })
-      )
-        .then(async () => {
-          if (calendarDraft.id && calendarDraft.feedUrl?.trim()) {
-            const result = await updateCalendarSubscriptionUrl({ calendarId: calendarDraft.id, url: calendarDraft.feedUrl });
-            if (result.status === "error") {
-              toast.error(feedErrorMessage(t, result.error));
-              return;
-            }
-          }
-          setCalendarOpen(false);
-          router.refresh();
-        })
-        .catch(() => toast.error(t("calendarSaveError")));
-    });
-  }
-
-  function openEditEvent(item: CalendarItem) {
-    if (item.kind !== "event" && item.kind !== "focus") return;
-    setConflicts([]);
-    setDraft(
-      itemDraft(
-        item,
-        defaultCalendarId ?? "",
-        workspace.preferences.timezone,
-      ),
-    );
-    resetImport();
-    setEventOpen(true);
-  }
-
-  const { dropOnDay, dropOnTime } = createCalendarDropHandlers({
-    workspace,
-    defaultCalendarId,
-    router,
-    t,
-    setDraggingId,
+    presetProjectId,
+    projectFilter: filters.projects,
+    onCloseRequestedNewEvent: () => router.replace(nav.buildUrl({})),
+    noEditableCalendarMessage: t("noEditableCalendar"),
   });
+  const settings = useCalendarSettingsState({ t, router, startTransition });
+  const feeds = useCalendarFeeds({ calendars: workspace.calendars, refresh: () => router.refresh(), t });
+  const selection = useCalendarSelection({ items: workspace.items, t, router, confirm, openEditEvent: events.openEditEvent });
+  const timeChange = useEventTimeChange({ t, router, confirm, openRecurring: events.openEditEvent });
+  const { dropOnDay, dropOnTime } = createCalendarDropHandlers({ workspace, defaultCalendarId, router, t, setDraggingId, confirm });
 
-  async function changeEventTime(item: CalendarItem, startAt: string, endAt: string) {
-    if (!item.editable) return false;
-    if (item.recurring) {
-      setDraft(itemDraft({ ...item, startAt, endAt }, defaultCalendarId ?? "", workspace.preferences.timezone));
-      setConflicts([]);
-      resetImport();
-      setEventOpen(true);
-      return false;
-    }
-    try {
-      const input = { id: item.sourceId, startAt, endAt, expectedUpdatedAt: item.updatedAt };
-      const result = await moveCalendarEvent(input);
-      if (result.status === "conflict") {
-        if (!window.confirm(t("conflictDescription"))) return false;
-        await moveCalendarEvent({ ...input, allowConflicts: true });
-      }
-      router.refresh();
-      return true;
-    } catch {
-      toast.error(t("timeChangeError"));
-      return false;
-    }
-  }
+  useCalendarReminderPolling(locale, t);
+  useCalendarShortcuts({
+    enabled: !events.eventOpen && !settings.calendarOpen && !filtersOpen,
+    goToday: nav.goToday,
+    movePeriod: nav.movePeriod,
+    setView: (next) => nav.navigate({ view: next }),
+    newEvent: () => events.openNewEvent(),
+    focusSearch: () => {
+      if (!focusCalendarSearch()) setFiltersOpen(true);
+    },
+    deselect: () => {
+      setQuickCreate(null);
+      selection.deselect();
+    },
+    canDeselect: Boolean(selection.selected || quickCreate),
+    undo: timeChange.undoLast,
+    canUndo: timeChange.canUndo,
+    toggleHelp: () => setHelpOpen((open) => !open),
+  });
 
   async function saveView() {
     const name = await askText({ title: t("saveView"), label: t("viewName"), required: true, maxLength: 100 });
@@ -448,246 +129,165 @@ export function CalendarClient({
     toast.success(t("viewSaved"));
   }
 
-  const periodLabel =
-    view === "month"
-      ? new Intl.DateTimeFormat(locale, {
-          month: "long",
-          year: "numeric",
-          timeZone: "UTC",
-        }).format(parseDate(date))
-      : `${new Intl.DateTimeFormat(locale, {
-          month: "short",
-          day: "numeric",
-          timeZone: "UTC",
-        }).format(parseDate(range.from))} – ${new Intl.DateTimeFormat(locale, {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          timeZone: "UTC",
-        }).format(parseDate(addDays(range.to, -1)))}`;
-  const activeFilterCount =
-    filters.sources.length +
-    filters.people.length +
-    filters.projects.length +
-    filters.calendars.length +
-    (filters.query ? 1 : 0);
+  const sharedFilterProps = {
+    t,
+    locale,
+    date,
+    range,
+    busyDays,
+    workspace,
+    filters,
+    updateFilters: nav.updateFilters,
+    toggleFilter: nav.toggleFilter,
+    selectCalendars: nav.selectCalendars,
+    ownCalendarIds,
+    showCalendarColors,
+    setShowCalendarColors,
+    navigate: nav.navigate,
+    saveView,
+    openNewCalendar: settings.openNewCalendar,
+    openEditCalendar: settings.openEditCalendar,
+    feeds,
+  };
 
   return (
     <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-4">
       <CalendarToolbar
-        periodLabel={periodLabel}
+        periodLabel={periodLabel(view, date, range, locale, t)}
         t={t}
-        movePeriod={movePeriod}
-        navigate={navigate}
-        workspace={workspace}
+        movePeriod={nav.movePeriod}
+        goToday={nav.goToday}
+        navigate={nav.navigate}
         view={view}
         ownCalendarIds={ownCalendarIds}
         filters={filters}
-        selectCalendars={selectCalendars}
+        selectCalendars={nav.selectCalendars}
         setFiltersOpen={setFiltersOpen}
-        activeFilterCount={activeFilterCount}
-        openNewEvent={openNewEvent}
+        activeFilterCount={nav.activeFilterCount}
+        openNewEvent={() => events.openNewEvent()}
         defaultCalendarId={defaultCalendarId}
+        helpOpen={helpOpen}
+        setHelpOpen={setHelpOpen}
       />
 
-      {showCalendarColors && <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground" aria-label={t("colorsByCalendar")}>
-        {workspace.calendars.filter((calendar) => !filters.calendars.length || filters.calendars.includes(calendar.id)).map((calendar) => <span key={calendar.id} className="flex items-center gap-1.5"><span className="size-2 rounded-full" style={{backgroundColor:calendar.color}} />{calendar.name}</span>)}
-      </div>}
-
-      <div className="grid min-h-[44rem] gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
-
-
-        <div className="min-w-0 rounded-2xl border bg-card">
-          {view === "week" && (
-            <FlowWeek
-              days={weekDays}
-              today={clientToday}
-              items={displayItems}
-              draggingId={draggingId}
-              locale={locale}
-              t={t}
-              preferences={workspace.preferences}
-              onSelect={setSelected}
-              onCommit={changeEventTime}
-              onEdit={openEditEvent}
-              onNew={openNewEvent}
-              onDragStart={(event, item) => {
-                setDraggingId(item.id);
-                dragPayload(event, { type: "item", id: item.id });
-              }}
-              onDragEnd={() => setDraggingId(null)}
-              onDropDay={(event, day) => void dropOnDay(event, day)}
-              onDropTime={(event, day, hour) =>
-                void dropOnTime(event, day, hour)
-              }
-            />
-          )}
-          {view === "month" && (
-            <MonthView
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
+        <div className="relative flex min-h-[44rem] min-w-0 rounded-2xl border bg-card xl:h-[calc(100dvh-9rem)]">
+          {nav.navigating ? (
+            <div role="status" aria-label={t("coreLoading")} className="pointer-events-none absolute inset-x-4 top-0 z-30 h-0.5 animate-pulse rounded-full bg-primary" />
+          ) : null}
+          <CalendarSidebar {...sharedFilterProps} today={today} />
+          <div
+            aria-busy={nav.navigating}
+            className={cn("min-w-0 flex-1 transition-opacity duration-200 xl:overflow-y-auto", nav.navigating && "opacity-60")}
+          >
+            <CalendarViewArea
+              view={view}
               days={days}
               date={date}
-              today={clientToday}
+              today={today}
               items={displayItems}
+              workspace={workspace}
               locale={locale}
-              timezone={workspace.preferences.timezone}
               t={t}
-              onSelect={setSelected}
-              onNew={openNewEvent}
-              onDrop={(event, day) => void dropOnDay(event, day)}
-              onDragStart={(event, item) => {
-                setDraggingId(item.id);
-                dragPayload(event, { type: "item", id: item.id });
+              draggingId={draggingId}
+              setDraggingId={setDraggingId}
+              selectedId={selection.selectedId}
+              onSelect={(item) => {
+                setQuickCreate(null);
+                selection.select(item);
               }}
-              onDragEnd={() => setDraggingId(null)}
+              onDeselect={() => {
+                setQuickCreate(null);
+                selection.deselect();
+              }}
+              onCommit={timeChange.changeEventTime}
+              onEdit={events.openEditEvent}
+              onNew={(day, hour) => events.openNewEvent(day, hour)}
+              onCreateRange={(day, startMinutes, endMinutes, anchor) => {
+                selection.deselect();
+                if (!defaultCalendarId) toast.error(t("noEditableCalendar"));
+                else setQuickCreate({ day, startMinutes, endMinutes, anchor });
+              }}
+              onOpenDay={(day) => nav.navigate({ view: "day", date: day })}
+              onDropDay={dropOnDay}
+              onDropTime={dropOnTime}
             />
-          )}
-          {view === "agenda" && (
-            <AgendaView
-              days={days}
-              items={displayItems}
-              locale={locale}
-              timezone={workspace.preferences.timezone}
-              t={t}
-              onSelect={setSelected}
-            />
-          )}
-          {view === "team" && (
-            <TeamView
-              days={weekDays}
-              items={displayItems}
-              members={workspace.members}
-              locale={locale}
-              timezone={workspace.preferences.timezone}
-              t={t}
-              onSelect={setSelected}
-            />
-          )}
+          </div>
         </div>
 
-        <aside
-          className={cn(
-            "min-w-0",
-            selected
-              ? "hidden lg:fixed lg:right-3 lg:bottom-3 lg:z-40 lg:block lg:max-h-[calc(100dvh-1.5rem)] lg:w-[22rem] lg:overflow-y-auto lg:drop-shadow-xl 2xl:static 2xl:w-auto 2xl:overflow-visible 2xl:drop-shadow-none"
-              : "hidden 2xl:block",
-          )}
-        >
-          {selected ? (
-            <Inspector
-              item={selected}
-              locale={locale}
-              timezone={workspace.preferences.timezone}
-              t={t}
-              onClose={() => setSelected(null)}
-              onEdit={() => openEditEvent(selected)}
-              syncedFrom={subscriptionHost(selected)}
-            />
-          ) : (
-            <UnscheduledTray
-              tasks={filteredUnscheduledTasks}
-              t={t}
-              onDragStart={(event, id) => {
-                setDraggingId(`task:${id}`);
-                dragPayload(event, { type: "task", id });
-              }}
-              onDragEnd={() => setDraggingId(null)}
-              onSelect={(task) =>
-                router.push(canonicalTaskHref(task.id, task.projectId))
-              }
-            />
-          )}
-        </aside>
+        <CalendarDetailPanel
+          selected={selection.selected}
+          workspace={workspace}
+          unscheduledTasks={filteredUnscheduledTasks}
+          locale={locale}
+          t={t}
+          router={router}
+          setDraggingId={setDraggingId}
+          onClose={selection.deselect}
+          onEdit={events.openEditEvent}
+          onDuplicate={events.openDuplicate}
+          onDelete={(item) => void selection.deleteItem(item)}
+        />
       </div>
 
-      <CalendarFiltersDialog
-        filtersOpen={filtersOpen}
-        setFiltersOpen={setFiltersOpen}
-        t={t}
+      <QuickCreatePopover
+        open={quickCreate !== null}
+        anchor={quickCreate?.anchor ?? null}
+        day={quickCreate?.day ?? date}
+        startMinutes={quickCreate?.startMinutes ?? 540}
+        endMinutes={quickCreate?.endMinutes ?? 600}
+        calendars={workspace.calendars}
+        defaultCalendarId={defaultCalendarId}
+        timezone={timezone}
         locale={locale}
-        date={date}
-        clientToday={clientToday}
-        workspace={workspace}
-        filters={filters}
-        setFilters={setFilters}
-        updateFilters={updateFilters}
-        toggleFilter={toggleFilter}
-        selectCalendars={selectCalendars}
-        ownCalendarIds={ownCalendarIds}
-        showCalendarColors={showCalendarColors}
-        setShowCalendarColors={setShowCalendarColors}
-        visibleSources={visibleSources}
-        navigate={navigate}
-        saveView={saveView}
-        openNewCalendar={openNewCalendar}
-        openEditCalendar={openEditCalendar}
-        feeds={feeds}
+        t={t}
+        onClose={() => setQuickCreate(null)}
+        onCreated={() => setQuickCreate(null)}
+        onMoreOptions={(draft) => {
+          setQuickCreate(null);
+          events.openFromQuickCreate(draft);
+        }}
       />
 
-      <MobileBottomSheet
-        open={Boolean(selected)}
-        onOpenChange={(open) => { if (!open) setSelected(null); }}
-        title={t("details")}
-        description={selected?.title}
-        closeLabel={t("close")}
-      >
-        {selected ? (
-          <Inspector
-            item={selected}
-            locale={locale}
-            timezone={workspace.preferences.timezone}
-            t={t}
-            onClose={() => setSelected(null)}
-            onEdit={() => openEditEvent(selected)}
-            syncedFrom={subscriptionHost(selected)}
-          />
-        ) : null}
-      </MobileBottomSheet>
+      <CalendarFiltersDialog
+        {...sharedFilterProps}
+        filtersOpen={filtersOpen}
+        setFiltersOpen={setFiltersOpen}
+        clientToday={today}
+        setFilters={nav.setFilters}
+        visibleSources={visibleSources}
+      />
 
       <EventDialog
-        eventOpen={eventOpen}
-        setEventOpen={setEventOpen}
-        closeEventDialog={closeEventDialog}
-        draft={draft}
-        setDraft={setDraft}
-        editDraft={editDraft}
+        eventOpen={events.eventOpen}
+        setEventOpen={events.setEventOpen}
+        closeEventDialog={events.closeEventDialog}
+        draft={events.draft}
+        setDraft={events.setDraft}
+        editDraft={events.editDraft}
         workspace={workspace}
         currentUser={currentUser}
-        conflicts={conflicts}
-        setConflicts={setConflicts}
-        setSelected={setSelected}
+        conflicts={events.conflicts}
+        setConflicts={events.setConflicts}
+        setSelected={selection.setSelected}
         pending={pending}
         startTransition={startTransition}
         locale={locale}
         t={t}
         router={router}
-        importSection={
-          <EventImportSection
-            draft={draft}
-            setDraft={setDraft}
-            manuallyEditedFields={manuallyEditedFields}
-            importFileInput={importFileInput}
-            importUrl={importUrl}
-            setImportUrl={setImportUrl}
-            importBusy={importBusy}
-            setImportBusy={setImportBusy}
-            importError={importError}
-            setImportError={setImportError}
-            importResult={importResult}
-            setImportResult={setImportResult}
-            t={t}
-          />
-        }
+        importSection={<EventImportSection {...events.importState} t={t} />}
       />
       <CalendarSettingsDialog
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        draft={calendarDraft}
-        setDraft={setCalendarDraft}
-        onSubmit={submitCalendar}
+        open={settings.calendarOpen}
+        onOpenChange={settings.setCalendarOpen}
+        draft={settings.calendarDraft}
+        setDraft={settings.setCalendarDraft}
+        onSubmit={settings.submitCalendar}
         pending={pending}
         t={t}
       />
       {feeds.dialogs}
+      {confirmDialog}
       {textPrompt}
     </div>
   );

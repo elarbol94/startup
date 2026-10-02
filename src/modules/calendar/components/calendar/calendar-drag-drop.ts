@@ -18,6 +18,7 @@ import {
 import { createTaskFocusBlock, moveCalendarEvent } from "../../actions";
 import { addDays, daysBetween, zonedDateTimeToUtc } from "../../date-utils";
 import type { CalendarItem, CalendarWorkspace } from "../../types";
+import type { CalendarConfirm } from "./use-calendar-confirm";
 
 export function dragPayload(event: DragEvent, payload: object) {
   event.dataTransfer.effectAllowed = "move";
@@ -40,12 +41,15 @@ export function createCalendarDropHandlers({
   router,
   t,
   setDraggingId,
+  confirm,
 }: {
   workspace: CalendarWorkspace;
   defaultCalendarId: string | undefined;
   router: ReturnType<typeof useRouter>;
   t: ReturnType<typeof useTranslations<"calendar">>;
   setDraggingId: (id: string | null) => void;
+  /** Asks before applying a schedule change or saving over a conflict (see useCalendarConfirm). */
+  confirm: CalendarConfirm;
 }) {
   async function moveProjectItem(item: CalendarItem, targetDate: string) {
     if (!item.startDate || !item.endDate) return;
@@ -61,13 +65,12 @@ export function createCalendarDropHandlers({
       operation: "move" as const,
     };
     const preview = await previewPortfolioScheduleChange(edit);
-    if (
-      !window.confirm(
-        t("scheduleImpact", { count: preview.changes.length }),
-      )
-    ) {
-      return;
-    }
+    const confirmed = await confirm({
+      title: t("confirmScheduleTitle"),
+      description: t("scheduleImpact", { count: preview.changes.length }),
+      confirmLabel: t("confirmScheduleApply"),
+    });
+    if (!confirmed) return;
     const result = await applyPortfolioScheduleChange({
       ...edit,
       expectedPreview: { changes: preview.changes },
@@ -204,7 +207,12 @@ export function createCalendarDropHandlers({
           expectedUpdatedAt: item.updatedAt,
         });
         if (result.status === "conflict") {
-          if (window.confirm(t("conflictDescription"))) {
+          const confirmed = await confirm({
+            title: t("conflictTitle"),
+            description: t("conflictDescription"),
+            confirmLabel: t("saveAnyway"),
+          });
+          if (confirmed) {
             await moveCalendarEvent({
               id: item.sourceId,
               startAt: start.toISOString(),

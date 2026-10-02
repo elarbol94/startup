@@ -7,12 +7,18 @@ import { adjustEventRange, timedDaySegment, type TimeDragMode } from "../event-t
 import type { CalendarItem } from "../types";
 import { cn } from "@/lib/utils";
 
-export function TimelineEvent({ item, day, timezone, column, columns, onSelect, onEdit, onCommit }: {
+export function TimelineEvent({ item, day, timezone, column, columns, selected = false, past = false, detailed = false, onSelect, onEdit, onCommit }: {
   item: CalendarItem;
   day: string;
   timezone: string;
   column: number;
   columns: number;
+  /** Currently selected in the inspector: drawn with a ring. */
+  selected?: boolean;
+  /** Ended before now: slightly faded. */
+  past?: boolean;
+  /** Wide day-view column: also show location and attendee count. */
+  detailed?: boolean;
   onSelect: (item: CalendarItem) => void;
   onEdit: (item: CalendarItem) => void;
   onCommit: (item: CalendarItem, startAt: string, endAt: string) => Promise<boolean>;
@@ -78,24 +84,39 @@ export function TimelineEvent({ item, day, timezone, column, columns, onSelect, 
     void commit(range);
   }
   const handlers = { onPointerMove: move, onPointerUp: end, onPointerCancel: cancel };
+  const height = Math.max(24, display.end - display.start);
+  const compact = display.end - display.start <= 30;
+  const titleText = `${!original.startsHere ? "← " : ""}${item.title}${!original.endsHere ? " →" : ""}`;
+  const timeText = compact ? clock(display.start) : `${clock(display.start)}–${clock(display.end)}`;
+  const titleLines = height >= 80 ? "line-clamp-3" : height >= 52 ? "line-clamp-2" : "line-clamp-1";
+  const attendees = item.attendeeIds.length;
   return (
-    <div data-calendar-event={item.sourceId} className={cn("group absolute z-10 rounded border border-l-[3px] bg-background shadow-sm focus-within:z-20 hover:z-20", saving && "opacity-60", preview && "z-40 ring-2 ring-ring")}
-      style={{ top: display.start, height: Math.max(24, display.end - display.start), left: `calc(${column * 100 / columns + (preview?.dayOffset ?? 0) * 100}% + 2px)`, width: `calc(${100 / columns}% - 4px)`, borderLeftColor: item.calendarId ? item.color : "var(--muted-foreground)" }}>
+    <div data-calendar-event={item.sourceId} className={cn("group absolute z-10 rounded-md border border-l-[3px] text-foreground shadow-sm focus-within:z-20 hover:z-20", saving && "opacity-60", past && !selected && !preview && !saving && "opacity-60 hover:opacity-100", selected && "z-20 ring-2 ring-primary ring-offset-1 ring-offset-background", preview && "z-40 ring-2 ring-ring")}
+      style={{ top: display.start, height, left: `calc(${column * 100 / columns + (preview?.dayOffset ?? 0) * 100}% + 2px)`, width: `calc(${100 / columns}% - 4px)`, backgroundColor: `color-mix(in srgb, ${item.color} 18%, var(--background))`, borderColor: `color-mix(in srgb, ${item.color} 35%, transparent)`, borderLeftColor: item.color }}>
       {preview && !saving && <output
         data-testid="calendar-drag-time"
         data-edge={preview.mode === "end" ? "bottom" : "top"}
         aria-label={t(preview.mode === "end" ? "dragEndTime" : "dragStartTime", { time: clock(preview.mode === "end" ? display.end : display.start) })}
         className={cn("pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-semibold tabular-nums text-background shadow-md", preview.mode === "end" ? "top-full mt-1" : "bottom-full mb-1")}
       >{clock(preview.mode === "end" ? display.end : display.start)}</output>}
-      <button type="button" className={cn("flex h-full w-full flex-col items-start justify-start overflow-clip px-1 py-1 text-left text-[10px] outline-none focus-visible:ring-2 focus-visible:ring-ring", editable && "touch-none cursor-grab active:cursor-grabbing")}
-        aria-label={label} title={`${label}${item.assigneeName ? ` · ${item.assigneeName}` : ""}`} disabled={saving}
+      <button type="button" className={cn("flex h-full w-full flex-col items-start justify-start overflow-clip text-left text-[10px] leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring", compact ? "px-1 py-0.5" : "px-1 py-1", editable && "touch-none cursor-grab active:cursor-grabbing")}
+        aria-label={label} title={`${label}${item.location ? ` · ${item.location}` : ""}${item.assigneeName ? ` · ${item.assigneeName}` : ""}`} disabled={saving}
         onPointerDown={(event) => begin(event, "move")} {...handlers} onKeyDown={(event) => key(event, "move")}
         onClick={() => { if (!suppressClick.current) onSelect(item); suppressClick.current = false; }} onDoubleClick={() => { if (item.editable) onEdit(item); }}>
-        <span className="sticky top-36 block w-full">
-        <span className="block truncate font-semibold">{!original.startsHere ? "← " : ""}{item.title}{!original.endsHere ? " →" : ""}</span>
-        <span className="block truncate text-[9px] tabular-nums text-muted-foreground">{clock(display.start)}–{clock(display.end)}</span>
-        {columns === 1 && item.assigneeName && <span className="block truncate text-[9px] text-muted-foreground">{item.assigneeName}</span>}
-        </span>
+        {compact ? (
+          <span className="flex w-full min-w-0 items-baseline gap-1 whitespace-nowrap">
+            <span className="min-w-0 truncate font-semibold">{titleText}</span>
+            <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">· {timeText}</span>
+          </span>
+        ) : (
+          <span className="sticky top-36 block w-full">
+            <span className={cn("block break-words font-semibold", titleLines)}>{titleText}</span>
+            <span className="block truncate text-[9px] tabular-nums text-muted-foreground">{timeText}</span>
+            {detailed && item.location && <span className="block truncate text-[9px] text-muted-foreground">{item.location}</span>}
+            {detailed && attendees > 0 && <span className="block truncate text-[9px] text-muted-foreground">{t("weekAttendees", { count: attendees })}</span>}
+            {(columns === 1 || detailed) && item.assigneeName && <span className="block truncate text-[9px] text-muted-foreground">{item.assigneeName}</span>}
+          </span>
+        )}
       </button>
       {editable && original.startsHere && <button type="button" aria-label={t("resizeStart", { title: item.title })}
         title={t("dragQuarterHour")} className="absolute inset-x-0 -top-1 z-20 h-2 cursor-ns-resize touch-none opacity-0 hover:opacity-100 focus:opacity-100 group-hover:opacity-100"

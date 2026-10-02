@@ -32,10 +32,11 @@ import {
 import { addDays, zonedDateTimeToUtc } from "../../date-utils";
 import type { CalendarItem, CalendarWorkspace } from "../../types";
 import { cn } from "@/lib/utils";
-import type { CalendarConflict, EventDraft, ImportableDraftField } from "./calendar-types";
+import { canAddEvents, type CalendarConflict, type EventDraft, type ImportableDraftField } from "./calendar-types";
 import { AustrianDateInput, AustrianTimeInput } from "./austrian-date-time-inputs";
 import { ProjectPicker } from "@/modules/context/components/project-links-field";
 import { saveProjectLinks } from "@/modules/context/project-link-actions";
+import { useCalendarConfirm } from "./use-calendar-confirm";
 
 export function EventDialog({
   eventOpen,
@@ -74,6 +75,8 @@ export function EventDialog({
   router: ReturnType<typeof useRouter>;
   importSection: ReactNode;
 }) {
+  const [confirmDialog, confirm] = useCalendarConfirm();
+
   function recurrenceRule() {
     if (draft.repeat === "none") return null;
     return `FREQ=${draft.repeat.toUpperCase()}`;
@@ -204,8 +207,21 @@ export function EventDialog({
     });
   }
 
-  function removeEvent() {
+  async function removeEvent() {
     if (!draft.id) return;
+    const series = draft.recurring && draft.occurrenceKey ? draft.scope : null;
+    const confirmed = await confirm({
+      title: t("confirmDeleteEventTitle"),
+      description:
+        series === "occurrence"
+          ? t("confirmDeleteOccurrenceDescription")
+          : series === "future"
+            ? t("confirmDeleteFutureDescription")
+            : t("confirmDeleteEventDescription", { title: draft.title }),
+      confirmLabel: t("deleteEvent"),
+      destructive: true,
+    });
+    if (!confirmed) return;
     startTransition(() => {
       void (async () => {
         if (
@@ -250,6 +266,8 @@ export function EventDialog({
       }}
     >
       <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
+        {/* Inside the popup so base-ui treats the confirmation as a nested dialog. */}
+        {confirmDialog}
         <form onSubmit={submitEvent}>
           <DialogHeader>
             <DialogTitle>{draft.id ? t("editEvent") : t("newEvent")}</DialogTitle>
@@ -383,11 +401,7 @@ export function EventDialog({
                   }
                 >
                   {workspace.calendars
-                    .filter(
-                      (calendar) =>
-                        !calendar.subscription &&
-                        (calendar.role === "owner" || calendar.role === "editor"),
-                    )
+                    .filter(canAddEvents)
                     .map((calendar) => (
                       <option value={calendar.id} key={calendar.id}>
                         {calendar.name}
@@ -566,7 +580,7 @@ export function EventDialog({
               <Button
                 type="button"
                 variant="destructive"
-                onClick={removeEvent}
+                onClick={() => void removeEvent()}
                 disabled={pending}
                 className="sm:mr-auto"
               >
