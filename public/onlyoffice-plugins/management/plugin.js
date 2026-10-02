@@ -11,6 +11,9 @@
  * mp:evidence:{"id":…}, mp:task:{"id":…}, mp:deadline:{"id":…} and mp:bibliography.
  * The app re-reads them from every saved DOCX (src/modules/wiki/office/docx-extract.ts).
  *
+ * The cursor's paragraph is reported to the page (debounced) so it can reopen
+ * the document where the user left off; "goToParagraph" jumps back there.
+ *
  * "Format document" applies the house paragraph styles (HOUSE_STYLES below) to
  * the open document's styles, so older documents get the same heading and
  * paragraph spacing as new ones.
@@ -199,6 +202,44 @@
     });
   }
 
+  // --- Reading position --------------------------------------------------------
+
+  var positionTimer = 0;
+
+  /** Index (in document order) of the paragraph holding the cursor, or -1. */
+  function cursorParagraph() {
+    return command(function () {
+      var doc = Api.GetDocument();
+      var current = doc.GetCurrentParagraph ? doc.GetCurrentParagraph() : null;
+      if (!current) {
+        var range = doc.GetRangeBySelect();
+        var selected = range ? range.GetAllParagraphs() : [];
+        current = selected.length ? selected[0] : null;
+      }
+      if (!current || !current.GetInternalId) return -1;
+      var id = current.GetInternalId();
+      var paragraphs = doc.GetAllParagraphs();
+      for (var i = 0; i < paragraphs.length; i++) if (paragraphs[i].GetInternalId() === id) return i;
+      return -1;
+    });
+  }
+
+  function reportPosition() {
+    cursorParagraph().then(function (index) {
+      if (typeof index === "number" && index >= 0) post({ type: "position", index: index });
+    }, function () {});
+  }
+
+  function goToParagraph(index) {
+    Asc.scope.target = index;
+    return command(function () {
+      var paragraph = Api.GetDocument().GetAllParagraphs()[Asc.scope.target];
+      if (!paragraph) return false;
+      paragraph.GetRange(0, 0).Select();
+      return true;
+    });
+  }
+
   // --- House styles ------------------------------------------------------------
 
   /** Rewrites the document's paragraph styles; paragraphs using them follow. */
@@ -296,6 +337,7 @@
       case "wrapSelection":
         // AddContentControl wraps the current selection; Lock 3 means "not locked".
         return method("AddContentControl", [2, { Tag: tag(message.kind, { id: message.id }), Lock: 3 }]);
+      case "goToParagraph": return goToParagraph(message.index);
       case "select": return selectTagged(message.kind, message.id);
       case "collectParagraphs": return collectParagraphs().then(function (paragraphs) { post({ type: "paragraphs", paragraphs: paragraphs || [] }); });
       case "selectIssue":
@@ -365,7 +407,7 @@
         var message = event.data || {};
         if (message.type !== "command") return;
         run(message).then(function () {
-          if (["select", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
+          if (["select", "goToParagraph", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
         }, function (error) {
           if (error && error.message === "bibliography") notify("info", tr("Place the cursor outside the bibliography."));
           else fail(error);
@@ -375,6 +417,11 @@
     }
     registerToolbar();
     runPending(options);
+  };
+
+  plugin.event_onTargetPositionChanged = function () {
+    window.clearTimeout(positionTimer);
+    positionTimer = window.setTimeout(reportPosition, 1000);
   };
 
   plugin.onTranslate = function () {};

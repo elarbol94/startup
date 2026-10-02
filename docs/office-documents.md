@@ -205,6 +205,14 @@ Clicking an entry selects its passage in the editor.
 **Save version.** "Version speichern" also stores a PDF of that version as a
 page attachment ("Titel – Version n.pdf").
 
+**Reading position.** The plugin reports the cursor's paragraph (debounced,
+`onTargetPositionChanged`); the page keeps it per document in localStorage
+(`wiki:office-position:<pageId>`, so per browser) and, when the plugin is ready and the
+position is past the first ~15 paragraphs, shows a small "continue where you left
+off" button for 5 seconds; clicking it sends `goToParagraph`. Links with `?task=`, `?deadline=`, `?insertEvidence=` or
+`?officeAction=` skip the restore. A position beyond the end of a shortened
+document is ignored.
+
 **Mentions.** An @mention in an ONLYOFFICE comment creates a wiki
 notification that carries the editor's `actionLink`
 (`wiki_notifications.office_action_link`). Opening it jumps to the comment

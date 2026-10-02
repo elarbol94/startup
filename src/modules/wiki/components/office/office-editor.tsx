@@ -93,7 +93,12 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
     if (containerRef.current) applyOfficeUserColors(editorFrame(containerRef.current), identities);
   }, [identities]);
   const script = useOnlyofficeScript(state.kind === "ready" ? state.data.apiUrl : null, attempt);
-  const bridge = useOfficeBridge(state.kind === "ready" ? state.data.bridgeId : null, page, onPluginEvent);
+  const bridge = useOfficeBridge(
+    state.kind === "ready" ? state.data.bridgeId : null,
+    page,
+    onPluginEvent,
+    !(query.insertEvidence || query.task || query.deadline || query.officeAction),
+  );
   const send = bridge.send;
 
   useImperativeHandle(ref, () => ({
@@ -199,6 +204,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
         <Button type="button" variant="outline" size="sm" onClick={() => { setState({ kind: "loading" }); setAttempt((value) => value + 1); }}><RefreshCw className="size-4" />{t("retry")}</Button>
       </div>
     </div>}
+    {bridge.resume && <button type="button" onClick={bridge.resume} className="absolute right-14 top-36 z-10 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-accent">{t("resumePosition")}</button>}
     <OfficeInsertDialog pageId={page.id} kind={bridge.dialog} onClose={bridge.closeDialog} onInsert={bridge.insert} />
   </div>;
 }
