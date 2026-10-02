@@ -9,7 +9,7 @@ import type { OverviewRecord } from "./overview-data";
 
 export function getOverviewMetricRecords(userId: string, summary: ReturnType<typeof getPersonalWorkSummary>, collections: ReturnType<typeof getOverviewCollections>): Record<CardId, OverviewRecord[]> {
   const now = new Date(), today = todayLocal(now);
-  const tasks = listTaskOverview({ assigneeId: userId, status: "open" });
+  const tasks = listTaskOverview({ includeProjects: true, assigneeId: userId, status: "open" });
   const taskRecords = tasks.map(task => ({ id: task.id, title: task.title, description: task.description, href: task.href, date: task.dueDate ? Date.parse(`${task.dueDate}T12:00:00Z`) : null, dateOnly: task.dueDate ?? undefined, actor: task.assignees.map(person => person.name).join(", ") }));
   const deadlineRecord = (item: typeof summary.deadlines[number]): OverviewRecord => ({ id: item.id, title: item.title, description: item.description, href: item.href, date: Date.parse(`${item.deadlineDate}T12:00:00Z`), dateOnly: item.deadlineDate });
   const upcoming = summary.deadlines.filter(item => !isDeadlineOverdue({ ...item, status: "open" }, now)).sort(compareDeadlineTiming);
