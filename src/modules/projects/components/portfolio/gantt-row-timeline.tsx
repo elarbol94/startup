@@ -296,7 +296,7 @@ export function GanttRowTimeline({
         <button
           type="button"
           data-task-bar="true"
-          onClick={() => openTaskFromBar(row.task)}
+          onClick={() => openTaskFromBar(row)}
           onPointerDown={(event) => {
             if (row.task && !dependencySourceId) startUnscheduledDrag(event, row.task);
           }}
@@ -339,7 +339,7 @@ export function GanttRowTimeline({
         <button
           type="button"
           data-task-bar="true"
-          onClick={() => openTaskFromBar(row.task)}
+          onClick={() => openTaskFromBar(row)}
           onPointerDown={(event) => {
             if (row.task && !dependencySourceId) startDrag(event, row.task, "move");
           }}
@@ -367,7 +367,7 @@ export function GanttRowTimeline({
         <button
           type="button"
           data-task-bar="true"
-          onClick={() => openTaskFromBar(row.task)}
+          onClick={() => openTaskFromBar(row)}
           onPointerDown={(event) => {
             if (row.task && !dependencySourceId) startDrag(event, row.task, "move");
           }}
@@ -404,7 +404,7 @@ export function GanttRowTimeline({
         <button
           type="button"
           data-task-bar={row.task ? "true" : undefined}
-          onClick={() => openTaskFromBar(row.task)}
+          onClick={() => openTaskFromBar(row)}
           onPointerDown={(event) => {
             // The bar's own ends resize it, like the handles beside it.
             const bounds = event.currentTarget.getBoundingClientRect();

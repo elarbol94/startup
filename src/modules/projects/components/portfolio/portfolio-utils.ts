@@ -15,6 +15,35 @@ export function barEdgeGrabWidth(barWidth: number) {
   return Math.max(0, Math.min(BAR_EDGE_GRAB_WIDTH, barWidth / 4));
 }
 
+export type BarClickAction =
+  | { type: "ignore" }
+  | { type: "toggleProject"; projectId: string }
+  | { type: "cancelLink" }
+  | { type: "link"; targetId: string }
+  | { type: "openTask"; task: PortfolioTask };
+
+/** What a click on a timeline bar does: project bars expand or collapse their
+ * tasks, task bars open the inspector or finish a dependency link. A click that
+ * ends a drag does nothing. */
+export function barClickAction(
+  row: { kind: "project" | "task" | "subtask"; projectId: string; task?: PortfolioTask },
+  { dragged, dependencySourceId }: { dragged: boolean; dependencySourceId: string | null },
+): BarClickAction {
+  if (dragged) return { type: "ignore" };
+  const task = row.task;
+  if (!task) {
+    return row.kind === "project" && !dependencySourceId
+      ? { type: "toggleProject", projectId: row.projectId }
+      : { type: "ignore" };
+  }
+  if (dependencySourceId) {
+    return dependencySourceId === task.id
+      ? { type: "cancelLink" }
+      : { type: "link", targetId: task.id };
+  }
+  return { type: "openTask", task };
+}
+
 /** Which edge a pointer `offsetX` px from the bar's left grabs, or null for the middle. */
 export function barEdgeAt(offsetX: number, barWidth: number): "start" | "end" | null {
   const zone = barEdgeGrabWidth(barWidth);

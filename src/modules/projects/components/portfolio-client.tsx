@@ -217,6 +217,7 @@ export function PortfolioClient({
     setDependencyDraft, setDependencyEditorOpen, dependencyCommitPending, dependencyEditorOpen,
     draggedRef, releaseDragFlag, dragRef, moveDrag, endDrag, cancelTaskDrag, setDragPreview,
     scheduleCommitPending, previewFrameRef, deadlinePreviewFrameRef, openTask,
+    toggleProject: (projectId: string) => toggle(setExpandedProjects, projectId),
   });
 
   // Focus mode adds subtasks under the focused task, otherwise under the selected task row.
