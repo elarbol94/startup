@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   compareContacts,
+  contactFiltersFormKey,
   defaultContactListFilter,
   isContactListFiltered,
   networkFilterHref,
@@ -75,6 +76,20 @@ describe("networkFilterHref", () => {
     const filter = { ...current, relationship: "event" as const, organizationId: "o 1", spoken: "no" as const };
     const params = new URLSearchParams(networkFilterHref(filter).split("?")[1]);
     expect(parseContactListParams(Object.fromEntries(params))).toEqual(filter);
+  });
+});
+
+describe("contactFiltersFormKey", () => {
+  const current = { ...defaultContactListFilter, query: "graz", tagId: "t1" };
+
+  it("stays the same while the live search changes the query", () => {
+    expect(contactFiltersFormKey({ ...current, query: "gr" })).toBe(contactFiltersFormKey(current));
+    expect(contactFiltersFormKey({ ...current, query: "" })).toBe(contactFiltersFormKey(current));
+  });
+
+  it("changes when any other filter changes", () => {
+    expect(contactFiltersFormKey({ ...current, tagId: "t2" })).not.toBe(contactFiltersFormKey(current));
+    expect(contactFiltersFormKey({ ...current, sort: "recent" })).not.toBe(contactFiltersFormKey(current));
   });
 });
 
