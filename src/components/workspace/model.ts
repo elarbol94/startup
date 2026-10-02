@@ -11,9 +11,19 @@ export function workspaceHref(value: string, origin: string): string | null {
   try {
     const url = new URL(value, origin);
     if (url.origin !== origin || url.username || url.password) return null;
-    if (!/^\/(?:$|(?:wiki|municipalities|projects|calendar|accounting|personnel|documents|settings)(?:\/|$))/.test(url.pathname)) return null;
+    if (!/^\/(?:$|(?:wiki|municipalities|projects|calendar|accounting|personnel|time|network|documents|settings)(?:\/|$))/.test(url.pathname)) return null;
     return url.pathname + url.search + url.hash;
   } catch { return null; }
+}
+
+/**
+ * App navigation (sidebar, search, shortcuts) belongs to the tab the user is looking at:
+ * while an embedded tab is active it opens there instead of in the main page behind it.
+ */
+export function workspaceNavigationTarget(active: string, tabIds: readonly string[], value: string, origin: string): { id: string; href: string } | null {
+  if (active === "primary" || !tabIds.includes(active)) return null;
+  const href = workspaceHref(value, origin);
+  return href ? { id: active, href } : null;
 }
 
 export function splitRatio(value: number, width: number): number {

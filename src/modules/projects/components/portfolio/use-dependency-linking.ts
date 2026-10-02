@@ -1,5 +1,5 @@
 // Drawing new dependencies from a bar's connector (click to link, press-and-drag to resize
-// instead) and resolving bar clicks while linking. Used by portfolio-client.tsx.
+// instead) and resolving bar clicks (inspector, linking, project expand). Used by portfolio-client.tsx.
 "use client";
 
 import {
@@ -16,7 +16,8 @@ import {
   hasScheduleCycle,
 } from "@/modules/projects/schedule";
 import { DRAG_CLICK_THRESHOLD } from "./portfolio-constants";
-import type { DependencyDraft } from "./portfolio-types";
+import type { DependencyDraft, Row } from "./portfolio-types";
+import { barClickAction } from "./portfolio-utils";
 import type { useBarDrag } from "./use-bar-drag";
 import type { useDeadlineDrag } from "./use-deadline-drag";
 import type { useDependencyEditor } from "./use-dependency-editor";
@@ -45,6 +46,7 @@ export function useDependencyLinking({
   previewFrameRef,
   deadlinePreviewFrameRef,
   openTask,
+  toggleProject,
 }: Pick<ReturnType<typeof useDragClickGuard>, "draggedRef" | "releaseDragFlag"> &
   Pick<
     ReturnType<typeof useDependencyEditor>,
@@ -65,6 +67,7 @@ export function useDependencyLinking({
   Pick<ReturnType<typeof useTaskTreeActions>, "openTask"> & {
     isDraftTask: (id: string) => boolean;
     effectiveSchedule: PortfolioSchedule;
+    toggleProject: (projectId: string) => void;
   }) {
   const connectorGestureRef = useRef<{
     pointerId: number;
@@ -239,18 +242,17 @@ export function useDependencyLinking({
     releaseDragFlag();
   }
 
-  /** Opens the inspector, unless this click is the tail end of a drag. */
-  function openTaskFromBar(task: PortfolioTask | undefined) {
-    if (draggedRef.current || !task) return;
-    if (dependencySourceId) {
-      if (dependencySourceId === task.id) {
-        setDependencySourceId(null);
-      } else {
-        void createGraphicalDependency(task.id);
-      }
-      return;
-    }
-    openTask(task);
+  /** Opens the inspector (or, on a project bar, toggles its tasks), unless this
+   * click is the tail end of a drag. */
+  function openTaskFromBar(row: Row) {
+    const action = barClickAction(row, {
+      dragged: draggedRef.current,
+      dependencySourceId,
+    });
+    if (action.type === "toggleProject") toggleProject(action.projectId);
+    else if (action.type === "cancelLink") setDependencySourceId(null);
+    else if (action.type === "link") createGraphicalDependency(action.targetId);
+    else if (action.type === "openTask") openTask(action.task);
   }
 
   function cancelConnectorGesture(event: ReactPointerEvent<HTMLElement>) {

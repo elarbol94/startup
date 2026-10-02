@@ -1,12 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
 import {
   wikiFavorites,
-  wikiNotifications,
   wikiPages,
   wikiCitationStyles,
   wikiPageSources,
@@ -268,9 +267,3 @@ export async function mergeTags(sourceTagId: string, targetTagId: string) {
   revalidateWiki();
 }
 
-export async function markNotificationsRead(ids?: string[]) {
-  const currentUser = await requireUserOrThrow();
-  const where = ids?.length ? and(eq(wikiNotifications.userId, currentUser.id), inArray(wikiNotifications.id, ids)) : eq(wikiNotifications.userId, currentUser.id);
-  db.update(wikiNotifications).set({ readAt: new Date() }).where(where).run();
-  revalidateWiki();
-}

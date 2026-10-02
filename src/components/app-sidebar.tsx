@@ -436,10 +436,9 @@ function AppNavigation({
                   active={isActive(item.href)}
                   compact={compact}
                   onActivate={() => {
-                    requestAppNavigation(item.href, () => {
-                      router.push(item.href);
-                      onNavigate?.();
-                    });
+                    // Close the menu even when an active workspace tab takes the navigation.
+                    onNavigate?.();
+                    requestAppNavigation(item.href, () => router.push(item.href));
                   }}
                   suppressNavigationUntilRef={suppressNavigationUntilRef}
                 />
@@ -527,6 +526,7 @@ export function AppSidebar({
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
         <SheetContent
           data-testid="app-navigation-sheet"
+          data-workspace-navigation
           side="left"
           showCloseButton={false}
           className="w-[min(20rem,88vw)] gap-0 p-0 md:hidden"

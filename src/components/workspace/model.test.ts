@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut } from "./model";
+import { splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, workspaceNavigationTarget } from "./model";
 
 describe("tab switch shortcut", () => {
   it("cycles through open tabs in most-recently-used order", () => {
@@ -50,4 +50,17 @@ it("restores valid tabs but excludes untrusted destinations and invalid pairs", 
 it("groups source passages without merging different task deep links", () => {
  expect(workspaceDestinationKey("/wiki/sources/source-1/read/pdf-2?page=3")).toBe(workspaceDestinationKey("/wiki/sources/source-1"));
  expect(workspaceDestinationKey("/projects/p?task=a")).not.toBe(workspaceDestinationKey("/projects/p?task=b"));
+});
+
+describe("navigation while a tab is active", () => {
+  it("routes app navigation into the active tab instead of the main page", () => {
+    expect(workspaceNavigationTarget("b", ["a", "b"], "/projects?view=list", "https://app.test")).toEqual({ id: "b", href: "/projects?view=list" });
+    expect(workspaceNavigationTarget("a", ["a"], "https://app.test/network", "https://app.test")).toEqual({ id: "a", href: "/network" });
+  });
+  it("leaves navigation to the main page when it is active or the destination cannot be embedded", () => {
+    expect(workspaceNavigationTarget("primary", ["a"], "/projects", "https://app.test")).toBeNull();
+    expect(workspaceNavigationTarget("closed", ["a"], "/projects", "https://app.test")).toBeNull();
+    expect(workspaceNavigationTarget("a", ["a"], "/api/auth/sign-out", "https://app.test")).toBeNull();
+    expect(workspaceNavigationTarget("a", ["a"], "https://other.test/wiki", "https://app.test")).toBeNull();
+  });
 });

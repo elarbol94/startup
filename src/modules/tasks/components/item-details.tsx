@@ -7,14 +7,16 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
-export function ItemDetails({ title, description, origin, href, fields, children, className, onEdit }: {
+export function ItemDetails({ title, description, origin, href, fields, children, className, onEdit, onOpen }: {
   title: string; description?: string | null; origin: string; href: string | null;
   fields: Array<{ label: string; value: ReactNode }>;
   children: ReactNode; className?: string; onEdit?: () => void;
+  /** Called each time the details dialog opens (e.g. to mark a notification read). */
+  onOpen?: () => void;
 }) {
   const t = useTranslations("overviewDetails");
   const [open, setOpen] = useState(false);
-  return <Dialog open={open} onOpenChange={setOpen}>
+  return <Dialog open={open} onOpenChange={next => { setOpen(next); if (next) onOpen?.(); }}>
     <DialogTrigger className={`cursor-pointer text-left outline-none focus-visible:ring-2 focus-visible:ring-ring ${className ?? ""}`} aria-label={title}>{children}</DialogTrigger>
     <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-xl" showCloseButton={false}>
       <DialogHeader>

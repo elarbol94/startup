@@ -117,6 +117,17 @@ describe("task assignees", () => {
     await expect(upsertTask({ ...boardInput, id })).rejects.toThrow("Task kind cannot be changed");
   });
 
+  it("counts open project tasks on the dashboard card like the Tasks widget does", async () => {
+    await upsertContextualTask({ ...taskInput, assigneeIds: ["alice"], context: { type: "app" as const, entityId: "/", route: "/", label: "Overview" } });
+    const { id } = await upsertTask({ ...boardInput, assigneeIds: ["alice"] });
+    expect(getPersonalWorkSummary("alice").openTaskCount).toBe(2);
+    expect(getPersonalWorkSummary("alice").taskDueDates).toEqual(["2026-09-09", "2026-09-09"]);
+    db.insert(projectColumns).values({ id: "done", projectId: "project", name: "Done", isCompleted: true }).run();
+    db.update(tasks).set({ columnId: "done" }).where(eq(tasks.id, id)).run();
+    expect(getPersonalWorkSummary("alice").openTaskCount).toBe(1);
+    expect(listTaskOverview({ includeProjects: true, assigneeId: "alice", status: "open" })).toHaveLength(1);
+  });
+
   it("deletes assignments when the task is deleted", async () => {
     const { id } = await upsertTask(boardInput);
     db.delete(tasks).where(eq(tasks.id, id)).run();

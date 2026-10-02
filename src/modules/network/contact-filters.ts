@@ -122,6 +122,17 @@ export function networkFilterHref(current: ContactListFilter, patch: Partial<Con
   return search ? `/network?${search}` : "/network";
 }
 
+/** Delay between the last keystroke in the search field and the list update. */
+export const CONTACT_SEARCH_DEBOUNCE_MS = 250;
+
+/**
+ * Identity of the filter bar's uncontrolled fields. It leaves the search text
+ * out so the live search does not remount (and blur) the field while typing.
+ */
+export function contactFiltersFormKey(filter: ContactListFilter) {
+  return networkFilterHref(filter, { query: "" });
+}
+
 export type SortableContact = {
   id: string;
   name: string;
