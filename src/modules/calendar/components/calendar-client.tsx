@@ -21,6 +21,7 @@ import {
   createCalendar,
   updateCalendar,
 } from "../calendar-management-actions";
+import { updateCalendarSubscriptionUrl } from "../subscription-actions";
 import { saveCalendarView } from "../preference-actions";
 import {
   addDays,
@@ -61,6 +62,8 @@ import { CalendarFiltersDialog } from "./calendar/calendar-filters-dialog";
 import { EventDialog } from "./calendar/event-dialog";
 import { EventImportSection } from "./calendar/event-import-section";
 import { CalendarSettingsDialog } from "./calendar/calendar-settings-dialog";
+import { feedErrorMessage } from "./calendar/calendar-feed-dialogs";
+import { useCalendarFeeds } from "./calendar/use-calendar-feeds";
 
 const subscribeToClock = (onStoreChange: () => void) => {
   const timer = window.setInterval(onStoreChange, 60_000);
@@ -101,8 +104,11 @@ export function CalendarClient({
   const locale = useLocale();
   const router = useRouter();
   const [textPrompt, askText] = useTextPrompt();
-  const defaultCalendarId = workspace.calendars.find((calendar) => calendar.role === "owner")?.id
-    ?? workspace.calendars.find((calendar) => calendar.role === "editor")?.id;
+  const feeds = useCalendarFeeds({ calendars: workspace.calendars, refresh: () => router.refresh(), t });
+  // Subscribed calendars are read-only mirrors, so new events never default to one.
+  const writableCalendars = workspace.calendars.filter((calendar) => !calendar.subscription);
+  const defaultCalendarId = writableCalendars.find((calendar) => calendar.role === "owner")?.id
+    ?? writableCalendars.find((calendar) => calendar.role === "editor")?.id;
   const [pending, startTransition] = useTransition();
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const incomingFilterKey = JSON.stringify(initialFilters);
@@ -176,6 +182,8 @@ export function CalendarClient({
     filters,
     showCalendarColors,
   );
+  const subscriptionHost = (item: CalendarItem) =>
+    workspace.calendars.find((calendar) => calendar.id === item.calendarId)?.subscription?.host;
   const ownCalendarIds = workspace.calendars.filter((calendar) => calendar.role === "owner").map((calendar) => calendar.id);
   function selectCalendars(ids: string[]) {
     updateFilters({ sources: [], people: [], projects: [], calendars: ids, query: "" });
@@ -349,6 +357,8 @@ export function CalendarClient({
       name: calendar.name,
       color: calendar.color,
       visibility: calendar.visibility,
+      subscriptionHost: calendar.subscription?.host,
+      feedUrl: "",
     });
     setCalendarOpen(true);
   }
@@ -369,7 +379,14 @@ export function CalendarClient({
             visibility: calendarDraft.visibility,
           })
       )
-        .then(() => {
+        .then(async () => {
+          if (calendarDraft.id && calendarDraft.feedUrl?.trim()) {
+            const result = await updateCalendarSubscriptionUrl({ calendarId: calendarDraft.id, url: calendarDraft.feedUrl });
+            if (result.status === "error") {
+              toast.error(feedErrorMessage(t, result.error));
+              return;
+            }
+          }
           setCalendarOpen(false);
           router.refresh();
         })
@@ -563,6 +580,7 @@ export function CalendarClient({
               t={t}
               onClose={() => setSelected(null)}
               onEdit={() => openEditEvent(selected)}
+              syncedFrom={subscriptionHost(selected)}
             />
           ) : (
             <UnscheduledTray
@@ -602,6 +620,7 @@ export function CalendarClient({
         saveView={saveView}
         openNewCalendar={openNewCalendar}
         openEditCalendar={openEditCalendar}
+        feeds={feeds}
       />
 
       <MobileBottomSheet
@@ -619,6 +638,7 @@ export function CalendarClient({
             t={t}
             onClose={() => setSelected(null)}
             onEdit={() => openEditEvent(selected)}
+            syncedFrom={subscriptionHost(selected)}
           />
         ) : null}
       </MobileBottomSheet>
@@ -667,6 +687,7 @@ export function CalendarClient({
         pending={pending}
         t={t}
       />
+      {feeds.dialogs}
       {textPrompt}
     </div>
   );

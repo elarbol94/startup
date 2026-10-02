@@ -3,11 +3,11 @@
 // Filters dialog: calendar selection, search, work sources, people, jump-to-date and saved views.
 // Used by calendar-client.tsx.
 import { useTranslations } from "next-intl";
-import { Check, MoreHorizontal, Plus } from "lucide-react";
+import { Check, ChevronDown, MoreHorizontal, Plus, RefreshCw } from "lucide-react";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 import { UserIdentity } from "@/components/user-identity";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -21,6 +21,8 @@ import { cn } from "@/lib/utils";
 import type { FilterState } from "./calendar-types";
 import { SOURCE_TYPES } from "./calendar-filter-utils";
 import { MiniMonth } from "./mini-month";
+import type { useCalendarFeeds } from "./use-calendar-feeds";
+import { feedErrorMessage } from "./calendar-feed-dialogs";
 
 export function CalendarFiltersDialog({
   filtersOpen,
@@ -43,6 +45,7 @@ export function CalendarFiltersDialog({
   saveView,
   openNewCalendar,
   openEditCalendar,
+  feeds,
 }: {
   filtersOpen: boolean;
   setFiltersOpen: (open: boolean) => void;
@@ -67,6 +70,7 @@ export function CalendarFiltersDialog({
   saveView: () => Promise<void>;
   openNewCalendar: () => void;
   openEditCalendar: (calendar: CalendarWorkspace["calendars"][number]) => void;
+  feeds: ReturnType<typeof useCalendarFeeds>;
 }) {
   return (
     <Dialog open={filtersOpen} onOpenChange={setFiltersOpen}>
@@ -90,6 +94,7 @@ export function CalendarFiltersDialog({
                     <span className="min-w-0 space-y-1">
                       <span className="block text-sm font-medium leading-snug">{calendar.name}</span>
                       <UserIdentity userId={calendar.ownerId} compact className="text-xs text-muted-foreground" />
+                      {calendar.subscription && <SubscriptionStatus subscription={calendar.subscription} locale={locale} t={t} />}
                     </span>
                   </label>
                   <DropdownMenu>
@@ -97,6 +102,11 @@ export function CalendarFiltersDialog({
                     <DropdownMenuContent align="end" className="min-w-48">
                       <DropdownMenuItem onClick={() => selectCalendars([calendar.id])}>{t("onlyCalendar", { name: calendar.name })}</DropdownMenuItem>
                       {calendar.role === "owner" && <DropdownMenuItem onClick={() => openEditCalendar(calendar)}>{t("editCalendar")}</DropdownMenuItem>}
+                      {calendar.role === "owner" && calendar.subscription && <>
+                        <DropdownMenuItem onClick={() => void feeds.syncNow(calendar)}><RefreshCw />{t("feeds.syncNow")}</DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={() => void feeds.remove(calendar)}>{t("feeds.remove")}</DropdownMenuItem>
+                      </>}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -120,9 +130,39 @@ export function CalendarFiltersDialog({
             </div>
           </details>
         </div>
-        <div className="flex shrink-0 justify-between border-t px-5 py-4 sm:px-6"><Button size="sm" variant="ghost" onClick={openNewCalendar}><Plus />{t("addCalendar")}</Button><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
+        <div className="flex shrink-0 justify-between border-t px-5 py-4 sm:px-6"><DropdownMenu>
+          <DropdownMenuTrigger render={<Button size="sm" variant="ghost" />}><Plus />{t("addCalendar")}<ChevronDown /></DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="min-w-56">
+            <DropdownMenuItem onClick={openNewCalendar}>{t("feeds.newCalendar")}</DropdownMenuItem>
+            <DropdownMenuItem onClick={feeds.openSubscribe}>{t("feeds.subscribe")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={!feeds.canImport} onClick={feeds.openImport}>{t("feeds.import")}</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function SubscriptionStatus({
+  subscription,
+  locale,
+  t,
+}: {
+  subscription: NonNullable<CalendarWorkspace["calendars"][number]["subscription"]>;
+  locale: string;
+  t: ReturnType<typeof useTranslations<"calendar">>;
+}) {
+  const time = subscription.lastSyncedAt
+    ? new Intl.DateTimeFormat(locale, { dateStyle: "short", timeStyle: "short" }).format(new Date(subscription.lastSyncedAt))
+    : null;
+  return (
+    <span className="block text-[11px] text-muted-foreground">
+      <span className="inline-flex items-center gap-1"><RefreshCw className="size-3" />{t("feeds.syncedFrom", { host: subscription.host })}</span>
+      {" · "}
+      {subscription.lastError
+        ? <span className="text-destructive">{feedErrorMessage(t, subscription.lastError)}</span>
+        : time ? t("feeds.lastSynced", { time }) : t("feeds.notSynced")}
+    </span>
   );
 }
 

@@ -385,7 +385,8 @@ export function EventDialog({
                   {workspace.calendars
                     .filter(
                       (calendar) =>
-                        calendar.role === "owner" || calendar.role === "editor",
+                        !calendar.subscription &&
+                        (calendar.role === "owner" || calendar.role === "editor"),
                     )
                     .map((calendar) => (
                       <option value={calendar.id} key={calendar.id}>

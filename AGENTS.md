@@ -68,6 +68,7 @@ SQLite database. Stop the normal development server before running it.
 - `docs/municipality-kennzahlen.md`: Ausgangsdaten vs. Kennzahlen, and how to add one.
 - `docs/office-documents.md`: Word documents in ONLYOFFICE (topology, secrets,
   versions/restore, workspace plugin, local development).
+- `docs/calendar-sync.md`: Google Calendar/iCal subscriptions and `.ics` imports.
 
 ## Development and deployment workflow
 

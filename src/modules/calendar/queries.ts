@@ -11,6 +11,7 @@ import {
   calendarMemberships,
   calendarPreferences,
   calendarSavedViews,
+  calendarSubscriptions,
   calendars,
 } from "./schema";
 import {
@@ -108,15 +109,39 @@ export function calendarRoleForUser(
     : null;
 }
 
+export function isSubscribedCalendar(calendarId: string) {
+  return Boolean(
+    db
+      .select({ calendarId: calendarSubscriptions.calendarId })
+      .from(calendarSubscriptions)
+      .where(eq(calendarSubscriptions.calendarId, calendarId))
+      .get(),
+  );
+}
+
 function listAccessibleCalendars(userId: string) {
   const rows = db
     .select()
     .from(calendars)
     .orderBy(asc(calendars.name))
     .all();
+  // The feed URL is a credential: only its host and the sync status leave the server.
+  const subscriptions = new Map(
+    db
+      .select()
+      .from(calendarSubscriptions)
+      .all()
+      .map((subscription) => [subscription.calendarId, {
+        host: new URL(subscription.url).hostname,
+        lastSyncedAt: subscription.lastSyncedAt?.toISOString() ?? null,
+        lastError: subscription.lastError,
+      }]),
+  );
   return rows.flatMap((calendar) => {
     const role = calendarRoleForUser(calendar.id, userId);
-    return role ? [{ ...calendar, role }] : [];
+    return role
+      ? [{ ...calendar, role, subscription: subscriptions.get(calendar.id) ?? null }]
+      : [];
   });
 }
 
@@ -271,7 +296,7 @@ export function listCalendarWorkspace(input: {
           : event.linkedTaskId
           ? linkedHrefs.get(event.linkedTaskId) ?? null
           : null,
-        editable: calendar.role === "owner" || calendar.role === "editor",
+        editable: !calendar.subscription && (calendar.role === "owner" || calendar.role === "editor"),
         availability: event.availability,
         calendarId: event.calendarId,
         projectId: detailsHidden ? null : projectsByEvent.get(event.id)?.[0]?.id ?? null,
@@ -509,6 +534,7 @@ export function listCalendarWorkspace(input: {
       color: calendar.color,
       role: calendar.role,
       visibility: calendar.visibility,
+      subscription: calendar.subscription,
     })),
     members: db
       .select({ id: user.id, name: user.name })

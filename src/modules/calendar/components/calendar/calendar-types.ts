@@ -19,6 +19,10 @@ export type CalendarDraft = {
   name: string;
   color: string;
   visibility: "private" | "busy" | "company";
+  /** Host of the feed when editing a subscribed calendar. */
+  subscriptionHost?: string;
+  /** Replacement feed address; empty keeps the current one. */
+  feedUrl?: string;
 };
 
 export type DraftProject = { id: string; name: string; color: string; archived: boolean };

@@ -27,6 +27,7 @@ export function Inspector({
   t,
   onClose,
   onEdit,
+  syncedFrom,
 }: {
   item: CalendarItem;
   locale: string;
@@ -34,6 +35,8 @@ export function Inspector({
   t: ReturnType<typeof useTranslations<"calendar">>;
   onClose: () => void;
   onEdit: () => void;
+  /** Feed host when the item belongs to a read-only subscribed calendar. */
+  syncedFrom?: string | null;
 }) {
   return (
     <div className="sticky top-4 rounded-2xl border bg-card p-4">
@@ -100,6 +103,11 @@ export function Inspector({
           </p>
         )}
       </div>
+      {syncedFrom && (
+        <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          {t("feeds.readOnly", { host: syncedFrom })}
+        </p>
+      )}
       <div className="mt-5 flex gap-2">
         {(item.kind === "event" || item.kind === "focus") && item.editable && (
           <Button size="sm" onClick={onEdit}>

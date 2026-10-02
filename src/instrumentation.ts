@@ -31,5 +31,8 @@ export async function register() {
     // Office documents: resume persisted restore/checkpoint operations, sweep orphaned files.
     const { startOfficeMaintenance } = await import("./modules/wiki/office/maintenance");
     startOfficeMaintenance();
+    // Calendars subscribed to iCal feeds (e.g. Google Calendar) re-sync every 30 minutes.
+    const { startCalendarSubscriptionSync } = await import("./modules/calendar/ics-sync");
+    startCalendarSubscriptionSync();
   }
 }
