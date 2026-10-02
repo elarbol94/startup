@@ -57,7 +57,15 @@ export function useCalendarFilteredItems(
       return true;
     });
   }, [filters, visibleSources, workspace.items]);
-  const displayItems = useMemo(() => filteredItems.map((item) => ({ ...item, color: showCalendarColors ? item.color : "var(--muted-foreground)" })), [filteredItems, showCalendarColors]);
+  // Without calendar colours, calendar entries turn neutral; items that belong to no calendar
+  // (tasks, deadlines, projects) keep their own colour, e.g. the project's.
+  const displayItems = useMemo(
+    () =>
+      showCalendarColors
+        ? filteredItems
+        : filteredItems.map((item) => (item.calendarId ? { ...item, color: "var(--muted-foreground)" } : item)),
+    [filteredItems, showCalendarColors],
+  );
   const filteredUnscheduledTasks = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase();
     if (!visibleSources.has("task")) return [];

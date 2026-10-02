@@ -8,14 +8,15 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
-import { calendarPreferences, calendarSavedViews } from "./schema";
+import { calendarPreferences, calendarSavedViews, calendarViews } from "./schema";
+import type { CalendarView } from "./types";
 
 const timePattern = /^\d{2}:\d{2}$/;
 
 export async function saveCalendarView(input: {
   id?: string;
   name: string;
-  view: "week" | "month" | "agenda" | "team";
+  view: CalendarView;
   filters: {
     sources?: string[];
     people?: string[];
@@ -30,7 +31,7 @@ export async function saveCalendarView(input: {
     .object({
       id: z.string().optional(),
       name: z.string().trim().min(1).max(100),
-      view: z.enum(["week", "month", "agenda", "team"]),
+      view: z.enum(calendarViews),
       filters: z.object({
         sources: z.array(z.string()).optional(),
         people: z.array(z.string()).optional(),
@@ -90,7 +91,7 @@ export async function updateCalendarPreferences(input: {
   workingDayStart: string;
   workingDayEnd: string;
   workingDays: number[];
-  defaultView: "week" | "month" | "agenda" | "team";
+  defaultView: CalendarView;
 }) {
   const currentUser = await requireUserOrThrow();
   const data = z
@@ -100,7 +101,7 @@ export async function updateCalendarPreferences(input: {
       workingDayStart: z.string().regex(timePattern),
       workingDayEnd: z.string().regex(timePattern),
       workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
-      defaultView: z.enum(["week", "month", "agenda", "team"]),
+      defaultView: z.enum(calendarViews),
     })
     .parse(input);
   try {

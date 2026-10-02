@@ -22,6 +22,7 @@ import { addDays, overlapsDateRange, parseDate } from "./date-utils";
 import { expandEventOccurrences } from "./recurrence";
 import type {
   CalendarItem,
+  CalendarResponse,
   CalendarRole,
   CalendarSavedViewValue,
   CalendarWorkspace,
@@ -195,10 +196,14 @@ export function listCalendarWorkspace(input: {
           .where(inArray(calendarEventExceptions.eventId, eventIds))
           .all();
   const attendeesByEvent = new Map<string, string[]>();
+  const responsesByEvent = new Map<string, Record<string, CalendarResponse>>();
   for (const attendee of attendees) {
     const values = attendeesByEvent.get(attendee.eventId) ?? [];
     values.push(attendee.userId);
     attendeesByEvent.set(attendee.eventId, values);
+    const responses = responsesByEvent.get(attendee.eventId) ?? {};
+    responses[attendee.userId] = attendee.response;
+    responsesByEvent.set(attendee.eventId, responses);
   }
   const exceptionsByEvent = new Map<
     string,
@@ -279,6 +284,8 @@ export function listCalendarWorkspace(input: {
         assigneeId: detailsHidden ? null : event.createdBy,
         assigneeName: null,
         attendeeIds: detailsHidden ? [] : attendeesByEvent.get(event.id) ?? [],
+        attendeeResponses: detailsHidden ? {} : responsesByEvent.get(event.id) ?? {},
+        myResponse: responsesByEvent.get(event.id)?.[input.userId] ?? null,
         occurrenceKey: occurrence.occurrenceKey,
         recurring: Boolean(event.recurrenceRule),
         recurrenceRule: detailsHidden ? null : event.recurrenceRule,
@@ -354,6 +361,7 @@ export function listCalendarWorkspace(input: {
           assigneeId: task.kind === "deadline" ? task.assigneeId : null,
           assigneeName: task.kind === "deadline" ? task.assigneeName : task.taskAssigneeNames,
           attendeeIds: task.kind === "deadline" ? (task.assigneeId ? [task.assigneeId] : []) : task.taskAssigneeIds,
+          myResponse: null,
           occurrenceKey: null,
           recurring: false,
           recurrenceRule: null,
@@ -401,6 +409,7 @@ export function listCalendarWorkspace(input: {
       assigneeId: task.kind === "deadline" ? task.assigneeId : null,
       assigneeName: task.kind === "deadline" ? task.assigneeName : task.taskAssigneeNames,
       attendeeIds: task.kind === "deadline" ? (task.assigneeId ? [task.assigneeId] : []) : task.taskAssigneeIds,
+      myResponse: null,
       occurrenceKey: null,
       recurring: false,
       recurrenceRule: null,
@@ -453,6 +462,7 @@ export function listCalendarWorkspace(input: {
       assigneeId: project.managerId,
       assigneeName: null,
       attendeeIds: project.managerId ? [project.managerId] : [],
+      myResponse: null,
       occurrenceKey: null,
       recurring: false,
       recurrenceRule: null,

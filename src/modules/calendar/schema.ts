@@ -20,7 +20,7 @@ export const calendarResponses = [
   "tentative",
   "declined",
 ] as const;
-export const calendarViews = ["week", "month", "agenda", "team"] as const;
+export const calendarViews = ["day", "workweek", "week", "month", "agenda", "team"] as const;
 
 export const calendars = sqliteTable(
   "calendars",

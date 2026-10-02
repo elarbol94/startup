@@ -4,6 +4,7 @@ import {
   dateAndMinutesInZone,
   dateRange,
   daysBetween,
+  isoWeekNumber,
   isValidDate,
   overlapsDateRange,
   startOfWeek,
@@ -59,5 +60,18 @@ describe("calendar date utilities", () => {
         "2026-07-30",
       ),
     ).toBe(true);
+  });
+
+  it("numbers ISO weeks across year boundaries", () => {
+    expect(isoWeekNumber("2026-10-02")).toBe(40);
+    expect(isoWeekNumber("2026-09-28")).toBe(40);
+    expect(isoWeekNumber("2026-10-04")).toBe(40);
+    expect(isoWeekNumber("2026-10-05")).toBe(41);
+    // 1 Jan 2027 is a Friday, so it still belongs to week 53 of 2026.
+    expect(isoWeekNumber("2027-01-01")).toBe(53);
+    expect(isoWeekNumber("2027-01-04")).toBe(1);
+    // 29 Dec 2025 is the Monday of week 1 of 2026.
+    expect(isoWeekNumber("2025-12-29")).toBe(1);
+    expect(isoWeekNumber("2024-12-30")).toBe(1);
   });
 });

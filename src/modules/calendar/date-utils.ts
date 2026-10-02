@@ -157,3 +157,13 @@ export function zonedDateTimeToUtc(
   }
   return new Date(guess);
 }
+
+/** ISO-8601 week number (weeks start on Monday; week 1 contains the year's first Thursday). */
+export function isoWeekNumber(date: string) {
+  const value = parseDate(date);
+  const weekday = value.getUTCDay() || 7;
+  // The Thursday of this ISO week decides which year the week belongs to.
+  value.setUTCDate(value.getUTCDate() + 4 - weekday);
+  const yearStart = Date.UTC(value.getUTCFullYear(), 0, 1);
+  return Math.ceil(((value.getTime() - yearStart) / 86_400_000 + 1) / 7);
+}

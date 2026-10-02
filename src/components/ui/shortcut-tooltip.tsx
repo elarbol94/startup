@@ -1,8 +1,9 @@
 "use client";
 
-// Hover/focus tooltip that shows a control's label and its keyboard shortcut. Wrap any single
-// focusable element (including Base UI triggers rendered through `render`):
-//   <ShortcutTooltip label={t("today")} shortcut="T"><Button …/></ShortcutTooltip>
+// Hover/focus tooltip that shows a control's label, its keyboard shortcut and optionally a short
+// hint explaining what the control does. Wrap any single focusable element (including Base UI
+// triggers rendered through `render`):
+//   <ShortcutTooltip label={t("today")} shortcut="T" hint={t("todayHint")}><Button …/></ShortcutTooltip>
 // The shortcut itself is registered separately with useKeyboardShortcut.
 import { Fragment, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";
@@ -36,22 +37,41 @@ export function ShortcutKeys({ shortcut, className }: { shortcut: string; classN
 export function ShortcutTooltip({
   label,
   shortcut,
+  keys,
+  hint,
   children,
   side = "bottom",
   disabled,
 }: {
   label: React.ReactNode;
   shortcut?: string;
+  /** Custom key rendering (e.g. several alternative shortcuts) used instead of `shortcut`. */
+  keys?: React.ReactNode;
+  /** One short sentence shown muted under the label. */
+  hint?: React.ReactNode;
   children: React.ReactElement;
   side?: "top" | "bottom" | "left" | "right";
   disabled?: boolean;
 }) {
+  const shown = keys ?? (shortcut ? <ShortcutKeys shortcut={shortcut} /> : null);
   return (
     <Tooltip disabled={disabled}>
-      <TooltipTrigger delay={400} render={children} />
+      <TooltipTrigger delay={hint ? 500 : 400} render={children} />
       <TooltipContent side={side}>
-        {label}
-        {shortcut && <ShortcutKeys shortcut={shortcut} />}
+        {hint ? (
+          <span className="flex max-w-60 flex-col gap-1 py-0.5">
+            <span className="flex items-center justify-between gap-3 font-medium">
+              {label}
+              {shown}
+            </span>
+            <span className="text-[11px] leading-snug text-background/70">{hint}</span>
+          </span>
+        ) : (
+          <>
+            {label}
+            {shown}
+          </>
+        )}
       </TooltipContent>
     </Tooltip>
   );

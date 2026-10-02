@@ -101,6 +101,46 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   }
 });
 
+test("calendar quick-creates from a slot, undoes moves and follows shortcuts", async ({ page }) => {
+  await login(page);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/calendar?date=2026-07-29&view=week");
+
+  // A single click on an empty slot opens the quick-create popover for one hour.
+  const slot = page.locator('[data-calendar-day="2026-07-30"] [data-slot-hour="14"]');
+  await slot.scrollIntoViewIfNeeded();
+  const bounds = (await slot.boundingBox())!;
+  await page.mouse.click(bounds.x + bounds.width / 2, bounds.y + 5);
+  const popover = page.getByTestId("calendar-quick-create");
+  await expect(popover).toBeVisible();
+  await page.keyboard.type("Quick sync");
+  await page.keyboard.press("Enter");
+  const event = page.getByRole("button", { name: "Quick sync · 14:00–15:00", exact: true });
+  await expect(event).toBeVisible();
+  await expect(popover).toHaveCount(0);
+
+  // Escape closes the inspector.
+  await event.click();
+  await expect(page.getByRole("heading", { name: "Quick sync" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "Quick sync" })).toHaveCount(0);
+
+  // Moving an event offers an undo that restores the previous time.
+  await event.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(page.getByRole("button", { name: "Quick sync · 14:15–15:15", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Rückgängig" }).click();
+  await expect(page.getByRole("button", { name: "Quick sync · 14:00–15:00", exact: true })).toBeVisible();
+
+  // Single-key shortcuts switch views.
+  await page.locator("body").click({ position: { x: 5, y: 5 } });
+  await page.keyboard.press("m");
+  await expect(page).toHaveURL(/view=month/);
+  await page.keyboard.press("d");
+  await expect(page).toHaveURL(/view=day/);
+  await expect(page.getByTestId("calendar-week-scroll")).toBeVisible();
+});
+
 test("global new-event shortcut opens and clears the calendar dialog state", async ({
   page,
 }) => {
@@ -125,11 +165,11 @@ test("calendar exposes month, agenda, and team views through URL state", async (
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/calendar?date=2026-07-29&view=week");
 
-  await page.getByRole("button", { name: "Monat" }).click();
+  await page.getByRole("button", { name: "Monat", exact: true }).click();
   await expect(page).toHaveURL(/view=month/);
-  await page.getByRole("button", { name: "Agenda" }).click();
+  await page.getByRole("button", { name: "Agenda", exact: true }).click();
   await expect(page).toHaveURL(/view=agenda/);
-  await page.getByRole("button", { name: "Team" }).click();
+  await page.getByRole("button", { name: "Team", exact: true }).click();
   await expect(page).toHaveURL(/view=team/);
   await expect(page.getByText("E2E Admin").last()).toBeVisible();
 });

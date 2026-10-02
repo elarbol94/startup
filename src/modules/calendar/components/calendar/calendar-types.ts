@@ -2,9 +2,24 @@
 // Used by calendar-client.tsx and the pieces in this folder.
 import type { CalendarView } from "../../types";
 
-export const CALENDAR_VIEWS = ["week", "month", "agenda", "team"] as const satisfies readonly CalendarView[];
+export const CALENDAR_VIEWS = ["day", "workweek", "week", "month", "agenda", "team"] as const satisfies readonly CalendarView[];
+/** Message keys (calendar namespace) for the view switcher labels. */
+export const CALENDAR_VIEW_LABELS = {
+  day: "coreViewDay",
+  workweek: "coreViewWorkweek",
+  week: "week",
+  month: "month",
+  agenda: "agenda",
+  team: "team",
+} as const satisfies Record<CalendarView, string>;
+/** Views drawn by the time grid (FlowWeek), with the number of day columns. */
+export const TIME_GRID_DAYS: Partial<Record<CalendarView, number>> = { day: 1, workweek: 5, week: 7 };
+// Whether items take their calendar's colour; on by default, remembered per device.
+export const SHOW_COLORS_STORAGE_KEY = "calendar:show-colors";
 // Remembers the view a person picked on a phone so the agenda default doesn't override it.
 export const MOBILE_VIEW_STORAGE_KEY = "calendar:mobile-view";
+
+export type CalendarNavigateTarget = { view?: CalendarView; date?: string; filters?: FilterState };
 
 export type FilterState = {
   sources: string[];
