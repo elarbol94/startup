@@ -204,7 +204,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
         <Button type="button" variant="outline" size="sm" onClick={() => { setState({ kind: "loading" }); setAttempt((value) => value + 1); }}><RefreshCw className="size-4" />{t("retry")}</Button>
       </div>
     </div>}
-    {bridge.resume && <button type="button" onClick={bridge.resume} className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-accent">{t("resumePosition")}</button>}
+    {bridge.resume && <button type="button" onClick={bridge.resume} className="absolute right-14 top-36 z-10 rounded-full border bg-background px-3 py-1.5 text-xs shadow-md hover:bg-accent">{t("resumePosition")}</button>}
     <OfficeInsertDialog pageId={page.id} kind={bridge.dialog} onClose={bridge.closeDialog} onInsert={bridge.insert} />
   </div>;
 }
