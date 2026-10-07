@@ -100,6 +100,7 @@ async function extractAudio(job: MeetingJob, context: StageContext) {
         id: derivedId, meetingId: job.meetingId, sourceRecordingId: recording.id, attachmentId: attachment.id,
         kind: "derived_audio", speakerScope: recording.speakerScope, source: recording.source, fileName: attachment.fileName,
         sizeBytes, sha256, durationMs: probe.durationMs, offsetMs: recording.offsetMs, consentEvidence: recording.consentEvidence,
+        callSessionId: recording.callSessionId, speakerUserId: recording.speakerUserId, mediaStartedAt: recording.mediaStartedAt,
         expiresAt: retentionExpiry(recording.createdAt, meeting.audioRetentionDays), createdBy: recording.createdBy,
       }).run();
       if (meeting.aiPolicy === "openai") {
@@ -130,6 +131,10 @@ async function transcribe(job: MeetingJob, context: StageContext) {
     signal: context.signal,
     beforeRequest: () => { context.assertLease(); assertAiAllowed(job); },
   });
+  // A call track holds one person's microphone: diarization labels would only add noise.
+  const segments = recording.speakerScope === "single"
+    ? result.segments.map((segment) => ({ ...segment, speakerKey: "speaker" }))
+    : result.segments;
   completeJob(job, (tx) => {
     const revision = (tx.select({ value: max(meetingTranscripts.revision) }).from(meetingTranscripts)
       .where(eq(meetingTranscripts.recordingId, recording.id)).get()?.value ?? 0) + 1;
@@ -137,7 +142,7 @@ async function transcribe(job: MeetingJob, context: StageContext) {
       meetingId: job.meetingId, recordingId: recording.id, revision, engine: result.engine, model: result.model,
       language: meeting.language, status: "completed",
     }).returning().get();
-    result.segments.forEach((segment, position) => {
+    segments.forEach((segment, position) => {
       tx.insert(meetingTranscriptSegments).values({ transcriptId: transcript.id, position, ...segment }).run();
     });
     audit(tx, job.meetingId, null, "ai.transcribe", { engine: result.engine, model: result.model, recordingId: recording.id });
@@ -169,15 +174,23 @@ async function merge(job: MeetingJob) {
     )).orderBy(asc(meetingRecordings.createdAt)).all();
     const manifest: Array<{ transcriptId: string; recordingId: string; offsetMs: number }> = [];
     const missing: Array<{ recordingId: string; reason: string }> = [];
-    let offset = 0;
+    const speakers = new Map<number, string>();
+    // Call tracks sit on the timeline by their wall-clock start; uploads follow one after another.
+    const callStarts = originals.map((original) => original.mediaStartedAt).filter((value): value is number => value !== null);
+    const callBase = callStarts.length ? Math.min(...callStarts) : 0;
+    let offset = originals.filter((original) => original.mediaStartedAt !== null)
+      .reduce((end, original) => Math.max(end, original.mediaStartedAt! - callBase + (original.durationMs ?? 0)), 0);
     for (const original of originals) {
       const derived = tx.select().from(meetingRecordings).where(eq(meetingRecordings.sourceRecordingId, original.id)).get();
       const transcript = derived && tx.select().from(meetingTranscripts)
         .where(and(eq(meetingTranscripts.recordingId, derived.id), eq(meetingTranscripts.status, "completed")))
         .orderBy(desc(meetingTranscripts.revision)).get();
-      if (transcript) manifest.push({ transcriptId: transcript.id, recordingId: original.id, offsetMs: offset });
-      else missing.push({ recordingId: original.id, reason: "noTranscript" });
-      offset += original.durationMs ?? 0;
+      const onCall = original.mediaStartedAt !== null;
+      if (transcript) {
+        manifest.push({ transcriptId: transcript.id, recordingId: original.id, offsetMs: onCall ? original.mediaStartedAt! - callBase : offset });
+        if (original.speakerUserId) speakers.set(manifest.length, original.speakerUserId);
+      } else missing.push({ recordingId: original.id, reason: "noTranscript" });
+      if (!onCall) offset += original.durationMs ?? 0;
     }
     if (!manifest.length) return;
     const previous = tx.select().from(meetingSessionTranscripts).where(eq(meetingSessionTranscripts.meetingId, job.meetingId))
@@ -188,22 +201,29 @@ async function merge(job: MeetingJob) {
     }).returning().get();
     sqlite.prepare("DELETE FROM meeting_segments_fts WHERE meeting_id = ?").run(job.meetingId);
     const insertFts = sqlite.prepare("INSERT INTO meeting_segments_fts (segment_id, meeting_id, text) VALUES (?, ?, ?)");
-    let position = 0;
-    for (const [index, input] of manifest.entries()) {
-      const segments = tx.select().from(meetingTranscriptSegments).where(eq(meetingTranscriptSegments.transcriptId, input.transcriptId))
-        .orderBy(asc(meetingTranscriptSegments.position)).all();
-      for (const segment of segments) {
-        const row = tx.insert(meetingSessionSegments).values({
-          sessionTranscriptId: session.id, position: position++, startMs: input.offsetMs + segment.startMs, endMs: input.offsetMs + segment.endMs,
-          speakerKey: `r${index + 1}:${segment.speakerKey}`, sourceSegmentId: segment.id, text: segment.text,
-        }).returning({ id: meetingSessionSegments.id }).get();
-        insertFts.run(row.id, job.meetingId, segment.text);
-      }
+    // Segments of all tracks interleave by time, as they were spoken.
+    const timeline = manifest.flatMap((input, index) => tx.select().from(meetingTranscriptSegments)
+      .where(eq(meetingTranscriptSegments.transcriptId, input.transcriptId)).orderBy(asc(meetingTranscriptSegments.position)).all()
+      .map((segment) => ({ segment, index, startMs: input.offsetMs + segment.startMs, endMs: input.offsetMs + segment.endMs })))
+      .sort((a, b) => a.startMs - b.startMs || a.index - b.index);
+    for (const [position, { segment, index, startMs, endMs }] of timeline.entries()) {
+      const row = tx.insert(meetingSessionSegments).values({
+        sessionTranscriptId: session.id, position, startMs, endMs,
+        speakerKey: `r${index + 1}:${segment.speakerKey}`, sourceSegmentId: segment.id, text: segment.text,
+      }).returning({ id: meetingSessionSegments.id }).get();
+      insertFts.run(row.id, job.meetingId, segment.text);
     }
     // Carry over speaker names for keys that still exist.
     const previousMap = previous && tx.select().from(meetingSpeakerMaps).where(eq(meetingSpeakerMaps.sessionTranscriptId, previous.id))
       .orderBy(desc(meetingSpeakerMaps.revision)).get();
-    tx.insert(meetingSpeakerMaps).values({ sessionTranscriptId: session.id, revision: 1, map: previousMap?.map ?? "{}" }).run();
+    // Call tracks are already known people; earlier manual names win.
+    const map = JSON.parse(previousMap?.map ?? "{}") as Record<string, { userId: string | null; label: string }>;
+    for (const [index, userId] of speakers) {
+      const key = `r${index}:speaker`;
+      const person = tx.select({ name: user.name }).from(user).where(eq(user.id, userId)).get();
+      if (!map[key] && person) map[key] = { userId, label: person.name };
+    }
+    tx.insert(meetingSpeakerMaps).values({ sessionTranscriptId: session.id, revision: 1, map: JSON.stringify(map) }).run();
     if (meeting.aiPolicy === "openai") {
       enqueueJob(tx, {
         meetingId: job.meetingId, stage: "protocol", transcriptId: session.id, policyRevision: meeting.policyRevision,

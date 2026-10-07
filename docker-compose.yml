@@ -30,6 +30,12 @@ services:
       OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe-diarize}
       OPENAI_MEETINGS_MODEL: ${OPENAI_MEETINGS_MODEL:-gpt-6-astra}
       MEETINGS_MAX_UPLOAD_BYTES: ${MEETINGS_MAX_UPLOAD_BYTES:-4294967296}
+      # Online calls (Compose profile "meetings"); empty keys switch calls off.
+      LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
+      LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}
+      LIVEKIT_URL: http://livekit:7880
+      LIVEKIT_PUBLIC_URL: /livekit
+      LIVEKIT_EGRESS_DIR: /egress-staging
       # Office documents (ONLYOFFICE). See docs/office-documents.md.
       ONLYOFFICE_INBOX_SECRET: ${ONLYOFFICE_INBOX_SECRET:-}
       ONLYOFFICE_OUTBOX_SECRET: ${ONLYOFFICE_OUTBOX_SECRET:-}
@@ -39,6 +45,8 @@ services:
       OFFICE_DISABLED: ${OFFICE_DISABLED:-false}
     volumes:
       - app_data:/data
+      # Call recordings written by the egress service, taken into /data by the app.
+      - egress_staging:/egress-staging
     restart: unless-stopped
 
   # Single origin: / → app, /collab → live collaboration, /office/ → ONLYOFFICE.
@@ -90,6 +98,80 @@ services:
       Java_Xms: 256m
       Java_Xmx: 768m
 
+  # Online calls: opt in with --profile meetings (docs/meetings.md). Media
+  # (UDP 7882 / TCP 7881) is published on the Tailscale address only, so only
+  # devices in the tailnet can take part; signaling goes through the proxy.
+  livekit:
+    image: livekit/livekit-server:v1.13.8
+    profiles: ["meetings"]
+    environment:
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882
+          use_external_ip: false
+          node_ip: ${LIVEKIT_NODE_IP:-127.0.0.1}
+        redis:
+          address: redis:6379
+        keys:
+          ${LIVEKIT_API_KEY:-unset}: ${LIVEKIT_API_SECRET:-unset}
+        room:
+          auto_create: false
+          empty_timeout: 600
+        webhook:
+          api_key: ${LIVEKIT_API_KEY:-unset}
+          urls: ["http://app:3000/api/meetings/livekit-webhook"]
+        logging:
+          level: info
+    ports:
+      - "${LIVEKIT_NODE_IP:-127.0.0.1}:7881:7881"
+      - "${LIVEKIT_NODE_IP:-127.0.0.1}:7882:7882/udp"
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # Records each participant's audio track to egress_staging (no transcoding).
+  egress:
+    image: livekit/egress:v1.15.0
+    profiles: ["meetings"]
+    environment:
+      EGRESS_CONFIG_BODY: |
+        api_key: ${LIVEKIT_API_KEY:-unset}
+        api_secret: ${LIVEKIT_API_SECRET:-unset}
+        ws_url: ws://livekit:7880
+        redis:
+          address: redis:6379
+        log_level: info
+        session_limits:
+          file_output_max_duration: 4h
+        cpu_cost:
+          track_cpu_cost: 0.5
+          room_composite_cpu_cost: 2
+    volumes:
+      - egress_staging:/out
+    cpus: 2
+    mem_limit: 2g
+    depends_on:
+      egress-init:
+        condition: service_completed_successfully
+      livekit:
+        condition: service_started
+    restart: unless-stopped
+
+  # The recorder (uid 1001) writes and the app removes files in the shared volume.
+  egress-init:
+    image: alpine:3.20
+    profiles: ["meetings"]
+    command: ["chmod", "0777", "/out"]
+    volumes:
+      - egress_staging:/out
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["meetings"]
+    restart: unless-stopped
+
   # Opt in with: docker compose --profile cloudflare up --build -d
   # The remotely managed tunnel route is http://localhost:3007. Host network
   # mode makes that address resolve to the host from inside this container.
@@ -112,6 +194,7 @@ services:
 
 volumes:
   app_data:
+  egress_staging:
   onlyoffice_data:
   onlyoffice_lib:
   onlyoffice_db:

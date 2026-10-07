@@ -12,7 +12,9 @@ export type MeetingActionError =
   | "stale"
   | "notApproved"
   | "unknownItem"
-  | "aiDisabled";
+  | "aiDisabled"
+  | "callsDisabled"
+  | "noCall";
 export type MeetingActionResult<T = object> = ({ ok: true } & T) | { ok: false; error: MeetingActionError };
 
 export const fail = (error: MeetingActionError) => ({ ok: false as const, error });

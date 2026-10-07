@@ -5,8 +5,10 @@ import { db, sqlite } from "@/db";
 import { attachments, projects, tasks, user } from "@/db/schema";
 import { meetingFor, visibleMeetingCondition, type MeetingViewer } from "./access";
 import { parseProtocolContent } from "./protocol-content";
+import { livekitConfig } from "./calls/livekit";
 import {
   mediaUploadSessions,
+  meetingCallSessions,
   meetingAccess,
   meetingActionItemDecisions,
   meetingJobs,
@@ -139,7 +141,14 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
   }).from(meetingActionItemDecisions).leftJoin(tasks, eq(tasks.id, meetingActionItemDecisions.taskId))
     .where(eq(meetingActionItemDecisions.meetingId, meeting.id)).all();
 
+  const openCall = db.select().from(meetingCallSessions)
+    .where(and(eq(meetingCallSessions.meetingId, meeting.id), eq(meetingCallSessions.status, "open"))).get();
+
   return {
+    calls: {
+      enabled: livekitConfig().enabled,
+      open: openCall ? { record: openCall.record, startedAt: openCall.startedAt, startedBy: openCall.startedBy } : null,
+    },
     meeting: {
       id: meeting.id, title: meeting.title, agenda: meeting.agenda, startsAt: meeting.startsAt, status: meeting.status,
       projectId: meeting.projectId, aiPolicy: meeting.aiPolicy, confidential: meeting.confidential, language: meeting.language,

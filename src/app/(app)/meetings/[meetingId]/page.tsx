@@ -9,5 +9,5 @@ export default async function MeetingPage({ params }: { params: Promise<{ meetin
   // Meetings the viewer is not on the access list of answer 404, like missing ones.
   const detail = getMeetingDetail(viewer, meetingId);
   if (!detail) notFound();
-  return <MeetingDetail detail={detail} options={listMeetingFormOptions()} />;
+  return <MeetingDetail detail={detail} options={listMeetingFormOptions()} viewerId={viewer.id} />;
 }

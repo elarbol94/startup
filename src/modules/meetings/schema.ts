@@ -18,6 +18,7 @@ import {
 } from "./constants";
 
 export * from "./transcript-schema";
+export * from "./call-schema";
 
 const createdAt = () => integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date());
 const updatedAt = () => integer("updated_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date());
@@ -92,6 +93,10 @@ export const meetingRecordings = sqliteTable(
     durationMs: integer("duration_ms"),
     /** Position of this recording on the meeting timeline. */
     offsetMs: integer("offset_ms").notNull().default(0),
+    /** Call recordings: the call, the person on this track and when its media started (ms). */
+    callSessionId: text("call_session_id"),
+    speakerUserId: text("speaker_user_id"),
+    mediaStartedAt: integer("media_started_at"),
     /** JSON: how consent was obtained (declaration text version, user, time, AI policy). */
     consentEvidence: text("consent_evidence").notNull().default("{}"),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }),

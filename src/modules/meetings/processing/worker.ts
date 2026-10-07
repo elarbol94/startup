@@ -9,6 +9,7 @@ import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostEr
 import { stageHandlers } from "./stages";
 import { audit, DERIVED_STAGING } from "./store";
 import { processUploadSessions } from "./uploads";
+import { reconcileCalls } from "../calls/recording";
 
 /** Runs one claimed job with a heartbeat; losing the lease aborts the work. */
 async function runJob(job: MeetingJob) {
@@ -91,19 +92,22 @@ function sweepDerivedStaging(now = Date.now()) {
 
 let busy = false;
 let lastMaintenance = 0;
+let lastCallReconcile = 0;
 
 export async function runMeetingWorkerTick() {
   if (busy) return;
   busy = true;
   try {
+    // Uploads waiting for assembly should not wait for the minute-long cycle.
+    await processUploadSessions();
     if (Date.now() - lastMaintenance > 60_000) {
       lastMaintenance = Date.now();
-      await processUploadSessions();
       scheduleRetentionPurges();
       sweepDerivedStaging();
-    } else {
-      // Uploads waiting for assembly should not wait a full minute.
-      await processUploadSessions();
+    }
+    if (Date.now() - lastCallReconcile > 30_000) {
+      lastCallReconcile = Date.now();
+      await reconcileCalls();
     }
     for (let job = claimNextJob(); job; job = claimNextJob()) await runJob(job);
   } catch (error) {

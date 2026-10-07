@@ -16,9 +16,10 @@ import { RecordingsPanel } from "./meeting-detail/recordings-panel";
 import { SettingsDialog } from "./meeting-detail/settings-dialog";
 import { TranscriptPanel } from "./meeting-detail/transcript-panel";
 import { useMeetingAction } from "./meeting-ui";
+import { CallControls } from "./call-controls";
 import type { MeetingFormOptions } from "./new-meeting-dialog";
 
-export function MeetingDetail({ detail, options }: { detail: Detail; options: MeetingFormOptions }) {
+export function MeetingDetail({ detail, options, viewerId }: { detail: Detail; options: MeetingFormOptions; viewerId: string }) {
   const t = useTranslations("meetings");
   const format = useFormatter();
   const router = useRouter();
@@ -60,12 +61,15 @@ export function MeetingDetail({ detail, options }: { detail: Detail; options: Me
           </p>
           <p className="text-sm text-muted-foreground">{detail.members.map((member) => member.name).join(", ")}</p>
         </div>
+        <div className="flex flex-wrap items-start gap-2">
+          <CallControls detail={detail} viewerId={viewerId} />
         {detail.role === "host" && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}><Settings />{t("settings.open")}</Button>
             <Button variant="ghost" size="sm" disabled={pending} onClick={() => void remove()}><Trash2 />{t("delete.button")}</Button>
           </div>
         )}
+        </div>
       </div>
       {meeting.agenda && <p className="rounded-xl border bg-muted/30 p-3 text-sm whitespace-pre-wrap">{meeting.agenda}</p>}
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>

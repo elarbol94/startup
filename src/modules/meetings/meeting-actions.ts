@@ -1,5 +1,7 @@
 "use server";
 
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
@@ -12,9 +14,13 @@ import { meetingAccessRoles, meetingAiPolicies } from "./constants";
 import { cancelPendingJobs, enqueueJob, requeueJob } from "./processing/jobs";
 import { audit, retentionExpiry } from "./processing/store";
 import { requestRecordingPurge } from "./processing/worker";
+import { endOpenCalls } from "./calls/recording";
+import { livekitConfig } from "./calls/livekit";
 import {
   meetingAccess,
   meetingActionItemDecisions,
+  meetingCallSessions,
+  meetingEgressAttempts,
   meetingJobs,
   meetingProtocols,
   meetingRecordings,
@@ -135,6 +141,9 @@ export async function setMeetingAccess(input: z.input<typeof accessSchema>): Pro
       after: [...members].map(([userId, role]) => ({ userId, role })),
     });
   });
+  // Tokens cannot be revoked, so removing someone ends a running call; the others rejoin.
+  const removed = existing.filter((row) => !members.has(row.userId));
+  if (removed.length) await endOpenCalls(parsed.data.meetingId, "accessChanged", viewer.id);
   revalidateMeeting(parsed.data.meetingId);
   return { ok: true };
 }
@@ -181,6 +190,8 @@ export async function setMeetingAiPolicy(input: z.input<typeof policySchema>): P
     }
     if (derived.length) tx.update(meetings).set({ status: meeting.approvedProtocolId ? meeting.status : "processing" }).where(eq(meetings.id, meeting.id)).run();
   });
+  // Consent to a recorded call covered the old AI setting.
+  if (meeting.aiPolicy !== data.aiPolicy) await endOpenCalls(meeting.id, "aiPolicyChanged", viewer.id);
   revalidateMeeting(meeting.id);
   return { ok: true };
 }
@@ -223,6 +234,7 @@ export async function deleteMeeting(meetingId: string): Promise<MeetingActionRes
   const running = db.select({ id: meetingJobs.id }).from(meetingJobs)
     .where(and(eq(meetingJobs.meetingId, id), eq(meetingJobs.status, "running"))).get();
   if (running) return fail("busy");
+  await endOpenCalls(id, "meetingDeleted", viewer.id);
   db.transaction((tx) => {
     const files = tx.select({ id: attachments.id }).from(attachments)
       .where(and(eq(attachments.entityType, "meetingRecording"), eq(attachments.entityId, id))).all();
@@ -233,6 +245,14 @@ export async function deleteMeeting(meetingId: string): Promise<MeetingActionRes
     tx.delete(meetingTranscripts).where(eq(meetingTranscripts.meetingId, id)).run();
     tx.delete(meetingProtocols).where(eq(meetingProtocols.meetingId, id)).run();
     tx.delete(meetingActionItemDecisions).where(eq(meetingActionItemDecisions.meetingId, id)).run();
+    // Call recordings not yet taken into the store live in the recorder's directory.
+    const sessions = tx.select({ id: meetingCallSessions.id }).from(meetingCallSessions).where(eq(meetingCallSessions.meetingId, id)).all().map((row) => row.id);
+    if (sessions.length) {
+      for (const attempt of tx.select({ fileName: meetingEgressAttempts.fileName }).from(meetingEgressAttempts).where(inArray(meetingEgressAttempts.sessionId, sessions)).all()) {
+        fs.rmSync(path.join(livekitConfig().egressDir, attempt.fileName), { force: true });
+      }
+      tx.delete(meetingCallSessions).where(inArray(meetingCallSessions.id, sessions)).run();
+    }
     tx.delete(meetings).where(eq(meetings.id, id)).run();
     audit(tx, id, viewer.id, "meeting.deleted", { title: access.meeting.title, files: files.length });
   });

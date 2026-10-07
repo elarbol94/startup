@@ -1,10 +1,52 @@
 # Meetings: recordings and AI protocols
 
 The **Besprechungen** module (`/meetings`, shortcut `G B`) turns a meeting
-recording into a reviewed protocol: upload → transcript → AI draft → review →
-approval → action items become tasks. Release 1 works with uploaded
-recordings (from a phone, a laptop or an in-person meeting). Online meetings
-with LiveKit follow later; see `docs/plans/meetings-ai-protocols.md`.
+recording into a reviewed protocol: upload or online call → transcript → AI
+draft → review → approval → action items become tasks. Recordings come from
+uploads (phone, laptop, in-person meeting) or from online calls in the
+platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
+
+## Online calls
+
+- **Start**: *Call starten* on a meeting (hosts and participants). Recording
+  is chosen when the call starts and applies to the whole call; to change it,
+  end the call and start a new one.
+- **Join**: everyone on the meeting's access list; viewers listen without
+  camera/microphone. For a recorded call each person must consent (and to
+  OpenAI processing when the meeting uses AI) before the server issues a
+  join token — no consent, no token.
+- **Network**: signaling goes through the normal site (`/livekit/rtc…` via
+  nginx and Cloudflare Access); audio and video go directly to `banond`'s
+  Tailscale address (UDP 7882, fallback TCP 7881). **Tailscale must be on**
+  on every device; the platform shows "Verbindung fehlgeschlagen" otherwise.
+- **Recording**: each person's microphone is recorded as its own Opus track
+  (LiveKit Egress, no transcoding, ~0.15 CPU core per person). Speakers are
+  therefore known exactly; the transcript interleaves the tracks by time. A
+  combined video recording is deliberately not offered: on this server one
+  720p composite needs about four CPU cores.
+- **Ending**: hosts or whoever started the call press *Call beenden*; an
+  empty call closes after ten minutes. Removing someone from the meeting or
+  changing its AI setting ends a running call (issued LiveKit tokens cannot
+  be revoked); the others simply rejoin.
+- **Afterwards**: the recordings are taken into the upload store within a
+  minute and processed like uploads.
+
+### Setup
+
+```bash
+# .env next to docker-compose.yml
+LIVEKIT_API_KEY=meetings
+LIVEKIT_API_SECRET=<openssl rand -hex 32>
+LIVEKIT_NODE_IP=<tailscale ip -4>
+docker compose --profile cloudflare --profile meetings up --build -d
+docker compose restart proxy   # picks up deploy/nginx.conf changes
+```
+
+Without the `meetings` profile (or with empty keys) the call buttons are
+hidden and the rest of the platform is unaffected. For `npm run dev`, run a
+local `livekit-server --dev` and set `LIVEKIT_API_KEY=devkey`,
+`LIVEKIT_API_SECRET=secret`, `LIVEKIT_URL=http://localhost:7880`,
+`LIVEKIT_PUBLIC_URL=ws://localhost:7880`.
 
 ## How it works
 
