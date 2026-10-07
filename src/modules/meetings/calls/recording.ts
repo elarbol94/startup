@@ -102,7 +102,14 @@ export async function syncEgress(info: EgressInfo) {
 export async function endCallSession(session: Session, reason: string, actorId: string | null) {
   const changed = db.update(meetingCallSessions).set({ status: "ended", endedAt: new Date(), endReason: reason })
     .where(and(eq(meetingCallSessions.id, session.id), eq(meetingCallSessions.status, "open"))).run().changes;
-  if (changed) audit(db, session.meetingId, actorId, "call.ended", { sessionId: session.id, reason });
+  if (changed) {
+    audit(db, session.meetingId, actorId, "call.ended", { sessionId: session.id, reason });
+    // Transcripts that finished during the call waited for its end (see the merge stage).
+    const meeting = db.select({ policyRevision: meetings.policyRevision, aiPolicy: meetings.aiPolicy }).from(meetings).where(eq(meetings.id, session.meetingId)).get();
+    if (meeting?.aiPolicy === "openai") {
+      enqueueJob(db, { meetingId: session.meetingId, stage: "merge", policyRevision: meeting.policyRevision, executionKey: `merge:call:${session.id}`, delayMs: 5_000 });
+    }
+  }
   await deleteCallRoom(session.roomName);
 }
 

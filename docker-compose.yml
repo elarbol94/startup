@@ -119,6 +119,8 @@ services:
         room:
           auto_create: false
           empty_timeout: 600
+          # A reload or a short network drop must not end the call for everyone.
+          departure_timeout: 300
         webhook:
           api_key: ${LIVEKIT_API_KEY:-unset}
           urls: ["http://app:3000/api/meetings/livekit-webhook"]

@@ -5190,6 +5190,10 @@
       "createTask": "Create task"
     },
     "call": {
+      "closed": "The call has ended.",
+      "left": "You left the call.",
+      "rejoin": "Rejoin",
+      "backToMeeting": "Back to the meeting",
       "start": "Start call",
       "startTitle": "Start an online call",
       "startDescription": "Everyone with access to this meeting can join. Devices need an active Tailscale connection.",

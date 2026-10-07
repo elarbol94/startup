@@ -32,12 +32,14 @@ export function MeetingDetail({ detail, options, viewerId }: { detail: Detail; o
   const working = meeting.status === "processing" || detail.uploads.some((upload) => upload.state !== "aborted")
     || detail.jobs.some((job) => job.status === "queued" || job.status === "running");
 
-  // While the worker processes recordings, refresh so results appear without a reload.
+  // While recordings are processed or a call runs, refresh so results and the
+  // end of the call appear without a reload.
+  const callOpen = Boolean(detail.calls.open);
   useEffect(() => {
-    if (!working) return;
-    const timer = setInterval(() => router.refresh(), 5_000);
+    if (!working && !callOpen) return;
+    const timer = setInterval(() => router.refresh(), working ? 5_000 : 15_000);
     return () => clearInterval(timer);
-  }, [working, router]);
+  }, [working, callOpen, router]);
 
   async function remove() {
     if (!await confirm({ title: t("delete.title"), description: t("delete.description"), confirmLabel: t("delete.confirm"), destructive: true })) return;

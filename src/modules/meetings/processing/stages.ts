@@ -9,6 +9,8 @@ import { attachments, user } from "@/db/schema";
 import { moveStagedFileIntoStore, newStoredName, purgeMediaAttachment, registerStagedAttachment } from "@/lib/files";
 import {
   meetingAccess,
+  meetingCallSessions,
+  meetingEgressAttempts,
   meetingJobInputs,
   meetingJobs,
   meetingProtocols,
@@ -168,7 +170,13 @@ async function merge(job: MeetingJob) {
       inArray(meetingJobs.stage, [...ACTIVE_PIPELINE_STAGES]),
       inArray(meetingJobs.status, ["queued", "running"]),
     )).get();
-    if (busy) return;
+    // A running call, or call recordings not yet in the store, will trigger their own merge.
+    const callPending = tx.select({ id: meetingCallSessions.id }).from(meetingCallSessions)
+      .where(and(eq(meetingCallSessions.meetingId, job.meetingId), eq(meetingCallSessions.status, "open"))).get()
+      ?? tx.select({ id: meetingEgressAttempts.id }).from(meetingEgressAttempts)
+        .innerJoin(meetingCallSessions, eq(meetingCallSessions.id, meetingEgressAttempts.sessionId))
+        .where(and(eq(meetingCallSessions.meetingId, job.meetingId), inArray(meetingEgressAttempts.state, ["calling", "started", "unknown", "complete"]))).get();
+    if (busy || callPending) return;
     const originals = tx.select().from(meetingRecordings).where(and(
       eq(meetingRecordings.meetingId, job.meetingId), ne(meetingRecordings.kind, "derived_audio"),
     )).orderBy(asc(meetingRecordings.createdAt)).all();

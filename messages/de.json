@@ -5190,6 +5190,10 @@
       "createTask": "Aufgabe anlegen"
     },
     "call": {
+      "closed": "Der Call wurde beendet.",
+      "left": "Du hast den Call verlassen.",
+      "rejoin": "Wieder beitreten",
+      "backToMeeting": "Zur Besprechung",
       "start": "Call starten",
       "startTitle": "Online-Call starten",
       "startDescription": "Alle mit Zugriff auf diese Besprechung können beitreten. Geräte brauchen eine aktive Tailscale-Verbindung.",
