@@ -28,6 +28,7 @@ export const NAVIGATION_SHORTCUTS: Record<ModuleNavItem["key"] | "settings", str
   wiki: "G W",
   municipalities: "G M",
   network: "G N",
+  meetings: "G B",
   settings: "G S",
 };
 

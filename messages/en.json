@@ -295,6 +295,7 @@
     "wiki": "Wiki",
     "municipalities": "Municipalities",
     "network": "Network",
+    "meetings": "Meetings",
     "settings": "Settings",
     "logout": "Sign out",
     "navigationLabel": "Main navigation",
@@ -4933,6 +4934,225 @@
       "stale": "The text changed at this position – please check again.",
       "learned": "Added “{word}” to the dictionary.",
       "learnFailed": "The word could not be saved."
+    }
+  },
+  "meetings": {
+    "title": "Meetings",
+    "description": "Upload recordings, review protocols and turn action items into tasks.",
+    "back": "All meetings",
+    "cancel": "Cancel",
+    "noDate": "No date",
+    "new": {
+      "button": "New meeting",
+      "title": "New meeting",
+      "description": "Only the selected people can see the meeting, its recordings and the protocol.",
+      "submit": "Create"
+    },
+    "fields": {
+      "title": "Title",
+      "startsAt": "Start",
+      "project": "Project",
+      "noProject": "No project",
+      "agenda": "Agenda",
+      "agendaHint": "Optional – helps the protocol",
+      "participants": "Participants",
+      "participantsHint": "You are the host automatically. Selected people can upload recordings and edit the protocol.",
+      "confidential": "Confidential",
+      "confidentialHint": "E.g. personnel talks: AI is off by default, tasks show a warning.",
+      "language": "Language",
+      "videoRetention": "Delete videos after (days)",
+      "audioRetention": "Delete audio after (days)",
+      "retentionHint": "Recordings are then deleted permanently. The transcript and the approved protocol are kept."
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "processing": "Processing",
+      "review": "To review",
+      "approved": "Approved",
+      "cancelled": "Cancelled"
+    },
+    "ai": {
+      "on": "AI protocol on",
+      "off": "AI off"
+    },
+    "roles": {
+      "host": "Host",
+      "participant": "Participant",
+      "viewer": "Read only"
+    },
+    "tabs": {
+      "protocol": "Protocol",
+      "transcript": "Transcript",
+      "recordings": "Recordings"
+    },
+    "empty": {
+      "title": "No meetings yet",
+      "description": "Create a meeting and upload its recording. You get a draft protocol with decisions and action items."
+    },
+    "search": {
+      "placeholder": "Search transcripts and protocols",
+      "label": "Search meetings",
+      "results": "Search results",
+      "empty": "No matches.",
+      "source": {
+        "transcript": "Transcript",
+        "protocol": "Protocol"
+      }
+    },
+    "settings": {
+      "open": "Settings",
+      "title": "Meeting settings",
+      "description": "Details, access and AI processing.",
+      "details": "Details",
+      "saveDetails": "Save details",
+      "members": "Access",
+      "membersHint": "Only these people can see the meeting. Hosts manage settings, approval and deletion.",
+      "role": "Role",
+      "removeMember": "Remove {name}",
+      "addMember": "Add person …",
+      "saveMembers": "Save access",
+      "ai": "AI processing",
+      "aiEnabled": "Create transcript and draft protocol with OpenAI",
+      "aiHint": "Audio and transcript are sent to OpenAI for this. Without AI you write the protocol yourselves.",
+      "aiDeclaration": "Everyone recorded was informed and agrees that the existing recordings are transcribed and summarised with OpenAI.",
+      "saveAi": "Save AI setting"
+    },
+    "delete": {
+      "button": "Delete",
+      "title": "Delete meeting?",
+      "description": "Recordings, transcripts and protocols are deleted permanently. Tasks already created are kept.",
+      "confirm": "Delete permanently"
+    },
+    "recordings": {
+      "title": "Recordings",
+      "empty": "No recording yet.",
+      "uploadTitle": "Upload a recording",
+      "upload": "Upload",
+      "declarationInformed": "Everyone recorded was informed about the recording and agrees.",
+      "declarationAi": "They also agree that the recording is transcribed and summarised into a protocol with OpenAI.",
+      "cancelUpload": "Cancel",
+      "uploaded": "Uploaded – the recording is being processed now.",
+      "dismiss": "Dismiss",
+      "assembling": "Saving “{name}” …",
+      "uploadFailed": "“{name}” could not be saved: {error}",
+      "expires": "deleted on {date}",
+      "delete": "Delete recording",
+      "deleteTitle": "Delete recording permanently?",
+      "deleteDescription": "The file and the audio derived from it are deleted. Transcript and protocol are kept.",
+      "purge": {
+        "active": "Available",
+        "purging": "Deleting",
+        "purged": "Deleted",
+        "purge_failed": "Deletion failed"
+      }
+    },
+    "uploadErrors": {
+      "generic": "The upload failed.",
+      "type": "This file format is not supported.",
+      "tooLarge": "The file is too large.",
+      "declaration": "Please confirm the consent.",
+      "quota": "You have too many large uploads in progress.",
+      "disk": "There is not enough free space on the server.",
+      "network": "The connection was lost.",
+      "chunk": "Part of the file arrived corrupted.",
+      "state": "The upload expired. Please start again.",
+      "forbidden": "You are not allowed to do this.",
+      "notFound": "The meeting was not found."
+    },
+    "jobs": {
+      "title": "Processing",
+      "retry": "Retry",
+      "stage": {
+        "ingest": "Check recording",
+        "extract_audio": "Prepare audio",
+        "transcribe": "Transcribe",
+        "merge": "Merge transcript",
+        "protocol": "Draft protocol",
+        "purge": "Delete"
+      },
+      "status": {
+        "queued": "Waiting",
+        "running": "Running",
+        "done": "Done",
+        "failed": "Failed",
+        "blocked": "Blocked",
+        "cancelled": "Cancelled"
+      }
+    },
+    "transcript": {
+      "empty": "No transcript yet. It is created automatically after the upload.",
+      "aiOff": "AI processing is off, so there is no transcript.",
+      "missing": "{count, plural, one {One recording is} other {# recordings are}} missing from this transcript (processing failed).",
+      "speakers": "Speakers",
+      "speakersHint": "Assign the detected voices to people. Detection is an estimate – please check.",
+      "nameSpeakers": "Assign names",
+      "speaker": "Speaker {number}",
+      "person": "Person",
+      "notAMember": "Someone else",
+      "label": "Name",
+      "labelPlaceholder": "Name",
+      "saveSpeakers": "Save assignment",
+      "regenerateHint": "After assigning names you can have the draft protocol recreated."
+    },
+    "protocol": {
+      "draft": "Draft",
+      "approved": "Approved",
+      "version": "Version {version}",
+      "source": {
+        "ai": "AI draft",
+        "ai_edited": "AI draft, edited",
+        "manual": "Manual"
+      },
+      "regenerate": "Recreate",
+      "edit": "Edit",
+      "approve": "Approve",
+      "reviewHint": "Please review: the draft may contain mistakes. Action items can be taken over after approval.",
+      "newerDraft": "There is a newer draft than the approved version {version}.",
+      "showApproved": "Show approved version {version}",
+      "generating": "The draft protocol is created once the transcript is ready.",
+      "empty": "No protocol yet.",
+      "writeManually": "Write the protocol yourself",
+      "summary": "Summary",
+      "agenda": "Topics",
+      "agendaTitle": "Topic",
+      "agendaSummary": "Summary of the topic",
+      "decisions": "Decisions",
+      "actionItems": "Action items",
+      "openQuestions": "Open questions",
+      "nothing": "None.",
+      "addItem": "Add",
+      "removeItem": "Remove",
+      "assignee": "Assignee",
+      "noAssignee": "Nobody assigned",
+      "dueDate": "Due on",
+      "saveVersion": "Save as new version",
+      "evidence": "{count, plural, one {# source in the transcript} other {# sources in the transcript}}"
+    },
+    "actionItems": {
+      "none": "No action items.",
+      "accept": "Create task",
+      "reject": "Discard",
+      "accepted": "Accepted",
+      "rejected": "Discarded",
+      "taskCreated": "Task: {title}",
+      "acceptTitle": "Create task",
+      "acceptDescription": "The task links back to this meeting.",
+      "confidentialWarning": "Confidential meeting: the task is visible to everyone who can see the chosen project. Word it accordingly.",
+      "taskTitle": "Task title",
+      "assignees": "Assignees",
+      "createTask": "Create task"
+    },
+    "errors": {
+      "invalid": "The input is invalid.",
+      "notFound": "Not found.",
+      "forbidden": "You are not allowed to do this.",
+      "lastHost": "At least one person must remain host.",
+      "declaration": "Please confirm the consent to AI processing.",
+      "busy": "The meeting is being processed. Please try again in a moment.",
+      "stale": "There is a newer version meanwhile. Please reload the page.",
+      "notApproved": "Action items can only be taken over from the approved protocol.",
+      "unknownItem": "This action item is not in the approved protocol.",
+      "aiDisabled": "AI processing is off for this meeting."
     }
   }
 }

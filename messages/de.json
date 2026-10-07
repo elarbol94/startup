@@ -295,6 +295,7 @@
     "wiki": "Wiki",
     "municipalities": "Gemeinden",
     "network": "Netzwerk",
+    "meetings": "Besprechungen",
     "settings": "Einstellungen",
     "logout": "Abmelden",
     "navigationLabel": "Hauptnavigation",
@@ -4933,6 +4934,225 @@
       "stale": "Der Text hat sich an dieser Stelle geändert – bitte neu prüfen.",
       "learned": "„{word}“ ins Wörterbuch aufgenommen.",
       "learnFailed": "Das Wort konnte nicht gespeichert werden."
+    }
+  },
+  "meetings": {
+    "title": "Besprechungen",
+    "description": "Aufnahmen hochladen, Protokolle prüfen und Aufgaben übernehmen.",
+    "back": "Alle Besprechungen",
+    "cancel": "Abbrechen",
+    "noDate": "Ohne Termin",
+    "new": {
+      "button": "Neue Besprechung",
+      "title": "Neue Besprechung",
+      "description": "Nur die ausgewählten Personen sehen die Besprechung, ihre Aufnahmen und das Protokoll.",
+      "submit": "Anlegen"
+    },
+    "fields": {
+      "title": "Titel",
+      "startsAt": "Beginn",
+      "project": "Projekt",
+      "noProject": "Kein Projekt",
+      "agenda": "Tagesordnung",
+      "agendaHint": "Optional – hilft beim Protokoll",
+      "participants": "Teilnehmende",
+      "participantsHint": "Du bist automatisch Gastgeber:in. Ausgewählte Personen können Aufnahmen hochladen und das Protokoll bearbeiten.",
+      "confidential": "Vertraulich",
+      "confidentialHint": "Z. B. Personalgespräche: KI ist standardmäßig aus, Aufgaben zeigen einen Hinweis.",
+      "language": "Sprache",
+      "videoRetention": "Videos löschen nach (Tagen)",
+      "audioRetention": "Audio löschen nach (Tagen)",
+      "retentionHint": "Aufnahmen werden danach endgültig gelöscht. Transkript und freigegebenes Protokoll bleiben erhalten."
+    },
+    "status": {
+      "scheduled": "Geplant",
+      "processing": "Wird verarbeitet",
+      "review": "Zur Prüfung",
+      "approved": "Freigegeben",
+      "cancelled": "Abgesagt"
+    },
+    "ai": {
+      "on": "KI-Protokoll an",
+      "off": "KI aus"
+    },
+    "roles": {
+      "host": "Gastgeber:in",
+      "participant": "Teilnehmend",
+      "viewer": "Nur lesen"
+    },
+    "tabs": {
+      "protocol": "Protokoll",
+      "transcript": "Transkript",
+      "recordings": "Aufnahmen"
+    },
+    "empty": {
+      "title": "Noch keine Besprechungen",
+      "description": "Lege eine Besprechung an und lade die Aufnahme hoch. Daraus entsteht ein Protokollentwurf mit Beschlüssen und Aufgaben."
+    },
+    "search": {
+      "placeholder": "In Transkripten und Protokollen suchen",
+      "label": "Besprechungen durchsuchen",
+      "results": "Suchergebnisse",
+      "empty": "Keine Treffer.",
+      "source": {
+        "transcript": "Transkript",
+        "protocol": "Protokoll"
+      }
+    },
+    "settings": {
+      "open": "Einstellungen",
+      "title": "Einstellungen der Besprechung",
+      "description": "Details, Zugriff und KI-Verarbeitung.",
+      "details": "Details",
+      "saveDetails": "Details speichern",
+      "members": "Zugriff",
+      "membersHint": "Nur diese Personen sehen die Besprechung. Gastgeber:innen verwalten Einstellungen, Freigabe und Löschung.",
+      "role": "Rolle",
+      "removeMember": "{name} entfernen",
+      "addMember": "Person hinzufügen …",
+      "saveMembers": "Zugriff speichern",
+      "ai": "KI-Verarbeitung",
+      "aiEnabled": "Transkript und Protokollentwurf mit OpenAI erstellen",
+      "aiHint": "Audio und Transkript werden dazu an OpenAI übermittelt. Ohne KI schreibt ihr das Protokoll selbst.",
+      "aiDeclaration": "Alle aufgenommenen Personen wurden informiert und sind einverstanden, dass die vorhandenen Aufnahmen mit OpenAI transkribiert und zusammengefasst werden.",
+      "saveAi": "KI-Einstellung speichern"
+    },
+    "delete": {
+      "button": "Löschen",
+      "title": "Besprechung löschen?",
+      "description": "Aufnahmen, Transkripte und Protokolle werden endgültig gelöscht. Bereits erstellte Aufgaben bleiben erhalten.",
+      "confirm": "Endgültig löschen"
+    },
+    "recordings": {
+      "title": "Aufnahmen",
+      "empty": "Noch keine Aufnahme.",
+      "uploadTitle": "Aufnahme hochladen",
+      "upload": "Hochladen",
+      "declarationInformed": "Alle aufgenommenen Personen wurden über die Aufnahme informiert und sind einverstanden.",
+      "declarationAi": "Sie sind auch einverstanden, dass die Aufnahme mit OpenAI transkribiert und zu einem Protokoll zusammengefasst wird.",
+      "cancelUpload": "Abbrechen",
+      "uploaded": "Hochgeladen – die Aufnahme wird jetzt verarbeitet.",
+      "dismiss": "Schließen",
+      "assembling": "„{name}“ wird gespeichert …",
+      "uploadFailed": "„{name}“ konnte nicht gespeichert werden: {error}",
+      "expires": "wird am {date} gelöscht",
+      "delete": "Aufnahme löschen",
+      "deleteTitle": "Aufnahme endgültig löschen?",
+      "deleteDescription": "Die Datei und das daraus erzeugte Audio werden gelöscht. Transkript und Protokoll bleiben erhalten.",
+      "purge": {
+        "active": "Vorhanden",
+        "purging": "Wird gelöscht",
+        "purged": "Gelöscht",
+        "purge_failed": "Löschen fehlgeschlagen"
+      }
+    },
+    "uploadErrors": {
+      "generic": "Der Upload ist fehlgeschlagen.",
+      "type": "Dieses Dateiformat wird nicht unterstützt.",
+      "tooLarge": "Die Datei ist zu groß.",
+      "declaration": "Bitte bestätige die Einwilligung.",
+      "quota": "Du hast gerade zu viele große Uploads offen.",
+      "disk": "Auf dem Server ist nicht genug Speicherplatz frei.",
+      "network": "Die Verbindung ist abgebrochen.",
+      "chunk": "Ein Teil der Datei kam fehlerhaft an.",
+      "state": "Der Upload ist abgelaufen. Bitte neu starten.",
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "notFound": "Die Besprechung wurde nicht gefunden."
+    },
+    "jobs": {
+      "title": "Verarbeitung",
+      "retry": "Erneut versuchen",
+      "stage": {
+        "ingest": "Aufnahme prüfen",
+        "extract_audio": "Audio aufbereiten",
+        "transcribe": "Transkribieren",
+        "merge": "Transkript zusammenführen",
+        "protocol": "Protokollentwurf",
+        "purge": "Löschen"
+      },
+      "status": {
+        "queued": "Wartet",
+        "running": "Läuft",
+        "done": "Fertig",
+        "failed": "Fehlgeschlagen",
+        "blocked": "Blockiert",
+        "cancelled": "Abgebrochen"
+      }
+    },
+    "transcript": {
+      "empty": "Noch kein Transkript. Es entsteht automatisch nach dem Hochladen.",
+      "aiOff": "Die KI-Verarbeitung ist aus, daher gibt es kein Transkript.",
+      "missing": "{count, plural, one {Eine Aufnahme fehlt} other {# Aufnahmen fehlen}} in diesem Transkript (Verarbeitung fehlgeschlagen).",
+      "speakers": "Sprecher:innen",
+      "speakersHint": "Ordne die erkannten Stimmen Personen zu. Die Erkennung ist eine Schätzung – bitte prüfen.",
+      "nameSpeakers": "Namen zuordnen",
+      "speaker": "Sprecher:in {number}",
+      "person": "Person",
+      "notAMember": "Andere Person",
+      "label": "Name",
+      "labelPlaceholder": "Name",
+      "saveSpeakers": "Zuordnung speichern",
+      "regenerateHint": "Nach dem Zuordnen kannst du den Protokollentwurf neu erstellen lassen."
+    },
+    "protocol": {
+      "draft": "Entwurf",
+      "approved": "Freigegeben",
+      "version": "Version {version}",
+      "source": {
+        "ai": "KI-Entwurf",
+        "ai_edited": "KI-Entwurf, bearbeitet",
+        "manual": "Manuell"
+      },
+      "regenerate": "Neu erstellen",
+      "edit": "Bearbeiten",
+      "approve": "Freigeben",
+      "reviewHint": "Bitte prüfen: Der Entwurf kann Fehler enthalten. Aufgaben lassen sich nach der Freigabe übernehmen.",
+      "newerDraft": "Es gibt eine neuere Entwurfsversion als die freigegebene Version {version}.",
+      "showApproved": "Freigegebene Version {version} anzeigen",
+      "generating": "Der Protokollentwurf wird erstellt, sobald das Transkript fertig ist.",
+      "empty": "Noch kein Protokoll.",
+      "writeManually": "Protokoll selbst schreiben",
+      "summary": "Zusammenfassung",
+      "agenda": "Themen",
+      "agendaTitle": "Thema",
+      "agendaSummary": "Zusammenfassung des Themas",
+      "decisions": "Beschlüsse",
+      "actionItems": "Aufgaben",
+      "openQuestions": "Offene Fragen",
+      "nothing": "Keine.",
+      "addItem": "Hinzufügen",
+      "removeItem": "Entfernen",
+      "assignee": "Zuständig",
+      "noAssignee": "Niemand zugeordnet",
+      "dueDate": "Fällig am",
+      "saveVersion": "Als neue Version speichern",
+      "evidence": "{count, plural, one {# Beleg im Transkript} other {# Belege im Transkript}}"
+    },
+    "actionItems": {
+      "none": "Keine Aufgaben.",
+      "accept": "Als Aufgabe übernehmen",
+      "reject": "Verwerfen",
+      "accepted": "Übernommen",
+      "rejected": "Verworfen",
+      "taskCreated": "Aufgabe: {title}",
+      "acceptTitle": "Aufgabe anlegen",
+      "acceptDescription": "Die Aufgabe verweist auf diese Besprechung.",
+      "confidentialWarning": "Vertrauliche Besprechung: Die Aufgabe ist für alle sichtbar, die das gewählte Projekt sehen. Formuliere sie entsprechend.",
+      "taskTitle": "Titel der Aufgabe",
+      "assignees": "Zuständig",
+      "createTask": "Aufgabe anlegen"
+    },
+    "errors": {
+      "invalid": "Die Eingaben sind ungültig.",
+      "notFound": "Nicht gefunden.",
+      "forbidden": "Dafür fehlt dir die Berechtigung.",
+      "lastHost": "Mindestens eine Person muss Gastgeber:in bleiben.",
+      "declaration": "Bitte bestätige die Einwilligung zur KI-Verarbeitung.",
+      "busy": "Die Besprechung wird gerade verarbeitet. Bitte versuche es gleich noch einmal.",
+      "stale": "Inzwischen gibt es eine neuere Version. Bitte lade die Seite neu.",
+      "notApproved": "Aufgaben können erst aus dem freigegebenen Protokoll übernommen werden.",
+      "unknownItem": "Diese Aufgabe gibt es im freigegebenen Protokoll nicht.",
+      "aiDisabled": "Die KI-Verarbeitung ist für diese Besprechung aus."
     }
   }
 }

@@ -49,7 +49,8 @@ async function serveAttachment(request: Request, { params }: Params, headOnly = 
     "Content-Type": attachment.mimeType,
     "Content-Length": String(length),
     "Content-Disposition": `${disposition}; filename*=UTF-8''${encodeURIComponent(attachment.fileName)}`,
-    "Cache-Control": attachment.entityType === "wikiPresentation" ? "private, no-store" : "private, max-age=3600",
+    // Recordings may lose access or be purged at any time; never keep a browser copy.
+    "Cache-Control": attachment.entityType === "wikiPresentation" || attachment.entityType === "meetingRecording" ? "private, no-store" : "private, max-age=3600",
     "Accept-Ranges": "bytes",
     "X-Content-Type-Options": "nosniff",
   });

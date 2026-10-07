@@ -11,6 +11,9 @@ Self-hosted all-in-one management app for a small Austrian start-up:
   assignees, due dates and priorities, "Meine Aufgaben" on the dashboard.
 - **Wiki** — hierarchical Word documents (embedded ONLYOFFICE editor) with
   versions, full-text search (SQLite FTS5), internal links and backlinks.
+- **Besprechungen** — upload meeting recordings, get an AI-drafted protocol
+  with decisions and action items, review, approve and turn action items into
+  tasks; see [docs/meetings.md](docs/meetings.md).
 - **i18n** — German (default) and English, switchable per user in the user menu.
 
 ## Stack

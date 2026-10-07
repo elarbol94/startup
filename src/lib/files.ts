@@ -36,6 +36,41 @@ const ALLOWED_MIME: Record<string, string> = {
   "text/tab-separated-values": ".tsv",
 };
 
+/** Checks the container signature of an audio/video file against its declared type. */
+export function mediaHeaderMatches(type: string, header: Uint8Array) {
+  const bytes = Buffer.from(header.buffer, header.byteOffset, Math.min(header.byteLength, 16));
+  if (type.endsWith("mp4") || type === "audio/x-m4a") return bytes.subarray(4, 8).toString() === "ftyp";
+  if (type.endsWith("webm") || type === "video/x-matroska") return bytes.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+  if (type === "audio/ogg" || type === "audio/opus") return bytes.subarray(0, 4).toString() === "OggS";
+  if (type === "audio/wav" || type === "audio/x-wav") return bytes.subarray(0, 4).toString() === "RIFF" && bytes.subarray(8, 12).toString() === "WAVE";
+  if (type === "audio/mpeg") return bytes.subarray(0, 3).toString() === "ID3" || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
+  return false;
+}
+
+/**
+ * Scratch space for large files that are assembled or produced outside the
+ * request (meeting uploads, derived audio). It lives inside the upload store
+ * so finalising is an atomic same-filesystem rename.
+ */
+export const STAGING_PATH = path.join(/* turbopackIgnore: true */ UPLOADS_PATH, ".staging");
+
+/** A fresh stored name with the same sharding convention as buffered uploads. */
+export function newStoredName(sha256: string, extension: string) {
+  if (!/^[a-f0-9]{64}$/.test(sha256) || !/^\.[a-z0-9]{2,5}$/.test(extension)) throw new UploadError("Invalid stored name");
+  return `${sha256.slice(0, 2)}/${crypto.randomUUID()}${extension}`;
+}
+
+/**
+ * Moves a verified staged file to its stored name. Idempotent: when the file
+ * is already there (a retried finalisation), nothing happens.
+ */
+export function moveStagedFileIntoStore(stagedPath: string, storedName: string) {
+  const destination = getAttachmentAbsolutePath(storedName);
+  if (fs.existsSync(/* turbopackIgnore: true */ destination)) return;
+  fs.mkdirSync(/* turbopackIgnore: true */ path.dirname(destination), { recursive: true });
+  fs.renameSync(/* turbopackIgnore: true */ stagedPath, destination);
+}
+
 export type AttachmentEntityType = (typeof attachmentEntityTypes)[number];
 
 export function isAttachmentEntityType(
@@ -97,14 +132,8 @@ export function stageAttachmentBuffer(options: {
   }
 
   // Media is served inline: reject disguised HTML and unsupported containers.
-  if (/^(audio|video)\//.test(type)) {
-    const header = buffer.subarray(0, 16);
-    const valid = type.endsWith("mp4") ? header.subarray(4, 8).toString() === "ftyp"
-      : type === "video/webm" ? header.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]))
-      : type === "audio/ogg" ? header.subarray(0, 4).toString() === "OggS"
-      : type === "audio/wav" ? header.subarray(0, 4).toString() === "RIFF" && header.subarray(8, 12).toString() === "WAVE"
-      : type === "audio/mpeg" ? header.subarray(0, 3).toString() === "ID3" || (header[0] === 0xff && (header[1] & 0xe0) === 0xe0) : false;
-    if (!valid) throw new UploadError("The media content does not match its file type");
+  if (/^(audio|video)\//.test(type) && !mediaHeaderMatches(type, buffer.subarray(0, 16))) {
+    throw new UploadError("The media content does not match its file type");
   }
   if (type === "image/svg+xml") {
     let svgBytes: Uint8Array = buffer;
@@ -213,6 +242,21 @@ export function deleteAttachment(id: string) {
   db.delete(attachments).where(eq(attachments.id, id)).run();
   const absolute = getAttachmentAbsolutePath(row.storedName);
   if (fs.existsSync(/* turbopackIgnore: true */ absolute)) fs.unlinkSync(/* turbopackIgnore: true */ absolute);
+}
+
+/**
+ * Permanently deletes a meeting recording: unlike `deleteAttachment` it keeps
+ * no `.history` copy, because retention must really remove the media. Limited
+ * to meeting recordings so accounting and wiki retention are unaffected.
+ * Throws if the file cannot be removed, so callers never report a failed
+ * unlink as purged.
+ */
+export function purgeMediaAttachment(id: string) {
+  const row = getAttachment(id);
+  if (!row) return;
+  if (row.entityType !== "meetingRecording") throw new UploadError("Only meeting recordings can be purged");
+  fs.rmSync(/* turbopackIgnore: true */ getAttachmentAbsolutePath(row.storedName), { force: true });
+  db.delete(attachments).where(eq(attachments.id, id)).run();
 }
 
 /** Removes active rows/files; immutable recovery bytes remain in the upload store. */

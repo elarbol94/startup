@@ -11,7 +11,7 @@ async function warmLanguageTool() {
 }
 
 // Runs once when the Next.js server boots (dev and production).
-// Applies migrations and starts the durable local PDF extraction worker.
+// Applies migrations and starts the durable local PDF extraction and meeting workers.
 export async function register() {
   // `next build` imports route modules in parallel workers; letting each one migrate and
   // seed the same SQLite file deadlocks the build (and would touch the dev database).
@@ -28,6 +28,8 @@ export async function register() {
     await warmLanguageTool();
     const { startPdfProcessingWorker } = await import("./modules/wiki/pdf-processing");
     startPdfProcessingWorker();
+    const { startMeetingWorker } = await import("./modules/meetings/processing/worker");
+    startMeetingWorker();
     // Office documents: resume persisted restore/checkpoint operations, sweep orphaned files.
     const { startOfficeMaintenance } = await import("./modules/wiki/office/maintenance");
     startOfficeMaintenance();

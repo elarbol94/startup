@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { categories, entries, invoices, wikiPages } from "@/db/schema";
 import type { AttachmentEntityType } from "@/lib/files";
 import { presentationRole } from "@/modules/wiki/presentation-access";
+import { meetingRole } from "@/modules/meetings/access";
 
 export type AttachmentAccess = "read" | "upload" | "delete";
 type Viewer = { id: string; role?: string | null };
@@ -50,6 +51,11 @@ export function attachmentAccessError(
       if (access !== "read") return 403;
       return db.select({ id: wikiPages.id }).from(wikiPages).where(and(eq(wikiPages.id, entityId), isNull(wikiPages.deletedAt))).get() ? null : 404;
     }
+    case "meetingRecording":
+      // Recordings are written and purged only by the meetings module; the
+      // entity id is the meeting, readable by its access list alone.
+      if (access !== "read") return 403;
+      return meetingRole(entityId, viewer) ? null : 404;
     case "wikiPresentationLibrary":
       // Managed exclusively through the design library actions.
       return access === "read" ? null : 403;

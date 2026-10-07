@@ -8,6 +8,7 @@ import {
   MapPinned,
   Timer,
   UserRoundCog,
+  Video,
   type LucideIcon,
 } from "lucide-react";
 
@@ -21,7 +22,7 @@ import {
 // `navSectionAliases`).
 export type ModuleNavItem = {
   /** Translation key under the `nav` namespace */
-  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network";
+  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings";
   href: string;
   icon: LucideIcon;
 };
@@ -33,6 +34,7 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "personnel", href: "/personnel", icon: UserRoundCog },
   { key: "time", href: "/time", icon: Timer },
   { key: "projects", href: "/projects", icon: KanbanSquare },
+  { key: "meetings", href: "/meetings", icon: Video },
   { key: "wiki", href: "/wiki", icon: BookOpen },
   { key: "municipalities", href: "/municipalities/overview", icon: MapPinned },
   { key: "network", href: "/network", icon: Handshake },
