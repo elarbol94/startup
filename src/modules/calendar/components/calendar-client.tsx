@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { saveCalendarView } from "../preference-actions";
 import { dateRange } from "../date-utils";
 import type { CalendarView, CalendarWorkspace } from "../types";
-import type { FilterState } from "./calendar/calendar-types";
+import { canAddEvents, type FilterState } from "./calendar/calendar-types";
 import { busyDaysFor, periodLabel } from "./calendar/calendar-client-utils";
 import { createCalendarDropHandlers } from "./calendar/calendar-drag-drop";
 import { useCalendarConfirm } from "./calendar/use-calendar-confirm";
@@ -22,6 +22,7 @@ import { useCalendarSettingsState } from "./calendar/use-calendar-settings-state
 import { focusCalendarSearch, useCalendarShortcuts } from "./calendar/use-calendar-shortcuts";
 import { useCalendarShowColors } from "./calendar/use-calendar-show-colors";
 import { useCalendarToday } from "./calendar/use-calendar-today";
+import { useCalendarFeeds } from "./calendar/use-calendar-feeds";
 import { useEventDialogState } from "./calendar/use-event-dialog-state";
 import { useEventTimeChange } from "./calendar/use-event-time-change";
 import { CalendarToolbar } from "./calendar/calendar-toolbar";
@@ -70,8 +71,10 @@ export function CalendarClient({
   const today = useCalendarToday(serverToday, timezone);
   const nav = useCalendarNavigation({ view, viewWasExplicit, date, today, initialFilters, workspace });
   const { router, filters } = nav;
-  const defaultCalendarId = workspace.calendars.find((calendar) => calendar.role === "owner")?.id
-    ?? workspace.calendars.find((calendar) => calendar.role === "editor")?.id;
+  // Subscribed calendars are read-only mirrors, so new events never default to one.
+  const writableCalendars = workspace.calendars.filter(canAddEvents);
+  const defaultCalendarId = writableCalendars.find((calendar) => calendar.role === "owner")?.id
+    ?? writableCalendars[0]?.id;
   const ownCalendarIds = workspace.calendars.filter((calendar) => calendar.role === "owner").map((calendar) => calendar.id);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -93,6 +96,7 @@ export function CalendarClient({
     noEditableCalendarMessage: t("noEditableCalendar"),
   });
   const settings = useCalendarSettingsState({ t, router, startTransition });
+  const feeds = useCalendarFeeds({ calendars: workspace.calendars, refresh: () => router.refresh(), t });
   const selection = useCalendarSelection({ items: workspace.items, t, router, confirm, openEditEvent: events.openEditEvent });
   const timeChange = useEventTimeChange({ t, router, confirm, openRecurring: events.openEditEvent });
   const { dropOnDay, dropOnTime } = createCalendarDropHandlers({ workspace, defaultCalendarId, router, t, setDraggingId, confirm });
@@ -143,6 +147,7 @@ export function CalendarClient({
     saveView,
     openNewCalendar: settings.openNewCalendar,
     openEditCalendar: settings.openEditCalendar,
+    feeds,
   };
 
   return (
@@ -281,6 +286,7 @@ export function CalendarClient({
         pending={pending}
         t={t}
       />
+      {feeds.dialogs}
       {confirmDialog}
       {textPrompt}
     </div>

@@ -14,6 +14,7 @@ import { CalendarColorsToggle } from "./calendar-colors-toggle";
 import { SavedViewsSection } from "./saved-views-section";
 import { savedViewFilters, type CalendarT } from "./sidebar-types";
 import { useSidebarCollapsed } from "./use-sidebar-collapsed";
+import type { CalendarFeeds } from "../use-calendar-feeds";
 
 export function CalendarSidebar({
   t,
@@ -34,6 +35,7 @@ export function CalendarSidebar({
   saveView,
   openNewCalendar,
   openEditCalendar,
+  feeds,
 }: {
   t: CalendarT;
   locale: string;
@@ -52,6 +54,7 @@ export function CalendarSidebar({
   navigate: (next: { view?: CalendarView; date?: string; filters?: FilterState }) => void;
   saveView: () => void | Promise<void>;
   openNewCalendar: () => void;
+  feeds: CalendarFeeds;
   openEditCalendar: (calendar: CalendarWorkspace["calendars"][number]) => void;
 }) {
   const [collapsed, setCollapsed] = useSidebarCollapsed();
@@ -102,6 +105,7 @@ export function CalendarSidebar({
           selectCalendars={selectCalendars}
           openNewCalendar={openNewCalendar}
           openEditCalendar={openEditCalendar}
+          feeds={feeds}
         />
         <CalendarColorsToggle t={t} checked={showCalendarColors} onChange={setShowCalendarColors} />
         <SavedViewsSection

@@ -1,6 +1,6 @@
 // Client-side state shapes for the calendar page (filters, drafts, import state).
 // Used by calendar-client.tsx and the pieces in this folder.
-import type { CalendarView } from "../../types";
+import type { CalendarSource, CalendarView } from "../../types";
 
 export const CALENDAR_VIEWS = ["day", "workweek", "week", "month", "agenda", "team"] as const satisfies readonly CalendarView[];
 /** Message keys (calendar namespace) for the view switcher labels. */
@@ -21,6 +21,11 @@ export const MOBILE_VIEW_STORAGE_KEY = "calendar:mobile-view";
 
 export type CalendarNavigateTarget = { view?: CalendarView; date?: string; filters?: FilterState };
 
+/** Calendars new events can go into: editable and not a read-only subscription. */
+export function canAddEvents(calendar: CalendarSource) {
+  return !calendar.subscription && (calendar.role === "owner" || calendar.role === "editor");
+}
+
 export type FilterState = {
   sources: string[];
   people: string[];
@@ -34,6 +39,10 @@ export type CalendarDraft = {
   name: string;
   color: string;
   visibility: "private" | "busy" | "company";
+  /** Host of the feed when editing a subscribed calendar. */
+  subscriptionHost?: string;
+  /** Replacement feed address; empty keeps the current one. */
+  feedUrl?: string;
 };
 
 export type DraftProject = { id: string; name: string; color: string; archived: boolean };

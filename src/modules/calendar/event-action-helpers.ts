@@ -11,7 +11,7 @@ import {
   calendarEvents,
   calendars,
 } from "./schema";
-import { calendarRoleForUser } from "./queries";
+import { calendarRoleForUser, isSubscribedCalendar } from "./queries";
 import { isValidTimezone } from "./date-utils";
 
 export const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -74,6 +74,10 @@ export function requireCalendarEditor(calendarId: string, userId: string) {
   const role = calendarRoleForUser(calendarId, userId);
   if (role !== "owner" && role !== "editor") {
     throw new Error("You do not have permission to edit this calendar");
+  }
+  // Subscribed calendars mirror their feed; local edits would be overwritten.
+  if (isSubscribedCalendar(calendarId)) {
+    throw new Error("This calendar is synced from a subscription and is read-only");
   }
   return role;
 }

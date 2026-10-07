@@ -90,6 +90,8 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
           availability: data.availability,
           recurrenceRule,
           linkedTaskId: data.linkedTaskId,
+          // An import UID is only unique per calendar; a moved event leaves it behind.
+          ...(existing.calendarId !== data.calendarId ? { externalUid: null } : {}),
           updatedAt: now,
         })
         .where(eq(calendarEvents.id, id))

@@ -1,15 +1,49 @@
 "use client";
 
-// "My calendars" / "Other calendars" lists with visibility checkboxes and an add button.
+// "My calendars" / "Other calendars" lists with visibility checkboxes and an add menu
+// (new calendar, Google Calendar subscription, file import).
 // Used by calendar-sidebar.tsx and calendar-filters-dialog.tsx.
-import { Plus } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { cn } from "@/lib/utils";
 import type { CalendarWorkspace } from "../../../types";
 import type { FilterState } from "../calendar-types";
 import { CalendarRow } from "./calendar-row";
 import { isCalendarShown, type CalendarEntry, type CalendarT } from "./sidebar-types";
 import { SidebarSection } from "./sidebar-section";
+import type { CalendarFeeds } from "../use-calendar-feeds";
+
+/** "Add calendar" with the choice of a new, subscribed or imported calendar. */
+export function AddCalendarMenu({
+  t,
+  feeds,
+  openNewCalendar,
+  className,
+}: {
+  t: CalendarT;
+  feeds: CalendarFeeds;
+  openNewCalendar: () => void;
+  className?: string;
+}) {
+  return (
+    <DropdownMenu>
+      <ShortcutTooltip label={t("addCalendar")} hint={t("hintAddCalendar")} side="right">
+        <DropdownMenuTrigger render={<Button size="sm" variant="ghost" className={cn("text-muted-foreground", className)} />}>
+          <Plus />
+          {t("addCalendar")}
+          <ChevronDown className="ml-auto" />
+        </DropdownMenuTrigger>
+      </ShortcutTooltip>
+      <DropdownMenuContent align="start" className="min-w-56">
+        <DropdownMenuItem onClick={openNewCalendar}>{t("feeds.newCalendar")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={feeds.openSubscribe}>{t("feeds.subscribe")}</DropdownMenuItem>
+        <DropdownMenuItem disabled={!feeds.canImport} onClick={feeds.openImport}>{t("feeds.import")}</DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 export function CalendarListSection({
   t,
@@ -20,6 +54,7 @@ export function CalendarListSection({
   selectCalendars,
   openNewCalendar,
   openEditCalendar,
+  feeds,
   dense,
 }: {
   t: CalendarT;
@@ -30,6 +65,7 @@ export function CalendarListSection({
   selectCalendars: (ids: string[]) => void;
   openNewCalendar?: () => void;
   openEditCalendar: (calendar: CalendarEntry) => void;
+  feeds: CalendarFeeds;
   /** Compact sidebar rows instead of the bordered dialog rows. */
   dense?: boolean;
 }) {
@@ -65,18 +101,15 @@ export function CalendarListSection({
                 onToggle={() => toggleFilter("calendars", calendar.id)}
                 onOnly={() => selectCalendars([calendar.id])}
                 onEdit={() => openEditCalendar(calendar)}
+                onSync={() => void feeds.syncNow(calendar)}
+                onRemove={() => void feeds.remove(calendar)}
               />
             ))}
           </div>
         </SidebarSection>
       ))}
       {openNewCalendar && (
-        <ShortcutTooltip label={t("addCalendar")} hint={t("hintAddCalendar")} side="right">
-          <Button size="sm" variant="ghost" className="w-full justify-start text-muted-foreground" onClick={openNewCalendar}>
-            <Plus />
-            {t("addCalendar")}
-          </Button>
-        </ShortcutTooltip>
+        <AddCalendarMenu t={t} feeds={feeds} openNewCalendar={openNewCalendar} className="w-full justify-start" />
       )}
     </div>
   );

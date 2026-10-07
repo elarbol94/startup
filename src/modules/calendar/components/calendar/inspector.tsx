@@ -54,6 +54,7 @@ export function Inspector({
   onEdit,
   onDuplicate,
   onDelete,
+  syncedFrom,
 }: {
   item: CalendarItem;
   locale: string;
@@ -65,6 +66,8 @@ export function Inspector({
   onDuplicate?: () => void;
   /** Rendered only when provided and the item is an editable event or focus block. */
   onDelete?: () => void;
+  /** Feed host when the item belongs to a read-only subscribed calendar. */
+  syncedFrom?: string | null;
 }) {
   const isEvent = item.kind === "event" || item.kind === "focus";
   const canEdit = isEvent && item.editable;
@@ -159,6 +162,11 @@ export function Inspector({
             </p>
           )}
         </div>
+        {syncedFrom && (
+          <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            {t("feeds.readOnly", { host: syncedFrom })}
+          </p>
+        )}
         <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label={t("inspectorActions")}>
           {canEdit && (
             <ShortcutTooltip label={t("edit")} hint={t("hintEdit")}>

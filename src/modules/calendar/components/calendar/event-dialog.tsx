@@ -32,7 +32,7 @@ import {
 import { addDays, zonedDateTimeToUtc } from "../../date-utils";
 import type { CalendarItem, CalendarWorkspace } from "../../types";
 import { cn } from "@/lib/utils";
-import type { CalendarConflict, EventDraft, ImportableDraftField } from "./calendar-types";
+import { canAddEvents, type CalendarConflict, type EventDraft, type ImportableDraftField } from "./calendar-types";
 import { AustrianDateInput, AustrianTimeInput } from "./austrian-date-time-inputs";
 import { ProjectPicker } from "@/modules/context/components/project-links-field";
 import { saveProjectLinks } from "@/modules/context/project-link-actions";
@@ -401,10 +401,7 @@ export function EventDialog({
                   }
                 >
                   {workspace.calendars
-                    .filter(
-                      (calendar) =>
-                        calendar.role === "owner" || calendar.role === "editor",
-                    )
+                    .filter(canAddEvents)
                     .map((calendar) => (
                       <option value={calendar.id} key={calendar.id}>
                         {calendar.name}

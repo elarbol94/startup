@@ -97,6 +97,8 @@ export const calendarEvents = sqliteTable(
     status: text("status", { enum: ["confirmed", "cancelled"] })
       .notNull()
       .default("confirmed"),
+    /** iCalendar UID of imported or subscribed events; dedupes re-imports and syncs. */
+    externalUid: text("external_uid"),
     createdBy: text("created_by")
       .notNull()
       .references(() => user.id),
@@ -115,8 +117,33 @@ export const calendarEvents = sqliteTable(
       table.endDate,
     ),
     index("calendar_events_linked_task_idx").on(table.linkedTaskId),
+    uniqueIndex("calendar_events_external_uid_idx").on(
+      table.calendarId,
+      table.externalUid,
+    ),
   ],
 );
+
+/**
+ * A calendar mirrored from an iCalendar feed (e.g. Google's secret iCal address).
+ * Kept apart from `calendars` because the URL is a credential.
+ */
+export const calendarSubscriptions = sqliteTable("calendar_subscriptions", {
+  calendarId: text("calendar_id")
+    .primaryKey()
+    .references(() => calendars.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  lastAttemptAt: integer("last_attempt_at", { mode: "timestamp_ms" }),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
+  /** Error code of the last failed attempt; null after a successful sync. */
+  lastError: text("last_error"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
 
 export const calendarEventAttendees = sqliteTable(
   "calendar_event_attendees",

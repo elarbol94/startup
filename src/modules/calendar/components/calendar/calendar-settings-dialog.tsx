@@ -1,6 +1,6 @@
 "use client";
 
-// Dialog for creating or editing a calendar (name, color, visibility).
+// Dialog for creating or editing a calendar (name, color, visibility; feed address of subscriptions).
 // Used by calendar-client.tsx.
 import { type FormEvent } from "react";
 import { useTranslations } from "next-intl";
@@ -78,6 +78,23 @@ export function CalendarSettingsDialog({
                 <option value="company">{t("calendarShared")}</option>
               </select>
             </label>
+            {draft.subscriptionHost && (
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium">{t("feeds.replaceUrl")}</span>
+                <Input
+                  type="text"
+                  inputMode="url"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={draft.feedUrl ?? ""}
+                  onChange={(event) => setDraft({ ...draft, feedUrl: event.target.value })}
+                  placeholder={t("feeds.feedUrlPlaceholder")}
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  {t("feeds.syncedFrom", { host: draft.subscriptionHost })} · {t("feeds.replaceUrlHint")}
+                </span>
+              </label>
+            )}
           </div>
           <DialogFooter className="mt-5">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

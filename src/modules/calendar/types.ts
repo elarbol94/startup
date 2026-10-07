@@ -61,6 +61,12 @@ export type CalendarSource = {
   color: string;
   role: CalendarRole;
   visibility: "private" | "busy" | "company";
+  /** Set for calendars mirrored from an iCal feed; their events are read-only. */
+  subscription: {
+    host: string;
+    lastSyncedAt: string | null;
+    lastError: string | null;
+  } | null;
 };
 
 export type CalendarPreferencesValue = {

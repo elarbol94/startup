@@ -47,6 +47,7 @@ export function CalendarDetailPanel({
       t={t}
       onClose={onClose}
       onEdit={() => onEdit(selected)}
+      syncedFrom={workspace.calendars.find((calendar) => calendar.id === selected.calendarId)?.subscription?.host}
       onDuplicate={canChange && !selected.detailsHidden ? () => onDuplicate(selected) : undefined}
       onDelete={canChange && selected.editable ? () => onDelete(selected) : undefined}
     />

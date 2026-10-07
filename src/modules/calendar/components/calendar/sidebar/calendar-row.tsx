@@ -1,14 +1,16 @@
 "use client";
 
-// One calendar with a colour-filled checkbox and an options menu (show only this, edit).
+// One calendar with a colour-filled checkbox and an options menu (show only this, edit;
+// sync now and remove for subscriptions).
 // Used by calendar-list-section.tsx.
-import { Check, MoreHorizontal } from "lucide-react";
+import { Check, MoreHorizontal, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { UserIdentity } from "@/components/user-identity";
 import { cn } from "@/lib/utils";
 import type { CalendarEntry, CalendarT } from "./sidebar-types";
+import { SubscriptionStatus } from "./subscription-status";
 
 export function CalendarRow({
   t,
@@ -19,6 +21,8 @@ export function CalendarRow({
   onToggle,
   onOnly,
   onEdit,
+  onSync,
+  onRemove,
 }: {
   t: CalendarT;
   calendar: CalendarEntry;
@@ -28,7 +32,10 @@ export function CalendarRow({
   onToggle: () => void;
   onOnly: () => void;
   onEdit: () => void;
+  onSync?: () => void;
+  onRemove?: () => void;
 }) {
+  const manageSubscription = calendar.role === "owner" && calendar.subscription;
   return (
     <div className={cn("group flex items-center gap-1 rounded-md transition-colors hover:bg-muted/60", !dense && "border pr-2")}>
       <label
@@ -46,8 +53,12 @@ export function CalendarRow({
           {checked && <Check className="size-2.5" strokeWidth={3} />}
         </span>
         <span className="min-w-0">
-          <span className={cn("block truncate leading-snug", dense ? "text-[13px]" : "text-sm font-medium")}>{calendar.name}</span>
+          <span className={cn("flex items-center gap-1.5 leading-snug", dense ? "text-[13px]" : "text-sm font-medium")}>
+            <span className="truncate">{calendar.name}</span>
+            {dense && calendar.subscription && <SubscriptionStatus t={t} subscription={calendar.subscription} compact />}
+          </span>
           {showOwner && <UserIdentity userId={calendar.ownerId} compact className="text-xs text-muted-foreground" />}
+          {!dense && calendar.subscription && <SubscriptionStatus t={t} subscription={calendar.subscription} />}
         </span>
       </label>
       <DropdownMenu>
@@ -68,6 +79,13 @@ export function CalendarRow({
         <DropdownMenuContent align="end" className="min-w-48">
           <DropdownMenuItem onClick={onOnly}>{t("onlyCalendar", { name: calendar.name })}</DropdownMenuItem>
           {calendar.role === "owner" && <DropdownMenuItem onClick={onEdit}>{t("editCalendar")}</DropdownMenuItem>}
+          {manageSubscription && onSync && <DropdownMenuItem onClick={onSync}><RefreshCw />{t("feeds.syncNow")}</DropdownMenuItem>}
+          {manageSubscription && onRemove && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem variant="destructive" onClick={onRemove}>{t("feeds.remove")}</DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

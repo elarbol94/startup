@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { addDays, daysBetween } from "../../date-utils";
 import type { CalendarItem, CalendarWorkspace } from "../../types";
-import type { CalendarConflict, EventDraft, ImportableDraftField, ImportResult } from "./calendar-types";
+import { canAddEvents, type CalendarConflict, type EventDraft, type ImportableDraftField, type ImportResult } from "./calendar-types";
 import { pickProjects } from "./calendar-client-utils";
 import { blankDraft, itemDraft } from "./event-draft-utils";
 import type { QuickCreateDraft } from "./quick-create/quick-create-popover";
@@ -108,8 +108,9 @@ export function useEventDialogState({
   function openDuplicate(item: CalendarItem) {
     if (item.kind !== "event" && item.kind !== "focus") return;
     const source = itemDraft(item, defaultCalendarId ?? "", timezone);
+    // Duplicating a subscribed (read-only) event copies it into the default calendar.
     const writable = workspace.calendars.some(
-      (calendar) => calendar.id === source.calendarId && (calendar.role === "owner" || calendar.role === "editor"),
+      (calendar) => calendar.id === source.calendarId && canAddEvents(calendar),
     );
     if (!writable && !defaultCalendarId) {
       toast.error(noEditableCalendarMessage);

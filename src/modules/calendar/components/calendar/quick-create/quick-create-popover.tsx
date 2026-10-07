@@ -15,6 +15,7 @@ import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { upsertCalendarEvent } from "../../../actions";
 import type { CalendarWorkspace } from "../../../types";
 import { AustrianTimeInput } from "../austrian-date-time-inputs";
+import { canAddEvents } from "../calendar-types";
 import { CalendarShortcutKeys } from "../calendar-shortcuts-help";
 import { useCalendarConfirm } from "../use-calendar-confirm";
 import {
@@ -113,9 +114,7 @@ function QuickCreateForm({
 }) {
   const router = useRouter();
   const [confirmDialog, confirm] = useCalendarConfirm();
-  const writable = calendars.filter(
-    (calendar) => calendar.role === "owner" || calendar.role === "editor",
-  );
+  const writable = calendars.filter(canAddEvents);
   const [title, setTitle] = useState("");
   const [startTime, setStartTime] = useState(() => minutesToTime(startMinutes));
   const [endTime, setEndTime] = useState(() => minutesToTime(endMinutes));

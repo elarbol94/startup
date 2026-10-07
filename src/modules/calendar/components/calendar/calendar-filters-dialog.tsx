@@ -4,7 +4,7 @@
 // sources, jump-to-date and saved views. Calendar list, search, mini month, colour toggle and
 // saved views are the same components the wide-screen sidebar uses. Used by calendar-client.tsx.
 import { useTranslations } from "next-intl";
-import { Check, Plus } from "lucide-react";
+import { Check } from "lucide-react";
 import { userIdentityColor } from "@/lib/user-mark-colors";
 import { UserIdentity } from "@/components/user-identity";
 import { Button } from "@/components/ui/button";
@@ -20,7 +20,8 @@ import { cn } from "@/lib/utils";
 import type { FilterState } from "./calendar-types";
 import { SOURCE_TYPES } from "./calendar-filter-utils";
 import { MiniMonth } from "./mini-month";
-import { CalendarListSection } from "./sidebar/calendar-list-section";
+import { AddCalendarMenu, CalendarListSection } from "./sidebar/calendar-list-section";
+import type { CalendarFeeds } from "./use-calendar-feeds";
 import { CalendarSearchInput } from "./sidebar/calendar-search-input";
 import { CalendarColorsToggle } from "./sidebar/calendar-colors-toggle";
 import { SavedViewsSection } from "./sidebar/saved-views-section";
@@ -50,6 +51,7 @@ export function CalendarFiltersDialog({
   saveView,
   openNewCalendar,
   openEditCalendar,
+  feeds,
 }: {
   filtersOpen: boolean;
   setFiltersOpen: (open: boolean) => void;
@@ -76,6 +78,7 @@ export function CalendarFiltersDialog({
   navigate: (next: { view?: CalendarView; date?: string; filters?: FilterState }) => void;
   saveView: () => void | Promise<void>;
   openNewCalendar: () => void;
+  feeds: CalendarFeeds;
   openEditCalendar: (calendar: CalendarWorkspace["calendars"][number]) => void;
 }) {
   const sourceLabel = (source: string) =>
@@ -94,6 +97,7 @@ export function CalendarFiltersDialog({
           </div>
           <CalendarSearchInput t={t} filters={filters} updateFilters={updateFilters} />
           <CalendarListSection
+            feeds={feeds}
             t={t}
             workspace={workspace}
             filters={filters}
@@ -143,7 +147,7 @@ export function CalendarFiltersDialog({
             </div>
           </details>
         </div>
-        <div className="flex shrink-0 justify-between border-t px-5 py-4 sm:px-6"><Button size="sm" variant="ghost" onClick={openNewCalendar}><Plus />{t("addCalendar")}</Button><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
+        <div className="flex shrink-0 justify-between border-t px-5 py-4 sm:px-6"><AddCalendarMenu t={t} feeds={feeds} openNewCalendar={openNewCalendar} /><Button size="sm" onClick={() => setFiltersOpen(false)}>{t("done")}</Button></div>
       </DialogContent>
     </Dialog>
   );
