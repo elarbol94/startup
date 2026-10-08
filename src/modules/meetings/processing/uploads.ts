@@ -8,6 +8,7 @@ import { Readable, Transform } from "node:stream";
 import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { db } from "@/db";
+import { attachments } from "@/db/schema";
 import { getAttachmentAbsolutePath, mediaHeaderMatches, moveStagedFileIntoStore, newStoredName, registerStagedAttachment, UPLOADS_PATH } from "@/lib/files";
 import { MEDIA_CHUNK_BYTES, MEETING_MEDIA_TYPES, UPLOAD_DECLARATION_VERSION } from "../constants";
 import { mediaUploadSessions, meetingRecordings, meetings } from "../schema";
@@ -218,11 +219,11 @@ function finalize(session: UploadSession) {
   const stored = getAttachmentAbsolutePath(session.storedName);
   if (fs.existsSync(assembledPath(session.id))) moveStagedFileIntoStore(assembledPath(session.id), session.storedName);
   if (!fs.existsSync(stored)) { abort(session, "Assembled file is missing"); return; }
-  db.transaction((tx) => {
+  const registered = db.transaction((tx) => {
     const current = tx.select().from(mediaUploadSessions).where(eq(mediaUploadSessions.id, session.id)).get();
-    if (current?.state !== "finalizing") return;
+    if (current?.state !== "finalizing") return current?.state === "done";
     const meeting = tx.select().from(meetings).where(eq(meetings.id, session.meetingId)).get();
-    if (!meeting) return;
+    if (!meeting) return false;
     const attachment = registerStagedAttachment(
       { storedName: session.storedName!, fileName: session.fileName, mimeType: session.mimeType, sizeBytes: session.declaredBytes, sha256: session.sha256! },
       { entityType: "meetingRecording", entityId: session.meetingId, userId: session.userId },
@@ -245,7 +246,12 @@ function finalize(session: UploadSession) {
       executionKey: `ingest:${recording.id}`, inputs: [recording.id],
     });
     audit(tx, meeting.id, session.userId, "upload.completed", { uploadId: session.id, recordingId: recording.id, sha256: session.sha256 });
+    return true;
   }, { behavior: "immediate" });
+  // The meeting was deleted meanwhile: no row will ever point at the moved file.
+  if (!registered && !db.select({ id: attachments.id }).from(attachments).where(eq(attachments.storedName, session.storedName)).get()) {
+    fs.rmSync(stored, { force: true });
+  }
   fs.rmSync(sessionDir(session.id), { recursive: true, force: true });
 }
 

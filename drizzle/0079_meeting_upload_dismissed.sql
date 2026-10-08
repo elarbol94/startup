@@ -1,0 +1,1 @@
+ALTER TABLE `media_upload_sessions` ADD `dismissed_at` integer;

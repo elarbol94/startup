@@ -5087,6 +5087,7 @@
       "resumeHint": "Bereits gesendete Teile bleiben bis 24 Stunden nach Uploadbeginn erhalten. Nach dem Neuladen dieselbe Datei erneut auswählen, um fortzusetzen.",
       "assembling": "„{name}“ wird gespeichert …",
       "uploadFailed": "„{name}“ konnte nicht gespeichert werden: {error}",
+      "dismissFailedUpload": "Ausblenden",
       "expires": "wird am {date} gelöscht",
       "delete": "Aufnahme löschen",
       "deleteTitle": "Aufnahme endgültig löschen?",

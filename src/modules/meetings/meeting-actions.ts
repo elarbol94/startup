@@ -1,13 +1,10 @@
 "use server";
 
-import fs from "node:fs";
-import path from "node:path";
 import { z } from "zod";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { attachments, projects, user } from "@/db/schema";
+import { projects, user } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
-import { purgeMediaAttachment } from "@/lib/files";
 import { fail, revalidateMeeting, type MeetingActionResult } from "./action-helpers";
 import { meetingFor } from "./access";
 import { meetingAccessRoles, meetingAiPolicies } from "./constants";
@@ -15,12 +12,11 @@ import { cancelPendingJobs, enqueueJob, requeueJob, settleMeetingStatus } from "
 import { audit, meetingHasMedia, retentionExpiry } from "./processing/store";
 import { requestRecordingPurge } from "./processing/worker";
 import { endOpenCalls } from "./calls/recording";
-import { livekitConfig } from "./calls/livekit";
+import { collectMeetingFiles, removeMeetingFiles } from "./processing/sweeper";
 import {
   meetingAccess,
   meetingActionItemDecisions,
   meetingCallSessions,
-  meetingEgressAttempts,
   meetingJobs,
   meetingProtocols,
   meetingRecordings,
@@ -237,27 +233,23 @@ export async function deleteMeeting(meetingId: string): Promise<MeetingActionRes
     .where(and(eq(meetingJobs.meetingId, id), eq(meetingJobs.status, "running"))).get();
   if (running) return fail("busy");
   await endOpenCalls(id, "meetingDeleted", viewer.id);
-  db.transaction((tx) => {
-    const files = tx.select({ id: attachments.id }).from(attachments)
-      .where(and(eq(attachments.entityType, "meetingRecording"), eq(attachments.entityId, id))).all();
-    for (const file of files) purgeMediaAttachment(file.id);
+  const files = db.transaction((tx) => {
+    // Files are only collected here: unlinking inside the transaction would lose them on a rollback.
+    const collected = collectMeetingFiles(tx, id);
     sqlite.prepare("DELETE FROM meeting_segments_fts WHERE meeting_id = ?").run(id);
     sqlite.prepare("DELETE FROM meeting_protocols_fts WHERE meeting_id = ?").run(id);
     tx.delete(meetingSessionTranscripts).where(eq(meetingSessionTranscripts.meetingId, id)).run();
     tx.delete(meetingTranscripts).where(eq(meetingTranscripts.meetingId, id)).run();
     tx.delete(meetingProtocols).where(eq(meetingProtocols.meetingId, id)).run();
     tx.delete(meetingActionItemDecisions).where(eq(meetingActionItemDecisions.meetingId, id)).run();
-    // Call recordings not yet taken into the store live in the recorder's directory.
-    const sessions = tx.select({ id: meetingCallSessions.id }).from(meetingCallSessions).where(eq(meetingCallSessions.meetingId, id)).all().map((row) => row.id);
-    if (sessions.length) {
-      for (const attempt of tx.select({ fileName: meetingEgressAttempts.fileName }).from(meetingEgressAttempts).where(inArray(meetingEgressAttempts.sessionId, sessions)).all()) {
-        fs.rmSync(path.join(livekitConfig().egressDir, attempt.fileName), { force: true });
-      }
-      tx.delete(meetingCallSessions).where(inArray(meetingCallSessions.id, sessions)).run();
-    }
+    tx.delete(meetingCallSessions).where(eq(meetingCallSessions.meetingId, id)).run();
     tx.delete(meetings).where(eq(meetings.id, id)).run();
-    audit(tx, id, viewer.id, "meeting.deleted", { title: access.meeting.title, files: files.length });
+    audit(tx, id, viewer.id, "meeting.deleted", { title: access.meeting.title, files: collected.attachmentIds.length });
+    return collected;
   });
+  // The attachment rows stay until their file is gone; no one can open them
+  // without the meeting, and a failed unlink is retried by the orphan sweep.
+  removeMeetingFiles(files);
   revalidateMeeting();
   return { ok: true };
 }

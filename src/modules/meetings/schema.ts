@@ -134,6 +134,8 @@ export const mediaUploadSessions = sqliteTable(
     sha256: text("sha256"),
     recordingId: text("recording_id"),
     error: text("error").notNull().default(""),
+    /** A failed upload the uploader or a host has hidden from the meeting page. */
+    dismissedAt: integer("dismissed_at", { mode: "timestamp_ms" }),
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

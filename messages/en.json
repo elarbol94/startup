@@ -5087,6 +5087,7 @@
       "resumeHint": "Parts already sent are kept until 24 hours after the upload started. After a reload, choose the same file again to continue.",
       "assembling": "Saving “{name}” …",
       "uploadFailed": "“{name}” could not be saved: {error}",
+      "dismissFailedUpload": "Hide",
       "expires": "deleted on {date}",
       "delete": "Delete recording",
       "deleteTitle": "Delete recording permanently?",

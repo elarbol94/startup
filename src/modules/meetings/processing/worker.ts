@@ -8,6 +8,7 @@ import { meetingJobInputs, meetingJobs, meetingRecordings, meetings } from "../s
 import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, settleMeetingStatus, type MeetingJob } from "./jobs";
 import { stageHandlers } from "./stages";
 import { audit, DERIVED_STAGING, retentionExpiry } from "./store";
+import { runDailyOrphanSweep } from "./sweeper";
 import { processUploadSessions } from "./uploads";
 import { reconcileCalls } from "../calls/recording";
 
@@ -138,6 +139,7 @@ export async function runMeetingMaintenanceTick(now = Date.now()) {
       lastHousekeeping = now;
       scheduleRetentionPurges();
       sweepDerivedStaging();
+      runDailyOrphanSweep();
       // Also releases meetings left in "processing" by earlier failures or aborted uploads.
       for (const { id } of db.select({ id: meetings.id }).from(meetings).where(eq(meetings.status, "processing")).all()) settleMeetingStatus(db, id);
     }),

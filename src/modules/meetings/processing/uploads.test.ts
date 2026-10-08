@@ -146,6 +146,23 @@ describe("chunks and completion", () => {
     expect(db.select().from(attachments).all()).toMatchObject([{ storedName }]);
   });
 
+  it("removes the moved file when the meeting was deleted before the rows were written", async () => {
+    const created = start(mp3.length);
+    if (!created.ok) throw new Error(created.error);
+    const storedName = newStoredName(sha(mp3), ".mp3");
+    fs.mkdirSync(path.dirname(getAttachmentAbsolutePath(storedName)), { recursive: true });
+    fs.writeFileSync(getAttachmentAbsolutePath(storedName), mp3);
+    db.update(mediaUploadSessions).set({ state: "finalizing", storedName, sha256: sha(mp3), receivedChunks: "[0]" })
+      .where(eq(mediaUploadSessions.id, created.session.id)).run();
+    // As if the meeting was deleted while the worker already held the session.
+    sqlite.pragma("foreign_keys = OFF");
+    db.delete(meetings).where(eq(meetings.id, meetingId)).run();
+    sqlite.pragma("foreign_keys = ON");
+    await processUploadSessions();
+    expect(fs.existsSync(getAttachmentAbsolutePath(storedName))).toBe(false);
+    expect(db.select().from(attachments).all()).toEqual([]);
+  });
+
   it("cancels an unfinished upload at once, releasing its reservation", async () => {
     const created = start(mp3.length);
     if (!created.ok) throw new Error(created.error);
