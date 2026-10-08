@@ -6,6 +6,7 @@ import { attachments, projects, tasks, user } from "@/db/schema";
 import { meetingFor, visibleMeetingCondition, type MeetingViewer } from "./access";
 import { parseProtocolContent } from "./protocol-content";
 import { livekitConfig } from "./calls/livekit";
+import { meetingHasMedia } from "./processing/store";
 import {
   mediaUploadSessions,
   meetingCallSessions,
@@ -157,6 +158,8 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     role: access.role,
     members,
     recordings,
+    /** Media whose consent was given under the current AI setting, including uploads and call recordings still arriving. */
+    hasMedia: meetingHasMedia(db, meeting.id),
     jobs,
     uploads,
     transcript: session ? {

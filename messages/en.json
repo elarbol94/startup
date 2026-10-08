@@ -5214,6 +5214,7 @@
       "joinButton": "Join",
       "joinFailed": "Joining failed.",
       "connectionFailed": "Connection failed – is Tailscale switched on?",
+      "deviceFailed": "Camera or microphone could not be started. You are still in the call – check your devices and the browser permissions.",
       "recording": "Recording",
       "notRunning": "There is no call running for this meeting."
     },

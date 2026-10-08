@@ -2,12 +2,12 @@ import "server-only";
 
 import fs from "node:fs";
 import path from "node:path";
-import { and, eq, inArray, lt } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { meetingJobInputs, meetingJobs, meetingRecordings, meetings } from "../schema";
-import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, type MeetingJob } from "./jobs";
+import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, settleMeetingStatus, type MeetingJob } from "./jobs";
 import { stageHandlers } from "./stages";
-import { audit, DERIVED_STAGING } from "./store";
+import { audit, DERIVED_STAGING, retentionExpiry } from "./store";
 import { processUploadSessions } from "./uploads";
 import { reconcileCalls } from "../calls/recording";
 
@@ -34,6 +34,7 @@ async function runJob(job: MeetingJob) {
     }
     console.error(JSON.stringify({ event: "meeting_job_failed", jobId: job.id, stage: job.stage, attempts: job.attempts, error: error instanceof Error ? error.message : String(error) }));
     failJob(job, error);
+    settleMeetingStatus(db, job.meetingId);
   } finally {
     clearInterval(beat);
   }
@@ -45,6 +46,14 @@ async function runJob(job: MeetingJob) {
  * purge request.
  */
 export function scheduleRetentionPurges(now = new Date()) {
+  // Recordings stored before uploads got their expiry at finalize, whose ingest then failed.
+  const undated = db.select({ id: meetingRecordings.id, kind: meetingRecordings.kind, createdAt: meetingRecordings.createdAt, videoDays: meetings.videoRetentionDays, audioDays: meetings.audioRetentionDays })
+    .from(meetingRecordings).innerJoin(meetings, eq(meetings.id, meetingRecordings.meetingId))
+    .where(and(eq(meetingRecordings.purgeState, "active"), isNull(meetingRecordings.expiresAt))).all();
+  for (const row of undated) {
+    db.update(meetingRecordings).set({ expiresAt: retentionExpiry(row.createdAt, row.kind === "video" ? row.videoDays : row.audioDays) })
+      .where(and(eq(meetingRecordings.id, row.id), isNull(meetingRecordings.expiresAt))).run();
+  }
   const expired = db.select().from(meetingRecordings)
     .where(and(inArray(meetingRecordings.purgeState, ["active", "purge_failed"]), lt(meetingRecordings.expiresAt, now))).all();
   for (const recording of expired) requestRecordingPurge(recording.id, null, "retention");
@@ -104,6 +113,8 @@ export async function runMeetingWorkerTick() {
       lastMaintenance = Date.now();
       scheduleRetentionPurges();
       sweepDerivedStaging();
+      // Also releases meetings left in "processing" by earlier failures or aborted uploads.
+      for (const { id } of db.select({ id: meetings.id }).from(meetings).where(eq(meetings.status, "processing")).all()) settleMeetingStatus(db, id);
     }
     if (Date.now() - lastCallReconcile > 30_000) {
       lastCallReconcile = Date.now();

@@ -11,8 +11,8 @@ import { purgeMediaAttachment } from "@/lib/files";
 import { fail, revalidateMeeting, type MeetingActionResult } from "./action-helpers";
 import { meetingFor } from "./access";
 import { meetingAccessRoles, meetingAiPolicies } from "./constants";
-import { cancelPendingJobs, enqueueJob, requeueJob } from "./processing/jobs";
-import { audit, retentionExpiry } from "./processing/store";
+import { cancelPendingJobs, enqueueJob, requeueJob, settleMeetingStatus } from "./processing/jobs";
+import { audit, meetingHasMedia, retentionExpiry } from "./processing/store";
 import { requestRecordingPurge } from "./processing/worker";
 import { endOpenCalls } from "./calls/recording";
 import { livekitConfig } from "./calls/livekit";
@@ -165,17 +165,16 @@ export async function setMeetingAiPolicy(input: z.input<typeof policySchema>): P
   if (!access.ok) return fail(access.error);
   const meeting = access.meeting;
   const enabling = meeting.aiPolicy === "none" && data.aiPolicy === "openai";
-  const hasRecordings = Boolean(db.select({ id: meetingRecordings.id }).from(meetingRecordings)
-    .where(and(eq(meetingRecordings.meetingId, meeting.id), eq(meetingRecordings.purgeState, "active"))).get());
-  // The upload declaration covered "no AI"; sending existing audio to OpenAI needs a new one.
-  if (enabling && hasRecordings && !data.aiDeclaration) return fail("declaration");
-  db.transaction((tx) => {
+  const declared = db.transaction((tx) => {
+    // The upload or call declarations covered "no AI"; sending that audio to OpenAI needs a new one.
+    if (enabling && !data.aiDeclaration && meetingHasMedia(tx, meeting.id)) return false;
     const policyChanged = meeting.aiPolicy !== data.aiPolicy;
     const policyRevision = policyChanged ? meeting.policyRevision + 1 : meeting.policyRevision;
     tx.update(meetings).set({ aiPolicy: data.aiPolicy, confidential: data.confidential, policyRevision, updatedAt: new Date() })
       .where(eq(meetings.id, meeting.id)).run();
     if (!policyChanged) return;
     cancelPendingJobs(tx, meeting.id, ["transcribe", "merge", "protocol"]);
+    settleMeetingStatus(tx, meeting.id);
     audit(tx, meeting.id, viewer.id, "meeting.aiPolicyChanged", { from: meeting.aiPolicy, to: data.aiPolicy, declaration: enabling ? { aiProcessing: true, at: new Date().toISOString() } : null });
     if (data.aiPolicy !== "openai") return;
     // Transcribe audio that was stored while AI was off.
@@ -189,7 +188,8 @@ export async function setMeetingAiPolicy(input: z.input<typeof policySchema>): P
       });
     }
     if (derived.length) tx.update(meetings).set({ status: meeting.approvedProtocolId ? meeting.status : "processing" }).where(eq(meetings.id, meeting.id)).run();
-  });
+  }, { behavior: "immediate" });
+  if (declared === false) return fail("declaration");
   // Consent to a recorded call covered the old AI setting.
   if (meeting.aiPolicy !== data.aiPolicy) await endOpenCalls(meeting.id, "aiPolicyChanged", viewer.id);
   revalidateMeeting(meeting.id);
@@ -203,6 +203,8 @@ export async function retryMeetingJob(jobId: string): Promise<MeetingActionResul
   const access = meetingFor(job.meetingId, viewer, "contribute");
   if (!access.ok) return fail(access.error);
   if (!requeueJob(db, job.id)) return fail("stale");
+  db.update(meetings).set({ status: "processing", updatedAt: new Date() })
+    .where(and(eq(meetings.id, job.meetingId), eq(meetings.status, "review"), isNull(meetings.approvedProtocolId))).run();
   audit(db, job.meetingId, viewer.id, "job.retried", { jobId: job.id, stage: job.stage });
   revalidateMeeting(job.meetingId);
   return { ok: true };

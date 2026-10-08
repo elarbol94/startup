@@ -5214,6 +5214,7 @@
       "joinButton": "Beitreten",
       "joinFailed": "Beitritt fehlgeschlagen.",
       "connectionFailed": "Verbindung fehlgeschlagen – ist Tailscale eingeschaltet?",
+      "deviceFailed": "Kamera oder Mikrofon konnten nicht gestartet werden. Du bist trotzdem im Call – prüfe die Geräte und die Berechtigungen im Browser.",
       "recording": "Aufnahme läuft",
       "notRunning": "Für diese Besprechung läuft gerade kein Call."
     },

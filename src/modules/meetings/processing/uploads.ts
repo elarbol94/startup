@@ -12,7 +12,7 @@ import { getAttachmentAbsolutePath, mediaHeaderMatches, moveStagedFileIntoStore,
 import { MEDIA_CHUNK_BYTES, MEETING_MEDIA_TYPES, UPLOAD_DECLARATION_VERSION } from "../constants";
 import { mediaUploadSessions, meetingRecordings, meetings } from "../schema";
 import { enqueueJob } from "./jobs";
-import { audit, UPLOAD_STAGING } from "./store";
+import { audit, retentionExpiry, UPLOAD_STAGING } from "./store";
 
 export type UploadSession = typeof mediaUploadSessions.$inferSelect;
 export type UploadError = "invalid" | "notFound" | "forbidden" | "tooLarge" | "type" | "declaration" | "quota" | "disk" | "state" | "chunk";
@@ -145,6 +145,18 @@ export function requestUploadCompletion(session: UploadSession): UploadError | n
   return null;
 }
 
+/**
+ * The uploader gave up: frees the reserved space at once instead of after the
+ * session expires. Only while chunks are still being sent; assembly is the worker's.
+ */
+export function cancelUploadSession(session: UploadSession): UploadError | null {
+  const changed = db.update(mediaUploadSessions).set({ state: "aborted", error: "", updatedAt: new Date() })
+    .where(and(eq(mediaUploadSessions.id, session.id), eq(mediaUploadSessions.state, "uploading"))).run().changes;
+  if (!changed) return "state";
+  fs.rmSync(sessionDir(session.id), { recursive: true, force: true });
+  return null;
+}
+
 function abort(session: UploadSession, error: string) {
   db.update(mediaUploadSessions).set({ state: "aborted", error, updatedAt: new Date() }).where(eq(mediaUploadSessions.id, session.id)).run();
   fs.rmSync(sessionDir(session.id), { recursive: true, force: true });
@@ -194,10 +206,14 @@ function finalize(session: UploadSession) {
       { storedName: session.storedName!, fileName: session.fileName, mimeType: session.mimeType, sizeBytes: session.declaredBytes, sha256: session.sha256! },
       { entityType: "meetingRecording", entityId: session.meetingId, userId: session.userId },
     );
+    const kind = session.mimeType.startsWith("video/") ? "video" as const : "audio" as const;
+    const createdAt = new Date();
+    // Set now so retention also applies when ingest fails; ingest corrects it from the probed kind.
     const recording = tx.insert(meetingRecordings).values({
-      meetingId: session.meetingId, attachmentId: attachment.id, kind: session.mimeType.startsWith("video/") ? "video" : "audio",
+      meetingId: session.meetingId, attachmentId: attachment.id, kind,
       speakerScope: "mixed", source: "upload", fileName: session.fileName, sizeBytes: session.declaredBytes, sha256: session.sha256!,
-      consentEvidence: session.consentEvidence, createdBy: session.userId,
+      consentEvidence: session.consentEvidence, createdBy: session.userId, createdAt,
+      expiresAt: retentionExpiry(createdAt, kind === "video" ? meeting.videoRetentionDays : meeting.audioRetentionDays),
     }).returning().get();
     tx.update(mediaUploadSessions).set({ state: "done", recordingId: recording.id, updatedAt: new Date() }).where(eq(mediaUploadSessions.id, session.id)).run();
     if (meeting.status === "scheduled" || meeting.status === "review" || meeting.status === "approved") {

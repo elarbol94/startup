@@ -5,13 +5,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
-import { DisconnectReason } from "livekit-client";
+import { ConnectionError, DisconnectReason } from "livekit-client";
 import { ArrowLeft, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
 
-type Joined = { token: string; serverUrl: string; record: boolean };
+type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean };
 /**
  * One explicit lifecycle. Once a connection ends, the page never reconnects
  * on its own: Next.js keeps visited pages alive in the background, and an
@@ -35,18 +35,20 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
   const [phase, setPhase] = useState<Phase>({ kind: "prejoin" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+  const [deviceWarning, setDeviceWarning] = useState(false);
   const back = `/meetings/${meetingId}`;
 
   async function join() {
     setPending(true);
     setError(null);
+    setDeviceWarning(false);
     try {
       // Always a fresh token: they are short-lived and bound to one call.
       const result = await joinCall({ meetingId, consentRecording, consentAi });
       if (!result.ok) setError(t(`errors.${result.error}`));
       else setPhase((current) => ({
         kind: "call",
-        joined: { token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record },
+        joined: { token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record, canPublish: result.canPublish },
         attempt: current.kind === "call" ? current.attempt + 1 : 0,
       }));
     } catch {
@@ -75,6 +77,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
     return (
       <div className="flex h-[calc(100dvh-8rem)] min-h-[28rem] flex-col gap-2">
         {header}
+        {deviceWarning && <p className="text-sm text-amber-700 dark:text-amber-400" role="status">{t("call.deviceFailed")}</p>}
         <LiveKitRoom
           key={phase.attempt}
           data-lk-theme="default"
@@ -82,10 +85,16 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
           serverUrl={phase.joined.serverUrl}
           token={phase.joined.token}
           connect
-          video
-          audio
+          // Viewers join without publishing rights; asking for their devices would only fail.
+          video={phase.joined.canPublish}
+          audio={phase.joined.canPublish}
           options={{ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true }}
-          onError={(cause) => setPhase({ kind: "ended", reason: "failed", detail: cause.message })}
+          // Only a failed connection ends the call. A missing or blocked camera or
+          // microphone also lands here; the person stays in the call.
+          onError={(cause) => cause instanceof ConnectionError
+            ? setPhase({ kind: "ended", reason: "failed", detail: cause.message })
+            : setDeviceWarning(true)}
+          onMediaDeviceFailure={() => setDeviceWarning(true)}
           onDisconnected={disconnected}
         >
           <VideoConference />

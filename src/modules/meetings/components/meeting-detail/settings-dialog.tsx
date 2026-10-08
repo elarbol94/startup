@@ -151,7 +151,7 @@ function AiForm({ detail }: { detail: MeetingDetail }) {
   const [confidential, setConfidential] = useState(detail.meeting.confidential);
   const [declaration, setDeclaration] = useState(false);
   const enabling = aiEnabled && detail.meeting.aiPolicy === "none";
-  const needsDeclaration = enabling && detail.recordings.some((recording) => recording.purgeState === "active");
+  const needsDeclaration = enabling && detail.hasMedia;
   return (
     <section className="space-y-3 border-t pt-4">
       <h3 className="font-medium">{t("settings.ai")}</h3>

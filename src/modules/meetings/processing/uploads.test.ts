@@ -26,7 +26,7 @@ import { attachments } from "@/db/schema";
 import { getAttachmentAbsolutePath, newStoredName, UPLOADS_PATH } from "@/lib/files";
 import { mediaUploadSessions, meetingJobs, meetingRecordings, meetings } from "../schema";
 import { host, member, resetDatabase, seedMeeting } from "../test-helpers";
-import { createUploadSession, processUploadSessions, requestUploadCompletion, setFreeDiskProbe, writeUploadChunk, type UploadSession } from "./uploads";
+import { cancelUploadSession, createUploadSession, processUploadSessions, requestUploadCompletion, setFreeDiskProbe, writeUploadChunk, type UploadSession } from "./uploads";
 import { UPLOAD_STAGING } from "./store";
 
 const GB = 1024 ** 3;
@@ -99,6 +99,7 @@ describe("chunks and completion", () => {
     expect(done.state).toBe("done");
     const recording = db.select().from(meetingRecordings).where(eq(meetingRecordings.id, done.recordingId!)).get()!;
     expect(recording).toMatchObject({ kind: "audio", sha256: sha(mp3), source: "upload" });
+    expect(recording.expiresAt).toBeInstanceOf(Date);
     expect(JSON.parse(recording.consentEvidence)).toMatchObject({ participantsInformed: true, aiProcessing: true });
     const attachment = db.select().from(attachments).where(eq(attachments.id, recording.attachmentId!)).get()!;
     expect(fs.readFileSync(getAttachmentAbsolutePath(attachment.storedName)).equals(mp3)).toBe(true);
@@ -131,6 +132,24 @@ describe("chunks and completion", () => {
     expect(session(created.session.id).state).toBe("done");
     expect(db.select().from(meetingRecordings).all()).toHaveLength(1);
     expect(db.select().from(attachments).all()).toMatchObject([{ storedName }]);
+  });
+
+  it("cancels an unfinished upload at once, releasing its reservation", async () => {
+    const created = start(mp3.length);
+    if (!created.ok) throw new Error(created.error);
+    await writeUploadChunk(created.session, 0, stream(mp3), sha(mp3));
+    expect(cancelUploadSession(session(created.session.id))).toBeNull();
+    expect(session(created.session.id)).toMatchObject({ state: "aborted", error: "" });
+    expect(fs.existsSync(path.join(UPLOAD_STAGING, created.session.id))).toBe(false);
+    expect(cancelUploadSession(session(created.session.id))).toBe("state");
+  });
+
+  it("does not cancel an upload the worker is already assembling", () => {
+    const created = start(mp3.length);
+    if (!created.ok) throw new Error(created.error);
+    db.update(mediaUploadSessions).set({ state: "assembling" }).where(eq(mediaUploadSessions.id, created.session.id)).run();
+    expect(cancelUploadSession(session(created.session.id))).toBe("state");
+    expect(session(created.session.id).state).toBe("assembling");
   });
 
   it("aborts expired uploads and removes their chunks", async () => {

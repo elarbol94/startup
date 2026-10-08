@@ -92,8 +92,12 @@ async function extractAudio(job: MeetingJob, context: StageContext) {
   const sizeBytes = fs.statSync(staged).size;
   const meeting = loadMeeting(job.meetingId);
   const storedName = newStoredName(sha256, ".ogg");
+  let kept = false;
   try {
-    completeJob(job, (tx) => {
+    kept = completeJob(job, (tx) => {
+      // Deleted (or expired) while extracting: the derived audio must not outlive it.
+      const source = tx.select({ purgeState: meetingRecordings.purgeState }).from(meetingRecordings).where(eq(meetingRecordings.id, recording.id)).get();
+      if (source?.purgeState !== "active") return false;
       const attachment = registerStagedAttachment(
         { storedName, fileName: `${path.parse(recording.fileName).name || "recording"}.ogg`, mimeType: "audio/ogg", sizeBytes, sha256 },
         { entityType: "meetingRecording", entityId: job.meetingId, userId: recording.createdBy },
@@ -113,10 +117,15 @@ async function extractAudio(job: MeetingJob, context: StageContext) {
       } else if (meeting.status === "processing") {
         tx.update(meetings).set({ status: "review", updatedAt: new Date() }).where(eq(meetings.id, job.meetingId)).run();
       }
+      return true;
     });
   } catch (error) {
     fs.rmSync(staged, { force: true });
     throw error;
+  }
+  if (!kept) {
+    fs.rmSync(staged, { force: true });
+    return;
   }
   moveStagedFileIntoStore(staged, storedName);
 }

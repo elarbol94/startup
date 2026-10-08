@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
-import { loadUploadSession } from "@/modules/meetings/processing/uploads";
+import { cancelUploadSession, loadUploadSession } from "@/modules/meetings/processing/uploads";
 
 type Params = { params: Promise<{ uploadId: string }> };
 
@@ -17,4 +17,15 @@ export async function GET(_request: Request, { params }: Params) {
     recordingId: upload.recordingId,
     error: upload.error,
   });
+}
+
+/** Cancels the uploader's own unfinished upload and releases its reserved space. */
+export async function DELETE(_request: Request, { params }: Params) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const upload = loadUploadSession((await params).uploadId);
+  if (!upload || upload.userId !== session.user.id) return NextResponse.json({ error: "notFound" }, { status: 404 });
+  const error = cancelUploadSession(upload);
+  if (error) return NextResponse.json({ error }, { status: 409 });
+  return NextResponse.json({ ok: true });
 }

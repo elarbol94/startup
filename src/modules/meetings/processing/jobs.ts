@@ -3,7 +3,7 @@ import "server-only";
 import crypto from "node:crypto";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { meetingJobInputs, meetingJobs, meetings } from "../schema";
+import { mediaUploadSessions, meetingJobInputs, meetingJobs, meetings } from "../schema";
 import type { MeetingJobStage } from "../constants";
 
 /**
@@ -154,4 +154,22 @@ export function cancelPendingJobs(tx: Executor, meetingId: string, stages: Meeti
       inArray(meetingJobs.stage, stages),
       inArray(meetingJobs.status, ["queued", "running", "failed", "blocked"]),
     )).run();
+}
+
+/**
+ * Leaves "processing" once nothing is left to run: failed or blocked jobs
+ * wait for a person (retry on the recordings tab), cancelled ones never come.
+ */
+export function settleMeetingStatus(tx: Executor, meetingId: string) {
+  const meeting = tx.select({ status: meetings.status }).from(meetings).where(eq(meetings.id, meetingId)).get();
+  if (meeting?.status !== "processing") return;
+  const active = tx.select({ id: meetingJobs.id }).from(meetingJobs).where(and(
+    eq(meetingJobs.meetingId, meetingId),
+    inArray(meetingJobs.stage, ["ingest", "extract_audio", "transcribe", "merge", "protocol"]),
+    inArray(meetingJobs.status, ["queued", "running"]),
+  )).get()
+    ?? tx.select({ id: mediaUploadSessions.id }).from(mediaUploadSessions).where(and(
+      eq(mediaUploadSessions.meetingId, meetingId), inArray(mediaUploadSessions.state, ["uploading", "assembling", "finalizing"]),
+    )).get();
+  if (!active) tx.update(meetings).set({ status: "review", updatedAt: new Date() }).where(eq(meetings.id, meetingId)).run();
 }

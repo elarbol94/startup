@@ -30,8 +30,9 @@ import { attachments, projectColumns, projects, taskAssignees, tasks } from "@/d
 import { attachmentAccessError } from "@/lib/attachment-access";
 import { getAttachmentAbsolutePath, newStoredName, registerStagedAttachment, UPLOADS_PATH } from "@/lib/files";
 import { decideActionItem } from "./action-item-actions";
-import { createMeeting, deleteMeeting, setMeetingAccess, setMeetingAiPolicy } from "./meeting-actions";
+import { createMeeting, deleteMeeting, retryMeetingJob, setMeetingAccess, setMeetingAiPolicy } from "./meeting-actions";
 import { enqueueJob } from "./processing/jobs";
+import { createUploadSession, setFreeDiskProbe } from "./processing/uploads";
 import { requestRecordingPurge, runMeetingWorkerTick, scheduleRetentionPurges } from "./processing/worker";
 import { approveProtocol, saveProtocolVersion, saveSpeakerMap } from "./protocol-actions";
 import { getMeetingDetail, searchMeetings } from "./queries";
@@ -207,6 +208,29 @@ describe("AI policy", () => {
     expect(await setMeetingAiPolicy({ meetingId, aiPolicy: "openai", confidential: false, aiDeclaration: true })).toEqual({ ok: true });
     expect(db.select().from(meetingJobs).all().filter((job) => job.status === "queued")).toMatchObject([{ stage: "transcribe", policyRevision: 3 }]);
   });
+
+  it("needs the declaration for an upload still in flight that was declared without AI", async () => {
+    const quiet = seedMeeting({ aiPolicy: "none" }).id;
+    setFreeDiskProbe(() => 100 * 1024 ** 3);
+    const upload = createUploadSession({ meetingId: quiet, userId: host.id, fileName: "a.mp3", mimeType: "audio/mpeg", sizeBytes: 100, declaration: { participantsInformed: true, aiProcessing: false } });
+    expect(upload.ok).toBe(true);
+    expect(getMeetingDetail(host, quiet)!.hasMedia).toBe(true);
+    expect(await setMeetingAiPolicy({ meetingId: quiet, aiPolicy: "openai", confidential: false })).toEqual({ ok: false, error: "declaration" });
+    expect(meetingRow(quiet).aiPolicy).toBe("none");
+  });
+});
+
+describe("meeting status", () => {
+  it("leaves processing when the last pipeline job fails, and returns to it on retry", async () => {
+    db.update(meetings).set({ status: "processing" }).where(eq(meetings.id, meetingId)).run();
+    const broken = db.insert(meetingRecordings).values({ meetingId, kind: "audio", fileName: "gone.mp3", createdBy: host.id }).returning().get();
+    const job = enqueueJob(db, { meetingId, stage: "ingest", recordingId: broken.id, policyRevision: 1, executionKey: "ingest:gone", inputs: [broken.id] })!;
+    await runMeetingWorkerTick();
+    expect(db.select().from(meetingJobs).where(eq(meetingJobs.id, job.id)).get()!.status).toBe("failed");
+    expect(meetingRow(meetingId).status).toBe("review");
+    expect(await retryMeetingJob(job.id)).toEqual({ ok: true });
+    expect(meetingRow(meetingId).status).toBe("processing");
+  });
 });
 
 describe("retention and deletion", () => {
@@ -224,6 +248,13 @@ describe("retention and deletion", () => {
     expect(fs.existsSync(path.join(UPLOADS_PATH, ".history"))).toBe(false);
     expect(db.select().from(attachments).where(eq(attachments.id, attachment.id)).get()).toBeUndefined();
     expect(db.select().from(meetingJobInputs).all().length).toBeGreaterThan(0);
+  });
+
+  it("gives recordings without an expiry date one, so retention still applies", () => {
+    const undated = db.insert(meetingRecordings).values({ meetingId, kind: "video", fileName: "v.mp4", createdBy: host.id }).returning().get();
+    scheduleRetentionPurges();
+    const expiresAt = db.select().from(meetingRecordings).where(eq(meetingRecordings.id, undated.id)).get()!.expiresAt!;
+    expect(expiresAt.getTime() - undated.createdAt.getTime()).toBe(meetingRow(meetingId).videoRetentionDays * 24 * 60 * 60_000);
   });
 
   it("reports a failed unlink as purge_failed, never as purged", async () => {
