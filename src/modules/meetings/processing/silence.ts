@@ -12,11 +12,15 @@ export type SpeechRangeOptions = {
   minGapMs: number;
   /** Silence kept on each side of a removed stretch, so no word is clipped. */
   padMs: number;
-  /** Upper bound of kept ranges (the ffmpeg filter grows with each). */
+  /**
+   * Upper bound of kept ranges. Each becomes one term of an `aselect`
+   * expression, and ffmpeg's expression parser gives up at about 100 terms
+   * ("Error while parsing expression", checked with ffmpeg 5.1).
+   */
   maxRanges: number;
 };
 
-export const SILENCE_SKIP: SpeechRangeOptions = { minGapMs: 10_000, padMs: 1_000, maxRanges: 400 };
+export const SILENCE_SKIP: SpeechRangeOptions = { minGapMs: 10_000, padMs: 1_000, maxRanges: 80 };
 
 /** Removing less than this is not worth re-encoding the audio. */
 export const MIN_SKIPPED_MS = 30_000;
