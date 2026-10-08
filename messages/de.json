@@ -5101,6 +5101,12 @@
     },
     "recordings": {
       "callTrack": "Call-Aufnahme · {name} · {time}",
+      "check": "Bitte prüfen",
+      "warnings": {
+        "longerThanCall": "Diese Spur ist deutlich länger als der Call – evtl. lief das Mikrofon weiter.",
+        "longerThanOtherTracks": "Diese Spur ist deutlich länger als die anderen Spuren des Calls – evtl. lief das Mikrofon weiter (z. B. Musik im Hintergrund).",
+        "languageMismatch": "Das Transkript dieser Spur ist überwiegend in einer anderen Sprache als die Besprechung – evtl. wurde Musik oder ein Video mitgeschnitten."
+      },
       "unknownSpeaker": "Unbekannt",
       "title": "Aufnahmen",
       "empty": "Noch keine Aufnahme.",
@@ -5174,7 +5180,8 @@
       "label": "Name",
       "labelPlaceholder": "Name",
       "saveSpeakers": "Zuordnung speichern",
-      "regenerateHint": "Nach dem Zuordnen kannst du den Protokollentwurf neu erstellen lassen."
+      "regenerateHint": "Nach dem Zuordnen kannst du den Protokollentwurf neu erstellen lassen.",
+      "callSpeakersHint": "Personen aus Call-Aufnahmen sind automatisch zugeordnet – jede Spur enthält nur das Mikrofon einer Person."
     },
     "protocol": {
       "draft": "Entwurf",
@@ -5255,7 +5262,9 @@
       "connectionFailed": "Verbindung fehlgeschlagen – ist Tailscale eingeschaltet?",
       "deviceFailed": "Kamera oder Mikrofon konnten nicht gestartet werden. Du bist trotzdem im Call – prüfe die Geräte und die Berechtigungen im Browser.",
       "recording": "Aufnahme läuft",
-      "notRunning": "Für diese Besprechung läuft gerade kein Call."
+      "notRunning": "Für diese Besprechung läuft gerade kein Call.",
+      "durationPrompt": "Alle {hours} Stunden fragen wir nach, ob du noch im Call bist – etwa falls im Hintergrund Musik läuft. Ohne Antwort verlässt du den Call in {seconds} Sekunden.",
+      "durationLeft": "Du hast den Call automatisch verlassen, weil nach {hours} Stunden niemand bestätigt hat, dass du noch da bist."
     },
     "errors": {
       "callsDisabled": "Online-Calls sind auf diesem Server nicht eingerichtet.",

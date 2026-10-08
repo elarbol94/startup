@@ -9,6 +9,7 @@ import { meetingCallEndpoints } from "./call-schema";
 import { parseProtocolContent } from "./protocol-content";
 import { livekitConfig } from "./calls/livekit";
 import { meetingHasMedia } from "./processing/store";
+import { recordingWarnings } from "./recording-warnings";
 import {
   mediaUploadSessions,
   meetingCallSessions,
@@ -118,6 +119,8 @@ export function listMeetingFormOptions() {
   };
 }
 
+type SpeakerMap = Record<string, { userId: string | null; label: string }>;
+
 export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
   const access = meetingFor(meetingId, viewer, "view");
   if (!access.ok) return null;
@@ -125,7 +128,7 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
   const members = db.select({ userId: meetingAccess.userId, role: meetingAccess.role, name: user.name })
     .from(meetingAccess).innerJoin(user, eq(user.id, meetingAccess.userId))
     .where(eq(meetingAccess.meetingId, meeting.id)).orderBy(asc(user.name)).all();
-  const recordings = db.select({
+  const recordingRows = db.select({
     id: meetingRecordings.id,
     sourceRecordingId: meetingRecordings.sourceRecordingId,
     attachmentId: meetingRecordings.attachmentId,
@@ -139,7 +142,9 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     createdAt: meetingRecordings.createdAt,
     source: meetingRecordings.source,
     mediaStartedAt: meetingRecordings.mediaStartedAt,
+    callSessionId: meetingRecordings.callSessionId,
     /** The person whose microphone a call track holds. */
+    speakerUserId: meetingRecordings.speakerUserId,
     speakerName: user.name,
   }).from(meetingRecordings).leftJoin(attachments, eq(attachments.id, meetingRecordings.attachmentId))
     .leftJoin(user, eq(user.id, meetingRecordings.speakerUserId))
@@ -170,6 +175,35 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     ? db.select({ id: meetingSessionSegments.id, startMs: meetingSessionSegments.startMs, endMs: meetingSessionSegments.endMs, speakerKey: meetingSessionSegments.speakerKey, text: meetingSessionSegments.text })
       .from(meetingSessionSegments).where(eq(meetingSessionSegments.sessionTranscriptId, session.id)).orderBy(asc(meetingSessionSegments.position)).all()
     : [];
+
+  const manifest = JSON.parse(session?.inputManifest ?? "[]") as Array<{ recordingId: string }>;
+  // Call tracks hold one known person each: their speaker key is named from the recording, never by hand.
+  const fixedSpeakers: SpeakerMap = {};
+  manifest.forEach((input, index) => {
+    const original = recordingRows.find((recording) => recording.id === input.recordingId);
+    if (original?.speakerUserId && original.speakerName) fixedSpeakers[`r${index + 1}:speaker`] = { userId: original.speakerUserId, label: original.speakerName };
+  });
+  const textsByRecording = new Map<string, string[]>();
+  for (const segment of segments) {
+    const recordingId = manifest[Number(/^r(\d+):/.exec(segment.speakerKey)?.[1] ?? 0) - 1]?.recordingId;
+    if (recordingId) textsByRecording.set(recordingId, [...(textsByRecording.get(recordingId) ?? []), segment.text]);
+  }
+  const callLengths = new Map(db.select({ id: meetingCallSessions.id, startedAt: meetingCallSessions.startedAt, endedAt: meetingCallSessions.endedAt })
+    .from(meetingCallSessions).where(eq(meetingCallSessions.meetingId, meeting.id)).all()
+    .map((call) => [call.id, call.endedAt ? call.endedAt.getTime() - call.startedAt.getTime() : null]));
+  const recordings = recordingRows.map((recording) => ({
+    ...recording,
+    warnings: recording.kind === "derived_audio" ? [] : recordingWarnings({
+      durationMs: recording.durationMs,
+      callMs: recording.callSessionId ? callLengths.get(recording.callSessionId) ?? null : null,
+      otherTrackMs: recording.callSessionId
+        ? recordingRows.filter((other) => other.callSessionId === recording.callSessionId && other.kind !== "derived_audio" && other.id !== recording.id)
+          .map((other) => other.durationMs ?? 0)
+        : [],
+      texts: textsByRecording.get(recording.id) ?? [],
+      meetingLanguage: meeting.language,
+    }),
+  }));
 
   const protocolRow = (id: string | null) => id ? db.select().from(meetingProtocols).where(eq(meetingProtocols.id, id)).get() : undefined;
   const toProtocol = (row: ReturnType<typeof protocolRow>) => row && {
@@ -227,7 +261,9 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
       revision: session.revision,
       missingInputs: JSON.parse(session.missingInputs) as Array<{ recordingId: string; reason: string }>,
       speakerMapRevision: speakerMap?.revision ?? 0,
-      speakerMap: JSON.parse(speakerMap?.map ?? "{}") as Record<string, { userId: string | null; label: string }>,
+      speakerMap: { ...JSON.parse(speakerMap?.map ?? "{}") as SpeakerMap, ...fixedSpeakers },
+      /** Speakers of call tracks: named automatically, not offered for naming. */
+      fixedSpeakerKeys: Object.keys(fixedSpeakers),
       segments,
     } : null,
     currentProtocol: current ?? null,

@@ -5101,6 +5101,12 @@
     },
     "recordings": {
       "callTrack": "Call recording · {name} · {time}",
+      "check": "Please check",
+      "warnings": {
+        "longerThanCall": "This track is much longer than the call – the microphone may have kept running.",
+        "longerThanOtherTracks": "This track is much longer than the other tracks of the call – the microphone may have kept running (e.g. music in the background).",
+        "languageMismatch": "The transcript of this track is mostly in a different language than the meeting – music or a video may have been recorded."
+      },
       "unknownSpeaker": "Unknown",
       "title": "Recordings",
       "empty": "No recording yet.",
@@ -5174,7 +5180,8 @@
       "label": "Name",
       "labelPlaceholder": "Name",
       "saveSpeakers": "Save assignment",
-      "regenerateHint": "After assigning names you can have the draft protocol recreated."
+      "regenerateHint": "After assigning names you can have the draft protocol recreated.",
+      "callSpeakersHint": "People from call recordings are assigned automatically – each track holds only one person's microphone."
     },
     "protocol": {
       "draft": "Draft",
@@ -5255,7 +5262,9 @@
       "connectionFailed": "Connection failed – is Tailscale switched on?",
       "deviceFailed": "Camera or microphone could not be started. You are still in the call – check your devices and the browser permissions.",
       "recording": "Recording",
-      "notRunning": "There is no call running for this meeting."
+      "notRunning": "There is no call running for this meeting.",
+      "durationPrompt": "Every {hours} hours we check whether you are still in the call – for example in case music is playing in the background. Without an answer you will leave the call in {seconds} seconds.",
+      "durationLeft": "You left the call automatically because nobody confirmed after {hours} hours that you were still there."
     },
     "errors": {
       "callsDisabled": "Online calls are not set up on this server.",

@@ -4,10 +4,19 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { BlockedJobError } from "./jobs";
-import { cutAudio, cutWavClip, detectSilences } from "./media-tools";
+import { cutAudio, cutWavClip, detectSilences, keepAudioRanges } from "./media-tools";
 import { keySegments, planChunks, referenceClips, type KeyedSegment, type RawSegment } from "./chunks";
+import { planTranscription, segmentsToOriginal } from "./silence";
 
-export type TranscriptionResult = { engine: string; model: string; segments: KeyedSegment[] };
+export type TranscriptionResult = {
+  engine: string;
+  model: string;
+  segments: KeyedSegment[];
+  /** Silence left out before sending the audio (ms). */
+  skippedMs: number;
+  /** Language OpenAI reported, when it reports one. */
+  detectedLanguage: string | null;
+};
 
 type KnownSpeaker = { name: string; dataUrl: string };
 type ChunkRequest = { file: string; language: string; knownSpeakers: KnownSpeaker[]; signal: AbortSignal };
@@ -17,7 +26,9 @@ const MAX_CHUNK_MS = Math.max(60_000, Number(process.env.MEETINGS_TRANSCRIBE_CHU
 /** True when tests and local development use deterministic fixture output. */
 export const fakeAiEnabled = () => process.env.MEETINGS_FAKE_AI === "1";
 
-async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<{ model: string; segments: RawSegment[] }> {
+type ChunkResult = { model: string; segments: RawSegment[]; language?: string | null };
+
+async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<ChunkResult> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) throw new BlockedJobError("OPENAI_API_KEY is not configured");
   const model = process.env.OPENAI_TRANSCRIBE_MODEL?.trim() || "gpt-4o-transcribe-diarize";
@@ -42,9 +53,10 @@ async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<{ model
     if (response.status === 401 || response.status === 403) throw new BlockedJobError(`OpenAI rejected the API key (${response.status})`);
     throw new Error(`Transcription failed (${response.status}): ${detail}`);
   }
-  const payload = await response.json() as { segments?: Array<{ start?: number; end?: number; speaker?: string; text?: string }> };
+  const payload = await response.json() as { language?: string; segments?: Array<{ start?: number; end?: number; speaker?: string; text?: string }> };
   return {
     model,
+    language: typeof payload.language === "string" ? payload.language : null,
     segments: (payload.segments ?? []).map((segment) => ({
       startMs: Math.round(Number(segment.start ?? 0) * 1000),
       endMs: Math.round(Number(segment.end ?? 0) * 1000),
@@ -54,7 +66,7 @@ async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<{ model
   };
 }
 
-function fakeChunk(chunkIndex: number): { model: string; segments: RawSegment[] } {
+function fakeChunk(chunkIndex: number): ChunkResult {
   return {
     model: "fake",
     segments: [
@@ -66,9 +78,11 @@ function fakeChunk(chunkIndex: number): { model: string; segments: RawSegment[] 
 }
 
 /**
- * Transcribes a speech-audio file chunk by chunk. `beforeRequest` runs before
- * every external call and throws when the job lost its lease or the meeting's
- * AI policy no longer allows the call.
+ * Transcribes a speech-audio file chunk by chunk. Long silences are left out
+ * first (see silence.ts) and the timestamps mapped back to the original, so a
+ * forgotten microphone costs neither API minutes nor transcript noise.
+ * `beforeRequest` runs before every external call and throws when the job
+ * lost its lease or the meeting's AI policy no longer allows the call.
  */
 export async function transcribeAudio(input: {
   file: string;
@@ -78,37 +92,56 @@ export async function transcribeAudio(input: {
   beforeRequest: () => void;
 }): Promise<TranscriptionResult> {
   const fake = fakeAiEnabled();
-  const silences = !fake && input.durationMs > MAX_CHUNK_MS ? await detectSilences(input.file, 700, input.signal) : [];
-  const chunks = planChunks(input.durationMs, silences, MAX_CHUNK_MS);
+  const plan = fake
+    ? { ranges: null, chunks: planChunks(input.durationMs, [], MAX_CHUNK_MS), skippedMs: 0 }
+    : planTranscription(input.durationMs, await detectSilences(input.file, 700, input.durationMs, input.signal), MAX_CHUNK_MS);
+  if (!plan.chunks.length) return { engine: "silence", model: "", segments: [], skippedMs: plan.skippedMs, detectedLanguage: null };
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "meeting-transcribe-"));
   try {
+    let source = input.file;
+    if (plan.ranges) {
+      source = path.join(workDir, "compact.ogg");
+      await keepAudioRanges(input.file, source, plan.ranges, input.durationMs, input.signal);
+    }
+    const chunks = plan.chunks;
     const segments: KeyedSegment[] = [];
     const knownSpeakers: KnownSpeaker[] = [];
+    const languages = new Map<string, number>();
     let model = "";
     for (const [index, chunk] of chunks.entries()) {
       input.beforeRequest();
-      let result;
+      let result: ChunkResult;
       if (fake) result = fakeChunk(index);
       else {
-        const chunkFile = chunks.length === 1 ? input.file : path.join(workDir, `chunk-${index}.ogg`);
-        if (chunks.length > 1) await cutAudio(input.file, chunkFile, chunk.startMs, chunk.durationMs, input.signal);
+        const chunkFile = chunks.length === 1 ? source : path.join(workDir, `chunk-${index}.ogg`);
+        // The last chunk runs to the end of the file, whatever its exact length after re-encoding.
+        const cutMs = index === chunks.length - 1 ? chunk.durationMs + 60_000 : chunk.durationMs;
+        if (chunks.length > 1) await cutAudio(source, chunkFile, chunk.startMs, cutMs, input.signal);
         result = await transcribeChunkWithOpenAI({ file: chunkFile, language: input.language, knownSpeakers, signal: input.signal });
-        if (chunkFile !== input.file) await fs.rm(chunkFile, { force: true });
+        if (chunkFile !== source) await fs.rm(chunkFile, { force: true });
       }
       model = result.model;
+      if (result.language) languages.set(result.language, (languages.get(result.language) ?? 0) + chunk.durationMs);
       const keyed = keySegments(index, chunk, result.segments, knownSpeakers.map((speaker) => speaker.name));
       segments.push(...keyed);
       if (index === 0 && chunks.length > 1 && !fake) {
         // Clips of the first chunk's speakers keep their names stable later on.
         for (const clip of referenceClips(keyed)) {
           const clipFile = path.join(workDir, `${clip.name}.wav`);
-          await cutWavClip(input.file, clipFile, clip.startMs, clip.durationMs, input.signal);
+          await cutWavClip(source, clipFile, clip.startMs, clip.durationMs, input.signal);
           knownSpeakers.push({ name: clip.name, dataUrl: `data:audio/wav;base64,${(await fs.readFile(clipFile)).toString("base64")}` });
           await fs.rm(clipFile, { force: true });
         }
       }
     }
-    return { engine: fake ? "fake" : "openai", model, segments };
+    const detectedLanguage = [...languages.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    return {
+      engine: fake ? "fake" : "openai",
+      model,
+      segments: plan.ranges ? segmentsToOriginal(plan.ranges, segments) : segments,
+      skippedMs: plan.skippedMs,
+      detectedLanguage,
+    };
   } finally {
     await fs.rm(workDir, { recursive: true, force: true });
   }
