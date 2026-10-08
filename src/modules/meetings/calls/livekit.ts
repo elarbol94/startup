@@ -59,6 +59,23 @@ export async function deleteCallRoom(roomName: string) {
   }
 }
 
+/**
+ * LiveKit's answer when a room's node does not respond, e.g. after a restart
+ * left the room registered under a node that no longer exists.
+ */
+export function isLivekitUnavailable(error: unknown) {
+  return (error as { code?: unknown } | null)?.code === "unavailable" || /no response from servers|\bunavailable\b/i.test(String(error));
+}
+
+/**
+ * A request only the room's own node can answer. Room and participant
+ * listings come from Redis and outlive a dead node; this then fails with
+ * "unavailable". Room metadata is not used by the platform.
+ */
+export async function probeCallRoom(roomName: string) {
+  await clients().rooms.updateRoomMetadata(roomName, "");
+}
+
 export async function callRoomExists(roomName: string) {
   return (await clients().rooms.listRooms([roomName])).some((room) => room.name === roomName);
 }

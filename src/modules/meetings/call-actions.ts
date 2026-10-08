@@ -47,7 +47,10 @@ export async function startCall(input: z.input<typeof startSchema>): Promise<Mee
     audit(tx, access.meeting.id, viewer.id, "call.started", { sessionId: session.id, record: parsed.data.record, aiPolicy: access.meeting.aiPolicy });
     return true;
   }, { behavior: "immediate" });
-  if (!created) await deleteCallRoom(roomName);
+  if (!created) {
+    // Nobody holds a token for this room; LiveKit closes it after its empty timeout if this fails.
+    await deleteCallRoom(roomName).catch((error) => console.error(JSON.stringify({ event: "meeting_call_room_close_failed", roomName, error: String(error) })));
+  }
   revalidateMeeting(access.meeting.id);
   return { ok: true };
 }

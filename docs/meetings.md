@@ -30,9 +30,21 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   do not count). When nobody has spoken for 15 minutes, each browser asks
   *Noch da?* and leaves the call after another minute without an answer, so
   a forgotten tab does not keep a call and its recording running. Background
-  music counts as speech here. Removing someone from the meeting or
-  changing its AI setting ends a running call (issued LiveKit tokens cannot
-  be revoked); the others simply rejoin.
+  music counts as speech here. Removing someone from the meeting, demoting
+  them to viewer or changing its AI setting ends a running call (issued
+  LiveKit tokens cannot be revoked); the others simply rejoin.
+- **LiveKit failures**: ending a call marks it ended at once (nobody can
+  rejoin) and stops all its recorders, even if LiveKit cannot delete the
+  room; the worker retries the deletion every ~30 s and gives up after ten
+  attempts (`meeting_call_room_given_up` in the log). A recorder of an ended
+  call that is still running is stopped; a track whose recorder failed three
+  times is no longer restarted.
+- **Dead rooms**: after a LiveKit restart, Redis can keep listing a room
+  under the old, gone node. When nobody from the meeting is listed in a
+  room, the worker sends it a request only its own node answers (a room
+  metadata update); if that, or the room listing itself, answers
+  `unavailable` on two checks in a row (~1 min), the call ends as
+  `roomDead` instead of waiting the ten minutes.
 - **Afterwards**: the recordings are taken into the upload store within a
   minute and processed like uploads.
 
