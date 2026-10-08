@@ -1,6 +1,7 @@
 import "server-only";
 
 import { execFile } from "node:child_process";
+import { keepRangesFilter, parseSilenceDetect, type TimeRange } from "./silence";
 
 /**
  * ffmpeg/ffprobe without a shell: fixed argument lists, local files only
@@ -76,21 +77,18 @@ export async function cutWavClip(input: string, output: string, startMs: number,
   ], { timeoutMs: 120_000, signal });
 }
 
-/** Midpoints of silences of at least `minSilenceMs`, in milliseconds. */
-export async function detectSilences(input: string, minSilenceMs: number, signal?: AbortSignal): Promise<number[]> {
+/** Silences of at least `minSilenceMs`, in milliseconds. */
+export async function detectSilences(input: string, minSilenceMs: number, durationMs: number, signal?: AbortSignal): Promise<TimeRange[]> {
   const output = await run(FFMPEG, [
     ...inputArgs(input), "-af", `silencedetect=noise=-35dB:d=${(minSilenceMs / 1000).toFixed(2)}`, "-f", "null", "-",
   ], { timeoutMs: 30 * 60_000, signal });
-  const points: number[] = [];
-  let start: number | null = null;
-  for (const line of output.split(/\r?\n/)) {
-    const startMatch = /silence_start: (-?[\d.]+)/.exec(line);
-    if (startMatch) start = Number(startMatch[1]) * 1000;
-    const endMatch = /silence_end: ([\d.]+)/.exec(line);
-    if (endMatch && start !== null) {
-      points.push(Math.round((start + Number(endMatch[1]) * 1000) / 2));
-      start = null;
-    }
-  }
-  return points;
+  return parseSilenceDetect(output, durationMs || undefined);
+}
+
+/** Re-encodes only `ranges` of a speech-audio file into one gapless Opus file. */
+export async function keepAudioRanges(input: string, output: string, ranges: TimeRange[], durationMs: number, signal?: AbortSignal) {
+  await run(FFMPEG, [
+    ...inputArgs(input), "-vn", "-af", keepRangesFilter(ranges), "-ac", "1", "-ar", "16000", "-c:a", "libopus", "-b:a", "24k",
+    "-application", "voip", "-y", output,
+  ], { timeoutMs: Math.max(10 * 60_000, durationMs * 2), signal });
 }

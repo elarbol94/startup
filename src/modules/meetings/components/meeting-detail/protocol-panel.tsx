@@ -74,7 +74,7 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
     ...(detail.transcript?.segments ?? []).map((segment) => [segment.id, segment] as const),
     ...detail.extraEvidence.map((segment) => [segment.id, segment] as const),
   ]), [detail.transcript, detail.extraEvidence]);
-  const order = useMemo(() => speakerOrder(detail.transcript?.segments ?? []), [detail.transcript]);
+  const order = useMemo(() => speakerOrder(detail.transcript?.segments ?? [], detail.transcript?.fixedSpeakerKeys), [detail.transcript]);
   const nameOf = (key: string) => speakerName(key, detail.transcript?.speakerMap ?? {}, order, (index) => t("transcript.speaker", { number: index }));
 
   if (editing) {

@@ -15,15 +15,16 @@ export function speakerName(key: string, map: SpeakerMap, order: string[], fallb
   return map[key]?.label || fallback(order.indexOf(key) + 1);
 }
 
-export function speakerOrder(segments: Array<{ speakerKey: string }>) {
-  return [...new Set(segments.map((segment) => segment.speakerKey))];
+/** Speakers in order of appearance; `fixedKeys` (call tracks, already named) are left out. */
+export function speakerOrder(segments: Array<{ speakerKey: string }>, fixedKeys: string[] = []) {
+  return [...new Set(segments.map((segment) => segment.speakerKey))].filter((key) => !fixedKeys.includes(key));
 }
 
 export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
   const t = useTranslations("meetings");
   const transcript = detail.transcript;
   const { pending, run } = useMeetingAction();
-  const order = useMemo(() => speakerOrder(transcript?.segments ?? []), [transcript]);
+  const order = useMemo(() => speakerOrder(transcript?.segments ?? [], transcript?.fixedSpeakerKeys), [transcript]);
   const [draft, setDraft] = useState<SpeakerMap>(() => transcript?.speakerMap ?? {});
   const [editing, setEditing] = useState(false);
   if (!transcript) {
@@ -41,12 +42,13 @@ export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
       {transcript.missingInputs.length > 0 && (
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm" role="status">{t("transcript.missing", { count: transcript.missingInputs.length })}</p>
       )}
-      <section className="space-y-2 rounded-xl border p-4">
+      {order.length > 0 && <section className="space-y-2 rounded-xl border p-4">
         <div className="flex items-center justify-between gap-2">
           <h3 className="font-medium">{t("transcript.speakers")}</h3>
           {canContribute && !editing && <Button size="sm" variant="outline" onClick={() => { setDraft(transcript.speakerMap); setEditing(true); }}>{t("transcript.nameSpeakers")}</Button>}
         </div>
         <p className="text-xs text-muted-foreground">{t("transcript.speakersHint")}</p>
+        {transcript.fixedSpeakerKeys.length > 0 && <p className="text-xs text-muted-foreground">{t("transcript.callSpeakersHint")}</p>}
         <ul className="space-y-2">
           {order.map((key) => (
             <li key={key} className="grid items-center gap-2 text-sm sm:grid-cols-[10rem_1fr_1fr]">
@@ -84,7 +86,7 @@ export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
           </div>
         )}
         {!editing && detail.meeting.aiPolicy === "openai" && <p className="text-xs text-muted-foreground">{t("transcript.regenerateHint")}</p>}
-      </section>
+      </section>}
       <ol className="space-y-2">
         {transcript.segments.map((segment) => (
           <li key={segment.id} id={`segment-${segment.id}`} className="grid gap-1 text-sm sm:grid-cols-[4.5rem_9rem_1fr]">

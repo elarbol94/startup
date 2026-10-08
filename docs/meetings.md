@@ -30,7 +30,8 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   do not count). When nobody has spoken for 15 minutes, each browser asks
   *Noch da?* and leaves the call after another minute without an answer, so
   a forgotten tab does not keep a call and its recording running. Background
-  music counts as speech here. Removing someone from the meeting or
+  music counts as speech here, so independently of speech the same prompt
+  also appears every three hours in a call. Removing someone from the meeting or
   changing its AI setting ends a running call (issued LiveKit tokens cannot
   be revoked); the others simply rejoin.
 - **Afterwards**: the recordings are taken into the upload store within a
@@ -67,13 +68,30 @@ local `livekit-server --dev` and set `LIVEKIT_API_KEY=devkey`,
    in the normal upload store (`attachments`, entity type `meetingRecording`).
 4. The meeting worker (started from `src/instrumentation.ts`) runs the stages
    `ingest` (ffprobe) → `extract_audio` (16 kHz mono Opus) → `transcribe`
-   (OpenAI, diarized) → `merge` (one meeting timeline) → `protocol` (OpenAI,
+   (OpenAI, diarized; see *Silence and implausible tracks*) → `merge` (one meeting timeline) → `protocol` (OpenAI,
    structured output). Every decision and action item must cite transcript
    lines; uncited ones are dropped.
 5. Participants review the draft, name the speakers and edit the protocol.
+   Speakers of call tracks are named from the recording automatically and are
+   not offered for naming; only voices of uploads need a person.
    Each edit is a new version. A host approves exactly the version they saw.
 6. Action items of the approved protocol are accepted one by one; each
    creates exactly one task linked back to the meeting.
+
+### Silence and implausible tracks
+
+- Before transcription, ffmpeg `silencedetect` (−35 dB) finds silences.
+  Silences of 10 s or more are cut out (1 s of padding kept on each side) when
+  that removes at least 30 s; the compacted audio is sent to OpenAI and every
+  timestamp is mapped back to the original (`processing/silence.ts`). A track
+  that is entirely silent is not sent at all. The skipped time is in the
+  `ai.transcribe` audit entry.
+- Music is not silence. After transcription, the *Aufnahmen* tab warns on a
+  recording when a call track is much longer than its call or than the other
+  tracks of the call, or when its transcript is mostly in another language
+  than the meeting (German/English function-word heuristic,
+  `recording-warnings.ts`). The warning is informational; delete the
+  recording and recreate the draft if it is garbage.
 
 The transcript is untrusted input: the AI output never triggers anything on
 its own, and nothing leaves the meeting without a person's action.
@@ -86,7 +104,7 @@ its own, and nothing leaves the meeting without a person's action.
 | `OPENAI_TRANSCRIBE_MODEL` | `gpt-4o-transcribe-diarize` | Speech-to-text with speaker separation. |
 | `OPENAI_MEETINGS_MODEL` | `gpt-6-astra` | Protocol drafts (Responses API, `store: false`). |
 | `MEETINGS_MAX_UPLOAD_BYTES` | 4 GiB | Largest single recording. |
-| `MEETINGS_TRANSCRIBE_CHUNK_SECONDS` | 1200 | Long recordings are transcribed in chunks cut at silences. |
+| `MEETINGS_TRANSCRIBE_CHUNK_SECONDS` | 1200 | Long recordings (after removing long silences) are transcribed in chunks cut at silences. |
 | `MEETINGS_FAKE_AI` | – | `1` replaces OpenAI with fixed fixture output (tests, UI work). |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | Media tools; the Docker image includes them. |
 

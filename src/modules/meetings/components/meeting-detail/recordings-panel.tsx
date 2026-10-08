@@ -3,7 +3,7 @@
 import { useCallback, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
-import { RotateCcw, Trash2, Upload } from "lucide-react";
+import { RotateCcw, Trash2, TriangleAlert, Upload } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -158,12 +158,16 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {recording.warnings.length > 0 && <Badge variant="outline" className="border-amber-500/60 text-amber-700 dark:text-amber-400"><TriangleAlert />{t("recordings.check")}</Badge>}
                       {recording.purgeState !== "active" && <Badge variant="outline">{t(`recordings.purge.${recording.purgeState}`)}</Badge>}
                       {canManage && recording.purgeState === "active" && (
                         <Button size="icon-sm" variant="ghost" aria-label={t("recordings.delete")} disabled={pending} onClick={() => void remove(recording.id)}><Trash2 /></Button>
                       )}
                     </div>
                   </div>
+                  {recording.warnings.map((warning) => (
+                    <p key={warning} className="text-xs text-amber-700 dark:text-amber-400" role="status">{t(`recordings.warnings.${warning}`)}</p>
+                  ))}
                   {playable && (playable.kind === "video" && playable.mimeType?.startsWith("video/")
                     ? <video controls preload="metadata" className="max-h-80 w-full rounded-lg bg-black" src={`/api/files/${playable.attachmentId}`} />
                     : <audio controls preload="metadata" className="w-full" src={`/api/files/${playable.attachmentId}`} />)}

@@ -97,6 +97,19 @@ describe("processing pipeline", () => {
     expect(searchMeetings(member, "Förderung")).toMatchObject([{ meetingId, source: "transcript" }]);
   });
 
+  it("names call-track speakers from the recording instead of asking for a mapping", async () => {
+    const { derived, original } = seedAudio(meetingId);
+    const callTrack = { speakerScope: "single" as const, source: "livekit" as const, speakerUserId: member.id, mediaStartedAt: Date.now() };
+    db.update(meetingRecordings).set(callTrack).where(eq(meetingRecordings.id, original.id)).run();
+    db.update(meetingRecordings).set(callTrack).where(eq(meetingRecordings.id, derived.id)).run();
+    enqueueJob(db, { meetingId, stage: "transcribe", recordingId: derived.id, policyRevision: meetingRow(meetingId).policyRevision, executionKey: `t:${derived.id}`, inputs: [derived.id] });
+    await runMeetingWorkerTick();
+    const detail = getMeetingDetail(host, meetingId)!;
+    expect(detail.transcript!.fixedSpeakerKeys).toEqual(["r1:speaker"]);
+    expect(detail.transcript!.speakerMap["r1:speaker"]).toEqual({ userId: member.id, label: "member" });
+    expect(detail.recordings.find((recording) => recording.id === original.id)!.warnings).toEqual([]);
+  });
+
   it("does nothing with AI when the meeting's policy is off", async () => {
     db.update(meetings).set({ aiPolicy: "none" }).where(eq(meetings.id, meetingId)).run();
     await processMeeting(meetingId);

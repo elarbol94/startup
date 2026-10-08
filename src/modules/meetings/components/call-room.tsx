@@ -10,7 +10,7 @@ import { ArrowLeft, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
-import { CALL_SILENCE_MINUTES, CallIdleGuard } from "./call-idle-guard";
+import { CALL_CHECK_HOURS, CALL_SILENCE_MINUTES, CallIdleGuard, type IdleReason } from "./call-idle-guard";
 
 type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean };
 /**
@@ -21,7 +21,7 @@ type Joined = { token: string; serverUrl: string; record: boolean; canPublish: b
 type Phase =
   | { kind: "prejoin" }
   | { kind: "call"; joined: Joined; attempt: number }
-  | { kind: "ended"; reason: "left" | "closed" | "failed" | "idle"; detail?: string };
+  | { kind: "ended"; reason: "left" | "closed" | "failed" | "idle"; detail?: string; idleReason?: IdleReason };
 
 /** A relative signaling path ("/livekit") becomes a WebSocket URL on this origin. */
 function socketUrl(serverUrl: string) {
@@ -68,7 +68,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
   }
 
   // Unmounting the room disconnects it; the "left" from that disconnect is ignored.
-  const leaveIdle = useCallback(() => setPhase({ kind: "ended", reason: "idle" }), []);
+  const leaveIdle = useCallback((idleReason: IdleReason) => setPhase({ kind: "ended", reason: "idle", idleReason }), []);
 
   const header = (
     <div className="flex items-center justify-between gap-2 text-sm">
@@ -110,7 +110,8 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
 
   if (phase.kind === "ended") {
     const message = phase.reason === "closed" ? t("call.closed") : phase.reason === "failed" ? t("call.connectionFailed")
-      : phase.reason === "idle" ? t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }) : t("call.left");
+      : phase.reason === "idle" ? (phase.idleReason === "duration" ? t("call.durationLeft", { hours: CALL_CHECK_HOURS }) : t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }))
+        : t("call.left");
     return (
       <div className="mx-auto max-w-lg space-y-4 rounded-xl border p-5">
         {header}

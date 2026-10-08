@@ -156,7 +156,9 @@ async function transcribe(job: MeetingJob, context: StageContext) {
     segments.forEach((segment, position) => {
       tx.insert(meetingTranscriptSegments).values({ transcriptId: transcript.id, position, ...segment }).run();
     });
-    audit(tx, job.meetingId, null, "ai.transcribe", { engine: result.engine, model: result.model, recordingId: recording.id });
+    audit(tx, job.meetingId, null, "ai.transcribe", {
+      engine: result.engine, model: result.model, recordingId: recording.id, skippedSilenceMs: result.skippedMs, detectedLanguage: result.detectedLanguage,
+    });
     enqueueJob(tx, {
       meetingId: job.meetingId, stage: "merge", transcriptId: transcript.id, policyRevision: meeting.policyRevision,
       executionKey: `merge:${transcript.id}`,
@@ -233,12 +235,12 @@ async function merge(job: MeetingJob) {
     // Carry over speaker names for keys that still exist.
     const previousMap = previous && tx.select().from(meetingSpeakerMaps).where(eq(meetingSpeakerMaps.sessionTranscriptId, previous.id))
       .orderBy(desc(meetingSpeakerMaps.revision)).get();
-    // Call tracks are already known people; earlier manual names win.
+    // Call tracks are known people: their names are set here and not edited by hand.
     const map = JSON.parse(previousMap?.map ?? "{}") as Record<string, { userId: string | null; label: string }>;
     for (const [index, userId] of speakers) {
       const key = `r${index}:speaker`;
       const person = tx.select({ name: user.name }).from(user).where(eq(user.id, userId)).get();
-      if (!map[key] && person) map[key] = { userId, label: person.name };
+      if (person) map[key] = { userId, label: person.name };
     }
     tx.insert(meetingSpeakerMaps).values({ sessionTranscriptId: session.id, revision: 1, map: JSON.stringify(map) }).run();
     if (meeting.aiPolicy === "openai") {
