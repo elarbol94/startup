@@ -124,6 +124,20 @@ nginx streams `/api/meeting-uploads/` to the app without buffering
   refused when free space minus open reservations would drop below 2 GB.
 - Interrupted uploads, assemblies and finalisations resume or are cleaned up
   by the worker; staging lives in `uploads/.staging/`.
+- A failed upload stays listed in the *Aufnahmen* tab for seven days; the
+  uploader or a host can hide it earlier (*Ausblenden*).
+- Deleting a meeting removes its files only after the database deletion has
+  committed, so a failed deletion never loses media. Files whose unlink fails
+  keep their attachment row (unreachable without the meeting) until the sweep
+  below removes them.
+- Orphan sweep (worker, once a day and after each restart; log event
+  `meeting_orphan_sweep` with counts and bytes): removes meeting recording
+  attachments older than a day whose meeting or recording row is gone;
+  recorder files (`<attempt>.ogg` in `LIVEKIT_EGRESS_DIR`, only when calls are
+  configured) older than a day whose attempt is unknown, ingested, failed or
+  abandoned; and entries in `uploads/.staging/meeting-uploads`,
+  `meeting-derived` and `meeting-calls` older than two days with no live upload,
+  job or call recording. Nothing outside these places is touched.
 - Jobs use leases with heartbeats; a crashed or hung job is picked up again
   after five minutes. Failed and blocked jobs can be retried from the
   *Aufnahmen* tab.

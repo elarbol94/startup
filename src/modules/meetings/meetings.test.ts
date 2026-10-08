@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 const auth = await vi.hoisted(async () => {
   const [{ mkdtempSync }, { join }, { tmpdir }] = await Promise.all([import("node:fs"), import("node:path"), import("node:os")]);
   process.env.UPLOADS_PATH = mkdtempSync(join(tmpdir(), "meetings-test-"));
+  process.env.LIVEKIT_EGRESS_DIR = mkdtempSync(join(tmpdir(), "meetings-egress-test-"));
   process.env.MEETINGS_FAKE_AI = "1";
   return { requireUserOrThrow: vi.fn() };
 });
@@ -32,11 +33,14 @@ import { getAttachmentAbsolutePath, newStoredName, registerStagedAttachment, UPL
 import { decideActionItem } from "./action-item-actions";
 import { createMeeting, deleteMeeting, retryMeetingJob, setMeetingAccess, setMeetingAiPolicy } from "./meeting-actions";
 import { enqueueJob } from "./processing/jobs";
+import { sweepOrphanedMedia } from "./processing/sweeper";
 import { createUploadSession, setFreeDiskProbe } from "./processing/uploads";
 import { requestRecordingPurge, runMeetingWorkerTick, scheduleRetentionPurges } from "./processing/worker";
 import { approveProtocol, saveProtocolVersion, saveSpeakerMap } from "./protocol-actions";
+import { dismissFailedUpload } from "./upload-actions";
 import { getMeetingDetail, searchMeetings } from "./queries";
 import {
+  mediaUploadSessions,
   meetingActionItemDecisions,
   meetingJobInputs,
   meetingJobs,
@@ -80,6 +84,7 @@ beforeEach(() => {
 afterAll(() => {
   sqlite.close();
   fs.rmSync(UPLOADS_PATH, { recursive: true, force: true });
+  fs.rmSync(process.env.LIVEKIT_EGRESS_DIR!, { recursive: true, force: true });
 });
 
 describe("processing pipeline", () => {
@@ -277,5 +282,78 @@ describe("retention and deletion", () => {
     expect(fs.existsSync(getAttachmentAbsolutePath(attachment.storedName))).toBe(false);
     expect(db.select().from(meetingProtocols).all()).toEqual([]);
     expect(searchMeetings(host, "Förderung")).toEqual([]);
+  });
+
+  it("keeps files when the deletion rolls back, and removes them only after the commit", async () => {
+    const { attachment } = seedAudio(meetingId);
+    const file = getAttachmentAbsolutePath(attachment.storedName);
+    sqlite.exec("CREATE TEMP TRIGGER refuse_delete BEFORE DELETE ON meetings BEGIN SELECT RAISE(ABORT, 'refused'); END");
+    try {
+      await expect(deleteMeeting(meetingId)).rejects.toThrow("refused");
+    } finally {
+      sqlite.exec("DROP TRIGGER refuse_delete");
+    }
+    expect(fs.existsSync(file)).toBe(true);
+    expect(db.select().from(attachments).where(eq(attachments.id, attachment.id)).get()).toBeDefined();
+    expect(await deleteMeeting(meetingId)).toEqual({ ok: true });
+    expect(fs.existsSync(file)).toBe(false);
+    expect(db.select().from(attachments).all()).toEqual([]);
+  });
+
+  it("removes upload files not yet registered, and leaves a failed unlink to the orphan sweep", async () => {
+    const { attachment } = seedAudio(meetingId);
+    const file = getAttachmentAbsolutePath(attachment.storedName);
+    fs.rmSync(file);
+    fs.mkdirSync(path.join(file, "blocker"), { recursive: true });
+    const storedName = newStoredName(crypto.randomBytes(32).toString("hex"), ".mp3");
+    const moved = getAttachmentAbsolutePath(storedName);
+    fs.mkdirSync(path.dirname(moved), { recursive: true });
+    fs.writeFileSync(moved, "ID3");
+    db.insert(mediaUploadSessions).values({
+      meetingId, userId: host.id, fileName: "a.mp3", mimeType: "audio/mpeg", declaredBytes: 3, reservedBytes: 6, chunkCount: 1,
+      consentEvidence: "{}", state: "finalizing", storedName, expiresAt: new Date(Date.now() + 60_000),
+    }).run();
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    expect(await deleteMeeting(meetingId)).toEqual({ ok: true });
+    expect(fs.existsSync(moved)).toBe(false);
+    // The row survives the failed unlink and is unreachable without its meeting.
+    expect(db.select().from(attachments).where(eq(attachments.id, attachment.id)).get()).toMatchObject({ entityId: meetingId });
+    expect(attachmentAccessError(host, "meetingRecording", meetingId, "read")).toBe(404);
+    fs.rmSync(file, { recursive: true, force: true });
+    vi.spyOn(console, "info").mockImplementation(() => undefined);
+    sweepOrphanedMedia({ now: Date.now() + 2 * 24 * 60 * 60_000 });
+    expect(db.select().from(attachments).all()).toEqual([]);
+  });
+});
+
+describe("failed uploads", () => {
+  function failedUpload(userId: string, updatedAt = new Date()) {
+    return db.insert(mediaUploadSessions).values({
+      meetingId, userId, fileName: "a.mp3", mimeType: "audio/mpeg", declaredBytes: 3, reservedBytes: 6, chunkCount: 1,
+      consentEvidence: "{}", state: "aborted", error: "Upload expired", expiresAt: new Date(), updatedAt,
+    }).returning().get();
+  }
+
+  it("lists failed uploads for a week and lets the uploader or a host dismiss them", async () => {
+    const mine = failedUpload(member.id);
+    const others = failedUpload(host.id);
+    failedUpload(member.id, new Date(Date.now() - 8 * 24 * 60 * 60_000));
+    expect(getMeetingDetail(member, meetingId)!.uploads.map((upload) => [upload.id, upload.canDismiss]).sort())
+      .toEqual([[mine.id, true], [others.id, false]].sort());
+    as(member);
+    expect(await dismissFailedUpload({ uploadId: others.id })).toEqual({ ok: false, error: "forbidden" });
+    expect(await dismissFailedUpload({ uploadId: mine.id })).toEqual({ ok: true });
+    as(host);
+    expect(await dismissFailedUpload({ uploadId: others.id })).toEqual({ ok: true });
+    expect(getMeetingDetail(host, meetingId)!.uploads).toEqual([]);
+    as(outsider);
+    expect(await dismissFailedUpload({ uploadId: mine.id })).toEqual({ ok: false, error: "notFound" });
+    expect(await dismissFailedUpload({ uploadId: "" })).toEqual({ ok: false, error: "invalid" });
+  });
+
+  it("does not dismiss an upload that is still in progress", async () => {
+    const upload = failedUpload(host.id);
+    db.update(mediaUploadSessions).set({ state: "assembling" }).where(eq(mediaUploadSessions.id, upload.id)).run();
+    expect(await dismissFailedUpload({ uploadId: upload.id })).toEqual({ ok: false, error: "stale" });
   });
 });

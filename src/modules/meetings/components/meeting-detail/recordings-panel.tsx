@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { MEETING_MEDIA_TYPES } from "../../constants";
 import { deleteMeetingRecording, retryMeetingJob } from "../../meeting-actions";
+import { dismissFailedUpload } from "../../upload-actions";
 import type { MeetingDetail } from "../../queries";
 import { formatBytes, formatClock, useMeetingAction } from "../meeting-ui";
 import { useChunkedUpload } from "./use-chunked-upload";
@@ -112,7 +113,12 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
         <p key={item.id} className="text-sm text-muted-foreground">{t("recordings.assembling", { name: item.fileName })}</p>
       ))}
       {detail.uploads.filter((item) => item.state === "aborted" && item.error).map((item) => (
-        <p key={item.id} className="text-sm text-destructive">{t("recordings.uploadFailed", { name: item.fileName, error: item.error })}</p>
+        <p key={item.id} className="text-sm text-destructive">
+          {t("recordings.uploadFailed", { name: item.fileName, error: item.error })}
+          {item.canDismiss && (
+            <>{" "}<Button size="sm" variant="link" className="h-auto p-0" disabled={pending} onClick={() => run(() => dismissFailedUpload({ uploadId: item.id }))}>{t("recordings.dismissFailedUpload")}</Button></>
+          )}
+        </p>
       ))}
 
       {detail.jobs.length > 0 && (

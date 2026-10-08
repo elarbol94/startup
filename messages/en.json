@@ -5084,6 +5084,7 @@
       "dismiss": "Dismiss",
       "assembling": "Saving “{name}” …",
       "uploadFailed": "“{name}” could not be saved: {error}",
+      "dismissFailedUpload": "Hide",
       "expires": "deleted on {date}",
       "delete": "Delete recording",
       "deleteTitle": "Delete recording permanently?",

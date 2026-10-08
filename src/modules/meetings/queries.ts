@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, asc, desc, eq, inArray, isNull, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { attachments, projects, tasks, user } from "@/db/schema";
 import { meetingFor, visibleMeetingCondition, type MeetingViewer } from "./access";
@@ -20,6 +20,9 @@ import {
   meetingSessionTranscripts,
   meetingSpeakerMaps,
 } from "./schema";
+
+/** How long a failed upload is listed on the meeting page. */
+export const FAILED_UPLOAD_VISIBLE_MS = 7 * 24 * 60 * 60_000;
 
 export function listMeetings(viewer: MeetingViewer) {
   return db.select({
@@ -114,10 +117,16 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     .orderBy(desc(meetingJobs.updatedAt)).limit(30).all();
   const uploads = db.select({
     id: mediaUploadSessions.id, fileName: mediaUploadSessions.fileName, state: mediaUploadSessions.state, error: mediaUploadSessions.error,
+    userId: mediaUploadSessions.userId,
   }).from(mediaUploadSessions).where(and(
     eq(mediaUploadSessions.meetingId, meeting.id),
-    inArray(mediaUploadSessions.state, ["assembling", "finalizing", "aborted"]),
-  )).orderBy(desc(mediaUploadSessions.updatedAt)).limit(10).all();
+    or(
+      inArray(mediaUploadSessions.state, ["assembling", "finalizing"]),
+      // Failed uploads stay visible for a week unless dismissed.
+      and(eq(mediaUploadSessions.state, "aborted"), isNull(mediaUploadSessions.dismissedAt), gt(mediaUploadSessions.updatedAt, new Date(Date.now() - FAILED_UPLOAD_VISIBLE_MS))),
+    ),
+  )).orderBy(desc(mediaUploadSessions.updatedAt)).limit(10).all()
+    .map(({ userId, ...upload }) => ({ ...upload, canDismiss: userId === viewer.id || access.role === "host" }));
 
   const session = db.select().from(meetingSessionTranscripts).where(eq(meetingSessionTranscripts.meetingId, meeting.id))
     .orderBy(desc(meetingSessionTranscripts.revision)).get();

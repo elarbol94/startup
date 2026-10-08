@@ -5084,6 +5084,7 @@
       "dismiss": "Schließen",
       "assembling": "„{name}“ wird gespeichert …",
       "uploadFailed": "„{name}“ konnte nicht gespeichert werden: {error}",
+      "dismissFailedUpload": "Ausblenden",
       "expires": "wird am {date} gelöscht",
       "delete": "Aufnahme löschen",
       "deleteTitle": "Aufnahme endgültig löschen?",
