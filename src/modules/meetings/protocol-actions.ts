@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { and, count, desc, eq, like, max } from "drizzle-orm";
+import { and, count, desc, eq, inArray, like, max } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
 import { fail, revalidateMeeting, type MeetingActionResult } from "./action-helpers";
@@ -106,7 +106,12 @@ export async function regenerateProtocol(meetingId: string): Promise<MeetingActi
   const session = db.select().from(meetingSessionTranscripts).where(eq(meetingSessionTranscripts.meetingId, meeting.id))
     .orderBy(desc(meetingSessionTranscripts.revision)).get();
   if (!session) return fail("notFound");
-  db.transaction((tx) => {
+  // Check and enqueue in one write transaction, so two clicks cannot both pass the check.
+  const result = db.transaction((tx) => {
+    const pending = tx.select({ id: meetingJobs.id }).from(meetingJobs).where(and(
+      eq(meetingJobs.meetingId, meeting.id), eq(meetingJobs.stage, "protocol"), inArray(meetingJobs.status, ["queued", "running"]),
+    )).get();
+    if (pending) return fail("protocolBusy");
     const previous = tx.select({ value: count() }).from(meetingJobs)
       .where(like(meetingJobs.executionKey, `protocol:${session.id}:%`)).get()?.value ?? 0;
     enqueueJob(tx, {
@@ -114,9 +119,10 @@ export async function regenerateProtocol(meetingId: string): Promise<MeetingActi
       executionKey: `protocol:${session.id}:${previous + 1}`,
     });
     audit(tx, meeting.id, viewer.id, "protocol.regenerateRequested", { sessionTranscriptId: session.id });
-  });
-  revalidateMeeting(meeting.id);
-  return { ok: true };
+    return { ok: true as const };
+  }, { behavior: "immediate" });
+  if (result.ok) revalidateMeeting(meeting.id);
+  return result;
 }
 
 const speakerSchema = z.object({

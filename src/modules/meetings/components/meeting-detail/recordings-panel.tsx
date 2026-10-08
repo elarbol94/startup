@@ -33,7 +33,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
   const { pending, run } = useMeetingAction();
   const [confirmElement, confirm] = useConfirm();
   const onDone = useCallback(() => router.refresh(), [router]);
-  const { progress, upload, cancel, reset } = useChunkedUpload(onDone);
+  const { progress, upload, resume, cancel, reset } = useChunkedUpload(onDone);
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [informed, setInformed] = useState(false);
@@ -46,7 +46,8 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
 
   function start() {
     if (!file) return;
-    const typed = new File([file], file.name, { type: mediaType(file) });
+    // Keeps lastModified, which identifies the file when an interrupted upload is resumed.
+    const typed = new File([file], file.name, { type: mediaType(file), lastModified: file.lastModified });
     void upload(detail.meeting.id, typed, { participantsInformed: informed, aiProcessing: aiConsent });
     setFile(null);
     setInformed(false);
@@ -71,7 +72,10 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.round((progress.sentBytes / Math.max(1, progress.totalBytes)) * 100)}%` }} />
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>{formatBytes(progress.sentBytes)} / {formatBytes(progress.totalBytes)}</span>
+                <span>
+                  {formatBytes(progress.sentBytes)} / {formatBytes(progress.totalBytes)}
+                  {progress.resumed && ` · ${t("recordings.resumed")}`}
+                </span>
                 <Button size="sm" variant="ghost" onClick={cancel}>{t("recordings.cancelUpload")}</Button>
               </div>
             </div>
@@ -81,7 +85,9 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
               {progress.phase === "error" && (
                 <p className="text-sm text-destructive" role="alert">
                   {t.has(`uploadErrors.${progress.code}`) ? t(`uploadErrors.${progress.code}`) : t("uploadErrors.generic")}
+                  {progress.resumable && <>{" "}<Button size="sm" variant="link" className="h-auto p-0" onClick={resume}>{t("recordings.resumeUpload")}</Button></>}
                   {" "}<Button size="sm" variant="link" className="h-auto p-0" onClick={reset}>{t("recordings.dismiss")}</Button>
+                  {progress.resumable && <span className="block text-muted-foreground">{t("recordings.resumeHint")}</span>}
                 </p>
               )}
               <input

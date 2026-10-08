@@ -99,39 +99,79 @@ function sweepDerivedStaging(now = Date.now()) {
   }
 }
 
-let busy = false;
-let lastMaintenance = 0;
+/** Names of the maintenance tasks currently running; each runs at most once at a time. */
+const running = new Set<string>();
+let lastHousekeeping = 0;
 let lastCallReconcile = 0;
+let draining = false;
 
-export async function runMeetingWorkerTick() {
-  if (busy) return;
-  busy = true;
+/** Runs a task unless its previous run is still going; errors are logged, never thrown. */
+async function guarded(name: string, task: () => Promise<void> | void) {
+  if (running.has(name)) return;
+  running.add(name);
   try {
+    await task();
+  } catch (error) {
+    console.error(JSON.stringify({ event: "meeting_worker_error", task: name, error: error instanceof Error ? error.message : String(error) }));
+  } finally {
+    running.delete(name);
+  }
+}
+
+/**
+ * Upload assembly, call reconciliation and retention, independent of the job
+ * queue: a transcription that takes minutes must not hold up an upload that
+ * waits for assembly or a call recording that waits to be taken over. The
+ * three tasks have separate guards, so a long assembly does not delay calls.
+ */
+export async function runMeetingMaintenanceTick(now = Date.now()) {
+  await Promise.all([
     // Uploads waiting for assembly should not wait for the minute-long cycle.
-    await processUploadSessions();
-    if (Date.now() - lastMaintenance > 60_000) {
-      lastMaintenance = Date.now();
+    guarded("uploads", () => processUploadSessions()),
+    guarded("calls", async () => {
+      if (now - lastCallReconcile <= 30_000) return;
+      lastCallReconcile = now;
+      await reconcileCalls();
+    }),
+    guarded("housekeeping", () => {
+      if (now - lastHousekeeping <= 60_000) return;
+      lastHousekeeping = now;
       scheduleRetentionPurges();
       sweepDerivedStaging();
       // Also releases meetings left in "processing" by earlier failures or aborted uploads.
       for (const { id } of db.select({ id: meetings.id }).from(meetings).where(eq(meetings.status, "processing")).all()) settleMeetingStatus(db, id);
-    }
-    if (Date.now() - lastCallReconcile > 30_000) {
-      lastCallReconcile = Date.now();
-      await reconcileCalls();
-    }
+    }),
+  ]);
+}
+
+/** Runs queued jobs one after another until none is runnable; a second call while draining returns at once. */
+export async function drainMeetingJobs() {
+  if (draining) return;
+  draining = true;
+  try {
     for (let job = claimNextJob(); job; job = claimNextJob()) await runJob(job);
   } catch (error) {
-    console.error(JSON.stringify({ event: "meeting_worker_error", error: error instanceof Error ? error.message : String(error) }));
+    console.error(JSON.stringify({ event: "meeting_worker_error", task: "jobs", error: error instanceof Error ? error.message : String(error) }));
   } finally {
-    busy = false;
+    draining = false;
   }
 }
 
+/** One full pass: maintenance, then the job queue until it is empty (used by tests and scripts). */
+export async function runMeetingWorkerTick() {
+  await runMeetingMaintenanceTick();
+  await drainMeetingJobs();
+}
+
+/** Two independent loops: maintenance and the job queue never wait for each other. */
 export function startMeetingWorker() {
-  const state = globalThis as typeof globalThis & { __meetingWorker?: ReturnType<typeof setInterval> };
-  if (state.__meetingWorker) return;
-  void runMeetingWorkerTick();
-  state.__meetingWorker = setInterval(() => { void runMeetingWorkerTick(); }, 5_000);
-  state.__meetingWorker.unref?.();
+  const state = globalThis as typeof globalThis & { __meetingWorkerTimers?: ReturnType<typeof setInterval>[] };
+  if (state.__meetingWorkerTimers) return;
+  void runMeetingMaintenanceTick();
+  void drainMeetingJobs();
+  state.__meetingWorkerTimers = [
+    setInterval(() => { void runMeetingMaintenanceTick(); }, 5_000),
+    setInterval(() => { void drainMeetingJobs(); }, 5_000),
+  ];
+  for (const timer of state.__meetingWorkerTimers) timer.unref?.();
 }

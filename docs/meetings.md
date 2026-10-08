@@ -65,6 +65,11 @@ local `livekit-server --dev` and set `LIVEKIT_API_KEY=devkey`,
 3. The upload is sent in 32 MB chunks (below Cloudflare's 100 MB request
    limit), each verified by SHA-256. The worker assembles and stores the file
    in the normal upload store (`attachments`, entity type `meetingRecording`).
+   A failed upload can be resumed (*Fortsetzen*), and after a reload choosing
+   the same file again in the same tab continues it: the browser remembers
+   the upload per file in `sessionStorage` and sends only the chunks the
+   server does not have yet. *Schließen* gives the upload up and frees its
+   reserved space; otherwise it expires 24 hours after it started.
 4. The meeting worker (started from `src/instrumentation.ts`) runs the stages
    `ingest` (ffprobe) → `extract_audio` (16 kHz mono Opus) → `transcribe`
    (OpenAI, diarized) → `merge` (one meeting timeline) → `protocol` (OpenAI,
@@ -123,7 +128,15 @@ nginx streams `/api/meeting-uploads/` to the app without buffering
 - Disk: an upload reserves twice its size (chunks + assembled file) and is
   refused when free space minus open reservations would drop below 2 GB.
 - Interrupted uploads, assemblies and finalisations resume or are cleaned up
-  by the worker; staging lives in `uploads/.staging/`.
+  by the worker; staging lives in `uploads/.staging/`. A chunk that arrives
+  after its upload was cancelled or handed to assembly is refused (409), never
+  written into the files being assembled.
+- The worker runs two independent loops every five seconds: the job queue
+  (one job at a time) and maintenance (upload assembly, call recordings,
+  retention), each maintenance task guarded against overlapping itself. A
+  long transcription therefore never delays uploads or calls.
+- Only one AI protocol draft per meeting is queued or running at a time;
+  *Neu erstellen* is refused meanwhile.
 - Jobs use leases with heartbeats; a crashed or hung job is picked up again
   after five minutes. Failed and blocked jobs can be retried from the
   *Aufnahmen* tab.

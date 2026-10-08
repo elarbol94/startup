@@ -31,10 +31,10 @@ import { attachmentAccessError } from "@/lib/attachment-access";
 import { getAttachmentAbsolutePath, newStoredName, registerStagedAttachment, UPLOADS_PATH } from "@/lib/files";
 import { decideActionItem } from "./action-item-actions";
 import { createMeeting, deleteMeeting, retryMeetingJob, setMeetingAccess, setMeetingAiPolicy } from "./meeting-actions";
-import { enqueueJob } from "./processing/jobs";
+import { claimNextJob, enqueueJob } from "./processing/jobs";
 import { createUploadSession, setFreeDiskProbe } from "./processing/uploads";
 import { requestRecordingPurge, runMeetingWorkerTick, scheduleRetentionPurges } from "./processing/worker";
-import { approveProtocol, saveProtocolVersion, saveSpeakerMap } from "./protocol-actions";
+import { approveProtocol, regenerateProtocol, saveProtocolVersion, saveSpeakerMap } from "./protocol-actions";
 import { getMeetingDetail, searchMeetings } from "./queries";
 import {
   meetingActionItemDecisions,
@@ -183,6 +183,19 @@ describe("approval and action items", () => {
     expect(decision.protocolId).toBe(protocolId);
     expect(JSON.parse(decision.snapshot).item.text).toBe("Antrag an das Land schicken");
     expect(await decideActionItem({ meetingId, protocolId: (draft as { protocolId: string }).protocolId, itemKey: "t2", accept: false })).toEqual({ ok: false, error: "notApproved" });
+  });
+
+  it("queues only one protocol draft at a time", async () => {
+    await processMeeting(meetingId);
+    const protocolJobs = () => db.select().from(meetingJobs).where(eq(meetingJobs.stage, "protocol")).all();
+    expect(await regenerateProtocol(meetingId)).toEqual({ ok: true });
+    expect(await regenerateProtocol(meetingId)).toEqual({ ok: false, error: "protocolBusy" });
+    expect(claimNextJob()?.stage).toBe("protocol");
+    expect(await regenerateProtocol(meetingId)).toEqual({ ok: false, error: "protocolBusy" });
+    expect(protocolJobs().filter((job) => job.status !== "done")).toHaveLength(1);
+    db.update(meetingJobs).set({ status: "failed" }).where(eq(meetingJobs.status, "running")).run();
+    expect(await regenerateProtocol(meetingId)).toEqual({ ok: true });
+    expect(protocolJobs()).toHaveLength(3);
   });
 
   it("names speakers as new revisions without touching segments", async () => {

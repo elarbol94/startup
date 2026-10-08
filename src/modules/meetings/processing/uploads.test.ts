@@ -33,6 +33,18 @@ const GB = 1024 ** 3;
 const mp3 = Buffer.concat([Buffer.from("ID3"), crypto.randomBytes(2000)]);
 const sha = (bytes: Buffer) => crypto.createHash("sha256").update(bytes).digest("hex");
 const stream = (bytes: Buffer) => new Blob([new Uint8Array(bytes)]).stream();
+/** A body that runs `midway` after its first part, i.e. while the chunk is being streamed. */
+function streamWith(bytes: Buffer, midway: () => void) {
+  let step = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (step === 0) controller.enqueue(new Uint8Array(bytes.subarray(0, 1000)));
+      else if (step === 1) { midway(); controller.enqueue(new Uint8Array(bytes.subarray(1000))); }
+      else controller.close();
+      step++;
+    },
+  });
+}
 const consent = { participantsInformed: true, aiProcessing: true };
 let meetingId: string;
 
@@ -150,6 +162,29 @@ describe("chunks and completion", () => {
     db.update(mediaUploadSessions).set({ state: "assembling" }).where(eq(mediaUploadSessions.id, created.session.id)).run();
     expect(cancelUploadSession(session(created.session.id))).toBe("state");
     expect(session(created.session.id).state).toBe("assembling");
+  });
+
+  it("refuses a chunk whose session was cancelled while it streamed, without a server error", async () => {
+    const created = start(mp3.length);
+    if (!created.ok) throw new Error(created.error);
+    const result = await writeUploadChunk(created.session, 0, streamWith(mp3, () => cancelUploadSession(session(created.session.id))), sha(mp3));
+    expect(result).toBe("state");
+    expect(session(created.session.id)).toMatchObject({ state: "aborted", receivedChunks: "[]" });
+    expect(fs.existsSync(path.join(UPLOAD_STAGING, created.session.id))).toBe(false);
+  });
+
+  it("does not replace a chunk once assembly started while it streamed", async () => {
+    const created = start(mp3.length);
+    if (!created.ok) throw new Error(created.error);
+    expect(await writeUploadChunk(created.session, 0, stream(mp3), sha(mp3))).toBeNull();
+    const dir = path.join(UPLOAD_STAGING, created.session.id);
+    const before = fs.statSync(path.join(dir, "0.part")).mtimeMs;
+    const snapshot = session(created.session.id);
+    const result = await writeUploadChunk(snapshot, 0, streamWith(mp3, () => requestUploadCompletion(session(created.session.id))), sha(mp3));
+    expect(result).toBe("state");
+    expect(session(created.session.id).state).toBe("assembling");
+    expect(fs.readdirSync(dir)).toEqual(["0.part"]);
+    expect(fs.statSync(path.join(dir, "0.part")).mtimeMs).toBe(before);
   });
 
   it("aborts expired uploads and removes their chunks", async () => {

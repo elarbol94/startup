@@ -9,6 +9,7 @@ export type MeetingActionError =
   | "lastHost"
   | "declaration"
   | "busy"
+  | "protocolBusy"
   | "stale"
   | "notApproved"
   | "unknownItem"

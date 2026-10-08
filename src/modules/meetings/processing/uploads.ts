@@ -118,21 +118,42 @@ export async function writeUploadChunk(session: UploadSession, index: number, bo
     await pipeline(Readable.fromWeb(body as NodeReadableStream), counter, fs.createWriteStream(temporary, { flags: "wx" }));
   } catch {
     fs.rmSync(temporary, { force: true });
-    return "chunk";
+    // The staging directory disappears when the session is aborted or assembled meanwhile.
+    return acceptsChunks(session.id) ? "chunk" : "state";
   }
   if (received !== expected || hash.digest("hex") !== sha256) {
     fs.rmSync(temporary, { force: true });
     return "chunk";
   }
-  fs.renameSync(temporary, chunkPath(session.id, index));
-  db.transaction((tx) => {
-    const current = tx.select({ received: mediaUploadSessions.receivedChunks }).from(mediaUploadSessions).where(eq(mediaUploadSessions.id, session.id)).get();
-    const chunks = new Set<number>(JSON.parse(current?.received ?? "[]"));
-    chunks.add(index);
-    tx.update(mediaUploadSessions).set({ receivedChunks: JSON.stringify([...chunks].sort((a, b) => a - b)), updatedAt: new Date() })
-      .where(eq(mediaUploadSessions.id, session.id)).run();
-  }, { behavior: "immediate" });
-  return null;
+  // The state checked above is a snapshot from before streaming: re-check it in
+  // the same write transaction that places the chunk, so a chunk can never
+  // replace a file the worker is assembling or land in an aborted session.
+  try {
+    return db.transaction((tx) => {
+      const current = tx.select({ state: mediaUploadSessions.state, expiresAt: mediaUploadSessions.expiresAt, received: mediaUploadSessions.receivedChunks })
+        .from(mediaUploadSessions).where(eq(mediaUploadSessions.id, session.id)).get();
+      if (current?.state !== "uploading" || current.expiresAt.getTime() < Date.now()) {
+        fs.rmSync(temporary, { force: true });
+        // An aborted session's directory may have been re-created by this request's mkdir.
+        if (!current || current.state === "aborted") fs.rmSync(sessionDir(session.id), { recursive: true, force: true });
+        return "state" as const;
+      }
+      fs.renameSync(temporary, chunkPath(session.id, index));
+      const chunks = new Set<number>(JSON.parse(current.received));
+      chunks.add(index);
+      tx.update(mediaUploadSessions).set({ receivedChunks: JSON.stringify([...chunks].sort((a, b) => a - b)), updatedAt: new Date() })
+        .where(eq(mediaUploadSessions.id, session.id)).run();
+      return null;
+    }, { behavior: "immediate" });
+  } catch (error) {
+    fs.rmSync(temporary, { force: true });
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return "state";
+    throw error;
+  }
+}
+
+function acceptsChunks(id: string) {
+  return loadUploadSession(id)?.state === "uploading";
 }
 
 /** Marks a complete upload for assembly; the worker assembles it in the background. */
