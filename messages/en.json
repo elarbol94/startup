@@ -5071,6 +5071,8 @@
       "confirm": "Delete permanently"
     },
     "recordings": {
+      "callTrack": "Call recording · {name} · {time}",
+      "unknownSpeaker": "Unknown",
       "title": "Recordings",
       "empty": "No recording yet.",
       "uploadTitle": "Upload a recording",
@@ -5190,6 +5192,10 @@
       "createTask": "Create task"
     },
     "call": {
+      "idleTitle": "Still there?",
+      "idlePrompt": "Nobody has spoken for {minutes} minutes. Without an answer you will leave the call in {seconds} seconds.",
+      "idleStay": "Stay in the call",
+      "idleLeft": "You left the call automatically after {minutes} minutes of silence.",
       "closed": "The call has ended.",
       "left": "You left the call.",
       "rejoin": "Rejoin",

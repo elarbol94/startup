@@ -146,7 +146,12 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                 <li key={recording.id} className="space-y-2 rounded-xl border p-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 text-sm">
-                      <p className="truncate font-medium">{recording.fileName}</p>
+                      <p className="truncate font-medium" title={recording.fileName}>
+                        {recording.source === "livekit" ? t("recordings.callTrack", {
+                          name: recording.speakerName ?? t("recordings.unknownSpeaker"),
+                          time: format.dateTime(new Date(recording.mediaStartedAt ?? recording.createdAt), { dateStyle: "medium", timeStyle: "short" }),
+                        }) : recording.fileName}
+                      </p>
                       <p className="text-muted-foreground">
                         {recording.durationMs ? formatClock(recording.durationMs) : "–"} · {formatBytes(recording.sizeBytes)}
                         {recording.expiresAt && recording.purgeState === "active" ? ` · ${t("recordings.expires", { date: format.dateTime(recording.expiresAt, { dateStyle: "medium" }) })}` : ""}

@@ -20,12 +20,17 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   Tailscale address (UDP 7882, fallback TCP 7881). **Tailscale must be on**
   on every device; the platform shows "Verbindung fehlgeschlagen" otherwise.
 - **Recording**: each person's microphone is recorded as its own Opus track
-  (LiveKit Egress, no transcoding, ~0.15 CPU core per person). Speakers are
+  (LiveKit Egress, no transcoding, ~0.15 CPU core per person), listed as
+  *Call-Aufnahme · Name · start time*. Speakers are
   therefore known exactly; the transcript interleaves the tracks by time. A
   combined video recording is deliberately not offered: on this server one
   720p composite needs about four CPU cores.
-- **Ending**: hosts or whoever started the call press *Call beenden*; an
-  empty call closes after ten minutes. Removing someone from the meeting or
+- **Ending**: hosts or whoever started the call press *Call beenden*. A call
+  nobody from the meeting is in any more ends after ten minutes (recorders
+  do not count). When nobody has spoken for 15 minutes, each browser asks
+  *Noch da?* and leaves the call after another minute without an answer, so
+  a forgotten tab does not keep a call and its recording running. Background
+  music counts as speech here. Removing someone from the meeting or
   changing its AI setting ends a running call (issued LiveKit tokens cannot
   be revoked); the others simply rejoin.
 - **Afterwards**: the recordings are taken into the upload store within a

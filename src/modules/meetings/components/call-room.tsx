@@ -1,7 +1,7 @@
 "use client";
 
 import "@livekit/components-styles";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LiveKitRoom, VideoConference } from "@livekit/components-react";
@@ -10,6 +10,7 @@ import { ArrowLeft, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
+import { CALL_SILENCE_MINUTES, CallIdleGuard } from "./call-idle-guard";
 
 type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean };
 /**
@@ -20,7 +21,7 @@ type Joined = { token: string; serverUrl: string; record: boolean; canPublish: b
 type Phase =
   | { kind: "prejoin" }
   | { kind: "call"; joined: Joined; attempt: number }
-  | { kind: "ended"; reason: "left" | "closed" | "failed"; detail?: string };
+  | { kind: "ended"; reason: "left" | "closed" | "failed" | "idle"; detail?: string };
 
 /** A relative signaling path ("/livekit") becomes a WebSocket URL on this origin. */
 function socketUrl(serverUrl: string) {
@@ -66,6 +67,9 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
     });
   }
 
+  // Unmounting the room disconnects it; the "left" from that disconnect is ignored.
+  const leaveIdle = useCallback(() => setPhase({ kind: "ended", reason: "idle" }), []);
+
   const header = (
     <div className="flex items-center justify-between gap-2 text-sm">
       <Link href={back} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{title}</Link>
@@ -81,7 +85,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
         <LiveKitRoom
           key={phase.attempt}
           data-lk-theme="default"
-          className="min-h-0 flex-1 overflow-hidden rounded-xl"
+          className="relative min-h-0 flex-1 overflow-hidden rounded-xl"
           serverUrl={phase.joined.serverUrl}
           token={phase.joined.token}
           connect
@@ -98,13 +102,15 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
           onDisconnected={disconnected}
         >
           <VideoConference />
+          <CallIdleGuard onIdle={leaveIdle} />
         </LiveKitRoom>
       </div>
     );
   }
 
   if (phase.kind === "ended") {
-    const message = phase.reason === "closed" ? t("call.closed") : phase.reason === "failed" ? t("call.connectionFailed") : t("call.left");
+    const message = phase.reason === "closed" ? t("call.closed") : phase.reason === "failed" ? t("call.connectionFailed")
+      : phase.reason === "idle" ? t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }) : t("call.left");
     return (
       <div className="mx-auto max-w-lg space-y-4 rounded-xl border p-5">
         {header}

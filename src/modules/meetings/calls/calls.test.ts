@@ -15,6 +15,9 @@ const mocks = await vi.hoisted(async () => {
     stopRecording: vi.fn(),
     createCallRoom: vi.fn(),
     deleteCallRoom: vi.fn(),
+    callRoomExists: vi.fn(),
+    listCallParticipants: vi.fn(),
+    listRoomEgress: vi.fn(),
   };
 });
 vi.mock("server-only", () => ({}));
@@ -26,6 +29,9 @@ vi.mock("./livekit", async (original) => ({
   stopRecording: mocks.stopRecording,
   createCallRoom: mocks.createCallRoom,
   deleteCallRoom: mocks.deleteCallRoom,
+  callRoomExists: mocks.callRoomExists,
+  listCallParticipants: mocks.listCallParticipants,
+  listRoomEgress: mocks.listRoomEgress,
 }));
 vi.mock("@/db", async () => {
   const { default: Database } = await import("better-sqlite3");
@@ -45,7 +51,7 @@ import { endCall, joinCall, startCall } from "../call-actions";
 import { setMeetingAccess } from "../meeting-actions";
 import { meetingCallSessions, meetingEgressAttempts, meetingJobs, meetingRecordings } from "../schema";
 import { host, member, outsider, resetDatabase, seedMeeting } from "../test-helpers";
-import { ensureTrackRecording, reconcileCalls, syncEgress } from "./recording";
+import { EMPTY_CALL_MS, ensureTrackRecording, reconcileCalls, syncEgress } from "./recording";
 
 const as = (viewer: { id: string; role: string }) => mocks.requireUserOrThrow.mockResolvedValue({ ...viewer, name: viewer.id });
 const session = () => db.select().from(meetingCallSessions).get()!;
@@ -57,6 +63,9 @@ beforeEach(() => {
   vi.clearAllMocks();
   meetingId = seedMeeting({ members: [[host.id, "host"], [member.id, "participant"], [outsider.id, "viewer"]] }).id;
   as(host);
+  mocks.callRoomExists.mockResolvedValue(true);
+  mocks.listCallParticipants.mockResolvedValue([]);
+  mocks.listRoomEgress.mockResolvedValue([]);
   mocks.startTrackRecording.mockImplementation(async (_room: string, _track: string, fileName: string) => new EgressInfo({ egressId: `EG_${fileName}` }));
 });
 afterAll(() => {
@@ -155,8 +164,31 @@ describe("recording", () => {
     expect(attempts()[0].state).toBe("ingested");
     const recording = db.select().from(meetingRecordings).get()!;
     expect(recording).toMatchObject({ source: "livekit", speakerScope: "single", speakerUserId: member.id, mediaStartedAt: 1_800_000_000_000 });
+    // Whose microphone and when it started, in Vienna time.
+    expect(recording.fileName).toBe("call-member-2027-01-15-0900.ogg");
     expect(JSON.parse(recording.consentEvidence)).toMatchObject({ type: "callConsent", userId: member.id, aiProcessing: true });
     expect(db.select().from(meetingJobs).all()).toMatchObject([{ stage: "ingest", recordingId: recording.id }]);
     expect(fs.existsSync(path.join(process.env.LIVEKIT_EGRESS_DIR!, attempt.fileName))).toBe(false);
+  });
+});
+
+describe("ending empty calls", () => {
+  it("ends a call nobody from the meeting has been in for ten minutes, ignoring recorders", async () => {
+    const { identity } = await recordedCallWithMember();
+    const start = Date.now() + 120_000;
+    mocks.listCallParticipants.mockResolvedValue([{ identity: "EG_recorder", tracks: [] }]);
+    await reconcileCalls(start);
+    await reconcileCalls(start + EMPTY_CALL_MS - 1);
+    expect(session().status).toBe("open");
+    // Someone back in the call starts the wait over.
+    mocks.listCallParticipants.mockResolvedValue([{ identity, tracks: [] }]);
+    await reconcileCalls(start + EMPTY_CALL_MS);
+    mocks.listCallParticipants.mockResolvedValue([]);
+    await reconcileCalls(start + EMPTY_CALL_MS + 1);
+    await reconcileCalls(start + 2 * EMPTY_CALL_MS);
+    expect(session().status).toBe("open");
+    await reconcileCalls(start + 2 * EMPTY_CALL_MS + 1);
+    expect(session()).toMatchObject({ status: "ended", endReason: "empty" });
+    expect(mocks.deleteCallRoom).toHaveBeenCalled();
   });
 });

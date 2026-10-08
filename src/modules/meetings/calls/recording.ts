@@ -8,6 +8,8 @@ import { Transform } from "node:stream";
 import { and, eq, inArray, lt } from "drizzle-orm";
 import { EgressStatus, TrackType, type EgressInfo } from "livekit-server-sdk";
 import { db } from "@/db";
+import { user } from "@/db/schema";
+import { timeZone } from "@/i18n/config";
 import { getAttachmentAbsolutePath, moveStagedFileIntoStore, newStoredName, registerStagedAttachment, STAGING_PATH } from "@/lib/files";
 import {
   meetingCallConsents,
@@ -120,6 +122,11 @@ export async function endOpenCalls(meetingId: string, reason: string, actorId: s
   for (const session of open) await endCallSession(session, reason, actorId);
 }
 
+/** A call nobody is in any more ends after this, even if LiveKit keeps the room open. */
+export const EMPTY_CALL_MS = 10 * 60_000;
+/** When each open call was first seen without people; kept in memory, so a restart starts over. */
+const emptySince = new Map<string, number>();
+
 async function reconcileSession(session: Session, now: number) {
   const egresses = await listRoomEgress(session.roomName);
   for (const info of egresses) await syncEgress(info);
@@ -132,8 +139,22 @@ async function reconcileSession(session: Session, now: number) {
     await endCallSession(session, "roomClosed", null);
     return;
   }
+  const participants = await listCallParticipants(session.roomName);
+  // Only people who joined through the platform count; recorders and other hidden identities do not.
+  const people = new Set(db.select({ identity: meetingCallEndpoints.identity }).from(meetingCallEndpoints)
+    .where(eq(meetingCallEndpoints.sessionId, session.id)).all().map((row) => row.identity));
+  if (participants.some((participant) => people.has(participant.identity))) emptySince.delete(session.id);
+  else {
+    const since = emptySince.get(session.id) ?? Math.max(now, session.startedAt.getTime());
+    emptySince.set(session.id, since);
+    if (now - since >= EMPTY_CALL_MS) {
+      emptySince.delete(session.id);
+      await endCallSession(session, "empty", null);
+      return;
+    }
+  }
   if (!session.record) return;
-  for (const participant of await listCallParticipants(session.roomName)) {
+  for (const participant of participants) {
     // Recorders and other non-admitted identities have no endpoint row and are skipped there.
     for (const track of participant.tracks) {
       if (track.type === TrackType.AUDIO) await ensureTrackRecording(session, participant.identity, track.sid);
@@ -175,7 +196,7 @@ async function ingestAttempt(attempt: Attempt) {
     const fresh = tx.select().from(meetingEgressAttempts).where(eq(meetingEgressAttempts.id, attempt.id)).get();
     if (fresh?.state !== "complete") return;
     const attachment = registerStagedAttachment(
-      { storedName: current.storedName!, fileName: `call-${attempt.userId}.ogg`, mimeType: "audio/ogg", sizeBytes, sha256: current.sha256! },
+      { storedName: current.storedName!, fileName: callTrackFileName(tx, attempt), mimeType: "audio/ogg", sizeBytes, sha256: current.sha256! },
       { entityType: "meetingRecording", entityId: meeting.id, userId: attempt.userId },
     );
     const createdAt = new Date();
@@ -197,6 +218,16 @@ async function ingestAttempt(attempt: Attempt) {
     audit(tx, meeting.id, null, "call.recordingStored", { sessionId: session.id, recordingId: recording.id, userId: attempt.userId });
   }, { behavior: "immediate" });
   fs.rmSync(source, { force: true });
+}
+
+/** A download name that says whose microphone it is and when it started, e.g. `call-felix-2026-10-07-1803.ogg`. */
+function callTrackFileName(tx: Pick<typeof db, "select">, attempt: typeof meetingEgressAttempts.$inferSelect) {
+  const name = tx.select({ name: user.name }).from(user).where(eq(user.id, attempt.userId)).get()?.name ?? "";
+  const slug = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "person";
+  const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
+    timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(attempt.mediaStartedAt ?? attempt.calledAt.getTime())).map((part) => [part.type, part.value]));
+  return `call-${slug}-${parts.year}-${parts.month}-${parts.day}-${parts.hour}${parts.minute}.ogg`;
 }
 
 let lastFullReconcile = 0;

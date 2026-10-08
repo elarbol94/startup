@@ -100,7 +100,12 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     expiresAt: meetingRecordings.expiresAt,
     purgeState: meetingRecordings.purgeState,
     createdAt: meetingRecordings.createdAt,
+    source: meetingRecordings.source,
+    mediaStartedAt: meetingRecordings.mediaStartedAt,
+    /** The person whose microphone a call track holds. */
+    speakerName: user.name,
   }).from(meetingRecordings).leftJoin(attachments, eq(attachments.id, meetingRecordings.attachmentId))
+    .leftJoin(user, eq(user.id, meetingRecordings.speakerUserId))
     .where(eq(meetingRecordings.meetingId, meeting.id)).orderBy(asc(meetingRecordings.createdAt)).all();
   const jobs = db.select({
     id: meetingJobs.id, stage: meetingJobs.stage, status: meetingJobs.status, recordingId: meetingJobs.recordingId,

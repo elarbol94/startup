@@ -5071,6 +5071,8 @@
       "confirm": "Endgültig löschen"
     },
     "recordings": {
+      "callTrack": "Call-Aufnahme · {name} · {time}",
+      "unknownSpeaker": "Unbekannt",
       "title": "Aufnahmen",
       "empty": "Noch keine Aufnahme.",
       "uploadTitle": "Aufnahme hochladen",
@@ -5190,6 +5192,10 @@
       "createTask": "Aufgabe anlegen"
     },
     "call": {
+      "idleTitle": "Noch da?",
+      "idlePrompt": "Seit {minutes} Minuten hat niemand gesprochen. Ohne Antwort verlässt du den Call in {seconds} Sekunden.",
+      "idleStay": "Im Call bleiben",
+      "idleLeft": "Du hast den Call nach {minutes} Minuten Stille automatisch verlassen.",
       "closed": "Der Call wurde beendet.",
       "left": "Du hast den Call verlassen.",
       "rejoin": "Wieder beitreten",
