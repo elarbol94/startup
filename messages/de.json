@@ -4987,6 +4987,35 @@
     "title": "Besprechungen",
     "description": "Aufnahmen hochladen, Protokolle prüfen und Aufgaben übernehmen.",
     "back": "Alle Besprechungen",
+    "overview": {
+      "filterLabel": "Besprechungen filtern",
+      "filters": {
+        "all": "Alle",
+        "review": "Zu prüfen",
+        "call": "Call läuft",
+        "host": "Ich bin Host"
+      },
+      "filterEmpty": "Keine Besprechungen für diesen Filter.",
+      "protocol": {
+        "none": "Kein Protokoll",
+        "draft": "Protokollentwurf",
+        "approved": "Protokoll freigegeben"
+      },
+      "recordings": "{count, plural, one {# Aufnahme} other {# Aufnahmen}}",
+      "openActionItems": "{count, plural, one {# offene Aufgabe} other {# offene Aufgaben}}",
+      "callRunning": "Call läuft",
+      "participants": "Teilnehmende",
+      "moreParticipants": "+{count}"
+    },
+    "detailUi": {
+      "more": "Weitere Aktionen",
+      "callStarted": "Gestartet um {time} von {name}",
+      "callJoined": "Beigetreten",
+      "callJoinedAt": "seit {time}",
+      "callJoinedHint": "Alle, die diesem Call seit dem Start beigetreten sind – auch wer ihn schon wieder verlassen hat.",
+      "callNobodyJoined": "Noch niemand beigetreten.",
+      "unknownPerson": "Unbekannt"
+    },
     "cancel": "Abbrechen",
     "noDate": "Ohne Termin",
     "new": {

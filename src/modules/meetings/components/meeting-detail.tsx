@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
-import { ArrowLeft, Lock, Settings, Sparkles, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { useTranslations } from "next-intl";
+import { ArrowLeft } from "lucide-react";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { deleteMeeting } from "../meeting-actions";
@@ -15,13 +13,13 @@ import { ProtocolPanel } from "./meeting-detail/protocol-panel";
 import { RecordingsPanel } from "./meeting-detail/recordings-panel";
 import { SettingsDialog } from "./meeting-detail/settings-dialog";
 import { TranscriptPanel } from "./meeting-detail/transcript-panel";
+import { CallStatus } from "./meeting-detail/call-status";
+import { MeetingHeader } from "./meeting-detail/meeting-header";
 import { useMeetingAction } from "./meeting-ui";
-import { CallControls } from "./call-controls";
 import type { MeetingFormOptions } from "./new-meeting-dialog";
 
 export function MeetingDetail({ detail, options, viewerId }: { detail: Detail; options: MeetingFormOptions; viewerId: string }) {
   const t = useTranslations("meetings");
-  const format = useFormatter();
   const router = useRouter();
   const { pending, run } = useMeetingAction();
   const [confirmElement, confirm] = useConfirm();
@@ -50,29 +48,8 @@ export function MeetingDetail({ detail, options, viewerId }: { detail: Detail; o
     <div className="space-y-4">
       {confirmElement}
       <Link href="/meetings" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{t("back")}</Link>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <h2 className="flex items-center gap-2 text-xl font-semibold">
-            {meeting.confidential && <Lock className="size-4 text-muted-foreground" aria-label={t("fields.confidential")} />}
-            {meeting.title}
-          </h2>
-          <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            {meeting.startsAt ? format.dateTime(meeting.startsAt, { dateStyle: "full", timeStyle: "short" }) : t("noDate")}
-            <Badge variant="secondary">{t(`status.${meeting.status}`)}</Badge>
-            <Badge variant="outline"><Sparkles />{meeting.aiPolicy === "openai" ? t("ai.on") : t("ai.off")}</Badge>
-          </p>
-          <p className="text-sm text-muted-foreground">{detail.members.map((member) => member.name).join(", ")}</p>
-        </div>
-        <div className="flex flex-wrap items-start gap-2">
-          <CallControls detail={detail} viewerId={viewerId} />
-        {detail.role === "host" && (
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setSettingsOpen(true)}><Settings />{t("settings.open")}</Button>
-            <Button variant="ghost" size="sm" disabled={pending} onClick={() => void remove()}><Trash2 />{t("delete.button")}</Button>
-          </div>
-        )}
-        </div>
-      </div>
+      <MeetingHeader detail={detail} viewerId={viewerId} pending={pending} onSettings={() => setSettingsOpen(true)} onDelete={() => void remove()} />
+      <CallStatus detail={detail} />
       {meeting.agenda && <p className="rounded-xl border bg-muted/30 p-3 text-sm whitespace-pre-wrap">{meeting.agenda}</p>}
       <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
         <TabsList>

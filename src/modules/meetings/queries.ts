@@ -1,9 +1,11 @@
 import "server-only";
 
-import { and, asc, desc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/sqlite-core";
 import { db, sqlite } from "@/db";
 import { attachments, projects, tasks, user } from "@/db/schema";
 import { meetingFor, visibleMeetingCondition, type MeetingViewer } from "./access";
+import { meetingCallEndpoints } from "./call-schema";
 import { parseProtocolContent } from "./protocol-content";
 import { livekitConfig } from "./calls/livekit";
 import { meetingHasMedia } from "./processing/store";
@@ -24,8 +26,17 @@ import {
 /** How long a failed upload is listed on the meeting page. */
 export const FAILED_UPLOAD_VISIBLE_MS = 7 * 24 * 60 * 60_000;
 
+/** Separates names in the participant aggregate (ASCII unit separator, never typed into a name). */
+const NAME_SEPARATOR = "\u001f";
+
+/**
+ * The viewer's meetings with everything the overview shows, aggregated in one
+ * statement: protocol state, recordings, open action items, running call and
+ * participants.
+ */
 export function listMeetings(viewer: MeetingViewer) {
-  return db.select({
+  const viewerAccess = alias(meetingAccess, "viewer_access");
+  const rows = db.select({
     id: meetings.id,
     title: meetings.title,
     startsAt: meetings.startsAt,
@@ -34,11 +45,34 @@ export function listMeetings(viewer: MeetingViewer) {
     aiPolicy: meetings.aiPolicy,
     projectName: projects.name,
     createdAt: meetings.createdAt,
+    currentProtocolId: meetings.currentProtocolId,
+    approvedProtocolId: meetings.approvedProtocolId,
+    role: viewerAccess.role,
+    recordingCount: sql<number>`(SELECT count(*) FROM ${meetingRecordings}
+      WHERE ${meetingRecordings.meetingId} = ${meetings.id} AND ${meetingRecordings.kind} != 'derived_audio')`,
+    // Action items of the approved protocol nobody has accepted or rejected yet.
+    openActionItems: sql<number>`(SELECT count(*) FROM ${meetingProtocols}, json_each(${meetingProtocols.content}, '$.actionItems') AS item
+      WHERE ${meetingProtocols.id} = ${meetings.approvedProtocolId}
+      AND NOT EXISTS (SELECT 1 FROM ${meetingActionItemDecisions}
+        WHERE ${meetingActionItemDecisions.meetingId} = ${meetings.id}
+        AND ${meetingActionItemDecisions.itemKey} = json_extract(item.value, '$.itemKey')))`,
+    callOpen: sql<number>`EXISTS (SELECT 1 FROM ${meetingCallSessions}
+      WHERE ${meetingCallSessions.meetingId} = ${meetings.id} AND ${meetingCallSessions.status} = 'open')`,
+    participantNames: sql<string | null>`(SELECT group_concat(${user.name}, ${NAME_SEPARATOR}) FROM ${meetingAccess}
+      JOIN ${user} ON ${user.id} = ${meetingAccess.userId} WHERE ${meetingAccess.meetingId} = ${meetings.id})`,
   }).from(meetings)
+    // The viewer's own access row: the role for the "I am host" filter.
+    .innerJoin(viewerAccess, and(eq(viewerAccess.meetingId, meetings.id), eq(viewerAccess.userId, viewer.id)))
     .leftJoin(projects, eq(projects.id, meetings.projectId))
     .where(visibleMeetingCondition(viewer.id))
     .orderBy(desc(meetings.startsAt), desc(meetings.createdAt))
     .all();
+  return rows.map(({ currentProtocolId, approvedProtocolId, participantNames, callOpen, ...row }) => ({
+    ...row,
+    protocolState: !currentProtocolId ? "none" as const : currentProtocolId === approvedProtocolId ? "approved" as const : "draft" as const,
+    callOpen: Boolean(callOpen),
+    participants: (participantNames ? participantNames.split(NAME_SEPARATOR) : []).sort((a, b) => a.localeCompare(b)),
+  }));
 }
 export type MeetingListItem = ReturnType<typeof listMeetings>[number];
 
@@ -158,11 +192,23 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
 
   const openCall = db.select().from(meetingCallSessions)
     .where(and(eq(meetingCallSessions.meetingId, meeting.id), eq(meetingCallSessions.status, "open"))).get();
+  // Who received a join token for the open call, and when first. This is not
+  // live presence: leaving the call leaves no trace here.
+  const callJoined = openCall ? db.select({
+    userId: meetingCallEndpoints.userId,
+    name: user.name,
+    joinedAt: sql<number>`min(${meetingCallEndpoints.createdAt})`,
+  }).from(meetingCallEndpoints).innerJoin(user, eq(user.id, meetingCallEndpoints.userId))
+    .where(eq(meetingCallEndpoints.sessionId, openCall.id))
+    .groupBy(meetingCallEndpoints.userId, user.name).orderBy(sql`min(${meetingCallEndpoints.createdAt})`).all() : [];
 
   return {
     calls: {
       enabled: livekitConfig().enabled,
-      open: openCall ? { record: openCall.record, startedAt: openCall.startedAt, startedBy: openCall.startedBy } : null,
+      open: openCall ? {
+        record: openCall.record, startedAt: openCall.startedAt, startedBy: openCall.startedBy,
+        joined: callJoined.map((entry) => ({ ...entry, joinedAt: new Date(entry.joinedAt) })),
+      } : null,
     },
     meeting: {
       id: meeting.id, title: meeting.title, agenda: meeting.agenda, startsAt: meeting.startsAt, status: meeting.status,

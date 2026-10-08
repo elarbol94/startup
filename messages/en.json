@@ -4987,6 +4987,35 @@
     "title": "Meetings",
     "description": "Upload recordings, review protocols and turn action items into tasks.",
     "back": "All meetings",
+    "overview": {
+      "filterLabel": "Filter meetings",
+      "filters": {
+        "all": "All",
+        "review": "Needs review",
+        "call": "Call in progress",
+        "host": "I am host"
+      },
+      "filterEmpty": "No meetings match this filter.",
+      "protocol": {
+        "none": "No protocol",
+        "draft": "Draft protocol",
+        "approved": "Protocol approved"
+      },
+      "recordings": "{count, plural, one {# recording} other {# recordings}}",
+      "openActionItems": "{count, plural, one {# open action item} other {# open action items}}",
+      "callRunning": "Call in progress",
+      "participants": "Participants",
+      "moreParticipants": "+{count}"
+    },
+    "detailUi": {
+      "more": "More actions",
+      "callStarted": "Started at {time} by {name}",
+      "callJoined": "Joined",
+      "callJoinedAt": "since {time}",
+      "callJoinedHint": "Everyone who has joined this call since it started – including people who have already left.",
+      "callNobodyJoined": "Nobody has joined yet.",
+      "unknownPerson": "Unknown"
+    },
     "cancel": "Cancel",
     "noDate": "No date",
     "new": {

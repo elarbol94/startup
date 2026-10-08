@@ -4,13 +4,15 @@ import "@livekit/components-styles";
 import { useCallback, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { LiveKitRoom, VideoConference } from "@livekit/components-react";
+import { LiveKitRoom } from "@livekit/components-react";
 import { ConnectionError, DisconnectReason } from "livekit-client";
 import { ArrowLeft, CircleDot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
 import { CALL_SILENCE_MINUTES, CallIdleGuard } from "./call-idle-guard";
+import { CallStage } from "./call-room/call-stage";
+import { RecordingIndicator } from "./call-room/recording-indicator";
 
 type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean };
 /**
@@ -73,7 +75,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
   const header = (
     <div className="flex items-center justify-between gap-2 text-sm">
       <Link href={back} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{title}</Link>
-      {phase.kind === "call" && phase.joined.record && <span className="inline-flex items-center gap-1.5 font-medium text-red-600"><CircleDot className="size-4" />{t("call.recording")}</span>}
+      {phase.kind === "call" && phase.joined.record && <RecordingIndicator />}
     </div>
   );
 
@@ -90,7 +92,8 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
           token={phase.joined.token}
           connect
           // Viewers join without publishing rights; asking for their devices would only fail.
-          video={phase.joined.canPublish}
+          // The camera starts off: people turn it on in the control bar when they want to.
+          video={false}
           audio={phase.joined.canPublish}
           options={{ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true }}
           // Only a failed connection ends the call. A missing or blocked camera or
@@ -101,7 +104,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
           onMediaDeviceFailure={() => setDeviceWarning(true)}
           onDisconnected={disconnected}
         >
-          <VideoConference />
+          <CallStage record={phase.joined.record} />
           <CallIdleGuard onIdle={leaveIdle} />
         </LiveKitRoom>
       </div>

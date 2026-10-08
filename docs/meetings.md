@@ -12,7 +12,15 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   is chosen when the call starts and applies to the whole call; to change it,
   end the call and start a new one.
 - **Join**: everyone on the meeting's access list; viewers listen without
-  camera/microphone. For a recorded call each person must consent (and to
+  camera/microphone. Others join with the microphone on and the camera off;
+  the camera is switched on in the call's control bar. A shared screen fills
+  the main area while everyone else stays visible beside it (below it on
+  narrow screens). A recorded call shows a red *Aufnahme läuft* indicator
+  in the header and over the video.
+- **While it runs** the meeting page shows a *Call läuft* badge and who has
+  *joined* since the start, with the time. This counts issued join tokens,
+  not live presence: people who left are still listed. The meeting list
+  marks meetings with a running call and can filter for them. For a recorded call each person must consent (and to
   OpenAI processing when the meeting uses AI) before the server issues a
   join token — no consent, no token.
 - **Network**: signaling goes through the normal site (`/livekit/rtc…` via
