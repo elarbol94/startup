@@ -26,6 +26,7 @@ test("records a meeting protocol by hand and turns an action item into a task", 
 
   // Upload stays disabled until the consent declarations are confirmed.
   await page.getByRole("tab", { name: "Aufnahmen" }).click();
+  await page.getByRole("button", { name: "Aufnahme hochladen" }).click();
   await page.locator('input[type="file"]').setInputFiles({
     name: "e2e.mp3", mimeType: "audio/mpeg", buffer: Buffer.concat([Buffer.from("ID3"), Buffer.alloc(4096, 1)]),
   });

@@ -29,7 +29,6 @@ export function CallControls({ detail, viewerId }: { detail: MeetingDetail; view
       <div className="flex flex-wrap items-center gap-2">
         <Link href={callUrl} className={buttonVariants({ size: "sm" })}><Video />{t("call.join")}</Link>
         {canEnd && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => endCall(detail.meeting.id))}><PhoneOff />{t("call.end")}</Button>}
-        <span className="text-xs text-muted-foreground">{open.record ? t("call.runningRecorded") : t("call.running")}</span>
       </div>
     );
   }

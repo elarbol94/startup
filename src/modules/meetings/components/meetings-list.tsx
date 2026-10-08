@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useFormatter, useTranslations } from "next-intl";
-import { Lock, Plus, Search, Video } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { Plus, Search, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { MeetingListItem, MeetingSearchHit } from "../queries";
 import { NewMeetingDialog, type MeetingFormOptions } from "./new-meeting-dialog";
+import { matchesFilter, meetingListFilters, type MeetingListFilter } from "./meetings-list/list-filters";
+import { MeetingRow } from "./meetings-list/meeting-row";
 
 export function MeetingsList({ meetings, hits, query, options, viewerId }: {
   meetings: MeetingListItem[];
@@ -18,8 +20,9 @@ export function MeetingsList({ meetings, hits, query, options, viewerId }: {
   viewerId: string;
 }) {
   const t = useTranslations("meetings");
-  const format = useFormatter();
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState<MeetingListFilter>("all");
+  const visible = meetings.filter((meeting) => matchesFilter(meeting, filter));
 
   return (
     <div className="space-y-4">
@@ -59,25 +62,24 @@ export function MeetingsList({ meetings, hits, query, options, viewerId }: {
           <p className="max-w-md text-sm text-muted-foreground">{t("empty.description")}</p>
         </div>
       ) : (
-        <ul className="divide-y rounded-xl border">
-          {meetings.map((meeting) => (
-            <li key={meeting.id}>
-              <Link href={`/meetings/${meeting.id}`} className="flex flex-col gap-1 px-4 py-3 hover:bg-muted/50 sm:flex-row sm:items-center sm:justify-between">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 font-medium">
-                    {meeting.confidential && <Lock className="size-3.5 text-muted-foreground" aria-label={t("fields.confidential")} />}
-                    <span className="truncate">{meeting.title}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">
-                    {meeting.startsAt ? format.dateTime(meeting.startsAt, { dateStyle: "medium", timeStyle: "short" }) : t("noDate")}
-                    {meeting.projectName ? ` · ${meeting.projectName}` : ""}
-                  </p>
-                </div>
-                <Badge variant={meeting.status === "review" ? "default" : "secondary"}>{t(`status.${meeting.status}`)}</Badge>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("overview.filterLabel")}>
+            {meetingListFilters.map((option) => {
+              const count = meetings.filter((meeting) => matchesFilter(meeting, option)).length;
+              return (
+                <Button key={option} size="sm" variant={filter === option ? "secondary" : "ghost"} aria-pressed={filter === option} onClick={() => setFilter(option)}>
+                  {t(`overview.filters.${option}`)}
+                  <span className="text-muted-foreground tabular-nums">{count}</span>
+                </Button>
+              );
+            })}
+          </div>
+          {visible.length === 0 ? <p className="text-sm text-muted-foreground">{t("overview.filterEmpty")}</p> : (
+            <ul className="divide-y rounded-xl border">
+              {visible.map((meeting) => <li key={meeting.id}><MeetingRow meeting={meeting} /></li>)}
+            </ul>
+          )}
+        </>
       )}
       <NewMeetingDialog open={creating} onOpenChange={setCreating} options={options} viewerId={viewerId} />
     </div>

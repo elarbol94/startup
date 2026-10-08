@@ -12,6 +12,7 @@ import { MEETING_MEDIA_TYPES } from "../../constants";
 import { deleteMeetingRecording, retryMeetingJob } from "../../meeting-actions";
 import type { MeetingDetail } from "../../queries";
 import { formatBytes, formatClock, useMeetingAction } from "../meeting-ui";
+import { UploadDisclosure } from "./upload-disclosure";
 import { useChunkedUpload } from "./use-chunked-upload";
 
 const EXTENSION_TYPES: Record<string, string> = {
@@ -63,7 +64,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
     <div className="space-y-5">
       {confirmElement}
       {canContribute && detail.meeting.status !== "cancelled" && (
-        <section className="space-y-3 rounded-xl border p-4">
+        <UploadDisclosure keepOpen={progress.phase !== "idle"}><section className="space-y-3 rounded-xl border p-4">
           <h3 className="font-medium">{t("recordings.uploadTitle")}</h3>
           {progress.phase === "uploading" ? (
             <div className="space-y-2">
@@ -105,7 +106,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
               <Button onClick={start} disabled={!file || !informed || (usesAi && !aiConsent)}><Upload />{t("recordings.upload")}</Button>
             </>
           )}
-        </section>
+        </section></UploadDisclosure>
       )}
 
       {detail.uploads.filter((item) => item.state !== "aborted").map((item) => (
