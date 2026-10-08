@@ -15,6 +15,9 @@ import { categoryTemplates, type CategoryTemplate } from "@/modules/accounting/s
 import { Badge } from "@/components/ui/badge";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -58,6 +61,8 @@ export function CategoriesManager({ categories }: { categories: Category[] }) {
     );
     setDialogOpen(true);
   }
+
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.settings.create, () => openDialog(null));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -107,10 +112,12 @@ export function CategoriesManager({ categories }: { categories: Category[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <Button size="sm" className="self-start" onClick={() => openDialog(null)}>
-        <Plus className="size-4" />
-        {t("addCategory")}
-      </Button>
+      <ShortcutTooltip label={t("addCategory")} shortcut={SECTION_PAGE_SHORTCUTS.settings.create}>
+        <Button size="sm" className="self-start" onClick={() => openDialog(null)}>
+          <Plus className="size-4" />
+          {t("addCategory")}
+        </Button>
+      </ShortcutTooltip>
 
       {grouped.map((group) => (
         <div key={group.kind} className="flex flex-col gap-2">

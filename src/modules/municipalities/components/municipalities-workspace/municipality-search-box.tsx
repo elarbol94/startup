@@ -1,10 +1,14 @@
 "use client";
 
 // Municipality search combobox overlaid on the workspace map (typing, keyboard navigation, result list).
-// Used by municipalities-workspace.tsx.
-import type { Dispatch, SetStateAction } from "react";
+// Used by municipalities-workspace.tsx. "/" focuses it, like every section's search field.
+import { useRef, type Dispatch, type SetStateAction } from "react";
 import { useTranslations } from "next-intl";
 import { Search, X } from "lucide-react";
+import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import type { MunicipalityIndexItem } from "../../data";
 
 export function MunicipalitySearchBox({
@@ -21,6 +25,11 @@ export function MunicipalitySearchBox({
   updateSelection: (item: MunicipalityIndexItem | null) => void;
 }) {
   const t = useTranslations("municipalities");
+  const inputRef = useRef<HTMLInputElement>(null);
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.municipalities.search, () => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  });
   function handleSearchKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
     if (!results.length) {
       if (event.key === "Escape") setSearchOpen(false);
@@ -45,6 +54,7 @@ export function MunicipalitySearchBox({
       <div className="relative rounded-xl border bg-background/95 shadow-lg backdrop-blur">
         <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
         <input
+          ref={inputRef}
           value={query}
           onChange={(event) => {
             setQuery(event.target.value);
@@ -55,11 +65,13 @@ export function MunicipalitySearchBox({
           onKeyDown={handleSearchKeyDown}
           placeholder={t("searchPlaceholder")}
           aria-label={t("searchLabel")}
+          aria-keyshortcuts={ariaKeyShortcuts(SECTION_PAGE_SHORTCUTS.municipalities.search)}
           aria-controls="municipality-search-results"
           aria-expanded={searchOpen && results.length > 0}
           role="combobox"
           className="h-10 w-full rounded-xl bg-transparent pr-10 pl-9 text-sm outline-none focus:ring-2 focus:ring-teal-600/40"
         />
+        {!query && <ShortcutKeys shortcut={SECTION_PAGE_SHORTCUTS.municipalities.search} className="pointer-events-none absolute top-2.5 right-3 hidden sm:inline-flex" />}
         {query && (
           <button
             type="button"

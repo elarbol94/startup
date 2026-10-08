@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { PageHeader } from "@/components/page-header";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -204,6 +207,9 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
   const t = (locale.startsWith("de") ? copy.de : copy.en) as Text;
   const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
+  const [createPersonRequest, setCreatePersonRequest] = useState(0);
+  // N ("Neu") opens the person form from every tab of the section.
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.personnel.newPerson, () => { setTab("people"); setCreatePersonRequest((value) => value + 1); });
   const [pending, startTransition] = useTransition();
   const firstLocation = data.locations[0];
   const [calc, setCalc] = useState<CalculatorState>({
@@ -340,7 +346,7 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
         </section>
       </div>}
 
-      {tab === "people" && <PeoplePanel data={data} t={t} locale={locale} pending={pending} run={run} />}
+      {tab === "people" && <PeoplePanel key={createPersonRequest} initialOpen={createPersonRequest > 0} data={data} t={t} locale={locale} pending={pending} run={run} />}
       {tab === "calculator" && <CalculatorPanel t={t} locale={locale} calc={calc} setCalc={setCalc} annual={annual} monthly={monthly} scenarioName={scenarioName} setScenarioName={setScenarioName} scenarioEmployeeId={scenarioEmployeeId} setScenarioEmployeeId={setScenarioEmployeeId} people={data.people} locations={data.locations} pending={pending} save={() => annual && run(() => savePersonnelScenario({ name: scenarioName, employeeId: scenarioEmployeeId || null, planningYear: calc.year, input: { ...calc, ...employeePlanFromCalculator(calc, location?.id ?? "") }, result: annual as unknown as Record<string, unknown>, ruleVersion: annual.ruleVersion }), t.scenarioSaved)} />}
       {tab === "projects" && <ProjectsPanel data={data} t={t} locale={locale} pending={pending} run={run} />}
       {tab === "funding" && <FundingPanel data={data} t={t} locale={locale} pending={pending} run={run} />}
@@ -371,12 +377,12 @@ function MonthSelect({ id, name, year, locale, label, defaultMonth = 7 }: { id?:
   </select>;
 }
 
-function PeoplePanel({ data, t, locale, pending, run }: { data: PersonnelWorkspaceData; t: Text; locale: string; pending: boolean; run: (action: () => Promise<unknown>, success: string) => void }) {
-  const [open, setOpen] = useState(false);
+function PeoplePanel({ initialOpen = false, data, t, locale, pending, run }: { initialOpen?: boolean; data: PersonnelWorkspaceData; t: Text; locale: string; pending: boolean; run: (action: () => Promise<unknown>, success: string) => void }) {
+  const [open, setOpen] = useState(initialOpen);
   const today = localDateInZone(new Date(), "Europe/Vienna");
   return <div className="grid grid-cols-1 gap-5 lg:grid-cols-[0.8fr_1.2fr]">
     <section className="rounded-2xl border border-[#dce5e1] dark:border-border bg-white dark:bg-card p-5">
-      <div className="flex items-center justify-between gap-3"><SectionTitle eyebrow={t.people} title={t.createPerson} /><Button variant="outline" aria-label={t.createPerson} aria-expanded={open} onClick={() => setOpen((value) => !value)}><Plus className="size-4" /></Button></div>
+      <div className="flex items-center justify-between gap-3"><SectionTitle eyebrow={t.people} title={t.createPerson} /><ShortcutTooltip label={t.createPerson} shortcut={SECTION_PAGE_SHORTCUTS.personnel.newPerson}><Button variant="outline" aria-label={t.createPerson} aria-expanded={open} onClick={() => setOpen((value) => !value)}><Plus className="size-4" /></Button></ShortcutTooltip></div>
       {open && <form className="mt-5 grid gap-3 sm:grid-cols-2" onSubmit={(event) => {
         event.preventDefault();
         const fd = new FormData(event.currentTarget);
@@ -412,7 +418,7 @@ function PeoplePanel({ data, t, locale, pending, run }: { data: PersonnelWorkspa
           singleParentCreditCents: 0,
         }), t.personnelPlanSaved);
       }}>
-        <Field label={t.person}><Input name="name" required /></Field>
+        <Field label={t.person}><Input name="name" required autoFocus /></Field>
         <Field label={t.personnelNumber}><Input name="personnelNumber" /></Field>
         <Field label={t.userAccount}><PersonSelect name="userId" label={t.userAccount} emptyLabel="—" options={data.users.map(row => ({ value: row.id, userId: row.id, name: row.name }))} /></Field>
         <Field label={t.birthDate}><Input name="birthDate" type="date" /></Field>

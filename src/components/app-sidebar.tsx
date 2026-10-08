@@ -57,6 +57,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
 import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { moduleNav, navSectionAliases, type ModuleNavItem } from "@/modules/registry";
@@ -393,7 +394,7 @@ function AppNavigation({
               compact ? "justify-center px-0" : "gap-3 px-3",
             )}
             aria-label={tCommon("search")}
-            aria-keyshortcuts="Control+K Meta+K"
+            aria-keyshortcuts={ariaKeyShortcuts(GLOBAL_SHORTCUTS.search)}
           >
             <Search className="size-5" />
             <span

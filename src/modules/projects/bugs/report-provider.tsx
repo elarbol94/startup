@@ -22,16 +22,6 @@ export const useBugReporter = () => useContext(ReportContext);
 type Screenshot = { id: string; file: File; url: string; state: "pending" | "saved" | "failed" };
 type Receipt = { number: number; taskId: string; projectId: string };
 
-/** Whether a key belongs to an on-screen presentation editor (focused, or focus fell back to the page). */
-function presentationEditorOwnsKey(event: KeyboardEvent) {
-  const workspace = "[data-presentation-workspace]";
-  const focus = event.target instanceof Element ? event.target : document.activeElement;
-  if (focus?.closest(workspace)) return true;
-  if (focus && focus !== document.body && focus !== document.documentElement) return false;
-  const editor = document.querySelector<HTMLElement>(workspace);
-  return Boolean(editor && (typeof editor.checkVisibility === "function" ? editor.checkVisibility() : editor.getClientRects().length > 0));
-}
-
 export function BugReportProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("bugReports");
   const locale = useLocale();
@@ -76,7 +66,8 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     try { setContext(await getBugReportContext()); } catch { setError(t("failed")); }
   }
   function show() { setOpen(true); void prepare(); }
-  // Ctrl/⌘+Y freezes the visible screen, then opens the report form. Attaching a
+  // Ctrl/⌘+Shift+M (GLOBAL_SHORTCUTS.reportBug, "Meldung") freezes the visible screen,
+  // then opens the report form. Attaching a
   // screenshot stays optional; if the user selects an area, they select it over
   // the frozen screen, so popups that closed meanwhile are still included.
   // Listening on window in the capture phase runs before any open popup, menu
@@ -85,8 +76,6 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     shortcut.current = event => {
       if (!matchesShortcut(event, GLOBAL_SHORTCUTS.reportBug)) return;
-      // In the presentation editor Ctrl/⌘+Y is redo, as in every other canvas tool.
-      if (presentationEditorOwnsKey(event)) return;
       event.preventDefault(); event.stopImmediatePropagation();
       if (open || selectingArea || freezing.current) return;
       if (receipt || busy) { show(); return; }

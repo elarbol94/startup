@@ -10,6 +10,9 @@ import type { businessLocations as businessLocationsTable } from "@/modules/acco
 import { payrollStates } from "@/modules/accounting/lib/payroll-at-2026";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +39,8 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
     setMunicipality(location?.municipality ?? "");
     setOpen(true);
   }
+
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.settings.create, () => edit(null));
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -67,7 +72,7 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
   }
 
   return <div className="flex flex-col gap-4">
-    <Button size="sm" className="self-start" onClick={() => edit(null)}><Plus className="size-4" />{t("add")}</Button>
+    <ShortcutTooltip label={t("add")} shortcut={SECTION_PAGE_SHORTCUTS.settings.create}><Button size="sm" className="self-start" onClick={() => edit(null)}><Plus className="size-4" />{t("add")}</Button></ShortcutTooltip>
     <div className="divide-y rounded-lg border">
       {locations.map((location) => <div key={location.id} className="flex items-center gap-3 px-3 py-3">
         <span className="grid size-8 place-items-center rounded-lg bg-emerald-50 text-emerald-800"><MapPin className="size-4" /></span>

@@ -1,5 +1,5 @@
 // Pure keyboard-shortcut logic shared by the global shortcut manager
-// (components/keyboard-shortcuts.tsx) and the shortcut tooltips (components/ui/shortcut-tooltip.tsx).
+// (components/use-keyboard-shortcut.ts) and the shortcut tooltips (components/ui/shortcut-tooltip.tsx).
 //
 // Notation: steps are separated by a space ("G P" = press G, then P); keys inside a step are
 // joined by "+" ("Mod+Shift+A"). "Mod" is Ctrl on Windows/Linux and ⌘ on macOS.
@@ -95,13 +95,18 @@ export function isShortcutBlockedTarget(target: EventTarget | null): boolean {
 
 export type ShortcutKeyLabels = { ctrl: string };
 
+/** Named keys shown as the symbol printed on the key, so they read the same in German and English. */
+const KEY_SYMBOLS: Record<string, string> = {
+  ArrowLeft: "←", ArrowRight: "→", ArrowUp: "↑", ArrowDown: "↓", Enter: "↵", Escape: "Esc",
+};
+
 /** Display keys per step, e.g. "Mod+Shift+A" → [["Ctrl", "⇧", "A"]], "G P" → [["G"], ["P"]]. */
 export function shortcutDisplayKeys(shortcut: string, { mac, labels }: { mac: boolean; labels: ShortcutKeyLabels }): string[][] {
   return parseShortcut(shortcut).map((step) => [
     ...(step.mod ? [mac ? "⌘" : labels.ctrl] : []),
     ...(step.alt ? [mac ? "⌥" : "Alt"] : []),
     ...(step.shift ? ["⇧"] : []),
-    step.key.length === 1 ? step.key.toUpperCase() : step.key,
+    step.key.length === 1 ? step.key.toUpperCase() : KEY_SYMBOLS[step.key] ?? step.key,
   ]);
 }
 

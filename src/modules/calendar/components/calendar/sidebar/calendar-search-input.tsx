@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { CALENDAR_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import type { FilterState } from "../calendar-types";
 import type { CalendarT } from "./sidebar-types";
 
@@ -49,7 +50,7 @@ export function CalendarSearchInput({
   return (
     <div className="relative">
       <Search aria-hidden className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <ShortcutTooltip label={t("shortcutSearch")} shortcut="/" hint={t("hintSearch")}>
+      <ShortcutTooltip label={t("shortcutSearch")} shortcut={CALENDAR_PAGE_SHORTCUTS.search} hint={t("hintSearch")}>
         <Input
           type="search"
           data-calendar-search

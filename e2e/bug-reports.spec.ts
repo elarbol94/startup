@@ -114,14 +114,18 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await expect(dialog).not.toBeVisible();
 });
 
-test("Ctrl+Y opens the report and freezes the screen so a vanished popup can still be captured", async ({ page }) => {
+test("Ctrl+Shift+M opens the report and freezes the screen so a vanished popup can still be captured", async ({ page }) => {
   const credentials = { username: "admin", password: "super-secret-1" };
   let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
   expect(response.ok()).toBe(true);
   await page.goto("/");
-  await expect(page.getByRole("button", { name: "Fehler melden", exact: true })).toHaveAttribute("aria-keyshortcuts", "Control+Y");
-  await expect(page.getByText("Strg+Y", { exact: true })).toBeAttached();
+  // The report entry lives in the user menu, which names its shortcut.
+  await page.getByRole("button", { name: /E2E Admin/ }).first().click();
+  const reportItem = page.getByRole("menuitem", { name: "Fehler melden" });
+  await expect(reportItem).toHaveAttribute("aria-keyshortcuts", "Control+Shift+M Meta+Shift+M");
+  await expect(reportItem).toContainText(/Strg\s*⇧\s*M/);
+  await page.keyboard.press("Escape");
   // A transient popup that swallows keys in its own handlers, like a menu or error toast.
   await page.evaluate(() => {
     const popup = document.createElement("div"); popup.id = "transient-popup"; popup.tabIndex = 0;
@@ -129,12 +133,12 @@ test("Ctrl+Y opens the report and freezes the screen so a vanished popup can sti
     popup.addEventListener("keydown", event => event.stopPropagation());
     document.body.append(popup); popup.focus();
   });
-  await page.keyboard.press("Control+y");
+  await page.keyboard.press("Control+Shift+M");
   // The form opens directly; a screenshot is optional.
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByLabel("Kurzer Titel")).toBeVisible();
   await expect(dialog.getByRole("img", { name: /^bug-area-/ })).toHaveCount(0);
-  await expect(dialog.getByText(/beim Drücken von Strg\+Y/)).toBeVisible();
+  await expect(dialog.getByText(/beim Öffnen der Meldung/)).toBeVisible();
   await page.evaluate(() => document.getElementById("transient-popup")?.remove());
   await dialog.getByRole("button", { name: "Betroffenen Bereich auswählen" }).click();
   const selector = page.getByTestId("bug-area-selector");

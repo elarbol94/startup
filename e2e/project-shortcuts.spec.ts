@@ -58,18 +58,18 @@ test("project page: N creates a task, 1–3 switch views", async ({ page }) => {
   await expect(page.locator('[data-column-name="Offen"]')).toBeVisible();
 });
 
-test("timeline: C toggles the critical path, Shift+N adds a subtask in focus mode", async ({ page }) => {
+test("timeline: K toggles the critical path, Shift+N adds a subtask in focus mode", async ({ page }) => {
   await login(page);
   await page.goto("/projects");
   await page.waitForLoadState("networkidle");
 
   const viewOptions = page.getByRole("button", { name: "Ansichtsoptionen" });
   const criticalPath = page.getByRole("menuitemcheckbox", { name: /Kritischer Pfad/ });
-  await press(page, "c");
+  await press(page, "k");
   await viewOptions.click();
   await expect(criticalPath).toHaveAttribute("aria-checked", "true");
   await page.keyboard.press("Escape");
-  await press(page, "c");
+  await press(page, "k");
   await viewOptions.click();
   await expect(criticalPath).toHaveAttribute("aria-checked", "false");
   await page.keyboard.press("Escape");

@@ -155,6 +155,8 @@ Kartenverschiebung und Zoomstufe in Arbeitsflächenkoordinaten umgerechnet.
 Knoten bleiben an ihrer Position. Eigene Kennzahlen werden als Ausdrucksgraph eingefügt.
 
 Zweimaliges kurzes Drücken der Umschalttaste (innerhalb von 450 ms) öffnet
-„Schnell hinzufügen“, ebenso Strg/Cmd+K. Texteingaben und Shift-Tastenkombinationen
-lösen die neue Tastenkombination nicht aus. Gespeicherte Analysen lassen sich direkt
+„Schnell hinzufügen“ (wie die Befehlssuche im Wiki); Strg/Cmd+K bleibt die
+app-weite Suche. Texteingaben und Umschalt-Tastenkombinationen lösen die
+Tastenkombination nicht aus. Strg/Cmd+Z macht rückgängig, Strg/Cmd+Umschalt+Z
+stellt wieder her. Gespeicherte Analysen lassen sich direkt
 in der Übersicht über einen Löschknopf mit Bestätigungsdialog entfernen.

@@ -4,7 +4,7 @@
 // tracks the compact viewport and handles navigator/comment panel resizing. Used by pdf-reader.tsx.
 import { useEffect, useRef, useState, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
-  parsePdfReaderPreferences, PDF_READER_PREFERENCES_KEY, resolveInitialPage, type FitMode, type NavigatorTab,
+  parsePdfReaderPreferences, LEGACY_PDF_READER_PREFERENCES_KEYS, PDF_READER_PREFERENCES_KEY, resolveInitialPage, type FitMode, type NavigatorTab,
   type PdfReaderPreferences, type PdfViewMode,
 } from "../../lib/pdf-reader-utils";
 import type { PdfShortcutBindings } from "../../lib/pdf-shortcuts";
@@ -54,7 +54,7 @@ export function usePdfReaderPreferences({
     const media = window.matchMedia("(max-width: 767px)");
     const updateCompactViewport = () => setCompactViewport(media.matches);
     const frame = window.requestAnimationFrame(() => {
-      const preferences = parsePdfReaderPreferences(window.localStorage.getItem(PDF_READER_PREFERENCES_KEY) ?? window.localStorage.getItem("wiki:pdf-reader-preferences:v2") ?? window.localStorage.getItem("wiki:pdf-reader-preferences:v1"));
+      const preferences = parsePdfReaderPreferences([PDF_READER_PREFERENCES_KEY, ...LEGACY_PDF_READER_PREFERENCES_KEYS].reduce<string | null>((found, key) => found ?? window.localStorage.getItem(key), null));
       const legacyCommentWidth = Number(window.localStorage.getItem(COMMENT_PANEL_WIDTH_KEY));
       const nextCommentWidth = Number.isFinite(legacyCommentWidth)
         ? Math.min(420, Math.max(260, legacyCommentWidth))
@@ -86,7 +86,7 @@ export function usePdfReaderPreferences({
   useEffect(() => {
     if (!preferencesLoaded) return;
     const preferences: PdfReaderPreferences = {
-       version: 3, viewMode, fitMode, scale, rotation,
+      version: 4, viewMode, fitMode, scale, rotation,
       navigatorTab, navigatorVisible: showThumbnails, navigatorWidth: thumbnailWidth,
       commentPanelWidth,
       shortcuts,

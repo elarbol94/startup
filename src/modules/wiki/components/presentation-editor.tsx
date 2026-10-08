@@ -97,6 +97,7 @@ function Editor({
   const collaboration = useCollaborationContext();
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
+  const tShortcuts = useTranslations("shortcuts");
   const navigationQuery = useSearchParams();
   // Canvas geometry is already stored; viewport sizing is the readiness signal.
   const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
@@ -570,7 +571,7 @@ function Editor({
   const selectedRoots = selectionRoots(elements, selectedIds);
   const canMutate = !disabled && mutableSelection(elements, selectedIds);
   function interact(key: string) { return t(`presentations.interactions.${key}`); }
-  const shortcutLabels = presentationShortcutLabels(isMac);
+  const shortcutLabels = presentationShortcutLabels(isMac, { ctrl: tShortcuts("ctrl"), delete: t("shortcuts.keys.delete"), enter: t("shortcuts.keys.enter") });
   const executeCommand = (id: string) => { const command = commands.find(c => c.id === id); if (command && !command.disabledReason) command.execute(); };
   const { groupSelection, ungroupSelection, editText, setSelectionLocked } = usePresentationSelectionCommands({
     selected, selectedIds, selectedRoots, canMutate, elements, steps, dispatch, setSelectedIds, startTextEditing: textEditing.startEditing, t,
@@ -612,14 +613,16 @@ function Editor({
     if (!scope) return;
     const { target, typing } = scope;
     const mod = isModifierShortcut(event), key = event.key.toLowerCase();
-    if (mod && key === "s") { event.preventDefault(); executeCommand("save"); return; }
+    // Only plain Mod+S saves: Mod+Shift+S stays strikethrough in the text editor.
+    if (mod && key === "s" && !event.shiftKey && !event.altKey) { event.preventDefault(); executeCommand("save"); return; }
     if (!typing && textEditing.captureKey(event)) return;
     if (typing || commandsOpen || shortcutHelp) return;
     if (pendingElement && (key === "escape" || key === "enter")) { event.preventDefault(); if (key === "escape") setPendingElement(null); else placePending(viewportCenter(), true); return; }
     // A focused button or link keeps its own Enter, Space and arrows; shortcuts, Delete and Escape stay the canvas's.
     if (scope.onControl && isControlKey(event)) return;
     let id: string | undefined;
-    if (mod) id = formatShortcut(event) ?? ({ a: "selectAll", c: event.shiftKey ? "" : "copy", x: "cut", v: event.shiftKey ? "" : "paste", d: "duplicateSelection", g: event.shiftKey ? "ungroup" : "group", z: event.shiftKey ? "redo" : "undo", y: "redo", "]": event.shiftKey ? "front" : "forward", "[": event.shiftKey ? "back" : "backward", "}": "front", "{": "back", arrowup: event.shiftKey ? "front" : "", arrowdown: event.shiftKey ? "back" : "" } as Record<string, string>)[key];
+    // Mod+Shift+A/D stay the app-wide "Neue Aufgabe"/"Neue Deadline".
+    if (mod) id = formatShortcut(event) ?? ({ a: event.shiftKey ? "" : "selectAll", c: event.shiftKey ? "" : "copy", x: "cut", v: event.shiftKey ? "" : "paste", d: event.shiftKey ? "" : "duplicateSelection", g: event.shiftKey ? "ungroup" : "group", z: event.shiftKey ? "redo" : "undo", y: "redo", "]": event.shiftKey ? "front" : "forward", "[": event.shiftKey ? "back" : "backward", "}": "front", "{": "back", arrowup: event.shiftKey ? "front" : "", arrowdown: event.shiftKey ? "back" : "" } as Record<string, string>)[key];
     else if (key === "delete" || key === "backspace") id = "deleteSelection";
     else if (key === "enter") id = "editText";
     else if (!pendingElement) id = toolShortcut(event);

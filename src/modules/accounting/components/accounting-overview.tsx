@@ -22,6 +22,9 @@ import type {
 } from "@/modules/accounting/queries";
 import type { categories as categoriesTable } from "@/modules/accounting/schema";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { PageHeader } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import {
@@ -307,6 +310,11 @@ export function AccountingOverview({
   const searchParams = useSearchParams();
   const [dialogEntry, setDialogEntry] = useState<EntryRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(openEntryOnLoad);
+  function openNewEntry() {
+    setDialogEntry(null);
+    setDialogOpen(true);
+  }
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.accounting.newEntry, openNewEntry);
 
   function setEntryDialogOpen(nextOpen: boolean) {
     setDialogOpen(nextOpen);
@@ -381,16 +389,12 @@ export function AccountingOverview({
                 ))}
               </SelectContent>
             </Select>
-            <Button
-              className="h-9"
-              onClick={() => {
-                setDialogEntry(null);
-                setDialogOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              {t("newEntry")}
-            </Button>
+            <ShortcutTooltip label={t("newEntry")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.newEntry}>
+              <Button className="h-9" onClick={openNewEntry}>
+                <Plus className="size-4" />
+                {t("newEntry")}
+              </Button>
+            </ShortcutTooltip>
           </>
         }
       />

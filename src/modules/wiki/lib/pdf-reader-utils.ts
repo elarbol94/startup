@@ -1,11 +1,11 @@
-import { DEFAULT_PDF_SHORTCUT_BINDINGS, parsePdfShortcutBindings, type PdfShortcutBindings } from "./pdf-shortcuts";
+import { DEFAULT_PDF_SHORTCUT_BINDINGS, migratePdfShortcutBindings, parsePdfShortcutBindings, type PdfShortcutBindings } from "./pdf-shortcuts";
 
 export type FitMode = "custom" | "width" | "page" | "actual";
 export type NavigatorTab = "pages" | "search" | "outline";
 export type PdfViewMode = "continuous" | "single" | "double";
 
 export type PdfReaderPreferences = {
-  version: 3;
+  version: 4;
   viewMode: PdfViewMode;
   fitMode: FitMode;
   scale: number;
@@ -34,10 +34,12 @@ export type PdfSearchOptions = {
   wholeWord?: boolean;
 };
 
-export const PDF_READER_PREFERENCES_KEY = "wiki:pdf-reader-preferences:v3";
+export const PDF_READER_PREFERENCES_KEY = "wiki:pdf-reader-preferences:v4";
+/** Older storage keys, newest first; read once when the current key is still empty. */
+export const LEGACY_PDF_READER_PREFERENCES_KEYS = ["wiki:pdf-reader-preferences:v3", "wiki:pdf-reader-preferences:v2", "wiki:pdf-reader-preferences:v1"] as const;
 
 export const DEFAULT_PDF_READER_PREFERENCES: PdfReaderPreferences = {
-  version: 3,
+  version: 4,
   viewMode: "continuous",
   fitMode: "custom",
   scale: 1.25,
@@ -63,7 +65,9 @@ export function parsePdfReaderPreferences(raw: string | null): PdfReaderPreferen
   if (!raw) return DEFAULT_PDF_READER_PREFERENCES;
   try {
     const value = JSON.parse(raw) as Partial<Omit<PdfReaderPreferences, "version">> & { version?: number };
-    const shortcuts = parsePdfShortcutBindings(value.shortcuts);
+    // v4 replaced browser-reserved and English-mnemonic defaults (see pdf-shortcuts.ts);
+    // bindings still on an old default move to the new one, customised ones are kept.
+    const shortcuts = parsePdfShortcutBindings(migratePdfShortcutBindings(value.shortcuts, value.version));
     // v2 briefly exposed Ctrl+G bindings while search-result navigation stayed
     // contextual. Restore the established Tab / Shift+Tab behavior on upgrade.
     if (shortcuts.previousMatch === "Ctrl+Shift+G" && shortcuts.nextMatch === "Ctrl+G") {
@@ -71,7 +75,7 @@ export function parsePdfReaderPreferences(raw: string | null): PdfReaderPreferen
       shortcuts.nextMatch = DEFAULT_PDF_SHORTCUT_BINDINGS.nextMatch;
     }
     return {
-      version: 3,
+      version: 4,
       viewMode: viewModes.has(value.viewMode as PdfViewMode) ? value.viewMode as PdfViewMode : DEFAULT_PDF_READER_PREFERENCES.viewMode,
       fitMode: fitModes.has(value.fitMode as FitMode) ? value.fitMode as FitMode : DEFAULT_PDF_READER_PREFERENCES.fitMode,
       scale: clamp(value.scale, 0.5, 3, DEFAULT_PDF_READER_PREFERENCES.scale),

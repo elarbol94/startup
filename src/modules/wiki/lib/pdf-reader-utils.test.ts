@@ -14,10 +14,23 @@ describe("PDF reader utilities", () => {
       scale: 3, navigatorWidth: 104, commentPanelWidth: 420, viewMode: "double",
       fitMode: "page", rotation: 90, navigatorTab: "outline", navigatorVisible: false,
     });
-    expect(parsePdfReaderPreferences("{damaged").version).toBe(3);
+    expect(parsePdfReaderPreferences("{damaged").version).toBe(4);
     expect(parsePdfReaderPreferences('{"version":1}').shortcuts.search).toBe("Ctrl+F");
     expect(parsePdfReaderPreferences('{"version":2,"shortcuts":{"previousMatch":"Ctrl+Shift+G","nextMatch":"Ctrl+G"}}').shortcuts).toMatchObject({ previousMatch: "Shift+Tab", nextMatch: "Tab" });
     expect(parsePdfReaderPreferences('{"version":3,"shortcuts":{"previousMatch":"Ctrl+Shift+G","nextMatch":"Ctrl+G"}}').shortcuts).toMatchObject({ previousMatch: "Shift+Tab", nextMatch: "Tab" });
+  });
+
+  it("migrates version 3 shortcut defaults to the German, browser-safe version 4 defaults", () => {
+    const stored = { version: 3, shortcuts: { fitWidth: "Ctrl+W", fitPage: "Ctrl+Shift+W", toggleNavigator: "Ctrl+N", captureRegion: "Ctrl+R", bookmarkPage: "Ctrl+B", comments: "Ctrl+M", caseSensitive: "Ctrl+Alt+C", navigatorSearch: "Ctrl+Alt+2", rotate: "Ctrl+Alt+R", search: "Ctrl+Shift+Y" } };
+    const preferences = parsePdfReaderPreferences(JSON.stringify(stored));
+    expect(preferences.version).toBe(4);
+    expect(preferences.shortcuts).toMatchObject({
+      fitWidth: "Ctrl+Alt+B", fitPage: "Ctrl+Alt+G", toggleNavigator: "Ctrl+Alt+N", captureRegion: "Ctrl+Shift+B",
+      bookmarkPage: "Ctrl+Shift+S", comments: "Ctrl+Alt+K", caseSensitive: "Ctrl+Shift+G", navigatorSearch: "Ctrl+Alt+F",
+      rotate: "Ctrl+Alt+R", search: "Ctrl+Shift+Y",
+    });
+    // Saved as version 4, the same bindings are no longer migrated: Ctrl+B stays a custom choice.
+    expect(parsePdfReaderPreferences(JSON.stringify({ ...stored, version: 4 })).shortcuts.bookmarkPage).toBe("Ctrl+B");
   });
 
   it("calculates fit modes", () => {

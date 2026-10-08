@@ -2,9 +2,11 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Inbox } from "lucide-react";
+import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
 import { useRowSelection } from "@/lib/use-row-selection";
 import type { WorkspacePage } from "../research-queries";
 import { parseTagList } from "../lib/tags";
+import { WIKI_SHORTCUTS } from "../lib/wiki-shortcuts";
 import { pageStatuses } from "./page-tree/page-tree-types";
 import { PageBulkBar } from "./page-tree/page-bulk-bar";
 import { usePageActions } from "./page-tree/use-page-actions";
@@ -49,7 +51,7 @@ export function WorkspacePageList({ pages: initialPages }: { pages: WorkspacePag
         <div>
           <Inbox className="mx-auto mb-3 size-8 text-indigo-400" />
           <h2 className="font-medium">{t("inboxEmpty")}</h2>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t("inboxEmptyDescription")}</p>
+          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t.rich("inboxEmptyDescription", { keys: () => <ShortcutKeys shortcut={WIKI_SHORTCUTS.quickNote} className="align-middle" /> })}</p>
         </div>
       </div>
     );

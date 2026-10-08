@@ -113,7 +113,7 @@ export function UserMenu({
           <DropdownMenuShortcut aria-hidden="true"><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.focusMode} /></DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuItem
-          aria-keyshortcuts="Control+Y"
+          aria-keyshortcuts={ariaKeyShortcuts(GLOBAL_SHORTCUTS.reportBug)}
           onClick={() => {
             onNavigate?.();
             openBugReporter();
@@ -121,7 +121,7 @@ export function UserMenu({
         >
           <Bug className="mr-2 size-4" />
           {tBugs("report")}
-          <DropdownMenuShortcut aria-hidden="true">{tBugs("shortcut")}</DropdownMenuShortcut>
+          <DropdownMenuShortcut aria-hidden="true"><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.reportBug} /></DropdownMenuShortcut>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout} disabled={loggingOut}>

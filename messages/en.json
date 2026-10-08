@@ -19,7 +19,7 @@
     "uploadFailed": "Your report is saved, but some screenshots failed. Retry to upload only the missing screenshots.",
     "invalidFiles": "Choose up to 5 PNG, JPEG or WebP screenshots, each no larger than 10 MB.",
     "archived": "The Bugs project is archived. Ask an administrator to reopen it. Your draft is kept.",
-    "agentWorked": "A coding agent worked on this on {date}", "frozenHint": "Areas are selected from the screen as it was when you pressed Ctrl+Y.", "shortcut": "Ctrl+Y", "agentBranch": "Branch"
+    "agentWorked": "A coding agent worked on this on {date}", "frozenHint": "Areas are selected from the screen as it was when you opened the report.", "agentBranch": "Branch"
   },
   "appWorkspace": {
     "tabs": "Open tabs",
@@ -405,6 +405,7 @@
       "existingHint": "The note is added to the existing contact as an open opportunity.",
       "save": "Save",
       "saved": "Saved for {name}",
+      "saveShortcutHint": "Saves from any field in the form.",
       "open": "Open",
       "metToday": "We talked today",
       "notYetSpoken": "Not spoken yet (only heard of them)",
@@ -1128,6 +1129,7 @@
     "studioOpenInspector": "Open inspector",
     "studioCloseInspector": "Collapse inspector",
     "studioQuickAdd": "Quick add",
+    "studioQuickAddShortcutHint": "Press Shift twice to find and place blocks.",
     "studioQuickAddHint": "Search datasets, metrics, operators, constants, and notes. Press Enter to place the first match.",
     "studioQuickAddSearch": "Search blocks",
     "studioRedo": "Redo",
@@ -1620,7 +1622,6 @@
     "status": "Status",
     "project": "Project",
     "noProject": "No project",
-    "globalShortcut": "Ctrl+Shift+A",
     "priorities": {
       "low": "Low",
       "medium": "Medium",
@@ -1687,7 +1688,6 @@
     "addTime": "Add time",
     "removeTime": "Remove time",
     "status": "Status",
-    "globalShortcut": "Ctrl+Shift+D",
     "statuses": {
       "open": "Open",
       "done": "Done",
@@ -2824,7 +2824,7 @@
     "captureAndTriage": "Capture and triage",
     "inboxDescription": "New notes land here until the team turns them into working or evergreen knowledge.",
     "inboxEmpty": "The inbox is clear",
-    "inboxEmptyDescription": "Capture a thought with Quick note or press Ctrl/⌘ + Shift + N.",
+    "inboxEmptyDescription": "Create one with New document or press <keys>Ctrl/⌘ + Shift + E</keys>.",
     "emptyNote": "This note is still empty.",
     "knowledgeBase": "Knowledge base",
     "evidenceLibrary": "Evidence library",
@@ -2945,43 +2945,10 @@
     },
     "comments": "Comments",
     "shortcuts": {
-      "title": "Keyboard shortcuts",
-      "description": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
-      "conflict": "This shortcut is already used by “{action}”.",
-      "done": "Done",
-      "groups": {
-        "structure": "Structure",
-        "wiki": "Wiki and view",
-        "insert": "Insert",
-        "context": "Selection: image and table"
-      },
-      "actions": {
-        "undo": "Undo",
-        "redo": "Redo",
-        "bold": "Bold",
-        "italic": "Italic",
-        "underline": "Underline",
-        "highlight": "Highlight",
-        "strike": "Strikethrough",
-        "bulletList": "Bullet list",
-        "orderedList": "Numbered list",
-        "taskList": "Task list",
-        "blockquote": "Block quote",
-        "codeBlock": "Code block",
-        "horizontalRule": "Divider",
-        "pageBreak": "Page break",
-        "tableOfContents": "Table of contents",
-        "search": "Find and replace",
-        "outline": "Document outline",
-        "shortcuts": "Keyboard shortcuts",
-        "image": "Insert image",
-        "citation": "Insert citation",
-        "pdfEvidence": "Insert PDF evidence",
-        "attachment": "Add attachment"
-      },
       "keys": {
         "ctrl": "Ctrl",
-        "delete": "Del"
+        "delete": "Del",
+        "enter": "Enter"
       }
     },
     "document": {
@@ -3477,11 +3444,11 @@
     "openOriginal": "Open original PDF",
     "printPdf": "Print PDF",
     "keyboardShortcuts": "Keyboard shortcuts",
-    "keyboardShortcutsDescription": "Ctrl or Cmd + F: search · Plus/Minus: zoom · Arrow keys or Page Up/Down: navigate · Escape: cancel tool",
     "shortcutDialogHint": "Select a shortcut, then press Ctrl or Cmd plus the desired key.",
     "shortcutRecording": "Press a key…",
     "shortcutRequiresCtrl": "A PDF shortcut must include Ctrl or Cmd.",
     "shortcutReserved": "This key is reserved by the browser or operating system.",
+    "shortcutUnassigned": "Not assigned",
     "shortcutConflict": "This shortcut is already used for “{action}”.",
     "resetShortcuts": "Restore defaults",
     "resetShortcut": "Reset",
@@ -3948,7 +3915,7 @@
         "detach": "Detach connector",
         "shortcutHelp": "Keyboard shortcuts",
         "clipboardError": "Could not use the clipboard. Allow clipboard access and copy valid presentation objects with accessible attachments.",
-        "gestureHelp": "Drag empty space to select; Shift adds to selection. Shift- or Ctrl/Cmd-click adds or removes an object. Clicking inside a frame or on its name selects the frame; dragging its name or edge moves it. Mouse wheel and two-finger scroll pan, Ctrl/Cmd+wheel and pinch zoom; Space+drag or middle-drag also pans. Ctrl+Y or Ctrl+Shift+Z redoes. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
+        "gestureHelp": "Drag empty space to select; Shift adds to selection. Shift- or Ctrl/Cmd-click adds or removes an object. Clicking inside a frame or on its name selects the frame; dragging its name or edge moves it. Mouse wheel and two-finger scroll pan, Ctrl/Cmd+wheel and pinch zoom; Space+drag or middle-drag also pans. Ctrl/Cmd+Y or Ctrl/Cmd+Shift+Z redoes. Ctrl/Cmd+drag copies (Option also works on Mac); Shift constrains movement. Arrows move 1 unit, Shift+arrows 10. Tab selects the next object, Shift+Tab the previous. Escape cancels. Shift+F10 opens selection actions. Rotation snaps to horizontal, vertical, and other objects; Shift uses 15° steps, Alt rotates freely.",
         "choose": "Choose an item",
         "bar": "Bar chart",
         "line": "Line chart",

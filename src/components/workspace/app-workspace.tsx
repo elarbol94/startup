@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { moduleNav } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
+import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { APP_NAVIGATION_EVENT, requestAppNavigation, type AppNavigationRequest } from "@/lib/app-navigation";
 import { FocusPill } from "@/components/focus/focus-pill";
 import { useFocusMode } from "@/components/focus-mode";
@@ -19,6 +21,8 @@ import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restore
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
 const subscribeFrame = () => () => {};
+/** Alt+Q and its Shift variant (previous tab), see isTabSwitchShortcut. */
+const TAB_SWITCH_ARIA_SHORTCUTS = [GLOBAL_SHORTCUTS.switchTab, `Shift+${GLOBAL_SHORTCUTS.switchTab}`].map(ariaKeyShortcuts).join(" ");
 
 export function AppWorkspace({ children, navigation, userId }: { children: ReactNode; navigation: ReactNode; userId: string }) {
   const t = useTranslations("appWorkspace");
@@ -294,7 +298,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
       <div ref={surface} className="min-w-0" data-workspace-root>
         {/* The wiki's fixed research rail sets --research-rail-width; start the tab bar beside it. */}
         {!embedded && <div className={cn("sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2", primaryVisible && "md:ml-[var(--research-rail-width,0px)]")} data-workspace-toolbar>
-          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts="Alt+Q Alt+Shift+Q" title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
+          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts={TAB_SWITCH_ARIA_SHORTCUTS} title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
             const index = items.indexOf(document.activeElement as HTMLButtonElement);

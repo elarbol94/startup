@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Plus, Search, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import type { MeetingListItem, MeetingSearchHit } from "../queries";
 import { NewMeetingDialog, type MeetingFormOptions } from "./new-meeting-dialog";
 import { matchesFilter, meetingListFilters, type MeetingListFilter } from "./meetings-list/list-filters";
@@ -23,15 +26,24 @@ export function MeetingsList({ meetings, hits, query, options, viewerId }: {
   const [creating, setCreating] = useState(false);
   const [filter, setFilter] = useState<MeetingListFilter>("all");
   const visible = meetings.filter((meeting) => matchesFilter(meeting, filter));
+  const searchInput = useRef<HTMLInputElement>(null);
+  useKeyboardShortcuts([
+    { shortcut: SECTION_PAGE_SHORTCUTS.meetings.newMeeting, handler: () => setCreating(true) },
+    { shortcut: SECTION_PAGE_SHORTCUTS.meetings.search, handler: () => { searchInput.current?.focus(); searchInput.current?.select(); } },
+  ]);
 
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <form className="relative w-full sm:max-w-sm" role="search">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input name="q" defaultValue={query} placeholder={t("search.placeholder")} aria-label={t("search.label")} className="pl-8" />
+          <ShortcutTooltip label={t("search.label")} shortcut={SECTION_PAGE_SHORTCUTS.meetings.search}>
+            <Input ref={searchInput} name="q" defaultValue={query} placeholder={t("search.placeholder")} aria-label={t("search.label")} className="pl-8" />
+          </ShortcutTooltip>
         </form>
-        <Button onClick={() => setCreating(true)}><Plus />{t("new.button")}</Button>
+        <ShortcutTooltip label={t("new.button")} shortcut={SECTION_PAGE_SHORTCUTS.meetings.newMeeting}>
+          <Button onClick={() => setCreating(true)}><Plus />{t("new.button")}</Button>
+        </ShortcutTooltip>
       </div>
 
       {query && (

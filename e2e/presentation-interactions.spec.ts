@@ -86,7 +86,7 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
   await page.keyboard.down("Space"); await page.mouse.move(canvas.x + 30, canvas.y + 30); await page.mouse.down(); await page.mouse.move(canvas.x + 100, canvas.y + 90, { steps: 10 }); await page.mouse.up(); await page.keyboard.up("Space");
   await expect.poll(() => viewport.getAttribute("style")).not.toBe(before);
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click(); await page.getByRole("menuitem", { name: "Tastenkürzel", exact: true }).click();
-  await expect(page.getByRole("dialog")).toContainText("Ctrl+G");
+  await expect(page.getByRole("dialog")).toContainText("Strg+G");
   await page.screenshot({ path: "output/playwright/presentation-shortcuts.png" });
 });
 

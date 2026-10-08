@@ -3,6 +3,8 @@
 "use client";
 
 import { useRef, type PointerEvent as ReactPointerEvent } from "react";
+import { TIMELINE_KEY_HINTS } from "@/lib/app-shortcuts";
+import { matchesShortcut } from "@/lib/shortcuts";
 import type {
   PortfolioSchedule,
   PortfolioTask,
@@ -300,7 +302,7 @@ export function useBarDrag({
         : indentRow(row.task));
       return;
     }
-    if (event.key.toLocaleLowerCase() === "f" && !event.metaKey && !event.ctrlKey) {
+    if (matchesShortcut(event, TIMELINE_KEY_HINTS.focusTask)) {
       event.preventDefault();
       enterTaskFocus(row.task);
       return;

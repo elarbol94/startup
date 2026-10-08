@@ -11,6 +11,9 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
   Table,
   TableBody,
@@ -131,6 +134,15 @@ export function InvoiceList({
   const status = parseStatusFilter(searchParams.get("status"));
   const [query, setQuery] = useState("");
   const filterBarRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  useKeyboardShortcut(
+    SECTION_PAGE_SHORTCUTS.accounting.invoiceSearch,
+    () => {
+      searchRef.current?.focus();
+      searchRef.current?.select();
+    },
+    { enabled: invoices.length > 0 },
+  );
 
   // Keep the active chip visible in the horizontally scrolling filter bar.
   useEffect(() => {
@@ -241,14 +253,17 @@ export function InvoiceList({
       <div className="flex flex-col gap-3 border-b px-3 py-3 sm:px-5">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t("searchPlaceholder")}
-            aria-label={t("searchLabel")}
-            className="h-9 pl-8"
-          />
+          <ShortcutTooltip label={t("searchLabel")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.invoiceSearch}>
+            <Input
+              ref={searchRef}
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchLabel")}
+              className="h-9 pl-8"
+            />
+          </ShortcutTooltip>
         </div>
         <div
           ref={filterBarRef}

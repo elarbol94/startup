@@ -19,7 +19,7 @@
     "uploadFailed": "Deine Meldung wurde gespeichert, aber einige Screenshots fehlen. Erneut versuchen lädt nur fehlende Screenshots hoch.",
     "invalidFiles": "Wähle bis zu 5 PNG-, JPEG- oder WebP-Screenshots mit jeweils höchstens 10 MB.",
     "archived": "Das Bugs-Projekt ist archiviert. Bitte einen Administrator, es wieder zu öffnen. Dein Entwurf bleibt erhalten.",
-    "agentWorked": "Ein Coding-Agent hat am {date} daran gearbeitet", "frozenHint": "Bereiche werden aus dem Bildschirm ausgewählt, wie er beim Drücken von Strg+Y aussah.", "shortcut": "Strg+Y", "agentBranch": "Branch"
+    "agentWorked": "Ein Coding-Agent hat am {date} daran gearbeitet", "frozenHint": "Bereiche werden aus dem Bildschirm ausgewählt, wie er beim Öffnen der Meldung aussah.", "agentBranch": "Branch"
   },
   "appWorkspace": {
     "tabs": "Geöffnete Tabs",
@@ -405,6 +405,7 @@
       "existingHint": "Die Notiz wird beim bestehenden Kontakt als offene Möglichkeit ergänzt.",
       "save": "Speichern",
       "saved": "Für {name} gespeichert",
+      "saveShortcutHint": "Speichert aus jedem Feld des Formulars.",
       "open": "Öffnen",
       "metToday": "Heute gesprochen",
       "notYetSpoken": "Noch nicht gesprochen (nur davon gehört)",
@@ -1128,7 +1129,8 @@
     "studioOpenInspector": "Inspektor öffnen",
     "studioCloseInspector": "Inspektor einklappen",
     "studioQuickAdd": "Schnell hinzufügen",
-    "studioQuickAddHint": "Durchsuche Datensätze, Kennzahlen, Operatoren, Konstanten und Notizen. Mit Enter wird der erste Treffer platziert.",
+    "studioQuickAddShortcutHint": "Zweimal Umschalt drücken, um Bausteine zu suchen und zu platzieren.",
+    "studioQuickAddHint": "Durchsuche Datensätze, Kennzahlen, Operatoren, Konstanten und Notizen. Mit der Eingabetaste wird der erste Treffer platziert.",
     "studioQuickAddSearch": "Bausteine durchsuchen",
     "studioRedo": "Wiederholen",
     "studioAutoLayout": "Automatisch anordnen",
@@ -1620,7 +1622,6 @@
     "status": "Status",
     "project": "Projekt",
     "noProject": "Kein Projekt",
-    "globalShortcut": "Strg+Umschalt+A",
     "priorities": {
       "low": "Niedrig",
       "medium": "Mittel",
@@ -1687,7 +1688,6 @@
     "addTime": "Uhrzeit hinzufügen",
     "removeTime": "Uhrzeit entfernen",
     "status": "Status",
-    "globalShortcut": "Strg+Umschalt+D",
     "statuses": {
       "open": "Offen",
       "done": "Erledigt",
@@ -2824,7 +2824,7 @@
     "captureAndTriage": "Erfassen und ordnen",
     "inboxDescription": "Neue Notizen landen hier, bis das Team daraus Arbeitswissen oder dauerhaftes Wissen macht.",
     "inboxEmpty": "Der Eingang ist leer",
-    "inboxEmptyDescription": "Erfasse einen Gedanken mit „Schnelle Notiz“ oder Strg/⌘ + Umschalt + N.",
+    "inboxEmptyDescription": "Lege mit „Neues Dokument“ oder <keys>Strg/⌘ + Umschalt + E</keys> ein Dokument im Eingang an.",
     "emptyNote": "Diese Notiz ist noch leer.",
     "knowledgeBase": "Wissensbasis",
     "evidenceLibrary": "Quellenbibliothek",
@@ -2945,43 +2945,10 @@
     },
     "comments": "Kommentare",
     "shortcuts": {
-      "title": "Tastenkürzel",
-      "description": "Klicke auf ein Kürzel und drücke anschließend Strg oder Cmd plus die gewünschte Taste.",
-      "conflict": "Dieses Kürzel wird bereits für „{action}“ verwendet.",
-      "done": "Fertig",
-      "groups": {
-        "structure": "Struktur",
-        "wiki": "Wiki und Ansicht",
-        "insert": "Einfügen",
-        "context": "Auswahl: Bild und Tabelle"
-      },
-      "actions": {
-        "undo": "Rückgängig",
-        "redo": "Wiederholen",
-        "bold": "Fett",
-        "italic": "Kursiv",
-        "underline": "Unterstreichen",
-        "highlight": "Hervorheben",
-        "strike": "Durchstreichen",
-        "bulletList": "Aufzählung",
-        "orderedList": "Nummerierte Liste",
-        "taskList": "Aufgabenliste",
-        "blockquote": "Zitatblock",
-        "codeBlock": "Codeblock",
-        "horizontalRule": "Trennlinie",
-        "pageBreak": "Seitenumbruch",
-        "tableOfContents": "Inhaltsverzeichnis",
-        "search": "Suchen und ersetzen",
-        "outline": "Dokumentgliederung",
-        "shortcuts": "Tastenkürzel",
-        "image": "Bild einfügen",
-        "citation": "Zitat einfügen",
-        "pdfEvidence": "PDF-Nachweis einfügen",
-        "attachment": "Anhang hinzufügen"
-      },
       "keys": {
         "ctrl": "Strg",
-        "delete": "Entf"
+        "delete": "Entf",
+        "enter": "Eingabe"
       }
     },
     "document": {
@@ -3477,11 +3444,11 @@
     "openOriginal": "Original-PDF öffnen",
     "printPdf": "PDF drucken",
     "keyboardShortcuts": "Tastenkürzel",
-    "keyboardShortcutsDescription": "Strg oder Cmd + F: suchen · Plus/Minus: zoomen · Pfeiltasten oder Bild auf/ab: navigieren · Escape: Werkzeug abbrechen",
     "shortcutDialogHint": "Klicke auf ein Kürzel und drücke anschließend Strg plus die gewünschte Taste.",
     "shortcutRecording": "Taste drücken…",
     "shortcutRequiresCtrl": "Ein PDF-Kürzel muss Strg oder Cmd enthalten.",
     "shortcutReserved": "Diese Taste wird vom Browser oder Betriebssystem reserviert.",
+    "shortcutUnassigned": "Nicht zugewiesen",
     "shortcutConflict": "Dieses Kürzel wird bereits für „{action}“ verwendet.",
     "resetShortcuts": "Standards wiederherstellen",
     "resetShortcut": "Zurücksetzen",
@@ -3948,7 +3915,7 @@
         "detach": "Verbindung lösen",
         "shortcutHelp": "Tastenkürzel",
         "clipboardError": "Zwischenablage nicht verfügbar. Zugriff erlauben und gültige Präsentationsobjekte mit zugänglichen Anhängen kopieren.",
-        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Umschalt- oder Strg/Cmd-Klick fügt ein Objekt hinzu oder entfernt es. Klick in einen Rahmen oder auf seinen Namen wählt den Rahmen; Name oder Rand ziehen verschiebt ihn. Mausrad und Zwei-Finger-Wischen verschieben die Ansicht, Strg/Cmd+Mausrad und Zwei-Finger-Zoom zoomen; auch Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg+Y oder Strg+Umschalt+Z stellt wieder her. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen. Drehen rastet horizontal, vertikal und parallel zu anderen Objekten ein; Umschalt nutzt 15°-Schritte, Alt dreht frei.",
+        "gestureHelp": "Leere Fläche ziehen zum Auswählen; Umschalt erweitert die Auswahl. Umschalt- oder Strg/Cmd-Klick fügt ein Objekt hinzu oder entfernt es. Klick in einen Rahmen oder auf seinen Namen wählt den Rahmen; Name oder Rand ziehen verschiebt ihn. Mausrad und Zwei-Finger-Wischen verschieben die Ansicht, Strg/Cmd+Mausrad und Zwei-Finger-Zoom zoomen; auch Leertaste+Ziehen oder mittlere Maustaste verschiebt die Ansicht. Strg/Cmd+Y oder Strg/Cmd+Umschalt+Z stellt wieder her. Strg/Cmd+Ziehen kopiert (am Mac auch Option); Umschalt begrenzt die Richtung. Pfeiltasten bewegen um 1 Einheit, mit Umschalt um 10. Tab wählt das nächste Objekt, Umschalt+Tab das vorherige. Escape bricht ab. Umschalt+F10 öffnet Auswahlaktionen. Drehen rastet horizontal, vertikal und parallel zu anderen Objekten ein; Umschalt nutzt 15°-Schritte, Alt dreht frei.",
         "choose": "Element auswählen",
         "bar": "Balkendiagramm",
         "line": "Liniendiagramm",

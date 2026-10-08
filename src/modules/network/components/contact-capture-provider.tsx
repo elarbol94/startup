@@ -5,6 +5,9 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { PencilLine, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { getQuickCaptureOptions } from "../capture-actions";
 import { QuickCaptureDialog, type QuickCaptureOptions } from "./quick-capture-dialog";
 import { useCaptureDraft } from "./quick-capture-draft";
@@ -64,14 +67,18 @@ export function ContactCaptureProvider({ userId, children }: { userId: string; c
   );
 }
 
-/** The capture button on the network pages; says "continue" while a draft waits. */
+/** The capture button on the network pages (shortcut N); says "continue" while a draft waits. */
 export function QuickCaptureButton() {
   const t = useTranslations("network");
   const { openContactCapture, hasDraft } = useContactCapture();
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.network.capture, openContactCapture);
+  const label = hasDraft ? t("quick.continue") : t("quick.button");
   return (
-    <Button size="sm" onClick={openContactCapture} data-testid="network-quick-capture" data-draft={hasDraft || undefined}>
-      {hasDraft ? <PencilLine className="size-4" /> : <Plus className="size-4" />}
-      {hasDraft ? t("quick.continue") : t("quick.button")}
-    </Button>
+    <ShortcutTooltip label={label} shortcut={SECTION_PAGE_SHORTCUTS.network.capture}>
+      <Button size="sm" onClick={openContactCapture} data-testid="network-quick-capture" data-draft={hasDraft || undefined}>
+        {hasDraft ? <PencilLine className="size-4" /> : <Plus className="size-4" />}
+        {label}
+      </Button>
+    </ShortcutTooltip>
   );
 }

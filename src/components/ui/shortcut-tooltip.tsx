@@ -3,7 +3,7 @@
 // Hover/focus tooltip that shows a control's label, its keyboard shortcut and optionally a short
 // hint explaining what the control does. Wrap any single focusable element (including Base UI
 // triggers rendered through `render`):
-//   <ShortcutTooltip label={t("today")} shortcut="T" hint={t("todayHint")}><Button …/></ShortcutTooltip>
+//   <ShortcutTooltip label={t("today")} shortcut="H" hint={t("todayHint")}><Button …/></ShortcutTooltip>
 // The shortcut itself is registered separately with useKeyboardShortcut.
 import { Fragment, useSyncExternalStore } from "react";
 import { useTranslations } from "next-intl";

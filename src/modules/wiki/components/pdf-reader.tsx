@@ -33,6 +33,7 @@ import {
   type PdfShortcutAction, type PdfShortcutBindings,
 } from "../lib/pdf-shortcuts";
 import { displayShortcut } from "../lib/shortcut-display";
+import { useIsMacPlatform } from "@/components/ui/shortcut-tooltip";
 import styles from "./pdf-reader.module.css";
 import {
   userMarkColorStyle,
@@ -77,7 +78,8 @@ export function PdfReader({
   // split the wiki shortcuts dialog uses.
   const shortcutActionLabel = (action: PdfShortcutAction) => t(`pdfShortcuts.actions.${action}`);
   const shortcutKeys = { ctrl: t("shortcuts.keys.ctrl"), delete: t("shortcuts.keys.delete") };
-  const showShortcut = (binding: string) => displayShortcut(binding, shortcutKeys);
+  const mac = useIsMacPlatform();
+  const showShortcut = (binding: string) => displayShortcut(binding, shortcutKeys, { mac });
   const pdfLoadFailedMessage = t("pdfLoadFailed");
   const { isFocused, handleFocusShortcut } = useFocusMode();
   const [showThumbnails, setShowThumbnails] = useState(true);

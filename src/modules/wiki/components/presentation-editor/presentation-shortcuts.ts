@@ -3,8 +3,11 @@
 import type { EditorSearchCommand } from "../editor-command-search";
 import type { PresentationShapeKind } from "../../lib/presentation";
 
-/** Single keys that start placing a new element, like the toolbar buttons do. */
-export const presentationToolKeys: Record<string, string> = { t: "addText", r: "addRect", o: "addEllipse", l: "addLine", f: "addFrame" };
+/**
+ * Single keys that start placing a new element, like the toolbar buttons do. German
+ * mnemonics: T Text, V Viereck (R is taken by Rahmen), E Ellipse, L Linie, R Rahmen.
+ */
+export const presentationToolKeys: Record<string, string> = { t: "addText", v: "addRect", e: "addEllipse", l: "addLine", r: "addFrame" };
 
 /**
  * Ctrl/Cmd+Shift+C and +V copy and paste an object's format, as in PowerPoint; Ctrl/Cmd+Alt+C
@@ -23,19 +26,22 @@ export function toolShortcut(event: KeyboardEvent): string | undefined {
   return presentationToolKeys[event.key.toLowerCase()];
 }
 
-export function presentationShortcutLabels(isMac: boolean): Record<string, string> {
-  const modifier = isMac ? "⌘" : "Ctrl", alt = isMac ? "⌥" : "Alt";
+/** Key words that differ by locale ("Strg"/"Ctrl", "Entf"/"Del", "Eingabe"/"Enter"); from messages. */
+export type PresentationKeyLabels = { ctrl: string; delete: string; enter: string };
+
+export function presentationShortcutLabels(isMac: boolean, keys: PresentationKeyLabels): Record<string, string> {
+  const modifier = isMac ? "⌘" : keys.ctrl, alt = isMac ? "⌥" : "Alt", shift = isMac ? "⇧" : "Shift";
   return {
     copy: `${modifier}+C`, cut: `${modifier}+X`, paste: `${modifier}+V`, duplicateSelection: `${modifier}+D`, selectAll: `${modifier}+A`,
-    group: `${modifier}+G`, ungroup: `${modifier}+Shift+G`, undo: `${modifier}+Z`, redo: `${modifier}+Shift+Z / ${modifier}+Y`, save: `${modifier}+S`,
-    deleteSelection: "Delete", editText: "Enter",
-    front: `${modifier}+Shift+] / ${modifier}+Shift+↑`, back: `${modifier}+Shift+[ / ${modifier}+Shift+↓`, forward: `${modifier}+]`, backward: `${modifier}+[`,
-    copyFormat: `${modifier}+Shift+C / ${modifier}+${alt}+C`, pasteFormat: `${modifier}+Shift+V / ${modifier}+${alt}+V`,
+    group: `${modifier}+G`, ungroup: `${modifier}+${shift}+G`, undo: `${modifier}+Z`, redo: `${modifier}+${shift}+Z / ${modifier}+Y`, save: `${modifier}+S`,
+    deleteSelection: isMac ? "⌫" : keys.delete, editText: keys.enter,
+    front: `${modifier}+${shift}+] / ${modifier}+${shift}+↑`, back: `${modifier}+${shift}+[ / ${modifier}+${shift}+↓`, forward: `${modifier}+]`, backward: `${modifier}+[`,
+    copyFormat: `${modifier}+${shift}+C / ${modifier}+${alt}+C`, pasteFormat: `${modifier}+${shift}+V / ${modifier}+${alt}+V`,
     ...Object.fromEntries(Object.entries(presentationToolKeys).map(([key, id]) => [id, key.toUpperCase()])),
   };
 }
 
-/** The shape tools behind R, O and L, listed with their keys in the shortcut help. */
+/** The shape tools behind V, E and L, listed with their keys in the shortcut help. */
 export function presentationShapeToolCommands({ addShape, label, disabledReason, group }: {
   addShape: (shape: PresentationShapeKind) => void; label: (shape: PresentationShapeKind) => string; disabledReason?: string; group: string;
 }): EditorSearchCommand[] {
@@ -50,5 +56,5 @@ export function withToolKey(label: string, id: string, labels: Record<string, st
 
 /** The key shown next to a shape in the "Einfügen" menu. */
 export function shapeToolKey(shape: PresentationShapeKind) {
-  return ({ rect: "R", ellipse: "O", line: "L" } as Partial<Record<PresentationShapeKind, string>>)[shape];
+  return ({ rect: "V", ellipse: "E", line: "L" } as Partial<Record<PresentationShapeKind, string>>)[shape];
 }

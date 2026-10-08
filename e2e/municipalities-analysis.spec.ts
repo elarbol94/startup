@@ -154,7 +154,9 @@ test("studio aliases, dimensions, notes, quick add, layout, and panels persist",
   await page.getByRole("button", { name: "Erstellen", exact: true }).click();
   await expect(page.getByTestId("municipality-analysis-editor")).toBeVisible();
 
-  await page.keyboard.press("ControlOrMeta+KeyK");
+  // Shift twice opens quick add (Ctrl/Cmd+K stays the app-wide search).
+  await page.keyboard.press("Shift");
+  await page.keyboard.press("Shift");
   await expect(page.getByTestId("analysis-quick-add")).toBeVisible();
   await page.getByPlaceholder("Bausteine durchsuchen").fill("Notiz");
   await page.getByPlaceholder("Bausteine durchsuchen").press("Enter");

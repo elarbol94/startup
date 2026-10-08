@@ -17,6 +17,9 @@ import { saveProjectLinks } from "@/modules/context/project-link-actions";
 import type { ProjectRefDto } from "@/modules/context/project-link-refs";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -67,6 +70,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
     });
     setDialogOpen(true);
   }
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.accounting.newCustomer, () => openDialog(null));
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -105,10 +109,12 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
         className="mb-0"
         title={t("customers")}
         actions={
-          <Button onClick={() => openDialog(null)}>
-            <Plus className="size-4" />
-            {t("newCustomer")}
-          </Button>
+          <ShortcutTooltip label={t("newCustomer")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.newCustomer}>
+            <Button onClick={() => openDialog(null)}>
+              <Plus className="size-4" />
+              {t("newCustomer")}
+            </Button>
+          </ShortcutTooltip>
         }
       />
 

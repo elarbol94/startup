@@ -8,6 +8,9 @@ import { Plus } from "lucide-react";
 import { invitePlatformUser } from "@/modules/settings/user-actions";
 import type { InviteUserInput } from "@/modules/settings/user-input";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -34,6 +37,8 @@ export function InviteUserDialog({ invitation }: { invitation?: InviteUserInput 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<InviteUserInput>(invitation ?? { email: "", role: "member" });
+  // N opens the main "invite" dialog; the per-invitation "resend" copies stay without a shortcut.
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.settings.create, () => setOpen(true), { enabled: !invitation });
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -69,10 +74,12 @@ export function InviteUserDialog({ invitation }: { invitation?: InviteUserInput 
       setError(null);
       setForm(invitation ?? { email: "", role: "member" });
     }}>
-      <DialogTrigger render={<Button size="sm" />}>
-        <Plus className="size-4" />
-        {t(invitation ? "resendInvitation" : "inviteUser")}
-      </DialogTrigger>
+      <ShortcutTooltip label={t("inviteUser")} shortcut={SECTION_PAGE_SHORTCUTS.settings.create} disabled={Boolean(invitation)}>
+        <DialogTrigger render={<Button size="sm" />}>
+          <Plus className="size-4" />
+          {t(invitation ? "resendInvitation" : "inviteUser")}
+        </DialogTrigger>
+      </ShortcutTooltip>
       <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-sm">
         <DialogHeader>
           <DialogTitle>{t(invitation ? "resendInvitation" : "inviteUser")}</DialogTitle>

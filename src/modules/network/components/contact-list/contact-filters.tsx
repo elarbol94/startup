@@ -7,6 +7,9 @@ import { useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { cn } from "@/lib/utils";
 import { contactClosenessLevels, contactRelationships } from "../../constants";
 import {
@@ -50,6 +53,10 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
 
   const searchInput = useRef<HTMLInputElement>(null);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.network.search, () => {
+    searchInput.current?.focus();
+    searchInput.current?.select();
+  });
 
   function cancelSearch() {
     if (searchTimer.current) clearTimeout(searchTimer.current);
@@ -94,7 +101,9 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-          <Input ref={searchInput} name="q" type="search" defaultValue={filter.query} placeholder={t("list.searchPlaceholder")} aria-label={t("list.search")} className="pl-8" />
+          <ShortcutTooltip label={t("list.search")} shortcut={SECTION_PAGE_SHORTCUTS.network.search}>
+            <Input ref={searchInput} name="q" type="search" defaultValue={filter.query} placeholder={t("list.searchPlaceholder")} aria-label={t("list.search")} className="pl-8" />
+          </ShortcutTooltip>
         </div>
         <Button type="submit" variant="outline">{t("list.search")}</Button>
       </div>

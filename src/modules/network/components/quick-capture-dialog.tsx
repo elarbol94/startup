@@ -16,7 +16,10 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { Textarea } from "@/components/ui/textarea";
+import { QUICK_CAPTURE_KEY_HINTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts, matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { quickCaptureContact } from "../contact-actions";
 import { leadKinds } from "../constants";
@@ -95,7 +98,16 @@ export function QuickCaptureDialog({
     <>
       <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
         <DialogContent className="sm:max-w-lg">
-          <form onSubmit={submit} className="space-y-4">
+          <form
+            onSubmit={submit}
+            onKeyDown={(event) => {
+              // Mod+Enter saves from any field; Enter alone keeps its meaning (new line, pick a tag).
+              if (event.defaultPrevented || event.nativeEvent.isComposing || !matchesShortcut(event, QUICK_CAPTURE_KEY_HINTS.save)) return;
+              event.preventDefault();
+              submit();
+            }}
+            className="space-y-4"
+          >
             <DialogHeader>
               <DialogTitle>{t("quick.title")}</DialogTitle>
               <DialogDescription>{t("quick.description")}</DialogDescription>
@@ -152,9 +164,6 @@ export function QuickCaptureDialog({
                 value={form.note}
                 placeholder={t("quick.notePlaceholder")}
                 onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) submit();
-                }}
               />
               <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("fields.kind")}>
                 {leadKinds.map((kind) => (
@@ -221,7 +230,9 @@ export function QuickCaptureDialog({
                 </Button>
               )}
               <Button type="button" variant="outline" onClick={onClose}>{t("quick.close")}</Button>
-              <Button type="submit" disabled={pending || !form.name.trim()}>{t("quick.save")}</Button>
+              <ShortcutTooltip label={t("quick.save")} shortcut={QUICK_CAPTURE_KEY_HINTS.save} hint={t("quick.saveShortcutHint")} side="top">
+                <Button type="submit" disabled={pending || !form.name.trim()} aria-keyshortcuts={ariaKeyShortcuts(QUICK_CAPTURE_KEY_HINTS.save)}>{t("quick.save")}</Button>
+              </ShortcutTooltip>
             </DialogFooter>
           </form>
         </DialogContent>

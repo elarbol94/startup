@@ -75,7 +75,11 @@ export function cycleTarget(order: readonly string[], step: number): string | nu
   return order[((step % order.length) + order.length) % order.length];
 }
 
-/** Alt+Q cycles tabs (Shift reverses); `code` is layout-independent (macOS Option+Q types "œ"). */
+/**
+ * Alt+Q (GLOBAL_SHORTCUTS.switchTab in lib/app-shortcuts.ts) cycles tabs (Shift reverses). Matched
+ * on `code` rather than through matchesShortcut because `code` is layout-independent (macOS
+ * Option+Q types "œ"); keep the two in sync if the binding ever changes.
+ */
 export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlKey" | "metaKey" | "code">): boolean {
   return event.altKey && !event.ctrlKey && !event.metaKey && event.code === "KeyQ";
 }

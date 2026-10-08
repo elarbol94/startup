@@ -21,8 +21,8 @@ import {
 } from "@xyflow/react";
 import {
   BarChart3, Loader2, MapPin, Maximize2, Menu,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Pencil, Plus,
-  Redo2, Save, SlidersHorizontal, Trash2, Undo2,
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Pencil,
+  Save, SlidersHorizontal, Trash2,
   WandSparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -65,6 +65,7 @@ import { AnalysisInspectorPanel } from "./analysis-inspector-panel";
 import { analysisOptionLabel, datasetTitle } from "./analysis-labels";
 import { edgeTypes, nodeTypes } from "./analysis-node-card";
 import { AnalysisQuickAddDialog } from "./analysis-quick-add-dialog";
+import { AnalysisHistoryButtons, AnalysisQuickAddButton } from "./analysis-toolbar-buttons";
 import { MunicipalityPicker } from "./municipality-picker";
 import { StudioPalette } from "./studio-palette";
 import { useAnalysisDisplayGraph } from "./use-analysis-display-graph";
@@ -595,7 +596,7 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
   );
 
   return (
-    <div className="flex min-h-[42rem] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm lg:h-[calc(100vh-10.5rem)]" data-analysis-editor data-testid="municipality-analysis-editor">
+    <div className="flex min-h-[42rem] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm lg:h-[calc(100vh-10.5rem)]" data-analysis-editor data-owns-double-shift data-testid="municipality-analysis-editor">
       <header className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
         <select id="analysis-switcher" className="h-8 max-w-52 rounded-lg border bg-background px-2 text-xs" value={analysis.id} aria-label={t("savedAnalyses")} onChange={(event) => router.push(`/municipalities/analysis?analysis=${encodeURIComponent(event.target.value)}`)}>
           {analyses.map((item) => <option key={item.id} value={item.id}>{analysisOptionLabel(item, t)}</option>)}
@@ -630,10 +631,9 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
         <section className="flex min-w-0 flex-1 flex-col bg-muted/20">
           <div className="flex flex-wrap items-center gap-1 border-b bg-background px-2 py-1.5">
             <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setPaletteSheetOpen(true)}><Menu className="size-3.5" />{t("studioLibrary")}</Button>
-            <Button variant="outline" size="sm" onClick={() => setQuickAddOpen(true)}><Plus className="size-3.5" />{t("studioQuickAdd")}<span className="ml-2 hidden rounded border px-1 text-[9px] text-muted-foreground sm:inline">⇧ ⇧ · Ctrl/⌘K</span></Button>
+            <AnalysisQuickAddButton onOpen={() => setQuickAddOpen(true)} />
             <span className="mx-1 h-5 w-px bg-border" />
-            <Button variant="ghost" size="icon-sm" aria-label={t("analysisUndo")} title={t("analysisUndo")} disabled={!historyDepth.undo} onClick={undoLastEdit}><Undo2 className="size-3.5" /></Button>
-            <Button variant="ghost" size="icon-sm" aria-label={t("studioRedo")} title={t("studioRedo")} disabled={!historyDepth.redo} onClick={redoLastEdit}><Redo2 className="size-3.5" /></Button>
+            <AnalysisHistoryButtons canUndo={historyDepth.undo > 0} canRedo={historyDepth.redo > 0} onUndo={undoLastEdit} onRedo={redoLastEdit} />
             <Button variant="ghost" size="sm" onClick={autoLayout}><WandSparkles className="size-3.5" />{t("studioAutoLayout")}</Button>
             <Button variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.2, duration: 250 })}><Maximize2 className="size-3.5" />{t("studioFit")}</Button>
             {selectedNodeIds.length > 1 && <span className="ml-auto rounded-full bg-teal-100 px-2 py-1 text-[10px] font-medium text-teal-800 dark:bg-teal-950 dark:text-teal-200">{t("studioSelectionCount", { count: selectedNodeIds.length })}</span>}

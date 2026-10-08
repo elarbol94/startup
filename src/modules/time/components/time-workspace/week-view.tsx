@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { AlertTriangle, ChevronLeft, ChevronRight, Hand, Plus, Timer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { addDays } from "@/modules/calendar/date-utils";
 import { entryNetMinutes, type DaySummary } from "../../lib/balance";
 import type { TimeEntryView } from "../../queries";
@@ -31,6 +35,12 @@ export function WeekView({
   const locale = useLocale();
   const byDate = new Map<string, TimeEntryView[]>();
   for (const entry of entries) byDate.set(entry.workDate, [...(byDate.get(entry.workDate) ?? []), entry]);
+  const router = useRouter();
+  const createEntry = () => onCreate(weekStart <= today && today < addDays(weekStart, 7) ? today : weekStart);
+  useKeyboardShortcuts([
+    { shortcut: SECTION_PAGE_SHORTCUTS.time.newEntry, handler: createEntry },
+    { shortcut: SECTION_PAGE_SHORTCUTS.time.today, handler: () => router.push(timeHref({})) },
+  ]);
 
   return (
     <section className="rounded-2xl border bg-card shadow-sm">
@@ -40,16 +50,20 @@ export function WeekView({
           <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.previous")} render={<Link href={timeHref({ week: addDays(weekStart, -7) })} />}>
             <ChevronLeft className="size-4" />
           </Button>
-          <Button variant="outline" nativeButton={false} render={<Link href={timeHref({})} />}>
-            {t("week.today")}
-          </Button>
+          <ShortcutTooltip label={t("week.today")} shortcut={SECTION_PAGE_SHORTCUTS.time.today}>
+            <Button variant="outline" nativeButton={false} render={<Link href={timeHref({})} />}>
+              {t("week.today")}
+            </Button>
+          </ShortcutTooltip>
           <Button variant="outline" size="icon" nativeButton={false} aria-label={t("week.next")} render={<Link href={timeHref({ week: addDays(weekStart, 7) })} />}>
             <ChevronRight className="size-4" />
           </Button>
-          <Button onClick={() => onCreate(weekStart <= today && today < addDays(weekStart, 7) ? today : weekStart)}>
-            <Plus className="size-4" />
-            {t("week.addEntry")}
-          </Button>
+          <ShortcutTooltip label={t("week.addEntry")} shortcut={SECTION_PAGE_SHORTCUTS.time.newEntry}>
+            <Button onClick={createEntry}>
+              <Plus className="size-4" />
+              {t("week.addEntry")}
+            </Button>
+          </ShortcutTooltip>
         </div>
       </header>
       <ol className="divide-y">

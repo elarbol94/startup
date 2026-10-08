@@ -12,6 +12,9 @@ import type { EntryFilters, EntryRow } from "@/modules/accounting/queries";
 import type { categories as categoriesTable } from "@/modules/accounting/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import {
   Select,
   SelectContent,
@@ -70,6 +73,11 @@ export function LedgerClient({
   const [dialogEntry, setDialogEntry] = useState<EntryRow | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  function openNewEntry() {
+    setDialogEntry(null);
+    setDialogOpen(true);
+  }
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.accounting.newEntry, openNewEntry);
 
   function setParam(key: string, value: string | null | undefined) {
     const params = new URLSearchParams(searchParams.toString());
@@ -213,16 +221,12 @@ export function LedgerClient({
               <Download className="size-4" />
               {t("exportCsv")}
             </Button>
-            <Button
-              size="sm"
-              onClick={() => {
-                setDialogEntry(null);
-                setDialogOpen(true);
-              }}
-            >
-              <Plus className="size-4" />
-              {t("newEntry")}
-            </Button>
+            <ShortcutTooltip label={t("newEntry")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.newEntry}>
+              <Button size="sm" onClick={openNewEntry}>
+                <Plus className="size-4" />
+                {t("newEntry")}
+              </Button>
+            </ShortcutTooltip>
           </div>
         </div>
       </section>

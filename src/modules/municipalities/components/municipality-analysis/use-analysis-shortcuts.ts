@@ -1,7 +1,8 @@
 "use client";
 
-// Keyboard shortcuts of the analysis editor: Ctrl/Cmd+Z undo/redo, and double Shift or Ctrl/Cmd+K to open
-// quick add, whose open state this hook owns. Used by analysis-editor.tsx.
+// Keyboard shortcuts of the analysis editor: Ctrl/Cmd+Z undo, Ctrl/Cmd+Shift+Z redo, and double Shift to
+// open quick add, whose open state this hook owns. Used by analysis-editor.tsx; the toolbar shows them
+// (analysis-toolbar-buttons.tsx, keys in MUNICIPALITY_ANALYSIS_KEY_HINTS).
 import { useEffect, useState } from "react";
 
 export function useAnalysisShortcuts({
@@ -28,6 +29,7 @@ export function useAnalysisShortcuts({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [redoLastEdit, undoLastEdit]);
 
+  // Shift twice opens quick add, like the wiki's command search. Ctrl/Cmd+K stays the app-wide search.
   useEffect(() => {
     let lastShift = 0;
     let shiftOnly = false;
@@ -36,8 +38,6 @@ export function useAnalysisShortcuts({
       if (editable(event)) { lastShift = 0; shiftOnly = false; return; }
       if (event.key === "Shift" && !event.repeat && !event.ctrlKey && !event.metaKey && !event.altKey) { shiftOnly = true; return; }
       shiftOnly = false; lastShift = 0;
-      if (event.key.toLowerCase() !== "k" || !(event.metaKey || event.ctrlKey)) return;
-      event.preventDefault(); event.stopImmediatePropagation(); setQuickAddOpen(true);
     };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key !== "Shift" || !shiftOnly || editable(event)) return;
@@ -46,9 +46,9 @@ export function useAnalysisShortcuts({
       if (lastShift && now - lastShift < 450) { lastShift = 0; setQuickAddOpen(true); }
       else lastShift = now;
     };
-    window.addEventListener("keydown", onKeyDown, { capture: true });
+    window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
-    return () => { window.removeEventListener("keydown", onKeyDown, { capture: true }); window.removeEventListener("keyup", onKeyUp); };
+    return () => { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); };
   }, []);
 
   return { quickAddOpen, setQuickAddOpen };

@@ -136,7 +136,9 @@ test("calendar quick-creates from a slot, undoes moves and follows shortcuts", a
   await page.locator("body").click({ position: { x: 5, y: 5 } });
   await page.keyboard.press("m");
   await expect(page).toHaveURL(/view=month/);
-  await page.keyboard.press("d");
+  await page.keyboard.press("Shift+W");
+  await expect(page).toHaveURL(/view=workweek/);
+  await page.keyboard.press("t");
   await expect(page).toHaveURL(/view=day/);
   await expect(page.getByTestId("calendar-week-scroll")).toBeVisible();
 });

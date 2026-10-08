@@ -67,10 +67,12 @@ export function WikiNavigation({ userId, children }: { userId: string; children:
       window.dispatchEvent(new Event("wiki-preference"));
     } catch { /* Navigation works without storage. */ }
   }, [pathname, userId]);
+  // Pages that use double Shift themselves (the municipality analysis editor's quick add) mark
+  // their root with data-owns-double-shift; app navigation then stays out of their way.
   useEffect(() => {
     const detector = createDoubleShiftDetector();
     const handle = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || (event.target as HTMLElement)?.closest?.("[data-wiki-command-scope], input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], [data-shortcut-recorder]") || document.querySelector('[aria-modal="true"]')) { detector.reset(); return; }
+      if (event.defaultPrevented || (event.target as HTMLElement)?.closest?.("[data-wiki-command-scope], input, textarea, select, [contenteditable=true], [role=dialog], [role=menu], [data-shortcut-recorder]") || document.querySelector('[aria-modal="true"], [data-owns-double-shift]')) { detector.reset(); return; }
       if (detector.handle(event, performance.now())) { event.preventDefault(); openSearch(); }
     };
     window.addEventListener("keydown", handle, true);

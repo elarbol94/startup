@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
-import { CALENDAR_PAGE_SHORTCUTS as KEYS } from "./use-calendar-shortcuts";
+import { CALENDAR_PAGE_SHORTCUTS as KEYS } from "@/lib/app-shortcuts";
 
 const GLYPHS: Record<string, string> = { ArrowLeft: "←", ArrowRight: "→", Escape: "Esc", Enter: "↵" };
 
@@ -30,15 +30,15 @@ type Label = Parameters<ReturnType<typeof useTranslations<"calendar">>>[0];
 
 const LIST: { label: Label; shortcuts: string[] }[] = [
   { label: "shortcutToday", shortcuts: [KEYS.today] },
-  { label: "shortcutPrevious", shortcuts: [KEYS.previous, KEYS.previousAlt] },
-  { label: "shortcutNext", shortcuts: [KEYS.next, KEYS.nextAlt] },
+  { label: "shortcutPrevious", shortcuts: [KEYS.previous] },
+  { label: "shortcutNext", shortcuts: [KEYS.next] },
   { label: "shortcutDayView", shortcuts: [KEYS.day] },
   { label: "shortcutWorkweekView", shortcuts: [KEYS.workweek] },
   { label: "shortcutWeekView", shortcuts: [KEYS.week] },
   { label: "shortcutMonthView", shortcuts: [KEYS.month] },
   { label: "shortcutAgendaView", shortcuts: [KEYS.agenda] },
   { label: "shortcutTeamView", shortcuts: [KEYS.team] },
-  { label: "shortcutNewEvent", shortcuts: [KEYS.newEvent, KEYS.newEventAlt] },
+  { label: "shortcutNewEvent", shortcuts: [KEYS.newEvent] },
   { label: "shortcutSearch", shortcuts: [KEYS.search] },
   { label: "shortcutDeselect", shortcuts: [KEYS.deselect] },
   { label: "shortcutUndo", shortcuts: [KEYS.undo] },

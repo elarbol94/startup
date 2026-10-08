@@ -30,6 +30,7 @@ import { Input } from "@/components/ui/input";
 import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { PROJECTS_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import {
   Select,
   SelectContent,
@@ -188,7 +189,7 @@ export function TimelineToolbar({
               role="combobox"
               aria-expanded={Boolean(query.trim())}
               aria-controls="schedule-search-results"
-              aria-keyshortcuts="/"
+              aria-keyshortcuts={ariaKeyShortcuts(PROJECTS_PAGE_SHORTCUTS.search)}
             />
             </ShortcutTooltip>
             {query.trim() && (

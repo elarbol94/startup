@@ -22,10 +22,14 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useFocusMode } from "@/components/focus-mode";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 import { searchResearch } from "../research-actions";
 import { useQuickNoteCreator } from "./use-quick-note-creator";
 import { SearchSnippet } from "./search-snippet";
+import { WIKI_SHORTCUTS } from "../lib/wiki-shortcuts";
 import { useWikiLocalSetting, useWikiNavigation } from "./wiki-navigation";
 
 type SearchResults = Awaited<ReturnType<typeof searchResearch>>;
@@ -131,25 +135,22 @@ export function ResearchSidebar({
   const mobileSearchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    // A modifier shortcut, so it also works while writing; yields to editors that handled it.
     function shortcut(event: KeyboardEvent) {
-      if ((event.ctrlKey || event.metaKey) && event.shiftKey && event.key.toLowerCase() === "n") {
-        event.preventDefault();
-        void createNote();
-        return;
-      }
-      // Ctrl/Cmd+K focuses search from anywhere, the one binding every tool has and
-      // this one lacked.
-      if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "k") {
-        const target = desktopSearchRef.current ?? mobileSearchRef.current;
-        if (!target) return;
-        event.preventDefault();
-        target.focus();
-        target.select();
-      }
+      if (event.defaultPrevented || event.repeat || !matchesShortcut(event, WIKI_SHORTCUTS.quickNote)) return;
+      event.preventDefault();
+      void createNote();
     }
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);
   }, [createNote]);
+  // "/" focuses the research search; useKeyboardShortcut ignores it while typing.
+  useKeyboardShortcut(WIKI_SHORTCUTS.search, () => {
+    const target = desktopSearchRef.current ?? mobileSearchRef.current;
+    if (!target) return;
+    target.focus();
+    target.select();
+  });
 
   useEffect(() => () => {
     searchRequest.current += 1;
@@ -307,17 +308,18 @@ export function ResearchSidebar({
                 <p className="truncate text-[11px] text-muted-foreground">{t("sharedKnowledge")}</p>
             </div>
             {(!compact || sheet) && (
-              <Button
-                type="button"
-                variant={compact ? "ghost" : "default"}
-                size="icon-sm"
-                onClick={createNote}
-                disabled={creating}
-                aria-label={t("quickNote")}
-                title={t("quickNote")}
-              >
-                <Plus className="size-4" />
-              </Button>
+              <ShortcutTooltip label={t("quickNote")} shortcut={WIKI_SHORTCUTS.quickNote}>
+                <Button
+                  type="button"
+                  variant={compact ? "ghost" : "default"}
+                  size="icon-sm"
+                  onClick={createNote}
+                  disabled={creating}
+                  aria-label={t("quickNote")}
+                >
+                  <Plus className="size-4" />
+                </Button>
+              </ShortcutTooltip>
             )}
             {sheet && (
               <SheetClose render={<Button type="button" variant="ghost" size="icon-sm" aria-label={t("closeResearchNavigation")} />}>
@@ -411,9 +413,11 @@ export function ResearchSidebar({
           <p className="truncate text-sm font-semibold">{t("researchWorkspace")}</p>
           <p className="truncate text-[11px] text-muted-foreground">{t("sharedKnowledge")}</p>
         </div>
-        <Button type="button" size="icon-sm" onClick={createNote} disabled={creating} aria-label={t("quickNote")} title={t("quickNote")}>
-          <Plus className="size-4" />
-        </Button>
+        <ShortcutTooltip label={t("quickNote")} shortcut={WIKI_SHORTCUTS.quickNote}>
+          <Button type="button" size="icon-sm" onClick={createNote} disabled={creating} aria-label={t("quickNote")}>
+            <Plus className="size-4" />
+          </Button>
+        </ShortcutTooltip>
       </header>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>

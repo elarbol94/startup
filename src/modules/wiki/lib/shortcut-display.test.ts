@@ -19,6 +19,14 @@ describe("displayShortcut", () => {
     }
   });
 
+  it("shows ⌘ ⌥ ⇧ on macOS", () => {
+    expect(displayShortcut("Ctrl+Alt+B", de, { mac: true })).toBe("⌘⌥B");
+    expect(displayShortcut("Ctrl+Shift+F", en, { mac: true })).toBe("⌘⇧F");
+    expect(displayShortcut("Ctrl++", de, { mac: true })).toBe("⌘+");
+    expect(displayShortcut("Ctrl++", de)).toBe("Strg++");
+    expect(displayShortcut("", de)).toBe("");
+  });
+
   it("leaves other keys untouched", () => {
     expect(displayShortcut("Ctrl+Shift+F", en)).toBe("Ctrl+Shift+F");
     expect(displayShortcut("Shift+Tab", en)).toBe("Shift+Tab");

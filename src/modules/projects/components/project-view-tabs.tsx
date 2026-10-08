@@ -9,6 +9,7 @@ import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { PROJECT_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
+import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
 
 export type ProjectView = "tasks" | "knowledge" | "activity";
@@ -38,7 +39,7 @@ export function ProjectViewTabs({ projectId, view }: { projectId: string; view: 
           <Link
             href={tab.href}
             aria-current={view === tab.id ? "page" : undefined}
-            aria-keyshortcuts={tab.shortcut}
+            aria-keyshortcuts={ariaKeyShortcuts(tab.shortcut)}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
               view === tab.id

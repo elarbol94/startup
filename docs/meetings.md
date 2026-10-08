@@ -1,6 +1,6 @@
 # Meetings: recordings and AI protocols
 
-The **Besprechungen** module (`/meetings`, shortcut `G B`) turns a meeting
+The **Besprechungen** module (`/meetings`, shortcut `G S`) turns a meeting
 recording into a reviewed protocol: upload or online call → transcript → AI
 draft → review → approval → action items become tasks. Recordings come from
 uploads (phone, laptop, in-person meeting) or from online calls in the

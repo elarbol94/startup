@@ -138,8 +138,8 @@ test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arro
   expect({ x: after.x, y: after.y }).toEqual({ x: before.x, y: before.y });
   await node(page, "a").click({ button: "right" });
   const menu = page.getByRole("menu");
-  await expect(menu.getByRole("menuitem", { name: /Format kopieren/ })).toContainText("Ctrl+Alt+C");
-  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Ctrl+Shift+↑");
+  await expect(menu.getByRole("menuitem", { name: /Format kopieren/ })).toContainText("Strg+Alt+C");
+  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+↑");
 });
 
 test("file pickers are styled and labelled in German", async ({ page }) => {
@@ -156,29 +156,29 @@ test("file pickers are styled and labelled in German", async ({ page }) => {
   await expect(input).toHaveClass(/sr-only/);
 });
 
-test("T, R, O, L and F start placement but not while editing text", async ({ page }) => {
+test("T, V, E, L and R (German mnemonics) start placement but not while editing text", async ({ page }) => {
   const id = await seedPresentation(page);
   await canvas(page).focus();
-  for (const key of ["t", "o", "l", "f"]) {
+  for (const key of ["t", "e", "l", "r"]) {
     await page.keyboard.press(key); await expect(preview(page)).toBeAttached();
     await page.keyboard.press("Escape"); await expect(preview(page)).toHaveCount(0);
   }
-  await page.keyboard.press("r"); await expect(preview(page)).toBeAttached();
+  await page.keyboard.press("v"); await expect(preview(page)).toBeAttached();
   await page.keyboard.press("Enter"); await expect(preview(page)).toHaveCount(0);
   await expect.poll(async () => (await saved(page, id)).elements.filter((e: { type: string; content: { shape?: string } }) => e.type === "shape" && e.content.shape === "rect").length).toBe(1);
   await expect(page.getByRole("button", { name: "Text", exact: true })).toHaveAttribute("title", "Text (T)");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await expect(page.getByRole("menuitem", { name: /Rechteck/ }).first()).toContainText("R");
+  await expect(page.getByRole("menuitem", { name: /Rechteck/ }).first()).toContainText("V");
   await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
   // Letters typed right after Enter go into the text, not to the tools.
   await node(page, "b").click(); await canvas(page).focus();
-  await page.keyboard.press("Enter"); await page.keyboard.type("trolf");
+  await page.keyboard.press("Enter"); await page.keyboard.type("tvelr");
   await expect(preview(page)).toHaveCount(0);
-  await expect(node(page, "b")).toContainText("trolf");
+  await expect(node(page, "b")).toContainText("tvelr");
   await page.keyboard.press("Escape");
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Tastenkürzel" }).click();
   const help = page.getByRole("dialog");
-  for (const [label, key] of [["Rechteck", "R"], ["Ellipse", "O"], ["Linie", "L"], ["Rahmen", "F"], ["Text", "T"]]) await expect(help.locator("div.justify-between").filter({ has: page.locator("span").getByText(label, { exact: true }) }).locator("kbd")).toHaveText(key);
+  for (const [label, key] of [["Rechteck", "V"], ["Ellipse", "E"], ["Linie", "L"], ["Rahmen", "R"], ["Text", "T"]]) await expect(help.locator("div.justify-between").filter({ has: page.locator("span").getByText(label, { exact: true }) }).locator("kbd")).toHaveText(key);
 });

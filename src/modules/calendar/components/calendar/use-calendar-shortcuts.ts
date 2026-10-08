@@ -4,29 +4,11 @@
 // listener (components/use-keyboard-shortcut.ts), which already ignores key presses while
 // typing, inside dialogs/menus and with unexpected modifiers. Single keys never clash with the
 // global "G <key>" navigation sequences because a pending sequence is resolved first.
-// Used by calendar-client.tsx; the help list is calendar-shortcuts-help.tsx.
+// The keys live in lib/app-shortcuts.ts (CALENDAR_PAGE_SHORTCUTS). Used by calendar-client.tsx;
+// the help list is calendar-shortcuts-help.tsx.
 import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
+import { CALENDAR_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import type { CalendarView } from "../../types";
-
-export const CALENDAR_PAGE_SHORTCUTS = {
-  today: "T",
-  previous: "ArrowLeft",
-  next: "ArrowRight",
-  previousAlt: "K",
-  nextAlt: "J",
-  day: "D",
-  workweek: "X",
-  week: "W",
-  month: "M",
-  agenda: "A",
-  team: "E",
-  newEvent: "N",
-  newEventAlt: "C",
-  search: "/",
-  deselect: "Escape",
-  undo: "Mod+Z",
-  help: "?",
-} as const;
 
 export const CALENDAR_VIEW_SHORTCUTS: Record<CalendarView, string> = {
   day: CALENDAR_PAGE_SHORTCUTS.day,
@@ -80,14 +62,11 @@ export function useCalendarShortcuts({
       { shortcut: keys.today, handler: goToday },
       { shortcut: keys.previous, handler: () => movePeriod(-1) },
       { shortcut: keys.next, handler: () => movePeriod(1) },
-      { shortcut: keys.previousAlt, handler: () => movePeriod(-1) },
-      { shortcut: keys.nextAlt, handler: () => movePeriod(1) },
       ...(Object.entries(CALENDAR_VIEW_SHORTCUTS) as [CalendarView, string][]).map(([view, shortcut]) => ({
         shortcut,
         handler: () => setView(view),
       })),
       { shortcut: keys.newEvent, handler: newEvent },
-      { shortcut: keys.newEventAlt, handler: newEvent },
       { shortcut: keys.search, handler: focusSearch },
       { shortcut: keys.help, handler: toggleHelp },
     ],

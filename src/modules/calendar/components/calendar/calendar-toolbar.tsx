@@ -17,7 +17,8 @@ import {
   type FilterState,
 } from "./calendar-types";
 import { CalendarShortcutKeys, CalendarShortcutsHelp } from "./calendar-shortcuts-help";
-import { CALENDAR_PAGE_SHORTCUTS as KEYS, CALENDAR_VIEW_SHORTCUTS } from "./use-calendar-shortcuts";
+import { CALENDAR_PAGE_SHORTCUTS as KEYS } from "@/lib/app-shortcuts";
+import { CALENDAR_VIEW_SHORTCUTS } from "./use-calendar-shortcuts";
 
 const VIEW_HINTS = {
   day: "hintViewDay",
@@ -70,7 +71,7 @@ export function CalendarToolbar({
       <h1 className="mt-1 text-2xl font-semibold tracking-tight sm:text-3xl">{periodLabel}</h1>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-h-11 items-center rounded-lg border bg-background p-0.5">
-          <ShortcutTooltip label={t("previous")} keys={<CalendarShortcutKeys shortcuts={[KEYS.previous, KEYS.previousAlt]} />} hint={t("hintPrevious")}>
+          <ShortcutTooltip label={t("previous")} keys={<CalendarShortcutKeys shortcuts={[KEYS.previous]} />} hint={t("hintPrevious")}>
             <Button variant="ghost" size="icon-sm" aria-label={t("previous")} onClick={() => movePeriod(-1)}>
               <ArrowLeft />
             </Button>
@@ -80,7 +81,7 @@ export function CalendarToolbar({
               {t("today")}
             </Button>
           </ShortcutTooltip>
-          <ShortcutTooltip label={t("next")} keys={<CalendarShortcutKeys shortcuts={[KEYS.next, KEYS.nextAlt]} />} hint={t("hintNext")}>
+          <ShortcutTooltip label={t("next")} keys={<CalendarShortcutKeys shortcuts={[KEYS.next]} />} hint={t("hintNext")}>
             <Button variant="ghost" size="icon-sm" aria-label={t("next")} onClick={() => movePeriod(1)}>
               <ArrowRight />
             </Button>
@@ -145,7 +146,7 @@ export function CalendarToolbar({
           </Button>
         </ShortcutTooltip>
         <CalendarShortcutsHelp open={helpOpen} onOpenChange={setHelpOpen} t={t} />
-        <ShortcutTooltip label={t("newEvent")} keys={<CalendarShortcutKeys shortcuts={[KEYS.newEvent, KEYS.newEventAlt]} />} hint={t("hintNewEvent")}>
+        <ShortcutTooltip label={t("newEvent")} shortcut={KEYS.newEvent} hint={t("hintNewEvent")}>
           <Button className="h-11 px-3" onClick={() => openNewEvent()} disabled={!defaultCalendarId} aria-label={t("newEvent")}>
             <Plus />
             <span className="hidden sm:inline">{t("newEvent")}</span>

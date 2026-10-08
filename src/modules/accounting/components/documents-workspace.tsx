@@ -4,11 +4,11 @@ import { getLocale, getTranslations } from "next-intl/server";
 import {
   ArrowRight,
   Paperclip,
-  Plus,
   Upload,
   Users,
 } from "@/components/server-safe-icons";
 import { PageHeader } from "@/components/page-header";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { requireUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
 import { toLocalIsoDate } from "@/modules/accounting/lib/date";
@@ -21,6 +21,7 @@ import {
   receiptDocumentCount,
 } from "@/modules/accounting/queries";
 import { Button } from "@/components/ui/button";
+import { CreateShortcutLink } from "./create-shortcut-link";
 import { InvoiceList, OverdueFilterTile } from "./invoice-list";
 import { linkedProjectsFor } from "@/modules/context/project-link-refs";
 import { ReceiptArchiveList } from "./receipt-archive-list";
@@ -71,13 +72,7 @@ export async function DocumentsWorkspace({
               <Upload className="size-4" />
               {t("captureReceipt")}
             </Button>
-            <Button
-              nativeButton={false}
-              render={<Link href="/accounting/invoices/new" />}
-            >
-              <Plus className="size-4" />
-              {tInvoices("newInvoice")}
-            </Button>
+            <CreateShortcutLink href="/accounting/invoices/new" label={tInvoices("newInvoice")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.newInvoice} />
           </>
         }
       />

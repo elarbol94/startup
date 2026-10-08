@@ -10,6 +10,9 @@ import { FundingProjectDialog } from "./project-dialog";
 import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
@@ -30,6 +33,7 @@ export function FundingProjectsClient({
   const t = useTranslations("fundingProjects");
   const locale = useLocale();
   const [dialogOpen, setDialogOpen] = useState(false);
+  useKeyboardShortcut(SECTION_PAGE_SHORTCUTS.funding.newProject, () => setDialogOpen(true));
   const totals = useMemo(
     () =>
       projects.reduce(
@@ -50,10 +54,12 @@ export function FundingProjectsClient({
         title={t("title")}
         description={t("subtitle")}
         actions={
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="size-4" />
-            {t("newProject")}
-          </Button>
+          <ShortcutTooltip label={t("newProject")} shortcut={SECTION_PAGE_SHORTCUTS.funding.newProject}>
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="size-4" />
+              {t("newProject")}
+            </Button>
+          </ShortcutTooltip>
         }
       />
 
