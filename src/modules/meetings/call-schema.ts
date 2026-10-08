@@ -27,6 +27,9 @@ export const meetingCallSessions = sqliteTable(
     startedAt: createdAt(),
     endedAt: integer("ended_at", { mode: "timestamp_ms" }),
     endReason: text("end_reason").notNull().default(""),
+    /** Set once the LiveKit room is gone (or given up on); until then the reconciler retries closing it. */
+    roomClosedAt: integer("room_closed_at", { mode: "timestamp_ms" }),
+    roomCloseAttempts: integer("room_close_attempts").notNull().default(0),
   },
   (table) => [index("meeting_call_sessions_meeting_idx").on(table.meetingId, table.status)],
 );

@@ -18,10 +18,12 @@ const mocks = await vi.hoisted(async () => {
     callRoomExists: vi.fn(),
     listCallParticipants: vi.fn(),
     listRoomEgress: vi.fn(),
+    probeCallRoom: vi.fn(),
+    revalidatePath: vi.fn(),
   };
 });
 vi.mock("server-only", () => ({}));
-vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }));
 vi.mock("@/lib/auth", () => ({ requireUserOrThrow: mocks.requireUserOrThrow }));
 vi.mock("./livekit", async (original) => ({
   ...(await original<typeof import("./livekit")>()),
@@ -32,6 +34,7 @@ vi.mock("./livekit", async (original) => ({
   callRoomExists: mocks.callRoomExists,
   listCallParticipants: mocks.listCallParticipants,
   listRoomEgress: mocks.listRoomEgress,
+  probeCallRoom: mocks.probeCallRoom,
 }));
 vi.mock("@/db", async () => {
   const { default: Database } = await import("better-sqlite3");
@@ -51,7 +54,10 @@ import { endCall, joinCall, startCall } from "../call-actions";
 import { setMeetingAccess } from "../meeting-actions";
 import { meetingCallSessions, meetingEgressAttempts, meetingJobs, meetingRecordings } from "../schema";
 import { host, member, outsider, resetDatabase, seedMeeting } from "../test-helpers";
-import { EMPTY_CALL_MS, ensureTrackRecording, reconcileCalls, syncEgress } from "./recording";
+import { DEAD_ROOM_CHECKS, EMPTY_CALL_MS, MAX_ROOM_CLOSE_ATTEMPTS, MAX_TRACK_ATTEMPTS, ensureTrackRecording, reconcileCalls, syncEgress } from "./recording";
+
+/** What LiveKit answers for a room whose node is gone. */
+const unavailable = () => Object.assign(new Error("no response from servers"), { code: "unavailable", status: 503 });
 
 const as = (viewer: { id: string; role: string }) => mocks.requireUserOrThrow.mockResolvedValue({ ...viewer, name: viewer.id });
 const session = () => db.select().from(meetingCallSessions).get()!;
@@ -61,6 +67,8 @@ let meetingId: string;
 beforeEach(() => {
   resetDatabase();
   vi.clearAllMocks();
+  for (const mock of [mocks.deleteCallRoom, mocks.probeCallRoom, mocks.stopRecording]) mock.mockReset();
+  vi.spyOn(console, "error").mockImplementation(() => {});
   meetingId = seedMeeting({ members: [[host.id, "host"], [member.id, "participant"], [outsider.id, "viewer"]] }).id;
   as(host);
   mocks.callRoomExists.mockResolvedValue(true);
@@ -106,6 +114,15 @@ describe("admission", () => {
     expect(await setMeetingAccess({ meetingId, members: [{ userId: host.id, role: "host" }] })).toEqual({ ok: true });
     expect(session()).toMatchObject({ status: "ended", endReason: "accessChanged" });
     expect(mocks.deleteCallRoom).toHaveBeenCalled();
+  });
+
+  it("ends the call when someone is demoted to viewer", async () => {
+    await startCall({ meetingId, record: false });
+    const members = [{ userId: host.id, role: "host" as const }, { userId: member.id, role: "participant" as const }, { userId: outsider.id, role: "viewer" as const }];
+    expect(await setMeetingAccess({ meetingId, members })).toEqual({ ok: true });
+    expect(session().status).toBe("open");
+    expect(await setMeetingAccess({ meetingId, members: members.map((row) => row.userId === member.id ? { ...row, role: "viewer" as const } : row) })).toEqual({ ok: true });
+    expect(session()).toMatchObject({ status: "ended", endReason: "accessChanged" });
   });
 
   it("only lets hosts or the starter end a call", async () => {
@@ -154,6 +171,14 @@ describe("recording", () => {
     expect(db.select().from(meetingEgressAttempts).where(eq(meetingEgressAttempts.id, first.id)).get()!.state).toBe("duplicate_stopped");
   });
 
+  it("stops restarting a track whose recorder keeps failing", async () => {
+    const { identity } = await recordedCallWithMember();
+    mocks.startTrackRecording.mockRejectedValue(new Error("invalid request"));
+    for (let i = 0; i < MAX_TRACK_ATTEMPTS + 2; i++) await ensureTrackRecording(session(), identity, "TR_1");
+    expect(mocks.startTrackRecording).toHaveBeenCalledTimes(MAX_TRACK_ATTEMPTS);
+    expect(attempts().every((attempt) => attempt.state === "failed")).toBe(true);
+  });
+
   it("takes a finished recording into the store as the speaker's own track", async () => {
     const { identity } = await recordedCallWithMember();
     await ensureTrackRecording(session(), identity, "TR_1");
@@ -190,5 +215,78 @@ describe("ending empty calls", () => {
     await reconcileCalls(start + 2 * EMPTY_CALL_MS + 1);
     expect(session()).toMatchObject({ status: "ended", endReason: "empty" });
     expect(mocks.deleteCallRoom).toHaveBeenCalled();
+  });
+});
+
+describe("dead rooms", () => {
+  it("ends a call whose room only lists recorders and whose node does not answer", async () => {
+    await recordedCallWithMember();
+    const now = Date.now() + 120_000;
+    mocks.listCallParticipants.mockResolvedValue([{ identity: "EG_recorder", tracks: [] }]);
+    // A healthy room nobody is in follows the normal ten-minute rule.
+    await reconcileCalls(now);
+    expect(mocks.probeCallRoom).toHaveBeenCalled();
+    expect(session().status).toBe("open");
+    mocks.probeCallRoom.mockRejectedValue(unavailable());
+    for (let i = 1; i < DEAD_ROOM_CHECKS; i++) await reconcileCalls(now + i * 30_000);
+    expect(session().status).toBe("open");
+    await reconcileCalls(now + DEAD_ROOM_CHECKS * 30_000);
+    expect(session()).toMatchObject({ status: "ended", endReason: "roomDead" });
+  });
+
+  it("does not probe a room people are in, and ends one whose listing is unavailable", async () => {
+    const { identity } = await recordedCallWithMember();
+    const now = Date.now() + 120_000;
+    mocks.listCallParticipants.mockResolvedValue([{ identity, tracks: [] }]);
+    await reconcileCalls(now);
+    expect(mocks.probeCallRoom).not.toHaveBeenCalled();
+    mocks.listCallParticipants.mockRejectedValue(unavailable());
+    for (let i = 1; i <= DEAD_ROOM_CHECKS; i++) await reconcileCalls(now + i * 30_000);
+    expect(session()).toMatchObject({ status: "ended", endReason: "roomDead" });
+  });
+});
+
+describe("closing rooms", () => {
+  it("ends the call and revalidates even when the room cannot be deleted, and retries the deletion", async () => {
+    await startCall({ meetingId, record: false });
+    mocks.deleteCallRoom.mockRejectedValue(unavailable());
+    mocks.revalidatePath.mockClear();
+    expect(await endCall(meetingId)).toEqual({ ok: true });
+    expect(mocks.revalidatePath).toHaveBeenCalled();
+    expect(session()).toMatchObject({ status: "ended", roomClosedAt: null, roomCloseAttempts: 1 });
+    // Nobody can rejoin an ended call.
+    as(member);
+    expect(await joinCall({ meetingId })).toEqual({ ok: false, error: "noCall" });
+    mocks.deleteCallRoom.mockResolvedValue(undefined);
+    await reconcileCalls();
+    expect(mocks.deleteCallRoom).toHaveBeenCalledTimes(2);
+    expect(session().roomClosedAt).toBeInstanceOf(Date);
+    await reconcileCalls();
+    expect(mocks.deleteCallRoom).toHaveBeenCalledTimes(2);
+  });
+
+  it("gives up on a room that stays unavailable", async () => {
+    await startCall({ meetingId, record: false });
+    mocks.deleteCallRoom.mockRejectedValue(unavailable());
+    expect(await setMeetingAccess({ meetingId, members: [{ userId: host.id, role: "host" }] })).toEqual({ ok: true });
+    for (let i = 0; i < MAX_ROOM_CLOSE_ATTEMPTS + 3; i++) await reconcileCalls();
+    expect(mocks.deleteCallRoom).toHaveBeenCalledTimes(MAX_ROOM_CLOSE_ATTEMPTS);
+    expect(session()).toMatchObject({ status: "ended", roomCloseAttempts: MAX_ROOM_CLOSE_ATTEMPTS });
+    expect(session().roomClosedAt).toBeInstanceOf(Date);
+    expect(console.error).toHaveBeenCalledWith(expect.stringContaining("meeting_call_room_given_up"));
+  });
+
+  it("stops the call's recorders even when the room cannot be deleted, and any that still run later", async () => {
+    const { identity } = await recordedCallWithMember();
+    await ensureTrackRecording(session(), identity, "TR_1");
+    const attempt = attempts()[0];
+    mocks.deleteCallRoom.mockRejectedValue(unavailable());
+    as(host);
+    expect(await endCall(meetingId)).toEqual({ ok: true });
+    expect(mocks.stopRecording).toHaveBeenCalledWith(attempt.egressId);
+    // A recorder that (re)started on its own is stopped by the reconciler.
+    mocks.listRoomEgress.mockResolvedValue([new EgressInfo({ egressId: "EG_orphan", status: EgressStatus.EGRESS_ACTIVE })]);
+    await reconcileCalls();
+    expect(mocks.stopRecording).toHaveBeenCalledWith("EG_orphan");
   });
 });

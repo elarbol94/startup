@@ -141,9 +141,12 @@ export async function setMeetingAccess(input: z.input<typeof accessSchema>): Pro
       after: [...members].map(([userId, role]) => ({ userId, role })),
     });
   });
-  // Tokens cannot be revoked, so removing someone ends a running call; the others rejoin.
-  const removed = existing.filter((row) => !members.has(row.userId));
-  if (removed.length) await endOpenCalls(parsed.data.meetingId, "accessChanged", viewer.id);
+  // Tokens cannot be revoked, so removing someone or demoting them to viewer ends a running call; the others rejoin.
+  const lostRights = existing.filter((row) => {
+    const role = members.get(row.userId);
+    return !role || (role === "viewer" && row.role !== "viewer");
+  });
+  if (lostRights.length) await endOpenCalls(parsed.data.meetingId, "accessChanged", viewer.id);
   revalidateMeeting(parsed.data.meetingId);
   return { ok: true };
 }
