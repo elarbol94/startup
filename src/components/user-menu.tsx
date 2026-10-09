@@ -3,7 +3,7 @@
 import { toast } from "sonner";
 import { useLocale, useTranslations } from "next-intl";
 import { useState, useTransition } from "react";
-import { Bug, Check, Globe, LogOut, Maximize2 } from "lucide-react";
+import { Check, Globe, LogOut, Maximize2, MessageSquarePlus } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { setLocale } from "@/i18n/actions";
 import { locales, type Locale } from "@/i18n/config";
@@ -119,7 +119,7 @@ export function UserMenu({
             openBugReporter();
           }}
         >
-          <Bug className="mr-2 size-4" />
+          <MessageSquarePlus className="mr-2 size-4" />
           {tBugs("report")}
           <DropdownMenuShortcut aria-hidden="true"><ShortcutKeys shortcut={GLOBAL_SHORTCUTS.reportBug} /></DropdownMenuShortcut>
         </DropdownMenuItem>

@@ -1,4 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+// On desktop the report entry lives in the user menu at the bottom of the sidebar.
+async function openReporter(page: Page) {
+  await page.getByRole("button", { name: /E2E Admin/ }).first().click();
+  await page.getByRole("menuitem", { name: "Feedback geben" }).click();
+}
 
 test("shared bug reports preserve failed uploads and appear in both task views", async ({ page }) => {
   test.setTimeout(180_000);
@@ -7,9 +13,10 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
   expect(response.ok()).toBe(true);
   await page.goto("/?secret=not-collected");
-  await page.getByRole("button", { name: "Fehler melden", exact: true }).click();
+  await openReporter(page);
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("button", { name: "Meldung senden" })).toBeDisabled();
+  await expect(dialog.getByRole("radio", { name: "Fehler" })).toBeChecked();
   const title = `Bug report ${Date.now()}`;
   await dialog.getByLabel("Kurzer Titel").fill(title);
   await dialog.getByLabel("Was ist passiert?").fill("The save button did not respond.");
@@ -64,7 +71,7 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await dialog.getByRole("button", { name: "pasted.png entfernen" }).click();
   await expect(dialog.getByRole("img", { name: "pasted.png" })).not.toBeVisible();
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Fehler melden", exact: true }).click();
+  await openReporter(page);
   await expect(dialog.getByLabel("Kurzer Titel")).toHaveValue(title);
   await expect(dialog.getByRole("img", { name: "evidence.png" })).toBeVisible();
   await page.route("**/api/files", async route => {
@@ -101,15 +108,19 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/projects");
   await page.getByRole("button", { name: "Hauptnavigation öffnen" }).click();
-  await page.getByRole("button", { name: "Fehler melden", exact: true }).click();
-  await expect(dialog.getByRole("heading", { name: "Fehler melden" })).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: /E2E Admin/ }).click();
+  await page.getByRole("menuitem", { name: "Feedback geben" }).click();
+  await expect(dialog.getByRole("heading", { name: "Feedback geben" })).toBeVisible();
+  // Feature requests share the dialog; the picker relabels the fields.
+  await dialog.getByText("Funktionswunsch", { exact: true }).click();
+  await expect(dialog.getByLabel("Was ist passiert?")).toHaveCount(0);
   await dialog.getByLabel("Kurzer Titel").fill("Mobile report");
-  await dialog.getByLabel("Was ist passiert?").fill("Mobile evidence");
+  await dialog.getByLabel("Welche Funktion wünschst du dir?").fill("Mobile evidence");
   await dialog.getByText("Automatisch beigefügte Angaben").click();
   await expect(dialog.getByText("/projects", { exact: true })).toBeVisible();
   await page.screenshot({ path: "test-results/bug-report-mobile.png" });
   await dialog.getByRole("button", { name: "Meldung senden" }).click();
-  await expect(dialog.getByText(/Meldung BUG-\d+ gespeichert/)).toBeVisible();
+  await expect(dialog.getByText(/Meldung FEAT-\d+ gespeichert/)).toBeVisible();
   await dialog.getByRole("button", { name: "Fertig", exact: true }).click();
   await expect(dialog).not.toBeVisible();
 });
@@ -122,7 +133,7 @@ test("Ctrl+Shift+M opens the report and freezes the screen so a vanished popup c
   await page.goto("/");
   // The report entry lives in the user menu, which names its shortcut.
   await page.getByRole("button", { name: /E2E Admin/ }).first().click();
-  const reportItem = page.getByRole("menuitem", { name: "Fehler melden" });
+  const reportItem = page.getByRole("menuitem", { name: "Feedback geben" });
   await expect(reportItem).toHaveAttribute("aria-keyshortcuts", "Control+Shift+M Meta+Shift+M");
   await expect(reportItem).toContainText(/Strg\s*⇧\s*M/);
   await page.keyboard.press("Escape");

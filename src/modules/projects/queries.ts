@@ -75,6 +75,7 @@ export function getBoard(projectId: string) {
       priority: tasks.priority,
       sortOrder: tasks.sortOrder,
       agentWorkedAt: bugReports.agentWorkedAt,
+      reportKind: bugReports.kind,
     })
     .from(tasks)
     .leftJoin(bugReports, eq(bugReports.taskId, tasks.id))

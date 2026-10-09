@@ -3,9 +3,11 @@
 // production container, without the Next.js runtime or the app's db module.
 import path from "node:path";
 import type Database from "better-sqlite3";
+import type { ReportKind } from "./kinds";
 
 export type ExportedBugReport = {
   number: number;
+  kind: ReportKind;
   taskId: string;
   title: string;
   description: string;
@@ -35,7 +37,7 @@ export function exportBugReports(
   { uploadsPath, includeTagged = false }: { uploadsPath: string; includeTagged?: boolean },
 ): ExportedBugReport[] {
   const rows = sqlite.prepare(`
-    SELECT b.number, t.id AS taskId, t.title, t.description, c.name AS "column",
+    SELECT b.number, b.kind, t.id AS taskId, t.title, t.description, c.name AS "column",
       b.page_path AS pagePath, b.build_version AS buildVersion, b.browser,
       u.name AS reporter, t.created_at AS createdAt,
       b.agent_worked_at AS agentWorkedAt, b.agent_branch AS agentBranch, b.agent_note AS agentNote

@@ -18,6 +18,7 @@ import { localDateValue } from "@/modules/tasks/deadline-utils";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import type { ColumnDto } from "./board-types";
 import { PRIORITY_STYLES, descendantLeaves } from "./board-utils";
+import { KIND_ICONS } from "@/modules/projects/bugs/kind-picker";
 
 function RecursiveTaskRows({
   parentId,
@@ -191,6 +192,7 @@ export function TaskCard({
                 : "priorityMedium",
           )}
         </Badge>
+        {task.reportKind && task.reportKind !== "bug" && <ReportKindBadge kind={task.reportKind} />}
         {task.agentWorkedAt && (
           <Badge variant="outline" className="gap-1 text-muted-foreground" title={t("agentWorkedHint")}>
             <Bot className="size-3" />
@@ -288,5 +290,17 @@ export function TaskCard({
         </button>
       )}
     </div>
+  );
+}
+
+/** Marks feature requests, improvements and other feedback on the shared report board. */
+function ReportKindBadge({ kind }: { kind: NonNullable<BoardTaskDto["reportKind"]> }) {
+  const t = useTranslations("bugReports");
+  const Icon = KIND_ICONS[kind];
+  return (
+    <Badge variant="outline" className="gap-1">
+      <Icon className="size-3" aria-hidden="true" />
+      {t(`kinds.${kind}.label`)}
+    </Badge>
   );
 }

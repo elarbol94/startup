@@ -4,7 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, ty
 import { usePathname, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { Bug, Loader2, X } from "lucide-react";
+import { Loader2, MessageSquarePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -14,13 +14,15 @@ import { canonicalTaskHref } from "@/modules/context/routes";
 import { getBugReportContext, submitBugReport } from "./actions";
 import { AreaCapture } from "./area-capture";
 import { freezeViewport } from "./screenshot";
+import { KindPicker } from "./kind-picker";
+import { hasDetails, reportReference, type ReportKind } from "./kinds";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
 import { matchesShortcut } from "@/lib/shortcuts";
 
 const ReportContext = createContext<() => void>(() => {});
 export const useBugReporter = () => useContext(ReportContext);
 type Screenshot = { id: string; file: File; url: string; state: "pending" | "saved" | "failed" };
-type Receipt = { number: number; taskId: string; projectId: string };
+type Receipt = { number: number; kind: ReportKind; taskId: string; projectId: string };
 
 export function BugReportProvider({ children }: { children: ReactNode }) {
   const t = useTranslations("bugReports");
@@ -38,6 +40,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   }), []);
   const [context, setContext] = useState<Awaited<ReturnType<typeof getBugReportContext>> | null>(null);
   const [source, setSource] = useState({ path: "", browser: "" });
+  const [kind, setKind] = useState<ReportKind>("bug");
   const [title, setTitle] = useState("");
   const [happened, setHappened] = useState("");
   const [steps, setSteps] = useState("");
@@ -55,7 +58,7 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
   function reset() {
     screenshots.forEach(item => URL.revokeObjectURL(item.url));
     replaceSnapshot(undefined);
-    setScreenshots([]); setReceipt(null); setTitle(""); setHappened(""); setSteps(""); setExpected(""); setError("");
+    setScreenshots([]); setReceipt(null); setKind("bug"); setTitle(""); setHappened(""); setSteps(""); setExpected(""); setError("");
     submissionId.current = "";
   }
   async function prepare() {
@@ -105,9 +108,9 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
     try {
       let saved = receipt;
       if (!saved) {
-        const result = await submitBugReport({ submissionId: submissionId.current, title, happened, steps, expected, pagePath: source.path, browser: source.browser, locale: locale === "de" ? "de" : "en" });
+        const result = await submitBugReport({ submissionId: submissionId.current, kind, title, happened, steps, expected, pagePath: source.path, browser: source.browser, locale: locale === "de" ? "de" : "en" });
         if ("error" in result) { setError(t("archived")); return; }
-        saved = result; setReceipt(result);
+        saved = { ...result, kind }; setReceipt(saved);
       }
       let failed = false;
       for (const item of screenshots.filter(item => item.state !== "saved")) {
@@ -133,16 +136,17 @@ export function BugReportProvider({ children }: { children: ReactNode }) {
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg" onPaste={event => {
         const files = Array.from(event.clipboardData.files); if (files.length) { event.preventDefault(); addFiles(files); }
       }}>
-        <DialogHeader><DialogTitle className="flex items-center gap-2"><Bug className="size-5" />{t("report")}</DialogTitle><DialogDescription>{t("shared")}</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle className="flex items-center gap-2"><MessageSquarePlus className="size-5" />{t("report")}</DialogTitle><DialogDescription>{t("shared")}</DialogDescription></DialogHeader>
         {context?.project ? <Link className="text-sm underline" href={`/projects/${context.project.id}`} onClick={() => setOpen(false)}>{t("viewReports")}</Link> : <p className="text-xs text-muted-foreground">{t("noReports")}</p>}
-        {receipt ? <div role="status" className="rounded-md border bg-muted/40 p-3 space-y-2"><p className="font-medium">{t("saved", { number: receipt.number })}</p><Link className="text-sm underline" href={canonicalTaskHref(receipt.taskId, receipt.projectId)} onClick={() => { setOpen(false); if (!failedUploads) reset(); }}>{t("openReport")}</Link></div> :
+        {receipt ? <div role="status" className="rounded-md border bg-muted/40 p-3 space-y-2"><p className="font-medium">{t("saved", { reference: reportReference(receipt.kind, receipt.number) })}</p><Link className="text-sm underline" href={canonicalTaskHref(receipt.taskId, receipt.projectId)} onClick={() => { setOpen(false); if (!failedUploads) reset(); }}>{t("openReport")}</Link></div> :
           <form id="bug-report-form" onSubmit={event => { event.preventDefault(); void submit(); }} className="space-y-3">
+            <KindPicker value={kind} onChange={setKind} disabled={busy} />
             <div className="space-y-1"><Label htmlFor="bug-title">{t("title")}</Label><Input id="bug-title" value={title} onChange={event => setTitle(event.target.value)} maxLength={300} required disabled={busy} /></div>
-            <div className="space-y-1"><Label htmlFor="bug-happened">{t("happened")}</Label><Textarea id="bug-happened" value={happened} onChange={event => setHappened(event.target.value)} rows={3} maxLength={2000} required disabled={busy} /></div>
-            <details><summary className="cursor-pointer text-sm">{t("optionalDetails")}</summary><div className="mt-3 space-y-3">
-              <div className="space-y-1"><Label htmlFor="bug-steps">{t("steps")}</Label><Textarea id="bug-steps" value={steps} onChange={event => setSteps(event.target.value)} maxLength={1200} disabled={busy} /></div>
-              <div className="space-y-1"><Label htmlFor="bug-expected">{t("expected")}</Label><Textarea id="bug-expected" value={expected} onChange={event => setExpected(event.target.value)} maxLength={1200} disabled={busy} /></div>
-            </div></details>
+            <div className="space-y-1"><Label htmlFor="bug-happened">{t(`kinds.${kind}.happened`)}</Label><Textarea id="bug-happened" value={happened} onChange={event => setHappened(event.target.value)} rows={3} maxLength={2000} required disabled={busy} /></div>
+            {hasDetails(kind) && <details><summary className="cursor-pointer text-sm">{t(`kinds.${kind}.optionalDetails`)}</summary><div className="mt-3 space-y-3">
+              <div className="space-y-1"><Label htmlFor="bug-steps">{t(`kinds.${kind}.steps`)}</Label><Textarea id="bug-steps" value={steps} onChange={event => setSteps(event.target.value)} maxLength={1200} disabled={busy} /></div>
+              <div className="space-y-1"><Label htmlFor="bug-expected">{t(`kinds.${kind}.expected`)}</Label><Textarea id="bug-expected" value={expected} onChange={event => setExpected(event.target.value)} maxLength={1200} disabled={busy} /></div>
+            </div></details>}
           </form>}
         <div className="space-y-2"><Label htmlFor="bug-screenshots">{t("screenshots")}</Label>
           {!receipt && <><Button type="button" variant="outline" disabled={busy || screenshots.length >= 5} onClick={() => { setOpen(false); setSelectingArea(true); }}>{t("selectArea")}</Button><p className="text-xs text-muted-foreground">{t(snapshot ? "frozenHint" : "captureHint")}</p></>}
