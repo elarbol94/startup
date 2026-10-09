@@ -1,5 +1,5 @@
 // Fill-colour expressions and colour ramps for every map metric (shared by the layer paint and the legend).
-// Used by municipality-map.tsx, use-municipality-map-instance.ts and municipality-map.test.ts (via re-export).
+// Used by municipality-map.tsx, the network map (network-map-canvas.tsx) and municipality-map.test.ts (via re-export).
 import type { ExpressionSpecification } from "maplibre-gl";
 import type { CostMeasureId } from "../../costs";
 import {
@@ -32,7 +32,7 @@ export const AGE_COLORS = [...MUNICIPALITY_SEQUENTIAL_COLORS];
 export const MOVEMENT_COLORS = [...MUNICIPALITY_MOVEMENT_COLORS];
 export const COST_COLORS = [...MUNICIPALITY_COST_COLORS];
 export const DIGITAL_PLATFORM_COLORS = ["#f1f5f9", "#d1fae5", "#86efac", "#22c55e", "#15803d", "#14532d"];
-function sequentialColorExpression(
+export function sequentialColorExpression(
   domain: [number, number],
   colors: string[],
 ): ExpressionSpecification {

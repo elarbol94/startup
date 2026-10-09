@@ -1,7 +1,8 @@
 "use client";
 
-// Owns the MapLibre instance behind MunicipalityMap: creation, event wiring, feature state and paint
-// updates (effects kept in their original order). Used by municipality-map.tsx.
+// Owns the MapLibre instance behind every municipality map: creation, event wiring, feature state
+// and paint updates. The caller decides the colours (`fillColor` over the `metric` feature state set
+// from `values`) and the hover text. Used by municipality-map-canvas.tsx.
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type {
@@ -9,88 +10,64 @@ import type {
   MapLayerMouseEvent,
   MapSourceDataEvent,
 } from "maplibre-gl";
+import type { MunicipalityBounds } from "../../data";
 import {
   MAP_FILL_OPACITY,
   MAP_HOVER_FILL_OPACITY,
   MAP_NO_DATA_OPACITY,
 } from "../../palette";
-import { metricColorExpression, type ColorInputs } from "./map-color-expressions";
 import { asMapBounds, BASE_STYLE, featureProperties, FILL_LAYER_ID, SOURCE_ID } from "./map-config";
-import type { MunicipalityMapProps } from "./map-types";
+import type { BaseMapLabels } from "./map-types";
+
+export type MapInstanceOptions = {
+  austriaBounds: MunicipalityBounds;
+  selected: { municipalityCode: string } | null;
+  onSelect: (code: string) => void;
+  /** Value per municipality code; null (or a missing code) means "no data". */
+  values: Record<string, number | null>;
+  /** Fill colour over the `metric`/`hasMetric` feature state. Memoise it: a new one repaints. */
+  fillColor: ExpressionSpecification;
+  /** Lines under the municipality name in the hover popup. */
+  tooltipLines: (code: string) => string[];
+  /** Municipalities drawn with a strong outline next to the selection, such as peers. */
+  highlightCodes: string[] | null;
+  labels: BaseMapLabels;
+};
 
 export function useMunicipalityMapInstance({
-  austriaBounds, selected, onSelect, metric, metricValues, tooltipValues, labels,
-  usePopulationClasses, scaleDomain, movementPalette, costMeasure, politicsView, digitalView,
-  peerMunicipalityCodes, personsFormatter, markerTooltips,
-}: Pick<
-  MunicipalityMapProps,
-  | "austriaBounds"
-  | "selected"
-  | "onSelect"
-  | "metric"
-  | "metricValues"
-  | "tooltipValues"
-  | "labels"
-  | "usePopulationClasses"
-  | "scaleDomain"
-  | "movementPalette"
-  | "costMeasure"
-  | "politicsView"
-  | "digitalView"
-  | "peerMunicipalityCodes"
-  | "markerTooltips"
-> & { personsFormatter: Intl.NumberFormat }) {
+  austriaBounds, selected, onSelect, values, fillColor, tooltipLines, highlightCodes, labels,
+}: MapInstanceOptions) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const [ready, setReady] = useState(false);
   const hoveredIdRef = useRef<string | number | null>(null);
   const selectedIdRef = useRef<string | number | null>(null);
   const peerIdsRef = useRef<Set<string>>(new Set());
-  const colorInputs: ColorInputs = {
-    usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure, politicsView, digitalView,
-  };
-  const liveRef = useRef({
-    selected,
-    onSelect,
-    metric,
-    metricValues,
-    tooltipValues,
-    labels,
-    colorInputs,
-    markerTooltips,
-  });
+  const valueCodesRef = useRef<Set<string>>(new Set());
+  const liveRef = useRef({ selected, onSelect, values, fillColor, tooltipLines, labels });
   useEffect(() => {
-    liveRef.current = {
-      selected,
-      onSelect,
-      metric,
-      metricValues,
-      tooltipValues,
-      labels,
-      colorInputs,
-      markerTooltips,
-    };
+    liveRef.current = { selected, onSelect, values, fillColor, tooltipLines, labels };
   });
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.getSource(SOURCE_ID)) return;
-    for (const [code, value] of Object.entries(metricValues))
+    // Codes that dropped out of `values` go back to "no data" instead of keeping their old colour.
+    for (const code of valueCodesRef.current)
+      if (!(code in values)) map.setFeatureState({ source: SOURCE_ID, id: code }, { metric: 0, hasMetric: false });
+    for (const [code, value] of Object.entries(values))
       map.setFeatureState(
         { source: SOURCE_ID, id: code },
         { metric: value ?? 0, hasMetric: value !== null },
       );
-    if (map.getLayer(FILL_LAYER_ID)) {
-      map.setPaintProperty(FILL_LAYER_ID, "fill-color", metricColorExpression({
-        usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure, politicsView, digitalView,
-      }));
-    }
-  }, [costMeasure, digitalView, metric, metricValues, movementPalette, politicsView, ready, scaleDomain, usePopulationClasses]);
+    valueCodesRef.current = new Set(Object.keys(values));
+    if (map.getLayer(FILL_LAYER_ID)) map.setPaintProperty(FILL_LAYER_ID, "fill-color", fillColor);
+  }, [fillColor, values, ready]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map?.getSource(SOURCE_ID)) return;
-    const nextPeerIds = new Set(peerMunicipalityCodes ?? []);
+    const nextPeerIds = new Set(highlightCodes ?? []);
     for (const code of peerIdsRef.current) {
       if (!nextPeerIds.has(code)) map.setFeatureState({ source: SOURCE_ID, id: code }, { peer: false });
     }
@@ -109,7 +86,7 @@ export function useMunicipalityMapInstance({
     map.setPaintProperty("municipality-lines", "line-width", highlightPeers
       ? ["case", ["boolean", ["feature-state", "selected"], false], 3.5, ["boolean", ["feature-state", "peer"], false], 2.2, ["boolean", ["feature-state", "hover"], false], 1.4, 0.45]
       : ["case", ["boolean", ["feature-state", "selected"], false], 3.5, ["boolean", ["feature-state", "hover"], false], 1.4, 0.65]);
-  }, [peerMunicipalityCodes, ready]);
+  }, [highlightCodes, ready]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -156,17 +133,18 @@ export function useMunicipalityMapInstance({
         promoteId: "municipalityCode",
         attribution: "© Statistik Austria, CC BY 4.0",
       });
-      for (const [code, value] of Object.entries(liveRef.current.metricValues))
+      for (const [code, value] of Object.entries(liveRef.current.values))
         map.setFeatureState(
           { source: SOURCE_ID, id: code },
           { metric: value ?? 0, hasMetric: value !== null },
         );
+      valueCodesRef.current = new Set(Object.keys(liveRef.current.values));
       map.addLayer({
         id: FILL_LAYER_ID,
         type: "fill",
         source: SOURCE_ID,
         paint: {
-          "fill-color": metricColorExpression(liveRef.current.colorInputs),
+          "fill-color": liveRef.current.fillColor,
           "fill-opacity": [
             "case",
             ["!", ["boolean", ["feature-state", "hasMetric"], false]],
@@ -229,19 +207,13 @@ export function useMunicipalityMapInstance({
       const content = document.createElement("div");
       const title = document.createElement("strong");
       title.textContent = properties.name;
-      const value = document.createElement("span");
-      value.textContent =
-        live.tooltipValues
-          ? (live.tooltipValues[properties.municipalityCode] ?? "—")
-          : `${live.labels.population}: ${personsFormatter.format(live.metricValues[properties.municipalityCode] ?? 0)}`;
       const location = document.createElement("span");
       location.textContent = `${properties.state} · ${live.labels.municipalityCode} ${properties.municipalityCode}`;
-      content.append(title, value);
-      const overlayLine = live.markerTooltips?.[properties.municipalityCode];
-      if (overlayLine) {
-        const overlay = document.createElement("span");
-        overlay.textContent = overlayLine;
-        content.append(overlay);
+      content.append(title);
+      for (const line of live.tooltipLines(properties.municipalityCode)) {
+        const span = document.createElement("span");
+        span.textContent = line;
+        content.append(span);
       }
       content.append(location);
       popup.setLngLat(event.lngLat).setDOMContent(content).addTo(map);
@@ -268,7 +240,7 @@ export function useMunicipalityMapInstance({
       map.remove();
       mapRef.current = null;
     };
-  }, [austriaBounds, personsFormatter]);
+  }, [austriaBounds]);
 
   useEffect(() => {
     const map = mapRef.current;

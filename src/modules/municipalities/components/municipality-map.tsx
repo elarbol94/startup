@@ -3,8 +3,6 @@
 import { useMemo, useState } from "react";
 import { useLocale } from "next-intl";
 import { Info, ListFilter, MapPinned, SlidersHorizontal, X } from "lucide-react";
-import * as maplibregl from "maplibre-gl";
-import "maplibre-gl/dist/maplibre-gl.css";
 import { DIGITAL_PLATFORM_PROVIDER_CATEGORIES } from "../digital-platforms";
 import { DIGITAL_PLATFORM_PROVIDER_COLORS } from "../provider-colors";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
@@ -14,18 +12,15 @@ import {
   COST_COLORS,
   DIGITAL_PLATFORM_COLORS,
   divergingColorStops,
+  metricColorExpression,
   MOVEMENT_COLORS,
 } from "./municipality-map/map-color-expressions";
-import { asMapBounds } from "./municipality-map/map-config";
 import { MapLegend, MobileMapLegend, type MapLegendProps } from "./municipality-map/map-legend";
 import { MapMetricControls } from "./municipality-map/map-metric-controls";
 import { MobileMetricControls } from "./municipality-map/map-mobile-metric-controls";
 import type { MapMetricControlsProps, MunicipalityMapProps } from "./municipality-map/map-types";
-import { useMapMarkers } from "./municipality-map/use-map-markers";
-import { useMunicipalityMapInstance } from "./municipality-map/use-municipality-map-instance";
+import { MunicipalityMapCanvas } from "./municipality-map/municipality-map-canvas";
 import { cn } from "@/lib/utils";
-
-maplibregl.setWorkerUrl("/vendor/maplibre-gl/maplibre-gl-worker.mjs");
 
 export {
   DIGITAL_PLATFORM_COLORS,
@@ -110,12 +105,19 @@ export function MunicipalityMap({
     () => new Intl.NumberFormat(locale),
     [locale],
   );
-  const { containerRef, mapRef, ready } = useMunicipalityMapInstance({
-    austriaBounds, selected, onSelect, metric, metricValues, tooltipValues, labels,
-    usePopulationClasses, scaleDomain, movementPalette, costMeasure, politicsView, digitalView,
-    peerMunicipalityCodes, personsFormatter, markerTooltips: markers ? markerTooltips : null,
-  });
-  useMapMarkers(mapRef, ready, markers, onSelect);
+  const fillColor = useMemo(
+    () => metricColorExpression({
+      usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure, politicsView, digitalView,
+    }),
+    [costMeasure, digitalView, metric, movementPalette, politicsView, scaleDomain, usePopulationClasses],
+  );
+  const tooltipLines = (code: string) => {
+    const value = tooltipValues
+      ? (tooltipValues[code] ?? "—")
+      : `${labels.population}: ${personsFormatter.format(metricValues[code] ?? 0)}`;
+    const overlayLine = markers ? markerTooltips?.[code] : undefined;
+    return overlayLine ? [value, overlayLine] : [value];
+  };
   const [mobilePanel, setMobilePanel] = useState<"display" | "legend" | null>(null);
 
   const isDiverging =
@@ -157,65 +159,34 @@ export function MunicipalityMap({
     chartValueFormatter, chartUnitLabel, isDiverging, legendGradient, digitalLegendItems,
   };
   return (
-    <div
-      className="relative h-full min-h-0 overflow-hidden rounded-2xl bg-[#e8ece9]"
-      data-testid="municipality-map"
-      data-map-ready={ready}
-      data-overlay-markers={markers ? markers.length : undefined}
+    <MunicipalityMapCanvas
+      austriaBounds={austriaBounds}
+      selected={selected}
+      onSelect={onSelect}
+      onReset={onReset}
+      values={metricValues}
+      fillColor={fillColor}
+      tooltipLines={tooltipLines}
+      highlightCodes={peerMunicipalityCodes}
+      labels={labels}
+      markers={markers}
+      controls={overlayToggle && (
+        <button
+          type="button"
+          className={cn(
+            "flex min-h-11 items-center justify-center gap-1 border-t px-2 py-2 text-[10px] font-semibold whitespace-nowrap hover:bg-accent lg:min-h-0",
+            overlayToggle.active && "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+          )}
+          aria-pressed={overlayToggle.active}
+          aria-busy={overlayToggle.loading || undefined}
+          data-testid="map-overlay-toggle"
+          onClick={overlayToggle.onToggle}
+        >
+          <span className={cn("size-2 rounded-full border border-indigo-600", overlayToggle.active && "bg-indigo-600")} aria-hidden="true" />
+          {overlayToggle.label}
+        </button>
+      )}
     >
-      <div
-        ref={containerRef}
-        className="h-full w-full"
-        aria-label={labels.map}
-      />
-      <div className="absolute top-16 right-3 z-10 flex flex-col overflow-hidden rounded-lg border bg-background/95 shadow-sm backdrop-blur lg:top-3">
-        <button
-          type="button"
-          className="grid size-11 place-items-center text-lg hover:bg-accent lg:size-9"
-          aria-label={labels.zoomIn}
-          onClick={() => mapRef.current?.zoomIn()}
-        >
-          +
-        </button>
-        <button
-          type="button"
-          className="grid size-11 place-items-center border-t text-lg hover:bg-accent lg:size-9"
-          aria-label={labels.zoomOut}
-          onClick={() => mapRef.current?.zoomOut()}
-        >
-          −
-        </button>
-        <button
-          type="button"
-          className="min-h-11 border-t px-2 py-2 text-[10px] font-semibold whitespace-nowrap hover:bg-accent lg:min-h-0"
-          aria-label={labels.reset}
-          onClick={() => {
-            mapRef.current?.fitBounds(asMapBounds(austriaBounds), {
-              padding: 38,
-              duration: 500,
-            });
-            onReset();
-          }}
-        >
-          {labels.reset}
-        </button>
-        {overlayToggle && (
-          <button
-            type="button"
-            className={cn(
-              "flex min-h-11 items-center justify-center gap-1 border-t px-2 py-2 text-[10px] font-semibold whitespace-nowrap hover:bg-accent lg:min-h-0",
-              overlayToggle.active && "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
-            )}
-            aria-pressed={overlayToggle.active}
-            aria-busy={overlayToggle.loading || undefined}
-            data-testid="map-overlay-toggle"
-            onClick={overlayToggle.onToggle}
-          >
-            <span className={cn("size-2 rounded-full border border-indigo-600", overlayToggle.active && "bg-indigo-600")} aria-hidden="true" />
-            {overlayToggle.label}
-          </button>
-        )}
-      </div>
       {selected && selectedMetricHistory && showMetricChart && (
         <div className="hidden lg:block">
         <MunicipalityMetricChart
@@ -312,6 +283,6 @@ export function MunicipalityMap({
       >
         <MobileMapLegend {...legendProps} />
       </MobileBottomSheet>
-    </div>
+    </MunicipalityMapCanvas>
   );
 }

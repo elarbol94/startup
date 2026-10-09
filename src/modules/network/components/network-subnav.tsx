@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Building2, ListTodo, UsersRound } from "lucide-react";
+import { Building2, ListTodo, Map as MapIcon, UsersRound } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/network", key: "contactsTab", icon: UsersRound },
   { href: "/network/opportunities", key: "opportunitiesTab", icon: ListTodo },
   { href: "/network/organizations", key: "organizationsTab", icon: Building2 },
+  { href: "/network/map", key: "mapTab", icon: MapIcon },
 ] as const;
 
 export function NetworkSubnav() {

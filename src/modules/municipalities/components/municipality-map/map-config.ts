@@ -1,5 +1,5 @@
 // MapLibre source/layer ids, the basemap style and small feature helpers for the municipality map.
-// Used by municipality-map.tsx and use-municipality-map-instance.ts.
+// Used by municipality-map-canvas.tsx and use-municipality-map-instance.ts.
 import type { MapLayerMouseEvent, StyleSpecification } from "maplibre-gl";
 import type { MunicipalityBounds, MunicipalityProperties } from "../../data";
 

@@ -4,7 +4,7 @@ import { and, asc, desc, eq, inArray, ne, or } from "drizzle-orm";
 import { db } from "@/db";
 import { tasks } from "@/db/schema";
 import { canEditContact, canManageContact, visibleContactCondition, type NetworkViewer } from "./access";
-import type { LeadStatus } from "./constants";
+import type { ContactCloseness, LeadStatus } from "./constants";
 import { compareContacts, defaultContactListFilter, type ContactListFilter, type NetworkFacet } from "./contact-filters";
 import { listContactLinks, type NetworkContactLink } from "./link-queries";
 import { compareLeads, isLeadActive, matchesSearch, normalizeText, type Suggestion } from "./network-utils";
@@ -73,7 +73,10 @@ export type NetworkContactListItem = {
   notYetSpoken: boolean;
   /** Next keep-in-touch date (see `reconnectDueOn`); only for the viewer's own contacts, like the reminders. */
   reconnectDueOn: string | null;
+  municipalityCode: string | null;
   municipalityName: string | null;
+  organizationId: string | null;
+  closeness: ContactCloseness | null;
   tags: NetworkTag[];
   /** Summaries of the leads that still need something, soonest first. */
   activeLeads: { id: string; summary: string; kind: string }[];
@@ -162,7 +165,10 @@ export function listNetworkContacts(viewer: NetworkViewer, filterInput: Partial<
     lastContactOn: contact.lastContactOn,
     notYetSpoken: contact.notYetSpoken,
     reconnectDueOn: contact.ownerId === viewer.id ? reconnectDueOn(contact.lastContactOn, contact.reconnectEveryDays) : null,
+    municipalityCode: contact.municipalityCode,
     municipalityName: contact.municipalityName,
+    organizationId: contact.organizationId,
+    closeness: contact.closeness,
     tags: tags.get(contact.id) ?? [],
     activeLeads: (leads.get(contact.id) ?? [])
       .filter((lead) => isLeadActive(lead.status))

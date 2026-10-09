@@ -503,6 +503,7 @@
       "empty": "Nichts offen. Erfasste Angebote und Intros sowie fällige Kontakte zum Wiedermelden erscheinen hier."
     },
     "organizationsTab": "Organisationen",
+    "mapTab": "Karte",
     "organizations": {
       "intro": "Wo wir jemanden kennen – oder jemanden, der uns vorstellen könnte.",
       "empty": "Noch keine Organisationen. Sie erscheinen, sobald ein Kontakt oder ein Intro eine nennt.",
@@ -547,6 +548,55 @@
       "empty": "Hier wohnt noch niemand aus dem Netzwerk, und keine Organisation hier ist bekannt.",
       "residents": "Wohnen hier"
     },
+    "map": {
+      "regionLabel": "Netzwerkkarte",
+      "loading": "Karte wird geladen…",
+      "loadFailed": "Die Gemeindedaten konnten nicht geladen werden.",
+      "colorBy": "Einfärben nach",
+      "colorModes": {
+        "people": "Anzahl Personen",
+        "closeness": "Nähe",
+        "recency": "Letzter Kontakt",
+        "reconnect": "Wieder melden fällig",
+        "opportunities": "Offene Chancen"
+      },
+      "legendCircles": "Kreis: Personen hier · Ring: nur eine Organisation",
+      "legendNoData": "Niemand hier oder keine Angabe",
+      "legendDays": "{days, plural, =0 {heute} one {vor # Tag} other {vor # Tagen}}",
+      "fitNetwork": "Netzwerk",
+      "fitNetworkLabel": "Auf mein Netzwerk zoomen",
+      "tooltip": {
+        "people": "{count, plural, =0 {Keine Personen} one {# Person} other {# Personen}}",
+        "organizations": "{count, plural, one {# Organisation} other {# Organisationen}}",
+        "closeness": "Ø Nähe: {value}",
+        "recency": "Letzter Kontakt: {days, plural, =0 {heute} one {vor # Tag} other {vor # Tagen}}",
+        "never": "Noch kein Kontakt",
+        "reconnect": "Wieder melden fällig: {count}",
+        "opportunities": "Offene Chancen: {count}"
+      },
+      "summary": {
+        "title": "Überblick",
+        "stats": "{people, plural, one {# Person} other {# Personen}} in {municipalities, plural, one {# Gemeinde} other {# Gemeinden}}",
+        "unlocated": "{count, plural, one {# Person} other {# Personen}} ohne Gemeinde",
+        "hint": "Klicke auf eine Gemeinde, um zu sehen, wen du dort kennst und wohin Verbindungen führen.",
+        "top": "Gemeinden nach {mode}",
+        "empty": "Noch niemand im Netzwerk hat eine Gemeinde. Trage bei Personen oder Organisationen eine Gemeinde ein, dann erscheinen sie hier.",
+        "emptyFiltered": "Niemand mit Gemeinde passt zu diesen Filtern."
+      },
+      "panel": {
+        "clear": "Auswahl aufheben",
+        "residents": "Wohnen hier",
+        "organizations": "Organisationen hier",
+        "empty": "Hier ist niemand aus dem Netzwerk, der zu den Filtern passt.",
+        "connections": "Verbindungen",
+        "connectionsHint": "Wohn- und Arbeitsorte sowie offene Chancen, die in andere Gemeinden führen.",
+        "connectionPeople": "{count, plural, one {# Person} other {# Personen}}",
+        "connectionIntroductions": "{count, plural, one {# Chance} other {# Chancen}}",
+        "showInList": "Bewohner:innen in der Liste",
+        "openMunicipality": "In Gemeinden öffnen",
+        "reconnectDue": "Melden"
+      }
+    },
     "mapOverlay": {
       "toggle": "Kontakte",
       "tooltip": "Netzwerk: {total, plural, one {# Person} other {# Personen}}{atOrganizations, plural, =0 {} other { (# bei einer Organisation hier)}}"
@@ -575,6 +625,8 @@
       "anyCloseness": "Jede Nähe",
       "organization": "Organisation",
       "anyOrganization": "Alle Organisationen",
+      "tag": "Tag",
+      "anyTag": "Alle Tags",
       "municipality": "Gemeinde",
       "anyMunicipality": "Alle Gemeinden",
       "spoken": "Gesprochen",

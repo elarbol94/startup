@@ -108,10 +108,11 @@ const paramNames: [keyof ContactListFilter, string][] = [
 ];
 
 /**
- * Link to the list with `patch` applied to the current filter. Every other
- * value is kept; defaults and empty values are left out of the URL.
+ * Link to the list (or another page taking the same params, such as the map)
+ * with `patch` applied to the current filter. Every other value is kept;
+ * defaults and empty values are left out of the URL.
  */
-export function networkFilterHref(current: ContactListFilter, patch: Partial<ContactListFilter> = {}) {
+export function networkFilterHref(current: ContactListFilter, patch: Partial<ContactListFilter> = {}, basePath = "/network") {
   const next = { ...current, ...patch };
   const params = new URLSearchParams();
   for (const [key, name] of paramNames) {
@@ -119,7 +120,7 @@ export function networkFilterHref(current: ContactListFilter, patch: Partial<Con
     if (value && value !== defaultContactListFilter[key]) params.set(name, value);
   }
   const search = params.toString();
-  return search ? `/network?${search}` : "/network";
+  return search ? `${basePath}?${search}` : basePath;
 }
 
 /** Delay between the last keystroke in the search field and the list update. */

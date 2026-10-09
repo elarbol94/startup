@@ -1,7 +1,7 @@
 "use client";
 
 // Draws MapMarker circles over the municipality fills and removes them when the overlay
-// is switched off. Used by municipality-map.tsx.
+// is switched off. Used by municipality-map-canvas.tsx.
 import { useEffect, useRef, type RefObject } from "react";
 import type * as maplibregl from "maplibre-gl";
 import type { MapLayerMouseEvent } from "maplibre-gl";
@@ -31,7 +31,7 @@ export function useMapMarkers(
       features: (markers ?? []).map((marker) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [marker.lng, marker.lat] },
-        properties: { code: marker.code, count: marker.count },
+        properties: { code: marker.code, count: marker.count, hollow: marker.hollow ?? false },
       })),
     };
     const source = map.getSource(MARKER_SOURCE_ID) as maplibregl.GeoJSONSource | undefined;
@@ -45,10 +45,10 @@ export function useMapMarkers(
         paint: {
           // Area grows with the count: radius follows its square root.
           "circle-radius": ["interpolate", ["linear"], ["sqrt", ["get", "count"]], 1, 6, 5, 18],
-          "circle-color": MARKER_COLOR,
+          "circle-color": ["case", ["get", "hollow"], "#ffffff", MARKER_COLOR],
           "circle-opacity": 0.85,
-          "circle-stroke-color": "#ffffff",
-          "circle-stroke-width": 1.5,
+          "circle-stroke-color": ["case", ["get", "hollow"], MARKER_COLOR, "#ffffff"],
+          "circle-stroke-width": ["case", ["get", "hollow"], 2.5, 1.5],
         },
       });
       const click = (event: MapLayerMouseEvent) => {

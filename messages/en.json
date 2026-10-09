@@ -503,6 +503,7 @@
       "empty": "Nothing open. Captured offers and intros, and people due for a reconnect, appear here."
     },
     "organizationsTab": "Organisations",
+    "mapTab": "Map",
     "organizations": {
       "intro": "Where we know someone, or know someone who could introduce us.",
       "empty": "No organisations yet. They appear as soon as a contact or an intro names one.",
@@ -547,6 +548,55 @@
       "empty": "No one from the network lives here yet, and no organisation here is known.",
       "residents": "Live here"
     },
+    "map": {
+      "regionLabel": "Network map",
+      "loading": "Loading map…",
+      "loadFailed": "The municipality data could not be loaded.",
+      "colorBy": "Colour by",
+      "colorModes": {
+        "people": "Number of people",
+        "closeness": "Closeness",
+        "recency": "Last contact",
+        "reconnect": "Reconnect due",
+        "opportunities": "Open opportunities"
+      },
+      "legendCircles": "Circle: people here · Ring: only an organisation",
+      "legendNoData": "Nobody here or no data",
+      "legendDays": "{days, plural, =0 {today} one {# day ago} other {# days ago}}",
+      "fitNetwork": "Network",
+      "fitNetworkLabel": "Zoom to my network",
+      "tooltip": {
+        "people": "{count, plural, =0 {No people} one {# person} other {# people}}",
+        "organizations": "{count, plural, one {# organisation} other {# organisations}}",
+        "closeness": "Avg. closeness: {value}",
+        "recency": "Last contact: {days, plural, =0 {today} one {# day ago} other {# days ago}}",
+        "never": "No contact yet",
+        "reconnect": "Reconnect due: {count}",
+        "opportunities": "Open opportunities: {count}"
+      },
+      "summary": {
+        "title": "Overview",
+        "stats": "{people, plural, one {# person} other {# people}} in {municipalities, plural, one {# municipality} other {# municipalities}}",
+        "unlocated": "{count, plural, one {# person} other {# people}} without a municipality",
+        "hint": "Click a municipality to see whom you know there and where connections lead.",
+        "top": "Municipalities by {mode}",
+        "empty": "Nobody in the network has a municipality yet. Add one to people or organisations and they show up here.",
+        "emptyFiltered": "Nobody with a municipality matches these filters."
+      },
+      "panel": {
+        "clear": "Clear selection",
+        "residents": "Live here",
+        "organizations": "Organisations here",
+        "empty": "Nobody from the network here matches the filters.",
+        "connections": "Connections",
+        "connectionsHint": "Homes, workplaces and open opportunities that lead to other municipalities.",
+        "connectionPeople": "{count, plural, one {# person} other {# people}}",
+        "connectionIntroductions": "{count, plural, one {# opportunity} other {# opportunities}}",
+        "showInList": "Residents in the list",
+        "openMunicipality": "Open in municipalities",
+        "reconnectDue": "Reconnect"
+      }
+    },
     "mapOverlay": {
       "toggle": "Contacts",
       "tooltip": "Network: {total, plural, one {# person} other {# people}}{atOrganizations, plural, =0 {} other { (# at an organisation here)}}"
@@ -575,6 +625,8 @@
       "anyCloseness": "Any closeness",
       "organization": "Organisation",
       "anyOrganization": "All organisations",
+      "tag": "Tag",
+      "anyTag": "All tags",
       "municipality": "Municipality",
       "anyMunicipality": "All municipalities",
       "spoken": "Spoken",

@@ -31,6 +31,13 @@ type Props = {
   municipalities: NetworkFacet[];
   /** Link that clears every filter but keeps the sort; null when nothing is filtered. */
   clearHref: string | null;
+  /** When given, tags get a select of their own instead of only being set from tag links. */
+  tags?: NetworkFacet[];
+  /** Filters this page has no use for, such as the residence filter on the map. */
+  hide?: ("municipality" | "sort")[];
+  /** Where the form goes without JavaScript, and how a filter becomes a link with it. */
+  basePath?: string;
+  hrefFor?: (filter: ContactListFilter) => string;
 };
 
 function FilterSelect({ name, label, value, children }: { name: string; label: string; value: string; children: ReactNode }) {
@@ -47,7 +54,9 @@ function FilterSelect({ name, label, value, children }: { name: string; label: s
  * after the last keystroke) and the URL stays clean (defaults and empty values
  * are left out).
  */
-export function ContactFilters({ filter, organizations, municipalities, clearHref }: Props) {
+export function ContactFilters({
+  filter, organizations, municipalities, clearHref, tags, hide = [], basePath = "/network", hrefFor = networkFilterHref,
+}: Props) {
   const t = useTranslations("network");
   const router = useRouter();
 
@@ -75,7 +84,7 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
   function apply(form: HTMLFormElement, { replace = false } = {}) {
     cancelSearch();
     const values = Object.fromEntries([...new FormData(form)].map(([key, value]) => [key, String(value)]));
-    const href = networkFilterHref(parseContactListParams(values));
+    const href = hrefFor(parseContactListParams(values));
     // Live search replaces the entry so every keystroke does not add to the history.
     if (replace) router.replace(href, { scroll: false });
     else router.push(href);
@@ -96,8 +105,8 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
 
   return (
     // `key` resets the uncontrolled fields when the applied filter changes (e.g. via a tag link).
-    <form key={contactFiltersFormKey(filter)} action="/network" className="space-y-2" role="search" onSubmit={onSubmit} onChange={onChange}>
-      {filter.tagId && <input type="hidden" name="tag" value={filter.tagId} />}
+    <form key={contactFiltersFormKey(filter)} action={basePath} className="space-y-2" role="search" onSubmit={onSubmit} onChange={onChange}>
+      {filter.tagId && !tags && <input type="hidden" name="tag" value={filter.tagId} />}
       <div className="flex gap-2">
         <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -125,7 +134,13 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
             {organizations.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}
           </FilterSelect>
         )}
-        {municipalities.length > 0 && (
+        {tags && tags.length > 0 && (
+          <FilterSelect name="tag" label={t("filters.tag")} value={filter.tagId}>
+            <option value="">{t("filters.anyTag")}</option>
+            {tags.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}
+          </FilterSelect>
+        )}
+        {municipalities.length > 0 && !hide.includes("municipality") && (
           <FilterSelect name="municipality" label={t("filters.municipality")} value={filter.municipalityCode}>
             <option value="">{t("filters.anyMunicipality")}</option>
             {municipalities.map((item) => <option key={item.id} value={item.id}>{item.name} ({item.count})</option>)}
@@ -135,9 +150,11 @@ export function ContactFilters({ filter, organizations, municipalities, clearHre
           <option value="">{t("filters.anySpoken")}</option>
           {contactSpokenStates.map((value) => <option key={value} value={value}>{t(`filters.spokenStates.${value}`)}</option>)}
         </FilterSelect>
-        <FilterSelect name="sort" label={t("filters.sort")} value={filter.sort}>
-          {contactSorts.map((sort) => <option key={sort} value={sort}>{t(`filters.sorts.${sort}`)}</option>)}
-        </FilterSelect>
+        {!hide.includes("sort") && (
+          <FilterSelect name="sort" label={t("filters.sort")} value={filter.sort}>
+            {contactSorts.map((sort) => <option key={sort} value={sort}>{t(`filters.sorts.${sort}`)}</option>)}
+          </FilterSelect>
+        )}
         {clearHref && (
           <Link href={clearHref} className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
             {t("list.clearFilters")}

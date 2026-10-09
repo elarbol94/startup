@@ -1,5 +1,5 @@
-// Prop and label types shared by MunicipalityMap and its extracted pieces.
-// Used by municipality-map.tsx and the files in municipality-map/.
+// Prop and label types shared by MunicipalityMap, the bare map canvas and their extracted pieces.
+// Used by municipality-map.tsx, the files in municipality-map/ and the network map.
 import type { MunicipalityDatasetRef } from "../../analysis";
 import type { CostMeasureId, CostTargetId } from "../../costs";
 import type { DigitalPlatformProviderCategory, DigitalPlatformViewId } from "../../digital-platforms";
@@ -93,8 +93,20 @@ export type Labels = {
   selected: string;
 };
 
-/** A counted point drawn over the municipality fills, e.g. network contacts per municipality. */
-export type MapMarker = { code: string; lng: number; lat: number; count: number };
+/** What the bare map canvas needs; every map built on it supplies at least these. */
+export type BaseMapLabels = Pick<
+  Labels,
+  "map" | "zoomIn" | "zoomOut" | "reset" | "municipalityCode" | "zoomHintWindows" | "zoomHintMac" | "zoomHintMobile"
+>;
+
+/**
+ * A counted point drawn over the municipality fills, e.g. network contacts per municipality.
+ * `hollow` draws a ring instead of a dot, for places that are known but hold no one counted.
+ */
+export type MapMarker = { code: string; lng: number; lat: number; count: number; hollow?: boolean };
+
+/** A straight connection between two points, such as from a selected municipality to a linked one. */
+export type MapLine = { from: [lng: number, lat: number]; to: [lng: number, lat: number]; emphasis?: boolean };
 
 /** An optional layer the user can switch on over any metric. */
 export type MapOverlayToggle = { label: string; active: boolean; loading?: boolean; onToggle: () => void };
