@@ -28,7 +28,7 @@ import { getBugReportContext, getBugReportDetails, submitBugReport } from "./act
 import { saveBugScreenshot } from "./uploads";
 import { exportBugReports, markBugReports } from "./agent-triage";
 import { requireUserOrThrow } from "@/lib/auth";
-import { getPortfolioSchedule, getProject } from "../queries";
+import { getBoard, getPortfolioSchedule, getProject } from "../queries";
 
 const input = () => ({ submissionId: randomUUID(), title: "Broken save", happened: "Button does nothing", steps: "Click save", expected: "Saved", pagePath: "/projects/p?secret=test#section", browser: "Test browser", locale: "en" as const });
 const png = () => new File([Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aS6UAAAAASUVORK5CYII=", "base64")], "screen.png", { type: "image/png" });
@@ -51,6 +51,22 @@ describe("bug reporting", () => {
     expect(task).toMatchObject({ title: "Broken save", createdBy: "reporter", assigneeId: null, priority: "medium", status: "open" });
     expect(task.description).toContain("Expected behavior\nSaved");
     expect(await getBugReportDetails(task.id)).toMatchObject({ pagePath: "/projects/p", browser: "Test browser", reporter: "Reporter" });
+  });
+  it("stores feature requests, improvements and other feedback with kind-specific descriptions", async () => {
+    const feature = await submitBugReport({ ...input(), kind: "feature", locale: "de" }); if ("error" in feature) throw new Error();
+    const other = await submitBugReport({ ...input(), kind: "other" }); if ("error" in other) throw new Error();
+    const bug = await create();
+    expect(db.select({ description: tasks.description }).from(tasks).where(eq(tasks.id, feature.taskId)).get()?.description)
+      .toBe("Gewünschte Funktion\nButton does nothing\n\nWofür wird sie gebraucht?\nClick save\n\nWie könnte sie funktionieren?\nSaved");
+    // "Other" has no detail fields, so stale hidden drafts are not stored.
+    expect(db.select({ description: tasks.description }).from(tasks).where(eq(tasks.id, other.taskId)).get()?.description).toBe("Message\nButton does nothing");
+    expect(new Set([feature.projectId, other.projectId, bug.projectId]).size).toBe(1);
+    expect(db.select({ name: projects.name }).from(projects).get()?.name).toBe("Feedback");
+    expect(await getBugReportDetails(feature.taskId)).toMatchObject({ kind: "feature" });
+    expect(await getBugReportDetails(bug.taskId)).toMatchObject({ kind: "bug" });
+    expect(exportBugReports(sqlite, { uploadsPath: "/uploads" }).map(report => report.kind)).toEqual(["feature", "other", "bug"]);
+    expect(Object.values(getBoard(feature.projectId).tasksByColumn).flat().map(task => task.reportKind).sort()).toEqual(["bug", "feature", "other"]);
+    await expect(submitBugReport({ ...input(), kind: "question" as never })).rejects.toThrow();
   });
   it("hides the Bugs project and its tasks from the portfolio schedule only", async () => {
     const report = await create();

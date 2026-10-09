@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { canonicalTaskHref } from "@/modules/context/routes";
+import type { ReportKind } from "@/modules/projects/bugs/kinds";
 import {
   Dialog,
   DialogContent,
@@ -71,6 +72,8 @@ export type BoardTaskDto = {
   sortOrder: number;
   /** Bug reports only: when a coding agent last worked on it. */
   agentWorkedAt?: Date | null;
+  /** Bug reports only: bug, feature request, improvement or other feedback. */
+  reportKind?: ReportKind | null;
 };
 
 const DEPENDENCY_TYPE_KEYS = {

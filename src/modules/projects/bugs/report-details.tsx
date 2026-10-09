@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import { useTranslations, useFormatter } from "next-intl";
 import { getBugReportDetails } from "./actions";
+import { KIND_ICONS } from "./kind-picker";
+import { reportReference } from "./kinds";
 
 export function BugReportDetails({ taskId, showDescription }: { taskId: string; showDescription?: boolean }) {
   const t = useTranslations("bugReports");
@@ -15,8 +17,9 @@ export function BugReportDetails({ taskId, showDescription }: { taskId: string; 
   }, [taskId]);
   if (failed) return <p role="alert" className="text-sm text-destructive">{t("detailsFailed")}</p>;
   if (!report) return null;
+  const KindIcon = KIND_ICONS[report.kind];
   return <section className="space-y-2 rounded-md border bg-muted/25 p-3 text-sm">
-    <h3 className="font-medium">{t("reportNumber", { number: report.number })}</h3>
+    <h3 className="flex items-center gap-1.5 font-medium"><KindIcon className="size-4" aria-hidden="true" />{t(`kinds.${report.kind}.reportNumber`, { reference: reportReference(report.kind, report.number) })}</h3>
     <p className="text-xs text-muted-foreground">{report.reporter} · {format.dateTime(new Date(report.createdAt), { dateStyle: "medium", timeStyle: "short" })}</p>
     {report.agentWorkedAt && <div className="rounded border bg-background p-2 text-xs">
       <p className="font-medium">{t("agentWorked", { date: format.dateTime(new Date(report.agentWorkedAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>

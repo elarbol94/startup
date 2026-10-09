@@ -1,12 +1,21 @@
-# Bug reporting
+# Bug reporting and feedback
 
-Signed-in users choose **Report a bug / Fehler melden** in desktop or mobile
-navigation. The dialog stays on the current page. Title and observed behavior
-are required; reproduction steps and expected behavior are optional. Drafts
+Signed-in users choose **Send feedback / Feedback geben** (Ctrl/⌘+Shift+M) in
+desktop or mobile navigation. The dialog stays on the current page. The reporter
+first picks a kind: **Bug / Fehler**, **Feature request / Funktionswunsch**,
+**Improvement / Verbesserung** or **Other / Sonstiges**. Each kind relabels the
+same three text fields (see `src/modules/projects/bugs/kinds.ts`): title and the
+main description are required; the two detail fields are optional and hidden for
+"Other" (the server also drops them there). The kind is stored in
+`bug_reports.kind` (migration 0081, existing rows default to `bug`). All kinds
+share one number sequence and are shown with a prefix: BUG-, FEAT-, IMPR-, FB-.
+Non-bug kinds get a badge on the board card. Drafts
 survive dialog closing and failed requests while the application remains open;
 they are not stored across page reloads.
 
-Reports are ordinary, unassigned, medium-priority tasks in a shared Bugs project.
+Reports are ordinary, unassigned, medium-priority tasks in a shared project,
+created as "Feedback" (installs from before 0081 keep their "Bugs" project and
+may rename it).
 The first successful submission creates the project and New / Investigating /
 Fixed columns (localized to the first reporter's language), mapped to dashboard
 workflow stages. The project identity is stored separately from its display name.
