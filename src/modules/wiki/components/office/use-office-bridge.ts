@@ -6,9 +6,9 @@ import { toast } from "sonner";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import type { InsertKind, InsertResult } from "./office-insert-dialog";
-import type { OutlineHeading, OutlineReason } from "./office-sections";
+import type { OutlineBlock } from "./section-editor/section-logic";
 
-/** Commands the workspace plugin applies inside the document (public/onlyoffice-plugins/management/plugin.js). */
+/** Commands the workspace plugin applies inside the document (public/onlyoffice-plugins/management/plugin.js, section.js). */
 export type OfficeCommand =
   | { command: "insertCitation"; ids: string[]; loc?: string }
   | { command: "updateCitations" }
@@ -18,20 +18,34 @@ export type OfficeCommand =
   | { command: "select"; kind: "cite" | "evidence" | "task" | "deadline"; id: string }
   | { command: "collectParagraphs" }
   | { command: "goToParagraph"; index: number }
-  | { command: "readOutline"; reason: "previous" | "next" }
   | { command: "selectIssue"; id: string; index: number; offset: number; length: number; expected: string }
-  | { command: "replaceIssue"; id: string; index: number; offset: number; length: number; expected: string; replacement: string };
+  | { command: "replaceIssue"; id: string; index: number; offset: number; length: number; expected: string; replacement: string }
+  // Section editor, main document (section-editor/use-section-editor.ts).
+  | { command: "lockSection"; id: string; tag: string; alias: string; start: number; end: number; count: number; title: string | null }
+  | { command: "commitSection"; id: string; json: string; citations: boolean }
+  | { command: "releaseSection"; id: string }
+  // Section editor, scratch document.
+  | { command: "loadSection"; json: string }
+  | { command: "readSection" };
 
 /** Plugin messages the page (not the bridge) handles, e.g. the grammar check. */
 export type PluginEvent =
+  | { type: "ready" }
   | { type: "grammarRequested" }
   | { type: "paragraphs"; paragraphs: Array<{ index: number; text: string }> }
   | { type: "issueResult"; id: string; result: "ok" | "stale"; replaced?: boolean }
-  /** Headings and cursor for "focus on section" (see office-sections.ts). */
-  | { type: "outline"; reason: OutlineReason; cursor: number; headings: OutlineHeading[] };
+  /** "Edit section separately": top-level blocks, cursor block, change tracking (see section-logic.ts). */
+  | { type: "sectionOutline"; blocks: OutlineBlock[]; cursor: number; tracking: boolean; user: { id: string; name: string } }
+  | { type: "sectionLocked"; id: string; json: string }
+  | { type: "sectionLockFailed"; id: string; reason: string }
+  | { type: "sectionCommitted"; id: string; ok: boolean; reason?: string }
+  | { type: "sectionReleased"; id: string; ok: boolean }
+  /** Section-edit locks found when the document opened. */
+  | { type: "sectionLocks"; tags: string[]; self: string }
+  | { type: "sectionLoaded"; ok: boolean }
+  | { type: "sectionContent"; json: string };
 
 type PluginMessage =
-  | { type: "ready" }
   | { type: "position"; index: number }
   | { type: "request"; action: InsertKind | "task" | "deadline" | "grammar"; quote?: string }
   | Exclude<PluginEvent, { type: "grammarRequested" }>
@@ -89,17 +103,17 @@ export function useOfficeBridge(
         setReady(true);
         const saved = restorePosition ? loadOfficePosition(page.id) : null;
         if (saved !== null && saved >= RESUME_MIN_PARAGRAPH) setResumeIndex(saved);
+        events.current?.(message);
         return;
       }
       if (message.type === "position") { saveOfficePosition(page.id, message.index); return; }
-      if (message.type === "paragraphs" || message.type === "issueResult" || message.type === "outline") { events.current?.(message); return; }
       if (message.type === "notice") {
         if (message.kind === "error") toast.error(message.text);
         else if (message.kind === "info") toast.info(message.text);
         else toast.success(message.text);
         return;
       }
-      if (message.type !== "request") return;
+      if (message.type !== "request") { events.current?.(message); return; }
       if (message.action === "grammar") { events.current?.({ type: "grammarRequested" }); return; }
       if (message.action === "task" || message.action === "deadline") {
         const kind = message.action;

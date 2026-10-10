@@ -4991,13 +4991,24 @@
       "jump": "Zur Stelle im Text springen"
     },
     "legacyVersion": "Fassung vor der Umstellung (alter Editor)",
-    "sectionFocus": {
-      "label": "Fokussierter Abschnitt",
+    "sectionEditor": {
       "startOfDocument": "Anfang des Dokuments",
-      "previous": "Vorheriger Abschnitt",
-      "next": "Nächster Abschnitt",
-      "exit": "Abschnittsfokus beenden",
-      "noPosition": "Bitte zuerst den Cursor in den Dokumenttext setzen."
+      "description": "Dieser Abschnitt ist im Dokument gesperrt, solange du ihn hier bearbeitest. Beim Übernehmen ersetzt er den Abschnitt im Dokument; Zitate werden danach neu nummeriert.",
+      "apply": "Übernehmen und schließen",
+      "discard": "Verwerfen",
+      "discardConfirm": "Änderungen an diesem Abschnitt verwerfen? Der Abschnitt im Dokument bleibt unverändert.",
+      "applied": "Abschnitt übernommen.",
+      "lockAlias": "Wird separat bearbeitet: {name}",
+      "alreadyOpen": "Es ist bereits ein Abschnitt zur Bearbeitung geöffnet.",
+      "trackingOn": "Bitte zuerst „Änderungen nachverfolgen“ ausschalten: Ein Abschnitt lässt sich nur ohne Änderungsverfolgung separat bearbeiten.",
+      "noPosition": "Bitte zuerst den Cursor in den Dokumenttext setzen.",
+      "locked": "Dieser Abschnitt (oder ein Teil davon) wird bereits separat bearbeitet.",
+      "changed": "Das Dokument hat sich gerade geändert. Bitte noch einmal versuchen.",
+      "failed": "Der Abschnitt konnte nicht geöffnet werden. Bitte noch einmal versuchen.",
+      "loadFailed": "Der Abschnitt konnte nicht in den Editor geladen werden. Er bleibt im Dokument unverändert.",
+      "commentsWarning": "Dieser Abschnitt enthält Kommentare. Sie werden beim separaten Bearbeiten neu angelegt; Antworten auf Kommentare können dabei verloren gehen. Trotzdem öffnen?",
+      "applyFailed": "Der Abschnitt konnte nicht übernommen werden. Der Editor bleibt offen; bitte noch einmal versuchen.",
+      "missing": "Die Sperre des Abschnitts wurde inzwischen aufgehoben, deshalb kann er nicht übernommen werden. Bitte den Text hier kopieren und im Dokument einfügen."
     },
     "grammar": {
       "title": "Rechtschreibung & Grammatik",

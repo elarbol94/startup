@@ -63,3 +63,25 @@ export function signFileToken(claims: Omit<FileClaims, "typ" | "exp">, ttlSecond
 export function verifyFileToken(token: string): FileClaims {
   return fileClaims.parse(verifyJwt(token, fileKey()));
 }
+
+/**
+ * Scratch documents (the section editor's temporary document): the key the
+ * document server uses and the language of the blank DOCX. Never a stored file.
+ */
+export const SCRATCH_KEY_PATTERN = /^scratch-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+const scratchClaims = z.object({
+  typ: z.literal("scratch"),
+  key: z.string().regex(SCRATCH_KEY_PATTERN),
+  locale: z.enum(["de", "en"]),
+  exp: z.number(),
+});
+export type ScratchClaims = z.infer<typeof scratchClaims>;
+
+export function signScratchToken(claims: Omit<ScratchClaims, "typ" | "exp">, ttlSeconds = 3600) {
+  return signJwt({ typ: "scratch", ...claims, exp: Math.floor(Date.now() / 1000) + ttlSeconds }, fileKey());
+}
+
+export function verifyScratchToken(token: string): ScratchClaims {
+  return scratchClaims.parse(verifyJwt(token, fileKey()));
+}

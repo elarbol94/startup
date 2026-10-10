@@ -2,20 +2,12 @@ import { randomUUID } from "node:crypto";
 import { getLocale } from "next-intl/server";
 import { getSession } from "@/lib/auth";
 import { officeConfig } from "@/modules/wiki/office/config";
-import { buildEditorConfig } from "@/modules/wiki/office/editor-config";
+import { buildEditorConfig, requestOrigin } from "@/modules/wiki/office/editor-config";
 import { getOfficePage } from "@/modules/wiki/office/queries";
 import { getOrOpenSession, OfficeConflictError } from "@/modules/wiki/office/sessions";
 import { headVersion } from "@/modules/wiki/office/store";
 
 type Params = { params: Promise<{ pageId: string }> };
-
-/** Browser-facing origin: nginx forwards the public host and scheme. */
-function requestOrigin(request: Request) {
-  const url = new URL(request.url);
-  const host = request.headers.get("x-forwarded-host") ?? request.headers.get("host") ?? url.host;
-  const proto = request.headers.get("x-forwarded-proto") ?? url.protocol.replace(/:$/, "");
-  return `${proto.split(",")[0].trim()}://${host.split(",")[0].trim()}`;
-}
 
 /** DocsAPI actionLink from a mention notification (opaque JSON object). */
 function parseActionLink(value: string | null) {
@@ -52,6 +44,8 @@ export async function GET(request: Request, { params }: Params) {
       plugin: {
         pageId: page.id,
         bridgeId,
+        userId: session.user.id,
+        userName: session.user.name,
         insertEvidenceId: search.get("insertEvidence") ?? undefined,
         focusTaskId: search.get("task") ?? undefined,
         focusDeadlineId: search.get("deadline") ?? undefined,

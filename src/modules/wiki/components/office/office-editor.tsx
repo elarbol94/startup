@@ -64,13 +64,16 @@ function followAppTheme(theme: "light" | "dark") {
  * Mounts the ONLYOFFICE editor for one page. The document server keeps the
  * co-editing state; `onSynced` reports whether local edits reached it, which
  * is not the same as the app having stored them (see useOfficeStatus).
+ * `variant="section"` opens the section editor's scratch document instead
+ * (never stored; see section-editor/).
  */
-export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPluginEvent }: {
+export function OfficeEditor({ ref, page, query = {}, variant = "page", onSynced, onUnavailable, onPluginEvent }: {
   ref?: Ref<OfficeEditorHandle>;
   page: { id: string; slug: string; title: string };
-  query: { insertEvidence?: string; task?: string; deadline?: string; officeAction?: string };
-  onSynced: (synced: boolean) => void;
-  onUnavailable: () => void;
+  query?: { insertEvidence?: string; task?: string; deadline?: string; officeAction?: string };
+  variant?: "page" | "section";
+  onSynced?: (synced: boolean) => void;
+  onUnavailable?: () => void;
   onPluginEvent?: (event: PluginEvent) => void;
 }) {
   const t = useTranslations("officeDocuments");
@@ -97,7 +100,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
     state.kind === "ready" ? state.data.bridgeId : null,
     page,
     onPluginEvent,
-    !(query.insertEvidence || query.task || query.deadline || query.officeAction),
+    variant === "page" && !(query.insertEvidence || query.task || query.deadline || query.officeAction),
   );
   const send = bridge.send;
 
@@ -121,9 +124,10 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
     if (!theme) return;
     params.set("theme", theme);
     let retry: number | undefined;
-    const load = () => fetch(`/api/wiki/office/${encodeURIComponent(page.id)}/config?${params}`, { cache: "no-store" }).then(async (response) => {
+    const route = variant === "section" ? "section-config" : "config";
+    const load = () => fetch(`/api/wiki/office/${encodeURIComponent(page.id)}/${route}?${params}`, { cache: "no-store" }).then(async (response) => {
       if (cancelled) return;
-      if (response.status === 503) { setState({ kind: "unavailable" }); callbacks.current.onUnavailable(); return; }
+      if (response.status === 503) { setState({ kind: "unavailable" }); callbacks.current.onUnavailable?.(); return; }
       if (response.status === 409) {
         const body = await response.json().catch(() => ({})) as { error?: string };
         setState({ kind: "error", code: body.error ?? "conflict" });
@@ -135,7 +139,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
     }, () => { if (!cancelled) setState({ kind: "error", code: "load" }); });
     void load();
     return () => { cancelled = true; window.clearTimeout(retry); };
-  }, [page.id, query.insertEvidence, query.task, query.deadline, query.officeAction, theme, attempt]);
+  }, [page.id, variant, query.insertEvidence, query.task, query.deadline, query.officeAction, theme, attempt]);
 
   // Create the editor once the script and config are ready. Creation is
   // deferred a tick and always gets a fresh element: an immediate
@@ -161,13 +165,15 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
             hideUnusedTabs(container);
             applyOfficeUserColors(editorFrame(container), identitiesRef.current);
           },
-          onDocumentStateChange: (event: { data: boolean }) => callbacks.current.onSynced(!event.data),
+          onDocumentStateChange: (event: { data: boolean }) => callbacks.current.onSynced?.(!event.data),
           onError: () => setState({ kind: "error", code: "editor" }),
           onOutdatedVersion: () => setAttempt((value) => value + 1),
           onRequestUsers: (event: { data?: { c?: string } }) => {
             void officeMentionUsers().then((users) => editor.current?.setUsers({ c: event.data?.c, users }));
           },
           onRequestSendNotify: (event: { data?: { emails?: string[]; actionLink?: unknown } }) => {
+            // Comments in the scratch document are recreated in the real one; links to them would dangle.
+            if (variant === "section") return;
             const actionLink = event.data?.actionLink ? JSON.stringify(event.data.actionLink) : undefined;
             void notifyOfficeMentions({ pageId: page.id, emails: event.data?.emails ?? [], actionLink }).catch(() => toast.error(t("mentionFailed")));
           },
@@ -192,7 +198,7 @@ export function OfficeEditor({ ref, page, query, onSynced, onUnavailable, onPlug
       try { instance?.destroyEditor(); } catch { /* already gone */ }
       container.replaceChildren();
     };
-  }, [state, script.api, elementId, page.id, t, theme]);
+  }, [state, script.api, elementId, page.id, t, theme, variant]);
 
   const failed = state.kind === "error" || script.error;
   return <div className="relative h-full min-h-[18rem] overflow-hidden rounded-md border bg-background">

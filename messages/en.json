@@ -4991,13 +4991,24 @@
       "jump": "Jump to the passage"
     },
     "legacyVersion": "Version before the switch (old editor)",
-    "sectionFocus": {
-      "label": "Focused section",
+    "sectionEditor": {
       "startOfDocument": "Start of document",
-      "previous": "Previous section",
-      "next": "Next section",
-      "exit": "Exit section focus",
-      "noPosition": "Place the cursor in the document text first."
+      "description": "This section is locked in the document while you edit it here. Applying replaces the section in the document; citations are renumbered afterwards.",
+      "apply": "Apply and close",
+      "discard": "Discard",
+      "discardConfirm": "Discard the changes to this section? The section in the document stays as it was.",
+      "applied": "Section applied.",
+      "lockAlias": "Being edited separately: {name}",
+      "alreadyOpen": "A section is already open for editing.",
+      "trackingOn": "Turn off “Track changes” first: a section can only be edited separately without change tracking.",
+      "noPosition": "Place the cursor in the document text first.",
+      "locked": "This section (or part of it) is already being edited separately.",
+      "changed": "The document has just changed. Please try again.",
+      "failed": "The section could not be opened. Please try again.",
+      "loadFailed": "The section could not be loaded into the editor. It stays unchanged in the document.",
+      "commentsWarning": "This section contains comments. They are recreated when the section is edited separately, and replies to comments may be lost. Open anyway?",
+      "applyFailed": "The section could not be applied. The editor stays open; please try again.",
+      "missing": "The section's lock has been removed in the meantime, so it cannot be applied. Please copy the text here and paste it into the document."
     },
     "grammar": {
       "title": "Spelling & grammar",

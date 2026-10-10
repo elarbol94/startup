@@ -188,6 +188,7 @@ The page answers with commands that the plugin applies to the document
 | `mp:cite:{"ids":[…],"loc":"…"}` | Citation(s) with an optional locator. "Literatur aktualisieren" renumbers them and rewrites the `mp:bibliography` block, using the page's citation style and locale. Inserts inside the bibliography are refused |
 | `mp:evidence:{"id":…}` | PDF highlight quote with a link to the reader |
 | `mp:task:{"id":…}`, `mp:deadline:{"id":…}` | Selection turned into a task or deadline; `?task=`/`?deadline=` links select the control again |
+| `mp:section-edit:{"id":…,"user":…,"at":…}` | Temporary lock around a section that is open in the section editor (see "Editing a section separately"); ignored by `docx-extract.ts` |
 
 Normal hyperlinks to `/wiki/pages/<slug>` become backlinks.
 
@@ -239,6 +240,75 @@ occurrence in that paragraph) and is refused if the text there changed since
 the check. Editor range positions count formatting boundaries, so plain
 offsets would drift.
 
+## Editing a section separately
+
+Right-clicking in the document text offers **Abschnitt separat bearbeiten**
+(plugin context-menu item; the navigation pane's own heading menu cannot be
+extended). ONLYOFFICE cannot hide parts of a document per viewer, so the
+section opens in a second editor in a large dialog on the same page, holding
+only that section. Code: `public/onlyoffice-plugins/management/section.js`
+and `src/modules/wiki/components/office/section-editor/`.
+
+1. **Section.** The plugin reads the top-level blocks (outline level via
+   `GetParaPr().GetOutlineLvl()`, so style-defined levels count) and the block
+   holding the cursor. `section-logic.ts` picks the nearest heading above the
+   cursor down to the next heading of the same or a higher level; text above
+   the first heading is "Anfang des Dokuments". Headings inside tables or
+   content controls do not count.
+2. **Refusals.** It is refused while "Änderungen nachverfolgen" is on in the
+   document (checked again on applying), when the section already contains a
+   section-edit lock, and while another section is open in this page.
+3. **Lock.** The plugin selects the blocks and wraps them in a block content
+   control `mp:section-edit:{"id","user","at"}`, locked with
+   `sdtContentLocked` and titled "Wird separat bearbeitet: Name". Co-editors
+   see the section but cannot change it. If the section contains comments, the
+   page warns first that replies may be lost (cancelling removes the lock).
+4. **Section editor.** The wrapper is serialised with `ToJSON` (with its
+   styles and numberings) and loaded into the second editor with
+   `Api.FromJSON`. Its Workspace tab has no "Literatur aktualisieren",
+   "Grammatik" or "Dokument formatieren"; new citations show `[…]` until the
+   section is applied. Track changes is not offered there.
+5. **Apply ("Übernehmen und schließen").** The section editor's body goes back
+   as JSON; the main document replaces the wrapper's content with it, removes
+   the wrapper (keeping the content) and, if the section contains citations,
+   runs "Literatur aktualisieren" once. If that fails the dialog stays open.
+   **Verwerfen** only removes the lock. Leaving the page while the dialog is
+   open asks for confirmation.
+6. **Scratch document.** The second editor uses its own document key
+   `scratch-<uuid>` (`/api/wiki/office/[pageId]/section-config`). The document
+   server fetches a blank DOCX built in memory from `/api/wiki/office/scratch`
+   (short-lived token bound to that key), and the callback accepts and discards
+   every save for scratch keys. No page, version, attachment or session row is
+   created.
+
+**Stale locks.** A lock can stay behind when a tab is closed or crashes while
+the dialog is open. Whenever the main document opens, the plugin reports the
+locks it finds and the page releases (unwraps, keeping the content) those that
+are not in use:
+- locks whose section editor is open in this browser (any tab, answered over a
+  `BroadcastChannel`) are kept;
+- locks older than 24 hours are released;
+- the user's own locks are released otherwise;
+- another user's lock is kept while that user is connected to the document
+  (the document server's user list from the save callbacks, shown by the
+  status route) and released once they are not.
+
+If the same user has the dialog open on another device, opening the document
+elsewhere releases that lock; applying there then fails with a message and the
+dialog stays open so the text can be copied.
+
+**Trade-offs (accepted).**
+- `FromJSON` creates new list definitions on every apply, so a numbered list
+  that continues past the section boundary may restart.
+- Images are re-inserted from the JSON (base64).
+- Comments in the section are recreated and may lose replies.
+- `FromJSON` adds copies of the styles it carries even when the document has
+  an identical style; the plugin removes those copies afterwards. This uses
+  internal ONLYOFFICE objects (`Document.Get_Styles()`, `Is_Similar`); if an
+  upgrade changes them, duplicate style entries may appear.
+- A section that ends with a table gets an empty paragraph after it, because a
+  document must end with a paragraph.
+
 ## Look and feel
 
 - **Theme.** The editor follows the app's light/dark appearance
@@ -263,19 +333,6 @@ offsets would drift.
 - **Logo.** The ONLYOFFICE logo stays; the licence requires it.
 - **Focus mode.** The focus-mode button hides the app chrome and the details
   panel.
-- **Section focus.** Right-clicking in the document text offers "Abschnitt
-  fokussieren" (plugin context-menu item; the navigation pane's own heading
-  menu cannot be extended). The plugin reads the headings, using
-  `GetParaPr().GetOutlineLvl()` so style-defined levels count, and the cursor's
-  paragraph. The page then works out the section in `office-sections.ts`: the
-  nearest heading above the cursor, down to the next heading of the same or a
-  higher level. Text above the first heading counts as "Anfang des Dokuments".
-  The page turns on focus mode, moves the cursor to the heading and shows a
-  bar with the section title, previous/next section (same level) and "exit".
-  Exiting restores the earlier layout; focus mode stays on if it already was.
-  It is the same document: nothing is copied, selected or changed. Leaving
-  focus mode any other way also ends section focus. The bar's title only
-  updates on focus/previous/next, not while the cursor moves.
 - **Content blockers.** Blockers such as uBlock Origin block the editor's
   `Analytics.js` module because of its name, and the editor then never
   finishes loading. Allow the site in the blocker.
@@ -365,6 +422,11 @@ Linux, `host.docker.internal` resolves through `extra_hosts: host-gateway`.
 - Restarting the document server mid-edit still delivers the final callback.
 - An @mention in a comment creates a wiki notification.
 - Two users see their app colours on comments, cursors and track changes.
+- "Abschnitt separat bearbeiten": the section opens alone in the dialog with
+  headings, lists, tables, images and citations; a co-editor sees it locked;
+  "Übernehmen und schließen" writes it back and renumbers citations;
+  "Verwerfen" leaves it unchanged; closing the tab and reopening the document
+  releases the lock; no duplicate styles appear in the style gallery.
 
 ## Spike results (9.4.0.1, 2026-09-28)
 

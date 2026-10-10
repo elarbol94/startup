@@ -5,6 +5,7 @@ import { wikiOfficeDocuments, wikiOfficeOperations, wikiOfficeSessions, wikiPage
 import type { OfficeConfig } from "./config";
 import { downloadFromDocServer } from "./office-http";
 import { withPageOfficeLock } from "./page-lock";
+import { isScratchKey } from "./scratch";
 import { ACTIVE_OPERATION_STATES } from "./sessions";
 import { commitCallbackSave, prepareDocx } from "./store";
 
@@ -56,13 +57,15 @@ function ensureSession(pageId: string, key: string) {
   return db.insert(wikiOfficeSessions).values({ key, pageId, baseVersionId: office.head, state: "superseded" }).onConflictDoNothing().returning().get() ?? null;
 }
 
-export type CallbackOutcome = { ok: true; versionId?: string; advanced?: boolean } | { ok: false; reason: string };
+export type CallbackOutcome = { ok: true; versionId?: string; advanced?: boolean; discarded?: true } | { ok: false; reason: string };
 
 /**
  * Applies one callback under the page lock. Throws when the state could not be
  * persisted, so the route answers `{"error":1}` and the server retries.
  */
 export function handleCallback(pageId: string, payload: CallbackPayload, deps: CallbackDeps): Promise<CallbackOutcome> {
+  // The section editor's scratch document is never stored (scratch.ts).
+  if (isScratchKey(payload.key)) return Promise.resolve({ ok: true, discarded: true });
   return withPageOfficeLock(pageId, async () => {
     const page = db.select({ id: wikiPages.id }).from(wikiPages).where(eq(wikiPages.id, pageId)).get();
     if (!page) return { ok: false, reason: "unknownPage" };

@@ -14,11 +14,10 @@
  * The cursor's paragraph is reported to the page (debounced) so it can reopen
  * the document where the user left off; "goToParagraph" jumps back there.
  *
- * "Focus on section" (document body context menu) reads the outline (headings
- * with their outline level, including style-defined levels) and the cursor's
- * paragraph and hands both to the page, which shows the section in focus mode
- * (src/modules/wiki/components/office/office-sections.ts). It only reads and
- * moves the cursor; the document is never changed.
+ * "Edit section separately" (document body context menu) lives in section.js,
+ * which uses the helpers exported below as window.MpWorkspace. The same plugin
+ * runs in the section editor's scratch document with options.mode "section":
+ * no bibliography, house styles, grammar or section menu there.
  *
  * "Format document" applies the house paragraph styles (HOUSE_STYLES below) to
  * the open document's styles, so older documents get the same heading and
@@ -27,7 +26,7 @@
 (function (window) {
   "use strict";
   var plugin = window.Asc.plugin;
-  var state = { pageId: "", channel: null };
+  var state = { pageId: "", channel: null, section: false, user: { id: "", name: "" } };
 
   // Own dictionary: the SDK loads translations asynchronously, after the toolbar is registered.
   var DE = {
@@ -37,7 +36,7 @@
     "Not found in the text.": "Im Text nicht gefunden.", "Citations updated.": "Zitate und Literaturverzeichnis aktualisiert.",
     "Done.": "Erledigt.", "Failed. Please try again.": "Fehlgeschlagen. Bitte erneut versuchen.", "Bibliography": "Literaturverzeichnis", "Page": "S.",
     "Place the cursor outside the bibliography.": "Bitte den Cursor außerhalb des Literaturverzeichnisses setzen.",
-    "Focus on section": "Abschnitt fokussieren", "Format document": "Dokument formatieren", "Headings and paragraphs formatted.": "Überschriften und Absätze formatiert.",
+    "Format document": "Dokument formatieren", "Headings and paragraphs formatted.": "Überschriften und Absätze formatiert.",
   };
   // Same values as src/modules/wiki/lib/docx-styles.ts (checked by docx-styles.test.ts).
   var HOUSE_FONT = "Calibri";
@@ -246,54 +245,6 @@
     });
   }
 
-  // --- Section focus -----------------------------------------------------------
-
-  /**
-   * Headings (paragraph index, outline level 1–9, text) and the cursor's
-   * paragraph index (-1 if unknown). Read-only: no recalculation, no changes.
-   */
-  function readOutline() {
-    return new Promise(function (resolve) {
-      plugin.callCommand(function () {
-        var doc = Api.GetDocument();
-        var current = doc.GetCurrentParagraph ? doc.GetCurrentParagraph() : null;
-        if (!current) {
-          var range = doc.GetRangeBySelect();
-          var selected = range ? range.GetAllParagraphs() : [];
-          current = selected.length ? selected[0] : null;
-        }
-        var currentId = current && current.GetInternalId ? current.GetInternalId() : null;
-        var paragraphs = doc.GetAllParagraphs();
-        var headings = [];
-        var cursor = -1;
-        for (var i = 0; i < paragraphs.length; i++) {
-          if (cursor < 0 && currentId !== null && paragraphs[i].GetInternalId() === currentId) cursor = i;
-          var level = paragraphs[i].GetParaPr().GetOutlineLvl();
-          if (typeof level !== "number" || level < 1 || level > 9) continue;
-          var title = paragraphs[i].GetText().replace(/\s+/g, " ").trim();
-          if (title) headings.push({ index: i, level: level, title: title.slice(0, 200) });
-        }
-        return { cursor: cursor, headings: headings };
-      }, false, false, resolve);
-    });
-  }
-
-  function postOutline(reason) {
-    return readOutline().then(function (outline) {
-      post({ type: "outline", reason: reason, cursor: outline ? outline.cursor : -1, headings: (outline && outline.headings) || [] });
-    });
-  }
-
-  /** "Focus on section" in the document body's context menu (text cursor or selection). */
-  function registerContextMenu() {
-    var item = new Asc.ButtonContextMenu(null);
-    item.text = tr("Focus on section");
-    item.editors = ["word"];
-    item.addCheckers("Target", "Selection");
-    item.attachOnClick(function () { postOutline("focus").catch(fail); });
-    Asc.Buttons.registerContextMenu();
-  }
-
   // --- House styles ------------------------------------------------------------
 
   /** Rewrites the document's paragraph styles; paragraphs using them follow. */
@@ -383,24 +334,33 @@
       case "insertCitation": {
         var data = { ids: message.ids.slice(0, 50) };
         if (message.loc) data.loc = message.loc;
-        return insertInlineControl(tag("cite", data), "[…]").then(updateCitations);
+        // The section editor has no bibliography: the main document numbers the citation after closing.
+        return insertInlineControl(tag("cite", data), "[…]").then(function () { if (!state.section) return updateCitations(); });
       }
-      case "updateCitations": return updateCitations();
+      case "updateCitations": return state.section ? Promise.resolve() : updateCitations();
       case "insertEvidence": return insertEvidence(message.item);
       case "insertLink": return insertLink(message.page);
       case "wrapSelection":
         // AddContentControl wraps the current selection; Lock 3 means "not locked".
         return method("AddContentControl", [2, { Tag: tag(message.kind, { id: message.id }), Lock: 3 }]);
       case "goToParagraph": return goToParagraph(message.index);
-      case "readOutline": return postOutline(message.reason);
       case "select": return selectTagged(message.kind, message.id);
       case "collectParagraphs": return collectParagraphs().then(function (paragraphs) { post({ type: "paragraphs", paragraphs: paragraphs || [] }); });
       case "selectIssue":
         return selectIssue(message).then(function (result) { post({ type: "issueResult", id: message.id, result: result }); });
       case "replaceIssue":
         return replaceIssue(message).then(function (result) { post({ type: "issueResult", id: message.id, result: result, replaced: result === "ok" }); });
-      default: return Promise.resolve();
+      default: {
+        var section = window.MpWorkspaceSection;
+        return section && section.handles(message.command) ? section.apply(message) : Promise.resolve();
+      }
     }
+  }
+
+  /** Commands that report their own result (no "Done." notice). */
+  function silent(name) {
+    if (["select", "goToParagraph", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(name) >= 0) return true;
+    return Boolean(window.MpWorkspaceSection && window.MpWorkspaceSection.handles(name));
   }
 
   // --- Toolbar ---------------------------------------------------------------
@@ -432,12 +392,15 @@
       ["grammar", "Grammar", function () { post({ type: "request", action: "grammar" }); }],
       ["format", "Format document", function () { formatDocument().then(function () { notify("success", tr("Headings and paragraphs formatted.")); }, fail); }],
     ];
-    buttons.forEach(function (entry, index) {
+    // The section editor never writes a bibliography or changes styles; grammar stays in the main document.
+    var hidden = state.section ? ["bibliography", "grammar", "format"] : [];
+    var separated = ["evidence", "task", "remove", "grammar"];
+    buttons.filter(function (entry) { return hidden.indexOf(entry[0]) < 0; }).forEach(function (entry, index) {
       var button = new Asc.ButtonToolbar(tab);
       button.text = tr(entry[1]);
       button.hint = tr(entry[1]);
       button.icons = icon(entry[0]);
-      button.separator = index === 2 || index === 4 || index === 6 || index === 7;
+      button.separator = index > 0 && separated.indexOf(entry[0]) >= 0;
       button.attachOnClick(entry[2]);
     });
     Asc.Buttons.registerToolbarMenu();
@@ -456,13 +419,15 @@
   plugin.init = function () {
     var options = (plugin.info && plugin.info.options) || {};
     state.pageId = options.pageId || "";
+    state.section = options.mode === "section";
+    state.user = { id: String(options.userId || plugin.info.userId || ""), name: String(options.userName || plugin.info.userName || "") };
     if (options.bridgeId && window.BroadcastChannel) {
       state.channel = new BroadcastChannel("mp-office:" + options.bridgeId);
       state.channel.onmessage = function (event) {
         var message = event.data || {};
         if (message.type !== "command") return;
         run(message).then(function () {
-          if (["select", "goToParagraph", "readOutline", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
+          if (!silent(message.command)) notify("success", tr("Done."));
         }, function (error) {
           if (error && error.message === "bibliography") notify("info", tr("Place the cursor outside the bibliography."));
           else fail(error);
@@ -471,15 +436,25 @@
       post({ type: "ready" });
     }
     registerToolbar();
-    if (state.channel) registerContextMenu();
+    if (state.channel && window.MpWorkspaceSection) window.MpWorkspaceSection.init();
     runPending(options);
   };
 
   plugin.event_onTargetPositionChanged = function () {
+    if (state.section) return;
     window.clearTimeout(positionTimer);
     positionTimer = window.setTimeout(reportPosition, 1000);
   };
 
   plugin.onTranslate = function () {};
   plugin.button = function () {};
+
+  // Shared with section.js, which index.html loads after this file.
+  window.MpWorkspace = {
+    plugin: plugin, state: state, tr: tr, parseTag: parseTag, method: method, command: command, post: post, notify: notify, fail: fail,
+    updateCitations: updateCitations,
+    /** Read-only document access: no recalculation. */
+    read: function (fn) { return new Promise(function (resolve) { plugin.callCommand(fn, false, false, resolve); }); },
+    addTranslations: function (entries) { for (var key in entries) DE[key] = entries[key]; },
+  };
 })(window);
