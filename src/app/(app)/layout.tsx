@@ -84,6 +84,11 @@ export default async function AppLayout({
         html[data-focus-reader="true"] [data-focus-chrome] {
           display: none;
         }
+        /* Workspace panes render without the app rail, so nothing may make room for it
+           (the wiki's research rail would otherwise sit beside a missing rail and cover the page). */
+        html:has([data-app-shell][data-workspace-embedded]) {
+          --app-rail-width: 0px !important;
+        }
         html[data-focus-global="true"],
         html[data-focus-reader="true"] {
           --app-rail-width: 0px !important;
