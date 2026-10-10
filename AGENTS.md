@@ -73,7 +73,10 @@ SQLite database. Stop the normal development server before running it.
 
 ## Development and deployment workflow
 
-- Develop and test locally on the laptop.
+- Develop and test in a separate checkout: on a laptop, or in a git worktree
+  under `.claude/worktrees/` on `banond`. Never develop in the production
+  checkout (`/srv/management-software`), which the production stack is built
+  from.
 - Commit and push completed changes to Git.
 - Deploy manually on `banond`, the machine that runs the production Docker
   stack (`management-platform-*` containers), by pulling the target branch and

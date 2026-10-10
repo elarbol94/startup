@@ -282,8 +282,8 @@ offline media and presenter previews/notes/timers.
 
 Migration `0055_redundant_nebula.sql` adds access settings, membership, comments and
 the design library. Existing canvases remain backwards-compatible. Deploy through
-the normal manual homeserver workflow after local validation; do not deploy from
-the laptop automatically.
+the normal manual workflow on `banond` (see AGENTS.md) after validation; do not
+deploy automatically.
 
 The Properties inspector uses exclusive collapsible sections: opening Appearance, Content & media, Structure, or Animation closes the others. Connectors and multi-object arrangement are collapsed groups; a compact selector switches workspace panels.
 
