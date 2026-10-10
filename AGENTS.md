@@ -75,9 +75,12 @@ SQLite database. Stop the normal development server before running it.
 
 - Develop and test locally on the laptop.
 - Commit and push completed changes to Git.
-- Deploy manually on the homeserver by pulling the target branch and restarting
-  the application as needed.
-- Do not SSH to, pull on, restart, or otherwise modify the homeserver unless
-  explicitly asked.
+- Deploy manually on `banond`, the machine that runs the production Docker
+  stack (`management-platform-*` containers), by pulling the target branch and
+  restarting the application as needed. The tailnet host named `homeserver` is
+  a separate Nextcloud server, not the deploy target.
+- Do not pull on the production checkout, restart or rebuild the production
+  containers, or otherwise modify production on `banond` unless explicitly
+  asked.
 - Before handoff, report the validation run and whether the change is ready to
   commit/push/deploy.
