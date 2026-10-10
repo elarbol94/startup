@@ -54,6 +54,11 @@ export type SectionEditLock = { id: string; user: string; at: number };
 
 const LOCK_ID = /^[0-9a-zA-Z-]{8,64}$/;
 
+/** Whether a value can be a section-edit lock id (e.g. the section tab's `?edit=`). */
+export function isSectionLockId(value: unknown): value is string {
+  return typeof value === "string" && LOCK_ID.test(value);
+}
+
 export function sectionEditTag(lock: SectionEditLock) {
   return SECTION_EDIT_TAG_PREFIX + JSON.stringify({ id: lock.id, user: lock.user, at: lock.at });
 }
@@ -64,7 +69,7 @@ export function parseSectionEditTag(tag: unknown): SectionEditLock | null {
   try { data = JSON.parse(tag.slice(SECTION_EDIT_TAG_PREFIX.length)); } catch { return null; }
   if (!data || typeof data !== "object") return null;
   const { id, user, at } = data as Record<string, unknown>;
-  if (typeof id !== "string" || !LOCK_ID.test(id)) return null;
+  if (!isSectionLockId(id)) return null;
   if (typeof user !== "string" || !user || user.length > 200) return null;
   if (typeof at !== "number" || !Number.isFinite(at)) return null;
   return { id, user, at };

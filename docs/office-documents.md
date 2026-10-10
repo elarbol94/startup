@@ -188,7 +188,7 @@ The page answers with commands that the plugin applies to the document
 | `mp:cite:{"ids":[…],"loc":"…"}` | Citation(s) with an optional locator. "Literatur aktualisieren" renumbers them and rewrites the `mp:bibliography` block, using the page's citation style and locale. Inserts inside the bibliography are refused |
 | `mp:evidence:{"id":…}` | PDF highlight quote with a link to the reader |
 | `mp:task:{"id":…}`, `mp:deadline:{"id":…}` | Selection turned into a task or deadline; `?task=`/`?deadline=` links select the control again |
-| `mp:section-edit:{"id":…,"user":…,"at":…}` | Temporary lock around a section that is open in the section editor (see "Editing a section separately"); ignored by `docx-extract.ts` |
+| `mp:section-edit:{"id":…,"user":…,"at":…}` | Temporary lock around a section that is open in a section tab (see "Editing a section separately"); ignored by `docx-extract.ts` |
 
 Normal hyperlinks to `/wiki/pages/<slug>` become backlinks.
 
@@ -245,9 +245,13 @@ offsets would drift.
 Right-clicking in the document text offers **Abschnitt separat bearbeiten**
 (plugin context-menu item; the navigation pane's own heading menu cannot be
 extended). ONLYOFFICE cannot hide parts of a document per viewer, so the
-section opens in a second editor in a large dialog on the same page, holding
-only that section. Code: `public/onlyoffice-plugins/management/section.js`
-and `src/modules/wiki/components/office/section-editor/`.
+section opens in a second editor holding only that section, on its own
+platform page in a new browser tab:
+`/wiki/pages/<slug>/section?edit=<lock id>` (normal app layout; same access
+check as the document page). The document stays open in its own tab. Code:
+`public/onlyoffice-plugins/management/section.js`,
+`src/modules/wiki/components/office/section-editor/` and
+`src/app/(app)/wiki/pages/[slug]/section/page.tsx`.
 
 1. **Section.** The plugin reads the top-level blocks (outline level via
    `GetParaPr().GetOutlineLvl()`, so style-defined levels count) and the block
@@ -263,17 +267,26 @@ and `src/modules/wiki/components/office/section-editor/`.
    `sdtContentLocked` and titled "Wird separat bearbeitet: Name". Co-editors
    see the section but cannot change it. If the section contains comments, the
    page warns first that replies may be lost (cancelling removes the lock).
-4. **Section editor.** The wrapper is serialised with `ToJSON` (with its
-   styles and numberings) and loaded into the second editor with
-   `Api.FromJSON`. Its Workspace tab has no "Literatur aktualisieren",
+4. **Section tab.** The wrapper is serialised with `ToJSON` (with its
+   styles and numberings) and the document tab opens the section tab
+   (`window.open`). The context-menu click reaches the page asynchronously, so
+   the browser may block the tab; the document then shows a button
+   "Abschnitt in neuem Tab öffnen". While the section is open, the document
+   shows a banner "Abschnitt „…“ wird in einem anderen Tab bearbeitet" with
+   **Verwerfen** (removes the lock and tells the section tab). The section
+   tab gets the JSON from the document tab (see "Section channel" below) and
+   loads it into its editor with `Api.FromJSON`. Its Workspace tab has no "Literatur aktualisieren",
    "Grammatik" or "Dokument formatieren"; new citations show `[…]` until the
    section is applied. Track changes is not offered there.
 5. **Apply ("Übernehmen und schließen").** The section editor's body goes back
    as JSON; the main document replaces the wrapper's content with it, removes
    the wrapper (keeping the content) and, if the section contains citations,
-   runs "Literatur aktualisieren" once. If that fails the dialog stays open.
-   **Verwerfen** only removes the lock. Leaving the page while the dialog is
-   open asks for confirmation.
+   runs "Literatur aktualisieren" once. The document tab confirms, and the
+   section tab closes itself (`window.close()`, or it navigates back to the
+   document if the browser refuses). If applying fails, the section tab stays
+   open with a message. **Verwerfen** in the section tab only removes the lock.
+   Leaving the section tab, or the document tab, while a section is open asks
+   for confirmation; the document tab is needed to apply.
 6. **Scratch document.** The second editor uses its own document key
    `scratch-<uuid>` (`/api/wiki/office/[pageId]/section-config`). The document
    server fetches a blank DOCX built in memory from `/api/wiki/office/scratch`
@@ -281,21 +294,43 @@ and `src/modules/wiki/components/office/section-editor/`.
    every save for scratch keys. No page, version, attachment or session row is
    created.
 
+**Section channel.** The tabs talk over a same-origin `BroadcastChannel`
+`mp-section-edit:<pageId>` (`section-channel.ts`). The section content travels
+only there: never in the URL and never through the server.
+- *Open.* The section tab takes the Web Lock `mp-section-tab:<lock id>` for its
+  lifetime and sends `hello`; the document tab that made the lock answers with
+  `open` (title and JSON). Without an answer within 5 s the tab explains that
+  the section is no longer available (e.g. it was reloaded after the document
+  tab was closed) and links to the document. If the Web Lock is already held,
+  the section is open in another tab and the page says so.
+- *Apply.* The section tab asks `who` and sends `apply` to exactly one
+  document tab: the one that made the lock, otherwise the first that answered
+  (the document opened again after its tab was closed). That tab commits and
+  answers `applied`. If no document tab answers (or none confirms within 40 s)
+  the section tab keeps its editor and offers "Dokument in neuem Tab öffnen";
+  a document tab announces `mainReady` when its plugin is ready, and the
+  section tab then retries.
+- *Closing the section tab* means discarding. The document tab waits on the
+  section tab's Web Lock; when it is freed and the tab does not come back
+  within 10 s (a reload), the document tab removes the lock. Without the Web
+  Locks API (non-secure origin) only the banner's **Verwerfen** and the
+  stale-lock check remove it.
+
 **Stale locks.** A lock can stay behind when a tab is closed or crashes while
-the dialog is open. Whenever the main document opens, the plugin reports the
+a section is open. Whenever the main document opens, the plugin reports the
 locks it finds and the page releases (unwraps, keeping the content) those that
 are not in use:
-- locks whose section editor is open in this browser (any tab, answered over a
-  `BroadcastChannel`) are kept;
+- locks whose section tab (holding the section) or document tab is open in
+  this browser (answered `ping`/`pong` on the section channel) are kept;
 - locks older than 24 hours are released;
 - the user's own locks are released otherwise;
 - another user's lock is kept while that user is connected to the document
   (the document server's user list from the save callbacks, shown by the
   status route) and released once they are not.
 
-If the same user has the dialog open on another device, opening the document
-elsewhere releases that lock; applying there then fails with a message and the
-dialog stays open so the text can be copied.
+If the same user has a section tab open on another device, opening the
+document elsewhere releases that lock; applying there then fails with a
+message and the section tab stays open so the text can be copied.
 
 **Trade-offs (accepted).**
 - `FromJSON` creates new list definitions on every apply, so a numbered list

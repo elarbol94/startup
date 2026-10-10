@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -24,35 +24,13 @@ import { useOfficeGrammarController } from "./use-office-grammar-controller";
 import type { ProofingLanguage } from "./use-office-grammar";
 import { OfficeEditor, type OfficeEditorHandle } from "./office-editor";
 import { OfficeSaveBadge } from "./office-save-badge";
-import { SectionEditorDialog } from "./section-editor/section-editor-dialog";
+import { SectionTabBanner } from "./section-editor/section-tab-banner";
 import { useSectionEditor } from "./section-editor/use-section-editor";
 import { OfficeVersionsDialog } from "./office-versions-dialog";
 import { useOfficeStatus } from "./use-office-status";
+import { useFitToViewport } from "./use-fit-to-viewport";
 
 type PageRef = { id: string; title: string; slug: string };
-
-/**
- * The editor must end at the bottom of the window (its status bar with the
- * language and zoom controls lives there), below whatever app chrome sits
- * above it. Height = window height minus the element's top offset.
- */
-function useFitToViewport() {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const fit = () => {
-      const top = element.getBoundingClientRect().top + window.scrollY;
-      element.style.height = `${Math.max(360, window.innerHeight - top)}px`;
-    };
-    fit();
-    const observer = new ResizeObserver(fit);
-    observer.observe(document.body);
-    window.addEventListener("resize", fit);
-    return () => { observer.disconnect(); window.removeEventListener("resize", fit); };
-  }, []);
-  return ref;
-}
 
 /** Page chrome for office (DOCX) documents: header, editor, workspace side panels. */
 export function OfficeDocumentShell({ page, backlinks, favorite, attachments, query, converted = false, proofingLanguage = "de-AT" }: {
@@ -74,12 +52,15 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const editor = useRef<OfficeEditorHandle>(null);
   const send = useCallback((command: OfficeCommand) => editor.current?.send(command), []);
   const grammar = useOfficeGrammarController(proofingLanguage, send);
-  const sectionEditor = useSectionEditor(page.id, send);
+  const currentSlug = useRef(page.slug);
+  const getSlug = useCallback(() => currentSlug.current, []);
+  const sectionEditor = useSectionEditor(page.id, getSlug, send);
   const onSectionEvent = sectionEditor.onPluginEvent;
   const onGrammarEvent = grammar.onPluginEvent;
   const onPluginEvent = useCallback((event: PluginEvent) => {
-    if (event.type.startsWith("section")) onSectionEvent(event);
-    else onGrammarEvent(event);
+    if (event.type.startsWith("section")) { onSectionEvent(event); return; }
+    if (event.type === "ready") onSectionEvent(event);
+    onGrammarEvent(event);
   }, [onGrammarEvent, onSectionEvent]);
   const [synced, setSynced] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
@@ -87,7 +68,6 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const [versionsOpen, setVersionsOpen] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [checkpointing, setCheckpointing] = useState(false);
-  const currentSlug = useRef(page.slug);
   const { status, refresh } = useOfficeStatus(page.id, true);
   const { isFocused } = useFocusMode();
   const root = useFitToViewport();
@@ -162,6 +142,8 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
       </div>
     </header>
 
+    {sectionEditor.session && !unavailable && <SectionTabBanner session={sectionEditor.session} onOpen={sectionEditor.reopen} onDiscard={sectionEditor.discard} />}
+
     <p className="mb-2 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-muted-foreground md:hidden"><Smartphone className="size-3.5 shrink-0" />{t("mobileViewOnly")}</p>
 
     <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
@@ -190,8 +172,6 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
       </aside>}
     </div>
 
-    {sectionEditor.session && !unavailable && <SectionEditorDialog key={sectionEditor.session.id} page={page} session={sectionEditor.session}
-      onSaving={sectionEditor.startSaving} onApply={sectionEditor.apply} onDiscard={sectionEditor.discard} onLoadFailed={sectionEditor.loadFailed} />}
     <OfficeVersionsDialog pageId={page.id} open={versionsOpen} onOpenChange={setVersionsOpen} onRestored={() => { setEditorKey((value) => value + 1); void refresh(); router.refresh(); }} />
   </div>;
 }
