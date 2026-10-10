@@ -19,11 +19,13 @@ import { InlinePageTitle } from "../inline-page-title";
 import { OfficeDocumentTitle } from "./office-document-title";
 import { OfficeConnectionsPanel } from "./office-connections-panel";
 import { OfficeGrammarPanel } from "./office-grammar-panel";
-import type { OfficeCommand } from "./use-office-bridge";
+import type { OfficeCommand, PluginEvent } from "./use-office-bridge";
 import { useOfficeGrammarController } from "./use-office-grammar-controller";
 import type { ProofingLanguage } from "./use-office-grammar";
 import { OfficeEditor, type OfficeEditorHandle } from "./office-editor";
 import { OfficeSaveBadge } from "./office-save-badge";
+import { OfficeSectionFocusBar } from "./office-section-focus-bar";
+import { useOfficeSectionFocus } from "./use-office-section-focus";
 import { OfficeVersionsDialog } from "./office-versions-dialog";
 import { useOfficeStatus } from "./use-office-status";
 
@@ -72,6 +74,13 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
   const editor = useRef<OfficeEditorHandle>(null);
   const send = useCallback((command: OfficeCommand) => editor.current?.send(command), []);
   const grammar = useOfficeGrammarController(proofingLanguage, send);
+  const sectionFocus = useOfficeSectionFocus(send);
+  const { onOutline } = sectionFocus;
+  const onGrammarEvent = grammar.onPluginEvent;
+  const onPluginEvent = useCallback((event: PluginEvent) => {
+    if (event.type === "outline") onOutline(event);
+    else onGrammarEvent(event);
+  }, [onGrammarEvent, onOutline]);
   const [synced, setSynced] = useState(true);
   const [unavailable, setUnavailable] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -155,6 +164,8 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
 
     <p className="mb-2 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/5 px-3 py-1.5 text-xs text-muted-foreground md:hidden"><Smartphone className="size-3.5 shrink-0" />{t("mobileViewOnly")}</p>
 
+    {sectionFocus.section && !unavailable && <OfficeSectionFocusBar section={sectionFocus.section} onPrevious={sectionFocus.previous} onNext={sectionFocus.next} onExit={sectionFocus.exit} />}
+
     <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-[minmax(0,1fr)_auto]">
       <main className="min-h-0">
         {unavailable
@@ -167,7 +178,7 @@ export function OfficeDocumentShell({ page, backlinks, favorite, attachments, qu
               </div>
             </div>
           </div>
-          : <OfficeEditor key={editorKey} ref={editor} page={page} query={query} onSynced={(value) => { setSynced(value); if (value) void refresh(); }} onUnavailable={() => setUnavailable(true)} onPluginEvent={grammar.onPluginEvent} />}
+          : <OfficeEditor key={editorKey} ref={editor} page={page} query={query} onSynced={(value) => { setSynced(value); if (value) void refresh(); }} onUnavailable={() => setUnavailable(true)} onPluginEvent={onPluginEvent} />}
       </main>
       {grammar.open && <aside data-testid="office-grammar" className="max-h-full w-full overflow-y-auto border-t pt-4 xl:w-80 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
         <OfficeGrammarPanel {...grammar.panel} />

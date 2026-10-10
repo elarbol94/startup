@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useTaskCreator } from "@/modules/tasks/components/task-create-provider";
 import { useDeadlineCreator } from "@/modules/tasks/components/deadline-create-provider";
 import type { InsertKind, InsertResult } from "./office-insert-dialog";
+import type { OutlineHeading, OutlineReason } from "./office-sections";
 
 /** Commands the workspace plugin applies inside the document (public/onlyoffice-plugins/management/plugin.js). */
 export type OfficeCommand =
@@ -17,6 +18,7 @@ export type OfficeCommand =
   | { command: "select"; kind: "cite" | "evidence" | "task" | "deadline"; id: string }
   | { command: "collectParagraphs" }
   | { command: "goToParagraph"; index: number }
+  | { command: "readOutline"; reason: "previous" | "next" }
   | { command: "selectIssue"; id: string; index: number; offset: number; length: number; expected: string }
   | { command: "replaceIssue"; id: string; index: number; offset: number; length: number; expected: string; replacement: string };
 
@@ -24,7 +26,9 @@ export type OfficeCommand =
 export type PluginEvent =
   | { type: "grammarRequested" }
   | { type: "paragraphs"; paragraphs: Array<{ index: number; text: string }> }
-  | { type: "issueResult"; id: string; result: "ok" | "stale"; replaced?: boolean };
+  | { type: "issueResult"; id: string; result: "ok" | "stale"; replaced?: boolean }
+  /** Headings and cursor for "focus on section" (see office-sections.ts). */
+  | { type: "outline"; reason: OutlineReason; cursor: number; headings: OutlineHeading[] };
 
 type PluginMessage =
   | { type: "ready" }
@@ -88,7 +92,7 @@ export function useOfficeBridge(
         return;
       }
       if (message.type === "position") { saveOfficePosition(page.id, message.index); return; }
-      if (message.type === "paragraphs" || message.type === "issueResult") { events.current?.(message); return; }
+      if (message.type === "paragraphs" || message.type === "issueResult" || message.type === "outline") { events.current?.(message); return; }
       if (message.type === "notice") {
         if (message.kind === "error") toast.error(message.text);
         else if (message.kind === "info") toast.info(message.text);

@@ -4991,6 +4991,14 @@
       "jump": "Zur Stelle im Text springen"
     },
     "legacyVersion": "Fassung vor der Umstellung (alter Editor)",
+    "sectionFocus": {
+      "label": "Fokussierter Abschnitt",
+      "startOfDocument": "Anfang des Dokuments",
+      "previous": "Vorheriger Abschnitt",
+      "next": "Nächster Abschnitt",
+      "exit": "Abschnittsfokus beenden",
+      "noPosition": "Bitte zuerst den Cursor in den Dokumenttext setzen."
+    },
     "grammar": {
       "title": "Rechtschreibung & Grammatik",
       "recheck": "Erneut prüfen",

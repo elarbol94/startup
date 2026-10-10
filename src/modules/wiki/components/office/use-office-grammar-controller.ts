@@ -23,6 +23,7 @@ export function useOfficeGrammarController(language: ProofingLanguage, send: (co
   const onPluginEvent = useCallback((event: PluginEvent) => {
     if (event.type === "grammarRequested") { request(); return; }
     if (event.type === "paragraphs") { void grammar.check(event.paragraphs); return; }
+    if (event.type !== "issueResult") return;
     const replacement = pending.current.get(event.id);
     pending.current.delete(event.id);
     if (event.result === "stale") { toast.info(t("stale")); return; }
