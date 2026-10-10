@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ArrowLeft, Check, ExternalLink, Loader2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { requestWorkspaceTab } from "@/components/workspace/model";
 import { OfficeEditor, type OfficeEditorHandle } from "../office-editor";
 import type { OfficeCommand } from "../use-office-bridge";
 import { useFitToViewport } from "../use-fit-to-viewport";
@@ -38,7 +39,8 @@ export function SectionEditorPage({ page, lockId }: { page: { id: string; slug: 
     // Same root element as the editor view: useFitToViewport measures it once, on mount.
     return <div ref={root} className="mx-auto flex max-w-[120rem] flex-col px-3 py-3 md:px-6">
       <div className="mx-auto w-full max-w-lg space-y-3 p-6" data-testid="office-section-tab-state">
-        <h1 className="text-lg font-semibold">{t("heading")}</h1>
+        {/* The platform tab takes its label from the h1: keep the section heading it was opened with while connecting. */}
+        {tab.state.kind === "connecting" ? <p className="text-lg font-semibold">{t("heading")}</p> : <h1 className="text-lg font-semibold">{t("heading")}</h1>}
         <p className="flex items-center gap-2 text-sm text-muted-foreground">{tab.state.kind === "connecting" && <Loader2 className="size-4 animate-spin" />}{message}</p>
         {tab.state.kind !== "connecting" && backLink}
       </div>
@@ -62,7 +64,7 @@ export function SectionEditorPage({ page, lockId }: { page: { id: string; slug: 
     </header>
     {tab.apply === "noMain" && <div role="alert" className="flex flex-wrap items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-sm">
       <span className="min-w-0 flex-1">{t("noMain")}</span>
-      <Button type="button" size="sm" variant="outline" onClick={() => window.open(documentPath, "_blank")}><ExternalLink className="size-4" />{t("openDocument")}</Button>
+      <Button type="button" size="sm" variant="outline" onClick={() => { if (!requestWorkspaceTab(documentPath, page.title)) window.open(documentPath, "_blank"); }}><ExternalLink className="size-4" />{t("openDocument")}</Button>
       <Button type="button" size="sm" variant="ghost" onClick={tab.retryApply}>{t("retry")}</Button>
     </div>}
     <div className="min-h-0 flex-1">

@@ -1,5 +1,6 @@
 "use client";
 
+import { closeOwnWorkspaceTab } from "@/components/workspace/model";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -57,9 +58,10 @@ export function useSectionTab(pageId: string, id: string, documentPath: string, 
 
   const closeTab = useCallback(() => {
     setFinished(true);
-    // Allowed for tabs opened by a script or with a single history entry; otherwise go back to the document.
+    // A platform tab asks the workspace to close it; a browser tab may close itself only when a
+    // script opened it. Otherwise (or if neither works) go back to the document.
     window.setTimeout(() => {
-      window.close();
+      if (!closeOwnWorkspaceTab()) window.close();
       window.setTimeout(() => router.replace(documentPath), 300);
     }, 0);
   }, [documentPath, router, setFinished]);

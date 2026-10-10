@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { requestWorkspaceTab } from "@/components/workspace/model";
 import type { OfficeStatus } from "../../../office/queries";
 import type { OfficeCommand, PluginEvent } from "../use-office-bridge";
 import { parseSectionMessage, sectionChannelName, sectionTabLockName, sectionTabPath, tabGoneDecision, TAB_GONE_GRACE_MS, type SectionMessage } from "./section-channel";
@@ -19,7 +20,7 @@ export type SectionSession = {
   json: string;
   /** The section tab has received the content. */
   connected: boolean;
-  /** The browser blocked the new tab; the banner offers to open it on a click. */
+  /** The workspace did not open the tab (tab limit); the banner offers to try again. */
   blocked: boolean;
 };
 
@@ -69,10 +70,11 @@ export function useSectionEditor(pageId: string, getSlug: () => string, send: (c
     setSession(null);
   }, [setSession]);
 
+  // A platform tab, labelled with the section heading; the workspace explains a refusal (tab limit).
   const openTab = useCallback((id: string) => {
-    const opened = window.open(sectionTabPath(getSlug(), id), "_blank");
+    const title = sessionRef.current?.id === id ? sessionRef.current.title : null;
+    const opened = requestWorkspaceTab(sectionTabPath(getSlug(), id), title ?? t("startOfDocument"));
     patchSession(id, { blocked: !opened });
-    if (!opened) toast.info(t("popupBlocked"));
   }, [getSlug, patchSession, t]);
 
   /** Waits until the section tab's Web Lock is freed (tab closed); then, unless it comes back, discards. */

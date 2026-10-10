@@ -5022,9 +5022,8 @@
       "openDocument": "Dokument in neuem Tab öffnen",
       "retry": "Erneut versuchen",
       "bannerOpen": "Abschnitt „{title}“ wird in einem anderen Tab bearbeitet.",
-      "bannerBlocked": "Der Browser hat das Öffnen des neuen Tabs blockiert.",
+      "bannerBlocked": "Der Tab konnte nicht geöffnet werden. Schließe einen anderen Tab und versuche es erneut.",
       "openInTab": "Abschnitt in neuem Tab öffnen",
-      "popupBlocked": "Der Browser hat den neuen Tab blockiert. Bitte „Abschnitt in neuem Tab öffnen“ anklicken.",
       "tabClosed": "Der Tab mit dem Abschnitt wurde ohne Übernehmen geschlossen; der Abschnitt bleibt unverändert."
     },
     "grammar": {

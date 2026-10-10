@@ -16,7 +16,7 @@ import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { APP_NAVIGATION_EVENT, requestAppNavigation, type AppNavigationRequest } from "@/lib/app-navigation";
 import { FocusPill } from "@/components/focus/focus-pill";
 import { useFocusMode } from "@/components/focus-mode";
-import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame, workspaceNavigationTarget } from "./model";
+import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame, workspaceNavigationTarget, WORKSPACE_OPEN_TAB_EVENT, type WorkspaceTabRequest } from "./model";
 
 type Tab = { id: string; href: string; title: string };
 type Result = { href: string; title: string };
@@ -232,6 +232,28 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     };
   }, [embedded]);
 
+  // Pages ask for platform tabs themselves (e.g. a document's section editor), from the
+  // main page as an event or from a pane as a message; a pane may also close its own tab.
+  const pageRequest = useRef<{ open: (item: Result) => boolean; close: (id: string) => void }>({ open: () => false, close: () => {} });
+  useEffect(() => { pageRequest.current = { open: item => addTab(item, false), close: closeTab }; });
+  useEffect(() => {
+    if (embedded) return;
+    const onOpen = (event: Event) => {
+      const detail = (event as CustomEvent<WorkspaceTabRequest>).detail;
+      if (typeof detail?.href === "string" && typeof detail.title === "string" && pageRequest.current.open(detail)) event.preventDefault();
+    };
+    const receive = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const id = [...frames.current].find(([, frame]) => frame.contentWindow === event.source)?.[0];
+      if (!id) return;
+      if (event.data?.type === "app-workspace-open" && typeof event.data.href === "string" && typeof event.data.title === "string") pageRequest.current.open({ href: event.data.href, title: event.data.title });
+      else if (event.data?.type === "app-workspace-close") pageRequest.current.close(id);
+    };
+    window.addEventListener(WORKSPACE_OPEN_TAB_EVENT, onOpen);
+    window.addEventListener("message", receive);
+    return () => { window.removeEventListener(WORKSPACE_OPEN_TAB_EVENT, onOpen); window.removeEventListener("message", receive); };
+  }, [embedded]);
+
   useEffect(() => {
     if (!picker) return;
     let cancelled = false;
@@ -253,16 +275,19 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     setSideOnOpen(side);
     setQuery(""); setResults([]); setLoading(true); setPicker(true);
   }
-  function openTab(item: Result) {
+  function addTab(item: Result, side: boolean): boolean {
     const safe = workspaceHref(item.href, window.location.origin);
-    if (!safe) return;
+    if (!safe) return false;
     const existing = tabs.find(tab => (frames.current.get(tab.id)?.dataset.currentHref || tab.href) === safe);
-    if (!existing && tabs.length >= MAX_WORKSPACE_TABS) { toast.info(t("limit", { count: MAX_WORKSPACE_TABS })); return; }
+    if (!existing && tabs.length >= MAX_WORKSPACE_TABS) { toast.info(t("limit", { count: MAX_WORKSPACE_TABS })); return false; }
     const id = existing?.id || crypto.randomUUID();
-    if (!existing) setTabs(current => [...current, { id, href: safe, title: item.title }]);
+    if (!existing) setTabs(current => [...current, { id, href: safe, title: item.title.slice(0, 160) }]);
     setActive(id); setSecondary(id);
-    if (sideOnOpen) { setLeftPane(active); setSplit(true); }
-    setPicker(false);
+    if (side) { setLeftPane(active); setSplit(true); }
+    return true;
+  }
+  function openTab(item: Result) {
+    if (addTab(item, sideOnOpen)) setPicker(false);
   }
   function choose(id: string) {
     setActive(id);

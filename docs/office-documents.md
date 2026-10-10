@@ -246,9 +246,9 @@ Right-clicking in the document text offers **Abschnitt separat bearbeiten**
 (plugin context-menu item; the navigation pane's own heading menu cannot be
 extended). ONLYOFFICE cannot hide parts of a document per viewer, so the
 section opens in a second editor holding only that section, on its own
-platform page in a new browser tab:
-`/wiki/pages/<slug>/section?edit=<lock id>` (normal app layout; same access
-check as the document page). The document stays open in its own tab. Code:
+platform page in a new **platform tab** (the workspace tab strip, labelled
+with the section heading): `/wiki/pages/<slug>/section?edit=<lock id>` (same
+access check as the document page). The document stays open in its own tab. Code:
 `public/onlyoffice-plugins/management/section.js`,
 `src/modules/wiki/components/office/section-editor/` and
 `src/app/(app)/wiki/pages/[slug]/section/page.tsx`.
@@ -268,10 +268,11 @@ check as the document page). The document stays open in its own tab. Code:
    see the section but cannot change it. If the section contains comments, the
    page warns first that replies may be lost (cancelling removes the lock).
 4. **Section tab.** The wrapper is serialised with `ToJSON` (with its
-   styles and numberings) and the document tab opens the section tab
-   (`window.open`). The context-menu click reaches the page asynchronously, so
-   the browser may block the tab; the document then shows a button
-   "Abschnitt in neuem Tab öffnen". While the section is open, the document
+   styles and numberings) and the document asks the workspace for a platform
+   tab (`requestWorkspaceTab` in `src/components/workspace/model.ts`; from a
+   pane it goes to the parent workspace as a message). The tab label is the
+   section page's `h1`, i.e. the heading. If the workspace refuses (tab limit),
+   the document shows a button "Abschnitt in neuem Tab öffnen". While the section is open, the document
    shows a banner "Abschnitt „…“ wird in einem anderen Tab bearbeitet" with
    **Verwerfen** (removes the lock and tells the section tab). The section
    tab gets the JSON from the document tab (see "Section channel" below) and
@@ -282,8 +283,9 @@ check as the document page). The document stays open in its own tab. Code:
    as JSON; the main document replaces the wrapper's content with it, removes
    the wrapper (keeping the content) and, if the section contains citations,
    runs "Literatur aktualisieren" once. The document tab confirms, and the
-   section tab closes itself (`window.close()`, or it navigates back to the
-   document if the browser refuses). If applying fails, the section tab stays
+   section tab closes itself (it asks the workspace to close its platform tab,
+   `closeOwnWorkspaceTab`; as a browser tab it tries `window.close()`, and
+   otherwise navigates back to the document). If applying fails, the section tab stays
    open with a message. **Verwerfen** in the section tab only removes the lock.
    Leaving the section tab, or the document tab, while a section is open asks
    for confirmation; the document tab is needed to apply.

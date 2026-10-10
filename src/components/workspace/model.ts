@@ -86,3 +86,27 @@ export function isTabSwitchShortcut(event: Pick<KeyboardEvent, "altKey" | "ctrlK
 
 /** Shortcuts must not fire while the user is typing; shared with the global shortcut manager. */
 export { isEditableTarget } from "@/lib/shortcuts";
+
+export const WORKSPACE_OPEN_TAB_EVENT = "app:workspace-open-tab";
+export type WorkspaceTabRequest = { href: string; title: string };
+
+/**
+ * Opens an app page as a platform tab (not a browser tab). Inside a workspace
+ * pane the request goes to the parent workspace; returns false when nothing
+ * took it (no workspace, tab limit reached) so callers can fall back.
+ */
+export function requestWorkspaceTab(href: string, title: string): boolean {
+  if (isWorkspaceFrame()) {
+    window.parent.postMessage({ type: "app-workspace-open", href, title }, window.location.origin);
+    return true;
+  }
+  const event = new CustomEvent<WorkspaceTabRequest>(WORKSPACE_OPEN_TAB_EVENT, { cancelable: true, detail: { href, title } });
+  return !window.dispatchEvent(event);
+}
+
+/** A pane closes its own platform tab (e.g. after finishing its work); false outside a workspace pane. */
+export function closeOwnWorkspaceTab(): boolean {
+  if (!isWorkspaceFrame()) return false;
+  window.parent.postMessage({ type: "app-workspace-close" }, window.location.origin);
+  return true;
+}

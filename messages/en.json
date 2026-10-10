@@ -5022,9 +5022,8 @@
       "openDocument": "Open document in a new tab",
       "retry": "Try again",
       "bannerOpen": "Section “{title}” is being edited in another tab.",
-      "bannerBlocked": "The browser blocked the new tab.",
+      "bannerBlocked": "The tab could not be opened. Close another tab and try again.",
       "openInTab": "Open section in a new tab",
-      "popupBlocked": "The browser blocked the new tab. Please click “Open section in a new tab”.",
       "tabClosed": "The section's tab was closed without applying; the section stays as it was."
     },
     "grammar": {
