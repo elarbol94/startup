@@ -4991,6 +4991,14 @@
       "jump": "Jump to the passage"
     },
     "legacyVersion": "Version before the switch (old editor)",
+    "sectionFocus": {
+      "label": "Focused section",
+      "startOfDocument": "Start of document",
+      "previous": "Previous section",
+      "next": "Next section",
+      "exit": "Exit section focus",
+      "noPosition": "Place the cursor in the document text first."
+    },
     "grammar": {
       "title": "Spelling & grammar",
       "recheck": "Check again",

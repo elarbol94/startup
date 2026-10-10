@@ -263,6 +263,19 @@ offsets would drift.
 - **Logo.** The ONLYOFFICE logo stays; the licence requires it.
 - **Focus mode.** The focus-mode button hides the app chrome and the details
   panel.
+- **Section focus.** Right-clicking in the document text offers "Abschnitt
+  fokussieren" (plugin context-menu item; the navigation pane's own heading
+  menu cannot be extended). The plugin reads the headings, using
+  `GetParaPr().GetOutlineLvl()` so style-defined levels count, and the cursor's
+  paragraph. The page then works out the section in `office-sections.ts`: the
+  nearest heading above the cursor, down to the next heading of the same or a
+  higher level. Text above the first heading counts as "Anfang des Dokuments".
+  The page turns on focus mode, moves the cursor to the heading and shows a
+  bar with the section title, previous/next section (same level) and "exit".
+  Exiting restores the earlier layout; focus mode stays on if it already was.
+  It is the same document: nothing is copied, selected or changed. Leaving
+  focus mode any other way also ends section focus. The bar's title only
+  updates on focus/previous/next, not while the cursor moves.
 - **Content blockers.** Blockers such as uBlock Origin block the editor's
   `Analytics.js` module because of its name, and the editor then never
   finishes loading. Allow the site in the blocker.

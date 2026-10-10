@@ -14,6 +14,12 @@
  * The cursor's paragraph is reported to the page (debounced) so it can reopen
  * the document where the user left off; "goToParagraph" jumps back there.
  *
+ * "Focus on section" (document body context menu) reads the outline (headings
+ * with their outline level, including style-defined levels) and the cursor's
+ * paragraph and hands both to the page, which shows the section in focus mode
+ * (src/modules/wiki/components/office/office-sections.ts). It only reads and
+ * moves the cursor; the document is never changed.
+ *
  * "Format document" applies the house paragraph styles (HOUSE_STYLES below) to
  * the open document's styles, so older documents get the same heading and
  * paragraph spacing as new ones.
@@ -31,7 +37,7 @@
     "Not found in the text.": "Im Text nicht gefunden.", "Citations updated.": "Zitate und Literaturverzeichnis aktualisiert.",
     "Done.": "Erledigt.", "Failed. Please try again.": "Fehlgeschlagen. Bitte erneut versuchen.", "Bibliography": "Literaturverzeichnis", "Page": "S.",
     "Place the cursor outside the bibliography.": "Bitte den Cursor außerhalb des Literaturverzeichnisses setzen.",
-    "Format document": "Dokument formatieren", "Headings and paragraphs formatted.": "Überschriften und Absätze formatiert.",
+    "Focus on section": "Abschnitt fokussieren", "Format document": "Dokument formatieren", "Headings and paragraphs formatted.": "Überschriften und Absätze formatiert.",
   };
   // Same values as src/modules/wiki/lib/docx-styles.ts (checked by docx-styles.test.ts).
   var HOUSE_FONT = "Calibri";
@@ -240,6 +246,54 @@
     });
   }
 
+  // --- Section focus -----------------------------------------------------------
+
+  /**
+   * Headings (paragraph index, outline level 1–9, text) and the cursor's
+   * paragraph index (-1 if unknown). Read-only: no recalculation, no changes.
+   */
+  function readOutline() {
+    return new Promise(function (resolve) {
+      plugin.callCommand(function () {
+        var doc = Api.GetDocument();
+        var current = doc.GetCurrentParagraph ? doc.GetCurrentParagraph() : null;
+        if (!current) {
+          var range = doc.GetRangeBySelect();
+          var selected = range ? range.GetAllParagraphs() : [];
+          current = selected.length ? selected[0] : null;
+        }
+        var currentId = current && current.GetInternalId ? current.GetInternalId() : null;
+        var paragraphs = doc.GetAllParagraphs();
+        var headings = [];
+        var cursor = -1;
+        for (var i = 0; i < paragraphs.length; i++) {
+          if (cursor < 0 && currentId !== null && paragraphs[i].GetInternalId() === currentId) cursor = i;
+          var level = paragraphs[i].GetParaPr().GetOutlineLvl();
+          if (typeof level !== "number" || level < 1 || level > 9) continue;
+          var title = paragraphs[i].GetText().replace(/\s+/g, " ").trim();
+          if (title) headings.push({ index: i, level: level, title: title.slice(0, 200) });
+        }
+        return { cursor: cursor, headings: headings };
+      }, false, false, resolve);
+    });
+  }
+
+  function postOutline(reason) {
+    return readOutline().then(function (outline) {
+      post({ type: "outline", reason: reason, cursor: outline ? outline.cursor : -1, headings: (outline && outline.headings) || [] });
+    });
+  }
+
+  /** "Focus on section" in the document body's context menu (text cursor or selection). */
+  function registerContextMenu() {
+    var item = new Asc.ButtonContextMenu(null);
+    item.text = tr("Focus on section");
+    item.editors = ["word"];
+    item.addCheckers("Target", "Selection");
+    item.attachOnClick(function () { postOutline("focus").catch(fail); });
+    Asc.Buttons.registerContextMenu();
+  }
+
   // --- House styles ------------------------------------------------------------
 
   /** Rewrites the document's paragraph styles; paragraphs using them follow. */
@@ -338,6 +392,7 @@
         // AddContentControl wraps the current selection; Lock 3 means "not locked".
         return method("AddContentControl", [2, { Tag: tag(message.kind, { id: message.id }), Lock: 3 }]);
       case "goToParagraph": return goToParagraph(message.index);
+      case "readOutline": return postOutline(message.reason);
       case "select": return selectTagged(message.kind, message.id);
       case "collectParagraphs": return collectParagraphs().then(function (paragraphs) { post({ type: "paragraphs", paragraphs: paragraphs || [] }); });
       case "selectIssue":
@@ -407,7 +462,7 @@
         var message = event.data || {};
         if (message.type !== "command") return;
         run(message).then(function () {
-          if (["select", "goToParagraph", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
+          if (["select", "goToParagraph", "readOutline", "collectParagraphs", "selectIssue", "replaceIssue"].indexOf(message.command) < 0) notify("success", tr("Done."));
         }, function (error) {
           if (error && error.message === "bibliography") notify("info", tr("Place the cursor outside the bibliography."));
           else fail(error);
@@ -416,6 +471,7 @@
       post({ type: "ready" });
     }
     registerToolbar();
+    if (state.channel) registerContextMenu();
     runPending(options);
   };
 
