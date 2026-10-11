@@ -4,7 +4,12 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Table({ className, ...props }: React.ComponentProps<"table">) {
+/**
+ * `mobile="stack"` turns rows into stacked blocks on phones (see globals.css); mark the
+ * title cell with `data-mobile-primary` when it is not the first one. Default: the table
+ * scrolls sideways.
+ */
+function Table({ className, mobile = "scroll", ...props }: React.ComponentProps<"table"> & { mobile?: "scroll" | "stack" }) {
   return (
     <div
       data-slot="table-container"
@@ -12,6 +17,7 @@ function Table({ className, ...props }: React.ComponentProps<"table">) {
     >
       <table
         data-slot="table"
+        data-mobile-layout={mobile === "stack" ? "stack" : undefined}
         className={cn("w-full caption-bottom text-sm", className)}
         {...props}
       />

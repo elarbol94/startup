@@ -167,11 +167,12 @@ export function GanttRowTreeCell({
       {!embedded && <button type="button" className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 active:cursor-grabbing" aria-label={t("moveRow", { name: row.label })} title={t("moveRowHelp")} disabled={structurePending}
         onPointerDown={event => beginStructureDrag(event, row)} onPointerMove={updateStructureDrag} onPointerUp={endStructureDrag} onPointerCancel={cancelStructureDrag} onLostPointerCapture={cancelStructureDrag} onKeyDown={event => structureKey(event, row)} onClick={event => event.stopPropagation()}><GripVertical className="size-3.5" /></button>}
       {structureDrop && insertionIndicatorId === row.id && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-[3px]", structureDrop.valid ? "bg-brand" : "bg-destructive", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
-      {row.kind === "project" && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedProjects, row.projectId)} aria-label={t("toggleProject")}>{expandedProjects.has(row.projectId) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
-      {row.task && row.isSummary && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedTasks, row.id)} aria-label={t("toggleSubtasks")}>{expandedTasks.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
-      {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 shrink-0 fill-brand text-brand-ink" /> : <CircleDot className="size-3.5 shrink-0 text-muted-foreground" />)}
+      {row.kind === "project" && <Button data-phone-keep variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedProjects, row.projectId)} aria-label={t("toggleProject")}>{expandedProjects.has(row.projectId) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
+      {row.task && row.isSummary && <Button data-phone-keep variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedTasks, row.id)} aria-label={t("toggleSubtasks")}>{expandedTasks.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
+      {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond data-phone-keep className="size-3.5 shrink-0 fill-brand text-brand-ink" /> : <CircleDot data-phone-keep className="size-3.5 shrink-0 text-muted-foreground" />)}
       <button
         type="button"
+        data-phone-keep
         onClick={() => row.task ? openTask(row.task) : toggle(setExpandedProjects, row.projectId)}
         onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
         onKeyDown={(event) => row.task && handleTaskScheduleKey(event, row)}

@@ -48,7 +48,7 @@ export function FundingProjectsClient({
   );
 
   return (
-    <div className="grid gap-5">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={t("title")}

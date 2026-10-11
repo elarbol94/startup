@@ -50,6 +50,7 @@ import { useEffectiveSchedule } from "./portfolio/use-effective-schedule";
 import { useInspectorDockWidth } from "./portfolio/use-inspector-dock-width";
 import { useHistoryView } from "./portfolio/use-history-view";
 import { useMediaQuery } from "./portfolio/use-media-query";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { usePortfolioFocus } from "./portfolio/use-portfolio-focus";
 import { usePortfolioRows } from "./portfolio/use-portfolio-rows";
 import { useScheduleCommit } from "./portfolio/use-schedule-commit";
@@ -62,6 +63,9 @@ export type { EmbeddedProjectPlanner } from "./portfolio/portfolio-types";
 
 // The timeline is assembled from the pieces in ./portfolio/: hooks own state and gestures,
 // components render the chrome, rows, dependency lines and dialogs.
+/** Width of the sticky label column in the phone Gantt (design 1b). */
+const PHONE_TREE_WIDTH = 150;
+
 export function PortfolioClient({
   schedule: serverSchedule,
   projects,
@@ -126,13 +130,18 @@ export function PortfolioClient({
     nudgeDependencyRoute, saveGraphicalDependency, deleteGraphicalDependency,
   } = useDependencyEditor({ schedule, refreshSchedule, dayWidthRef });
   const {
-    zoom, setZoom, dayWidth, setDayWidth, treeWidth, setTreeWidth, ganttViewportWidth, scrollRef,
+    zoom, setZoom, dayWidth, setDayWidth, treeWidth: storedTreeWidth, setTreeWidth, ganttViewportWidth, scrollRef,
     treeResizeRef, viewPanning, beginViewPan, moveViewPan, endViewPan, handlePanClickCapture,
     setTimelineDayWidth, setTimelineZoom,
   } = useTimelineViewport({
     view, focusedTaskId, embedded, dayWidthRef, cancelDependencyEditor, setDependencySourceId,
     setDependencyHoverId,
   });
+  // Phones show the project cards by default; "Gantt" swaps in the timeline with a narrow
+  // sticky label column (design 1b). The stored desktop column width is left alone.
+  const [phoneGantt, setPhoneGantt] = useState(false);
+  const phoneTimeline = compactInspector && phoneGantt && !embedded;
+  const treeWidth = phoneTimeline ? PHONE_TREE_WIDTH : storedTreeWidth;
   const { inspectorWidth, onDockResizePointerDown, onDockResizeKeyDown } = useInspectorDockWidth();
   const {
     deadlinePreview, setDeadlinePreview, deadlinePreviewFrameRef, startDeadlineDrag, moveDeadlineDrag,
@@ -166,7 +175,7 @@ export function PortfolioClient({
   });
   const { restoredRef: restoredViewRef } = useHistoryView({
     enabled: !embedded && !initialFocusedTaskId,
-    snapshot: { view, query, owner, health, criticalVisible, linesVisible, treeWidth, expandedProjects, expandedTasks },
+    snapshot: { view, query, owner, health, criticalVisible, linesVisible, treeWidth: storedTreeWidth, expandedProjects, expandedTasks },
     scrollRef, dayWidthRef, setView, setQuery, setOwner, setHealth, setCriticalVisible, setLinesVisible,
     setDayWidth, setZoom, setTreeWidth, setExpandedProjects, setExpandedTasks,
   });
@@ -312,7 +321,17 @@ export function PortfolioClient({
       {view === "projects" && !focusedTask ? (
         <ProjectsClient projects={projects} members={schedule.members} hideCreateButton={!embedded} predecessorOptions={projectPredecessorOptions(schedule)} health={projectHealth} />
       ) : (
-        <div className={cn("flex min-h-0 min-w-0 overflow-hidden rounded-xl border bg-card shadow-card", !embedded && !focusedTask && "max-md:overflow-visible max-md:border-0 max-md:bg-transparent max-md:shadow-none")}>
+        <>
+        {!embedded && !focusedTask && (
+          <SegmentedControl
+            label={t("phoneView")}
+            className="self-start md:hidden"
+            value={phoneGantt ? "gantt" : "overview"}
+            onValueChange={(value) => setPhoneGantt(value === "gantt")}
+            options={[{ value: "overview", label: t("phoneOverview") }, { value: "gantt", label: t("phoneGantt") }]}
+          />
+        )}
+        <div className={cn("flex min-h-0 min-w-0 overflow-hidden rounded-xl border bg-card shadow-card", !embedded && !focusedTask && !phoneGantt && "max-md:overflow-visible max-md:border-0 max-md:bg-transparent max-md:shadow-none")}>
           <div className="min-w-0 flex-1">
           {dependencySourceId && (
             <DependencyLinkingStrip
@@ -322,7 +341,7 @@ export function PortfolioClient({
               setDependencyHoverId={setDependencyHoverId}
             />
           )}
-          {!embedded && !focusedTask && (
+          {!embedded && !focusedTask && !phoneGantt && (
             <MobilePortfolioOverview
               projects={visibleProjects}
               tasksByProject={tasksByProject}
@@ -343,7 +362,9 @@ export function PortfolioClient({
             className={cn(
               "gantt-scrollbar overflow-auto bg-card",
               viewPanning && "select-none cursor-grabbing [&_*]:cursor-grabbing",
-              !embedded && "hidden md:block",
+              !embedded && !phoneGantt && "hidden md:block",
+              // Phone Gantt: only toggle, icon and title stay in the 150 px label column.
+              phoneGantt && "max-md:[&_[data-structure-row]>*:not([data-phone-keep])]:hidden max-md:[&_[data-tree-resize]]:hidden",
               embedded ? "max-h-[55dvh]" : focusedTask
                 ? "max-h-[calc(100dvh-7.5rem)]"
                 : "max-h-[calc(100dvh-15rem)]",
@@ -461,6 +482,7 @@ export function PortfolioClient({
             }}
           />
         </div>
+        </>
       )}
 
       <ProjectDialogs state={projectDialog} onStateChange={setProjectDialog} members={schedule.members} predecessorOptions={projectPredecessorOptions(schedule)} />

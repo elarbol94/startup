@@ -462,6 +462,43 @@ html[data-app-rail="collapsed"] {
   }
 }
 
+/* Phones: list-like tables opt into stacked rows (ui/table `mobile="stack"`, or
+   data-mobile-layout="stack" on a plain <table>). No header; the first cell (or the one
+   marked data-mobile-primary) takes the first line, the others wrap inline below it. */
+@media screen and (max-width: 767px) {
+  table[data-mobile-layout="stack"] {
+    min-width: 0 !important;
+  }
+  table[data-mobile-layout="stack"] > thead {
+    display: none;
+  }
+  table[data-mobile-layout="stack"] > :is(tbody, tfoot) > tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    min-height: 3rem;
+    padding: 12px 16px;
+  }
+  table[data-mobile-layout="stack"] > :is(tbody, tfoot) > tr > :is(td, th) {
+    display: block;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0;
+    font-size: 13px;
+    text-align: start;
+    white-space: normal;
+  }
+  table[data-mobile-layout="stack"] > :is(tbody, tfoot) > tr:not(:has(> [data-mobile-primary])) > :first-child,
+  table[data-mobile-layout="stack"] > :is(tbody, tfoot) > tr > [data-mobile-primary] {
+    flex: 1 1 calc(100% - 3rem);
+    font-size: 14px;
+  }
+  table[data-mobile-layout="stack"] > :is(tbody, tfoot) > tr > :empty {
+    display: none;
+  }
+}
+
 /* Horizontally scrollable tab/filter bars: fade the edge so users can tell
    more items are available off-screen (mainly on phones). */
 @utility scroll-fade-x {

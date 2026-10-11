@@ -43,12 +43,13 @@ export function TimelineHeader({
   return (
     <div className="sticky top-0 z-30 flex h-[52px] border-b bg-card/95 backdrop-blur" style={{ width: totalWidth }}>
       <div
-        className="sticky left-0 z-40 flex shrink-0 items-center border-r bg-card px-[18px] text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase"
+        className="sticky left-0 z-40 flex shrink-0 items-center border-r bg-card px-[18px] text-[11px] max-md:px-3 font-semibold tracking-[0.12em] text-text-tertiary uppercase"
         style={{ width: treeWidth }}
       >
-        {t("workBreakdown")}
+        <span className="min-w-0 truncate">{t("workBreakdown")}</span>
         <span
           role="separator"
+          data-tree-resize
           aria-label={t("resizeWorkBreakdown")}
           aria-orientation="vertical"
           tabIndex={0}

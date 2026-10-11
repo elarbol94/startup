@@ -46,7 +46,7 @@ export function SourceTable({ rows }: { rows: SourceTableRow[] }) {
 
   return <>
     <div className="mt-4 overflow-x-auto rounded-xl border bg-card shadow-card">
-      <table className="w-full min-w-[900px] text-[13.5px]">
+      <table data-mobile-layout="stack" className="w-full min-w-[900px] text-[13.5px]">
         <thead className="border-b text-left text-[11.5px] font-medium whitespace-nowrap text-muted-foreground">
           <tr className="h-9">
             <th className="w-10 pl-[18px] font-medium"><SelectAllCheckbox selection={selection} /></th>
@@ -57,7 +57,7 @@ export function SourceTable({ rows }: { rows: SourceTableRow[] }) {
           {rows.map((row) => (
             <tr key={row.id} data-selected={selection.isSelected(row.id) || undefined} className="group transition-colors hover:bg-accent data-selected:bg-brand-soft">
               <td className="py-2.5 pl-[18px] align-top"><span className={cn("inline-flex pt-0.5 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100", selection.count > 0 && "sm:opacity-100")}><RowSelectCheckbox id={row.id} label={row.title} selection={selection} /></span></td>
-              <td className="max-w-sm px-3 py-2.5">
+              <td data-mobile-primary className="max-w-sm px-3 py-2.5">
                 <Link href={row.href} className="font-medium hover:underline">{row.title}</Link>
                 {row.tags.length > 0 && <p className="mt-1 flex flex-wrap gap-1">{row.tags.map((tag) => <Link key={tag.id} href={`/wiki/tags/${tag.id}`} className="inline-flex h-5 items-center rounded-full bg-muted px-2 text-[11px] font-medium text-text-secondary transition-colors hover:bg-brand-soft hover:text-brand-ink">{tag.name}</Link>)}</p>}
               </td>

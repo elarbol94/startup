@@ -129,7 +129,7 @@ export default async function InvoiceDetailPage({
             )}
           </div>
 
-          <Table className="text-[13.5px]">
+          <Table mobile="stack" className="text-[13.5px]">
             <TableHeader>
               <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
                 <TableHead className="pl-[18px]">{t("itemDescription")}</TableHead>

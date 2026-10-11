@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { AgendaGroup } from "../../../multi-day";
 import type { CalendarItem } from "../../../types";
 import { AgendaCompactRow, AgendaTimedRow, type AgendaT } from "./agenda-rows";
-import { dayRelation, formatDayHeading, hasEnded, nowDividerIndex, splitAgendaDay } from "./agenda-utils";
+import { dayRelation, formatDayColumn, formatDayHeading, hasEnded, isWeekend, nowDividerIndex, splitAgendaDay } from "./agenda-utils";
 
 type DayProps = {
   group: AgendaGroup<CalendarItem>;
@@ -19,6 +19,8 @@ type DayProps = {
   t: AgendaT;
   selectedId: string | null;
   onSelect: (item: CalendarItem) => void;
+  /** An empty day listed only in the phone day list. */
+  phoneOnly?: boolean;
 };
 
 function AgendaGroupDetails({ label, titles, children }: { label: string; titles: string; children: ReactNode }) {
@@ -46,20 +48,33 @@ function NowDivider({ label }: { label: string }) {
   );
 }
 
-export function AgendaDay({ group, today, now, locale, timezone, t, selectedId, onSelect }: DayProps) {
+export function AgendaDay({ group, today, now, locale, timezone, t, selectedId, onSelect, phoneOnly = false }: DayProps) {
   const relation = dayRelation(group.day, today);
   const isToday = relation === "today";
   const { allDay, timed, tasks } = splitAgendaDay(group.items);
   const divider = isToday && now !== null && timed.length > 0 ? nowDividerIndex(timed, now) : -1;
   const empty = group.items.length === 0;
   const rowProps = { locale, t, onSelect };
+  const column = formatDayColumn(group.day, locale);
 
+  // Phones (design 1b): a 44 px date column beside the day's entries, one row per day.
   return (
-    <section aria-labelledby={`agenda-${group.day}`}>
+    <section
+      aria-labelledby={`agenda-${group.day}`}
+      className={cn(
+        "max-md:grid max-md:grid-cols-[44px_minmax(0,1fr)] max-md:gap-3 max-md:border-b max-md:border-line-soft max-md:px-4 max-md:py-3",
+        isToday && "max-md:bg-brand-soft",
+        phoneOnly && "md:hidden",
+      )}
+    >
+      <div aria-hidden className={cn("flex flex-col items-center pt-0.5 md:hidden", isToday && "text-brand-ink")}>
+        <span className={cn("text-[11px] font-semibold tracking-[0.06em] uppercase", !isToday && "text-text-tertiary")}>{column.weekday}</span>
+        <span className="text-lg leading-tight font-semibold tabular-nums">{column.day}</span>
+      </div>
       <h3
         id={`agenda-${group.day}`}
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-2 border-b border-line-soft bg-card/95 px-4 py-2.5 text-[13.5px] font-semibold backdrop-blur supports-[backdrop-filter]:bg-card/80",
+          "sticky top-0 z-10 flex items-center gap-2 border-b border-line-soft bg-card/95 px-4 py-2.5 text-[13.5px] font-semibold backdrop-blur supports-[backdrop-filter]:bg-card/80 max-md:sr-only",
           isToday && "text-brand-ink",
         )}
       >
@@ -68,9 +83,12 @@ export function AgendaDay({ group, today, now, locale, timezone, t, selectedId, 
         {relation && <span className="text-muted-foreground" aria-hidden>·</span>}
         <span className={cn(relation && "font-medium text-foreground/80")}>{formatDayHeading(group.day, locale)}</span>
       </h3>
-      <div className={cn("space-y-1.5 px-2 py-2.5 sm:px-3", isToday && "bg-brand-soft")}>
+      <div className={cn("min-w-0 space-y-1.5 px-2 py-2.5 max-md:p-0 sm:px-3", isToday && "md:bg-brand-soft")}>
         {empty && isToday && (
-          <p className="px-2 py-1.5 text-[13px] text-muted-foreground">{t("agendaNothingToday")}</p>
+          <p className="px-2 py-1.5 text-[13px] text-muted-foreground max-md:hidden">{t("agendaNothingToday")}</p>
+        )}
+        {empty && group.ongoing.length === 0 && (
+          <p className="py-1.5 text-[13px] text-muted-foreground md:hidden">{isWeekend(group.day) ? t("agendaWeekend") : t("agendaNoEvents")}</p>
         )}
         {allDay.length > 0 && (
           <div className="space-y-0.5 rounded-md bg-surface-raised p-1">

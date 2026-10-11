@@ -33,7 +33,7 @@ export function PageHeader({
         {description ? <p className="mt-1 max-w-2xl text-[13.5px] text-muted-foreground">{description}</p> : null}
       </div>
       {actions ? (
-        <div className="flex flex-wrap items-center gap-2 max-sm:w-full sm:justify-end max-sm:[&>[data-slot=button][data-variant=default]]:flex-1">
+        <div className="flex flex-wrap items-center gap-2 max-sm:w-full sm:justify-end max-sm:[&>[data-variant=default]]:flex-1">
           {actions}
         </div>
       ) : null}

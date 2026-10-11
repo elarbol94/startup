@@ -44,7 +44,7 @@ export function SegmentedControl<T extends string>({
             data-active={active || undefined}
             onClick={() => onValueChange(option.value)}
             className={cn(
-              "inline-flex h-[26px] items-center gap-1.5 rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 max-md:h-9 [&_svg]:size-3.5",
+              "inline-flex h-[26px] items-center gap-1.5 rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 max-md:h-10 [&_svg]:size-3.5",
               active && "bg-card text-foreground shadow-sm dark:bg-secondary dark:shadow-none",
             )}
           >
