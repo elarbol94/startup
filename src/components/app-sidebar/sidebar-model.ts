@@ -1,8 +1,8 @@
-import { moduleNav, moduleNavGroups, navSectionAliases, type ModuleNavGroup, type ModuleNavItem } from "@/modules/registry";
+import { moduleNav, moduleNavGroups, type ModuleNavGroup, type ModuleNavItem } from "@/modules/registry";
 
 export const NAVIGATION_ORDER_STORAGE_KEY = "app-navigation-order:v1";
 
-/** Width of the desktop sidebar; `--app-rail-width` follows it so the page makes room. */
+/** Desktop sidebar widths; globals.css mirrors them for the first paint (`--app-rail-width`). */
 export const RAIL_WIDTH = { expanded: "15.5rem", collapsed: "4rem" } as const;
 /** `<html data-app-rail="collapsed">` narrows the sidebar before React hydrates. */
 export const RAIL_ATTRIBUTE = "data-app-rail";
@@ -58,14 +58,6 @@ export function reorderWithinGroup(order: readonly string[], activeKey: string, 
   const next = [...order];
   next.splice(newIndex, 0, ...next.splice(oldIndex, 1));
   return next;
-}
-
-/** Whether a sidebar entry belongs to the current page (`navSectionAliases` included). */
-export function isNavItemActive(href: string, pathname: string): boolean {
-  if (href === "/") return pathname === "/";
-  const section = `/${href.split("/")[1]}`;
-  const currentSection = `/${pathname.split("/")[1]}`;
-  return (navSectionAliases[currentSection] ?? currentSection) === section;
 }
 
 /** Up to two initials for the brand mark, e.g. "Management-Plattform" → "MP". */

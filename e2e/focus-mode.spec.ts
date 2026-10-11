@@ -109,7 +109,7 @@ test("the chrome is already hidden before the app hydrates", async ({ page }) =>
 
 test("focus starts from the user menu and ends from search", async ({ page }) => {
   await openPersonnel(page);
-  await visibleSidebar(page).getByRole("button", { name: /\(.+@.+\)/ }).click();
+  await visibleSidebar(page).getByRole("button", { name: /\S+@\S+/ }).click();
   await page.getByRole("menuitem", { name: /Fokusmodus starten/ }).click();
   const pill = page.getByTestId("focus-pill");
   await expect(pill).toBeVisible();

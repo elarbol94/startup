@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
-import { RAIL_ATTRIBUTE, railStorageKey } from "./sidebar-model";
+import { RAIL_ATTRIBUTE, RAIL_WIDTH, railStorageKey } from "./sidebar-model";
 
 const RAIL_CHANGE_EVENT = "app-sidebar-rail-change";
 
@@ -26,11 +26,16 @@ function readCollapsed(userId: string): boolean {
 export function useSidebarRail(userId: string) {
   const collapsed = useSyncExternalStore(subscribe, () => readCollapsed(userId), () => false);
 
+  // After hydration the sidebar publishes its width inline; the page padding and the wiki rail follow it.
   useEffect(() => {
     const root = document.documentElement;
     if (collapsed) root.setAttribute(RAIL_ATTRIBUTE, "collapsed");
     else root.removeAttribute(RAIL_ATTRIBUTE);
-    return () => root.removeAttribute(RAIL_ATTRIBUTE);
+    root.style.setProperty("--app-rail-width", collapsed ? RAIL_WIDTH.collapsed : RAIL_WIDTH.expanded);
+    return () => {
+      root.removeAttribute(RAIL_ATTRIBUTE);
+      root.style.removeProperty("--app-rail-width");
+    };
   }, [collapsed]);
 
   const setCollapsed = useCallback((next: boolean) => {

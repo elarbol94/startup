@@ -39,7 +39,7 @@ export function QuickCreateMenu({ compact, onNavigate }: { compact: boolean; onN
         render={
           <Button
             type="button"
-            aria-label={compact ? t("quickCreate") : undefined}
+            aria-label={t("quickCreate")}
             title={compact ? t("quickCreate") : undefined}
             className={cn("h-9 justify-center", compact ? "w-full px-0" : "min-w-0 flex-1 gap-1.5 px-3")}
           />

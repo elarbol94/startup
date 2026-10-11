@@ -37,14 +37,11 @@ async function login(page: Page) {
 
 
 /** The rail only expands on hover once hydrated; re-enter it until it does. */
-async function expandAppSidebar(page: Page, appSidebar: Locator) {
-  await expect(async () => {
-    await page.mouse.move(1000, 500);
-    await appSidebar.hover();
-    await expect
-      .poll(async () => Math.round((await appSidebar.boundingBox())?.width ?? 0), { timeout: 2_000 })
-      .toBe(240);
-  }).toPass({ timeout: 20_000 });
+/** The sidebar stays expanded on desktop (it only collapses on request). */
+async function expectExpandedAppSidebar(appSidebar: Locator) {
+  await expect
+    .poll(async () => Math.round((await appSidebar.boundingBox())?.width ?? 0))
+    .toBe(248);
 }
 
 test("calendar rail entry opens the Flow week and creates a timed event", async ({
@@ -54,7 +51,7 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
-  await expandAppSidebar(page, appSidebar);
+  await expectExpandedAppSidebar(appSidebar);
   await appSidebar.getByRole("button", { name: "Kalender" }).click();
   await expect(page).toHaveURL(/\/calendar/, { timeout: 30_000 });
   await expect(page.getByTestId("calendar-week-scroll")).toBeVisible();
@@ -150,8 +147,8 @@ test("global new-event shortcut opens and clears the calendar dialog state", asy
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
-  await expandAppSidebar(page, appSidebar);
-  await appSidebar.getByRole("button", { name: "Neu", exact: true }).click();
+  await expectExpandedAppSidebar(appSidebar);
+  await appSidebar.getByRole("button", { name: "Neu erstellen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Neuer Termin" }).click();
 
   await expect(page).toHaveURL(/\/calendar\?.*new=event/);
