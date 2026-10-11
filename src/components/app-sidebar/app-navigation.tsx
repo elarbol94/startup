@@ -23,13 +23,13 @@ import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { cn } from "@/lib/utils";
+import { isNavItemActive } from "@/modules/registry";
 import { NavGroupLabel, NavLink, SortableNavLink, navItemClass } from "./nav-items";
 import { QuickCreateMenu } from "./quick-create-menu";
 import { ThemeToggle } from "./theme-toggle";
 import {
   NAVIGATION_ORDER_STORAGE_KEY,
   groupedNavigationItems,
-  isNavItemActive,
   parseNavigationOrder,
   reorderWithinGroup,
 } from "./sidebar-model";

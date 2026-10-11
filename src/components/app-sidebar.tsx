@@ -19,10 +19,10 @@ import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
 import { NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
 import { cn } from "@/lib/utils";
 import { requestAppNavigation } from "@/lib/app-navigation";
-import { moduleNav } from "@/modules/registry";
+import { isNavItemActive, moduleNav, moduleNavItemForPath } from "@/modules/registry";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
 import { AppNavigation } from "./app-sidebar/app-navigation";
-import { brandInitials, isNavItemActive } from "./app-sidebar/sidebar-model";
+import { brandInitials } from "./app-sidebar/sidebar-model";
 import { useSidebarRail } from "./app-sidebar/use-sidebar-rail";
 
 function BrandMark({ name }: { name: string }) {
@@ -58,7 +58,7 @@ export function AppSidebar({
       handler: () => requestAppNavigation(item.href, () => router.push(item.href)),
     })),
   );
-  const currentSection = moduleNav.find((item) => isNavItemActive(item.href, pathname));
+  const currentSection = moduleNavItemForPath(pathname);
   const mobileTitle = currentSection
     ? t(currentSection.key)
     : isNavItemActive("/settings", pathname) ? t("settings") : productName;

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Columns2, Plus, X, Search, PanelTop, ArrowUpRight, Loader2 } from "lucide-react";
+import { Columns2, Plus, Search, PanelTop, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { APP_NAVIGATION_EVENT, requestAppNavigation, type AppNavigationRequest } from "@/lib/app-navigation";
 import { FocusPill } from "@/components/focus/focus-pill";
+import { WorkspaceTab } from "./workspace-tab";
 import { useFocusMode } from "@/components/focus-mode";
 import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame, workspaceNavigationTarget, WORKSPACE_OPEN_TAB_EVENT, type WorkspaceTabRequest } from "./model";
 
@@ -315,15 +316,16 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
 
   const primaryVisible = showSplit ? leftPane === "primary" || secondary === "primary" : active === "primary";
   const sections = moduleNav.filter(item => `${nav(item.key)} ${item.href}`.toLocaleLowerCase().includes(query.toLocaleLowerCase()));
-  const buttonClass = "inline-flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring";
+  const buttonClass = "inline-flex h-8 shrink-0 items-center justify-center rounded-md px-2 text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:opacity-50";
 
   return <div className="flex min-h-screen flex-1 flex-col md:flex-row" data-app-shell data-workspace-embedded={embedded || undefined} data-focus-tabs-revealed={focusTabsRevealed || undefined}>
     {!embedded && <div className="contents" data-app-chrome>{navigation}</div>}
     <main data-app-main className={cn("rail-content-transition min-w-0 flex-1 duration-[220ms] motion-reduce:transition-none", !embedded && "md:pl-[var(--app-rail-width,3.5rem)]")}>
       <div ref={surface} className="min-w-0" data-workspace-root>
         {/* The wiki's fixed research rail sets --research-rail-width; start the tab bar beside it. */}
-        {!embedded && <div className={cn("sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-background px-2", primaryVisible && "md:ml-[var(--research-rail-width,0px)]")} data-workspace-toolbar>
-          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts={TAB_SWITCH_ARIA_SHORTCUTS} title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto" onKeyDown={event => {
+        {/* Phones show the page title in the mobile header, so the strip only appears once tabs are open. */}
+        {!embedded && <div className={cn("sticky top-0 z-40 flex h-11 min-w-0 items-center gap-1 border-b bg-sidebar px-2 md:px-3", !tabs.length && "max-md:hidden", primaryVisible && "md:ml-[var(--research-rail-width,0px)]")} data-workspace-toolbar>
+          <div role="tablist" aria-label={t("tabs")} aria-keyshortcuts={TAB_SWITCH_ARIA_SHORTCUTS} title={t("switchShortcut")} className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto [scrollbar-width:none]" onKeyDown={event => {
             if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
             const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
             const index = items.indexOf(document.activeElement as HTMLButtonElement);
@@ -332,15 +334,12 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
             const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1 : (index + (event.key === "ArrowRight" ? 1 : -1) + items.length) % items.length;
             items[next].focus(); items[next].click();
           }}>
-            {[{ id: "primary", title: primaryTitle }, ...tabs].map(tab => <div key={tab.id} className={cn("flex max-w-52 shrink-0 items-center rounded-md border border-transparent", active === tab.id ? "border-border bg-muted" : "hover:bg-muted/50")}>
-              <button type="button" id={`workspace-tab-${tab.id}`} role="tab" aria-selected={active === tab.id} aria-controls={`workspace-panel-${tab.id}`} tabIndex={active === tab.id ? 0 : -1} title={tab.title} onClick={() => choose(tab.id)} className="h-8 min-w-0 truncate rounded-md px-3 text-xs font-medium focus-visible:outline-2 focus-visible:outline-ring">{tab.title}</button>
-              {tab.id !== "primary" && <button type="button" className={cn(buttonClass, "px-1.5")} aria-label={t("closeTab", { title: tab.title })} onClick={() => requestClose(tab.id)}><X className="size-3" /></button>}
-            </div>)}
+            {[{ id: "primary", title: primaryTitle, href: pathname }, ...tabs].map(tab => <WorkspaceTab key={tab.id} id={tab.id} href={frames.current.get(tab.id)?.dataset.currentHref || tab.href} title={tab.title} active={active === tab.id} closeLabel={t("closeTab", { title: tab.title })} onSelect={() => choose(tab.id)} onClose={tab.id === "primary" ? undefined : () => requestClose(tab.id)} />)}
           </div>
-          <button type="button" className={buttonClass} title={t("newTab")} aria-label={t("newTab")} onClick={() => openPicker()}><Plus className="size-4" /><span className="ml-1 hidden text-xs sm:inline">{t("newTab")}</span></button>
+          <button type="button" className={buttonClass} title={t("newTab")} aria-label={t("newTab")} onClick={() => openPicker()}><Plus className="size-4" /><span className="ml-1 hidden text-[13px] sm:inline">{t("newTab")}</span></button>
           <button type="button" className={cn(buttonClass, showSplit && "bg-muted text-foreground")} title={wide ? t(showSplit ? "single" : "split") : t("narrow")} aria-label={t(showSplit ? "single" : "split")} aria-pressed={showSplit} disabled={!wide} onClick={() => { if (showSplit) setSplit(false); else if (tabs.length) { setLeftPane(active); setSecondary(tabs.find(tab => tab.id !== active)?.id || "primary"); setSplit(true); } else openPicker(true); }}><Columns2 className="size-4" /></button>
         </div>}
-        <div data-workspace-content className={cn("relative min-w-0", !embedded && "flex h-[calc(100dvh-2.75rem)] max-md:h-[calc(100dvh-6.25rem)] overflow-hidden")}>
+        <div data-workspace-content className={cn("relative min-w-0", !embedded && "flex h-[calc(100dvh-2.75rem)] overflow-hidden", !embedded && (tabs.length ? "max-md:h-[calc(100dvh-6.25rem)]" : "max-md:h-[calc(100dvh-3.5rem)]"))}>
           <div id="workspace-panel-primary" ref={primary} role={embedded ? undefined : "tabpanel"} aria-labelledby={embedded ? undefined : "workspace-tab-primary"} hidden={!primaryVisible} className={cn("min-w-0 p-4 sm:p-6", !embedded && "h-full overflow-auto", showSplit && leftPane === "primary" ? "shrink-0 border-r" : "flex-1")} style={showSplit ? { order: leftPane === "primary" ? 0 : 2, width: leftPane === "primary" ? `${splitRatio(ratio, width)}%` : undefined } : undefined}>
             {children}
           </div>

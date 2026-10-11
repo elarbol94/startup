@@ -51,3 +51,16 @@ export const moduleNav: ModuleNavItem[] = [
 export const navSectionAliases: Record<string, string> = {
   "/documents": "/accounting",
 };
+
+/** Whether a navigation entry belongs to the current page (`navSectionAliases` included). */
+export function isNavItemActive(href: string, pathname: string): boolean {
+  if (href === "/") return pathname === "/";
+  const section = `/${href.split("/")[1]}`;
+  const currentSection = `/${pathname.split("/")[1]}`;
+  return (navSectionAliases[currentSection] ?? currentSection) === section;
+}
+
+/** The module a path belongs to, if any (settings is not a module). */
+export function moduleNavItemForPath(pathname: string): ModuleNavItem | undefined {
+  return moduleNav.find((item) => isNavItemActive(item.href, pathname));
+}

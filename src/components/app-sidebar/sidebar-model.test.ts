@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { moduleNav } from "@/modules/registry";
+import { isNavItemActive, moduleNav, moduleNavItemForPath } from "@/modules/registry";
 import {
   brandInitials,
   groupedNavigationItems,
-  isNavItemActive,
   parseNavigationOrder,
   railBootstrapScript,
   reorderWithinGroup,
@@ -51,6 +50,8 @@ describe("sidebar navigation model", () => {
     expect(isNavItemActive("/wiki", "/wiki/pages/1")).toBe(true);
     expect(isNavItemActive("/municipalities/overview", "/municipalities/filter")).toBe(true);
     expect(isNavItemActive("/accounting", "/documents")).toBe(true);
+    expect(moduleNavItemForPath("/wiki/pages/1")?.key).toBe("wiki");
+    expect(moduleNavItemForPath("/settings")).toBeUndefined();
   });
 
   it("derives brand initials", () => {
