@@ -7,7 +7,7 @@ import { ArrowRight, Landmark, Plus } from "lucide-react";
 import { formatCents } from "@/lib/money";
 import type { FundingProjectListRow } from "@/modules/funding/queries";
 import { FundingProjectDialog } from "./project-dialog";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
@@ -49,7 +49,7 @@ export function FundingProjectsClient({
 
   return (
     <div className="grid gap-6">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={t("title")}
         description={t("subtitle")}

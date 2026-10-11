@@ -7,7 +7,7 @@ import {
   Upload,
   Users,
 } from "@/components/server-safe-icons";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { requireUser } from "@/lib/auth";
 import { formatCents } from "@/lib/money";
@@ -58,7 +58,7 @@ export async function DocumentsWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={t("title")}
         description={t("description")}

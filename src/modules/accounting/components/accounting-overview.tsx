@@ -25,7 +25,7 @@ import { Button } from "@/components/ui/button";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -371,7 +371,7 @@ export function AccountingOverview({
 
   return (
     <div className="flex flex-col gap-6 lg:gap-8">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={tOverview("title", { year })}
         description={tOverview("description")}

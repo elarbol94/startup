@@ -10,7 +10,7 @@ import {
   yearsWithEntries,
   type EntryFilters,
 } from "@/modules/accounting/queries";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { LedgerClient } from "@/modules/accounting/components/ledger-client";
 import { getAppSettings } from "@/modules/settings/queries";
 import { listFundingProjects } from "@/modules/funding/queries";
@@ -73,7 +73,7 @@ export default async function BookingsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={t("title")}
         description={t("description")}

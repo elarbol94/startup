@@ -1,10 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback } from "react"
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
+import { useHorizontalOverflow } from "@/components/ui/use-horizontal-overflow"
 
 function Tabs({
   className,
@@ -30,7 +31,8 @@ const tabsListVariants = cva(
     variants: {
       variant: {
         default: "bg-muted",
-        line: "gap-1 bg-transparent",
+        // Design 1b underline tabs, matching SubNav: 40px, hairline below, brand bar on the active tab.
+        line: "w-full gap-1 bg-transparent p-0 group-data-horizontal/tabs:h-10 group-data-horizontal/tabs:shadow-[inset_0_-1px_0_var(--border)]",
       },
     },
     defaultVariants: {
@@ -38,28 +40,6 @@ const tabsListVariants = cva(
     },
   }
 )
-
-/**
- * Tracks whether a horizontally scrollable element overflows, so the edge
- * fade (`scroll-fade-x`) only appears when there really are hidden tabs.
- */
-function useHorizontalOverflow() {
-  const [node, setNode] = useState<HTMLElement | null>(null)
-  const [overflowing, setOverflowing] = useState(false)
-
-  useEffect(() => {
-    if (!node || typeof ResizeObserver === "undefined") return
-    const update = () => setOverflowing(node.scrollWidth > node.clientWidth + 1)
-    update()
-    const observer = new ResizeObserver(update)
-    observer.observe(node)
-    for (const child of Array.from(node.children)) observer.observe(child)
-    return () => observer.disconnect()
-  }, [node])
-
-  const ref = useCallback((element: HTMLElement | null) => setNode(element), [])
-  return { ref, overflowing }
-}
 
 function TabsList({
   className,
@@ -101,6 +81,8 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
         "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
+        "group-data-[variant=line]/tabs-list:flex-none group-data-[variant=line]/tabs-list:rounded-md group-data-[variant=line]/tabs-list:px-3 group-data-[variant=line]/tabs-list:text-[13.5px] group-data-[variant=line]/tabs-list:text-muted-foreground group-data-[variant=line]/tabs-list:hover:text-foreground group-data-[variant=line]/tabs-list:data-active:text-foreground group-data-[variant=line]/tabs-list:focus-visible:ring-inset",
+        "group-data-[variant=line]/tabs-list:after:rounded-full group-data-[variant=line]/tabs-list:after:bg-brand group-data-horizontal/tabs:group-data-[variant=line]/tabs-list:after:inset-x-3 group-data-horizontal/tabs:group-data-[variant=line]/tabs-list:after:bottom-0",
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
         className
       )}

@@ -9,7 +9,7 @@ import { savePlanning, type PlanningInput } from "../actions";
 import type { PlanningRow } from "../queries";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -406,7 +406,7 @@ export function PlanningClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={`${t("planning")} ${year}`}
         description={t("planningDescription")}

@@ -1,5 +1,4 @@
 import { getTranslations } from "next-intl/server";
-import { MapPinned } from "lucide-react";
 import { requireUser } from "@/lib/auth";
 import { PageHeader } from "@/components/page-header";
 import { MunicipalityAnalysisPersistenceProvider } from "@/modules/municipalities/components/municipality-analysis-persistence-provider";
@@ -8,6 +7,7 @@ import { MunicipalitiesSubnav } from "@/modules/municipalities/components/munici
 export default async function MunicipalitiesLayout({ children }: { children: React.ReactNode }) {
   await requireUser();
   const t = await getTranslations("municipalities");
+  const tNav = await getTranslations("nav");
   return (
     <MunicipalityAnalysisPersistenceProvider>
     {/* The analysis editor is a canvas, not a document: from lg on it takes the rest of
@@ -27,12 +27,12 @@ export default async function MunicipalitiesLayout({ children }: { children: Rea
     `}</style>
     <div className="mx-auto flex w-full max-w-[100rem] flex-col gap-2 sm:gap-4" data-municipalities-shell>
       <PageHeader
-        className="mb-0 sm:items-center"
-        icon={<MapPinned />}
+        className="mb-0"
+        eyebrow={tNav("groups.knowledge")}
         title={t("title")}
         description={t("description")}
-        actions={<MunicipalitiesSubnav />}
       />
+      <MunicipalitiesSubnav />
       <div className="min-w-0" data-municipalities-body>{children}</div>
     </div>
     </MunicipalityAnalysisPersistenceProvider>

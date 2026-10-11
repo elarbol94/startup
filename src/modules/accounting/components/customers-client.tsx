@@ -11,7 +11,7 @@ import {
   type CustomerInput,
 } from "@/modules/accounting/invoice-actions";
 import type { customers as customersTable } from "@/modules/accounting/schema";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { ProjectPicker } from "@/modules/context/components/project-links-field";
 import { saveProjectLinks } from "@/modules/context/project-link-actions";
 import type { ProjectRefDto } from "@/modules/context/project-link-refs";
@@ -105,7 +105,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <PageHeader
+      <AccountingPageHeader
         className="mb-0"
         title={t("customers")}
         actions={

@@ -16,7 +16,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { formatCents, parseAmountToCents } from "@/lib/money";
-import { PageHeader } from "@/components/page-header";
+import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import type { FundingProjectControl } from "@/modules/funding/queries";
 import { toAustrianIsoDate } from "@/modules/funding/lib/date";
 import {
@@ -104,7 +104,7 @@ export function FundingProjectControlView({
         <Button variant="ghost" size="sm" className="-ml-2 mb-2" nativeButton={false} render={<Link href="/accounting/funding-projects" />}>
           <ArrowLeft className="size-4" /> {t("backToList")}
         </Button>
-        <PageHeader
+        <AccountingPageHeader
           className="mb-0"
           title={
             <span className="flex flex-wrap items-center gap-x-3 gap-y-1">

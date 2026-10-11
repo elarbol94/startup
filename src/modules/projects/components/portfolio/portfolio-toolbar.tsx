@@ -28,6 +28,7 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ShortcutKeys, ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { SubNav, SubNavButton } from "@/components/ui/sub-nav";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { PROJECTS_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
@@ -167,14 +168,14 @@ export function TimelineToolbar({
   const t = useTranslations("projects");
   return (
     <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-      {!embedded && <div className={cn("flex w-full gap-1", view === "timeline" && "border-b pb-3")}>
+      {!embedded && <SubNav label={t("views")} className="w-full">
         <ShortcutTooltip label={t("timeline")} shortcut={PROJECTS_PAGE_SHORTCUTS.timeline}>
-          <Button size="sm" variant={view === "timeline" ? "secondary" : "ghost"} onClick={() => setView("timeline")}><CalendarClock className="size-4" />{t("timeline")}</Button>
+          <SubNavButton active={view === "timeline"} icon={<CalendarClock />} onClick={() => setView("timeline")}>{t("timeline")}</SubNavButton>
         </ShortcutTooltip>
         <ShortcutTooltip label={t("projectOverview")} shortcut={PROJECTS_PAGE_SHORTCUTS.projectOverview}>
-          <Button size="sm" variant={view === "projects" ? "secondary" : "ghost"} onClick={() => setView("projects")}><FolderKanban className="size-4" />{t("projectOverview")}</Button>
+          <SubNavButton active={view === "projects"} icon={<FolderKanban />} onClick={() => setView("projects")}>{t("projectOverview")}</SubNavButton>
         </ShortcutTooltip>
-      </div>}
+      </SubNav>}
       {view === "timeline" && (
         <>
           <div className="relative w-full sm:w-64 lg:w-72">

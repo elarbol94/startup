@@ -16,6 +16,7 @@ import { linkedProjects } from "@/modules/context/project-link-refs";
 import { InvoiceStatusBadge } from "@/modules/accounting/components/invoice-status-badge";
 import { InvoiceStatusActions } from "@/modules/accounting/components/invoice-status-actions";
 import { Button } from "@/components/ui/button";
+import { AccountingNav } from "@/modules/accounting/components/accounting-nav";
 import {
   Table,
   TableBody,
@@ -46,6 +47,7 @@ export default async function InvoiceDetailPage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AccountingNav />
       <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="ghost"

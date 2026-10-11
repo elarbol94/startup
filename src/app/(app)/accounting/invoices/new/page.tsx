@@ -7,6 +7,7 @@ import { listCustomers } from "@/modules/accounting/invoice-queries";
 import { InvoiceEditor } from "@/modules/accounting/components/invoice-editor";
 import { listProjectRefs } from "@/modules/context/project-link-refs";
 import { Button } from "@/components/ui/button";
+import { AccountingNav } from "@/modules/accounting/components/accounting-nav";
 
 export default async function NewInvoicePage({
   searchParams,
@@ -22,6 +23,7 @@ export default async function NewInvoicePage({
 
   return (
     <div className="flex flex-col gap-6">
+      <AccountingNav />
       <div className="flex items-center gap-2">
         <Button
           variant="ghost"

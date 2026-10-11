@@ -1,11 +1,10 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BarChart3, FolderKanban, Map, Plus } from "lucide-react";
+import { BarChart3, FolderKanban, ListFilter, Map, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { SubNav, SubNavLink } from "@/components/ui/sub-nav";
 import { cn } from "@/lib/utils";
 import { useMunicipalityAnalysisPersistence } from "./municipality-analysis-persistence-provider";
 import { createId } from "@paralleldrive/cuid2";
@@ -94,31 +94,20 @@ export function MunicipalitiesSubnav() {
 
   return (
     <>
-      <nav className="flex items-center gap-1 rounded-xl border bg-muted/35 p-1" aria-label={t("subnavLabel")}>
-        <Link
-          href="/municipalities/overview"
-          aria-label={t("overviewTab")}
-          className={cn(
-            "inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors",
-            pathname.endsWith("/overview") ? "bg-background shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
-          )}
-          aria-current={pathname.endsWith("/overview") ? "page" : undefined}
-        >
-          <Map className="size-4" />
-          <span className="hidden sm:inline">{t("overviewTab")}</span>
-        </Link>
-        <Link href="/municipalities/filter" aria-current={pathname.endsWith("/filter") ? "page" : undefined} className={cn("inline-flex h-8 items-center gap-2 rounded-lg px-3 text-sm font-medium", pathname.endsWith("/filter") ? "bg-background shadow-sm" : "text-muted-foreground hover:bg-background/70")}>{tf("nav")}</Link>
-        <Link
+      <SubNav label={t("subnavLabel")}>
+        <SubNavLink href="/municipalities/overview" active={pathname.endsWith("/overview")} icon={<Map />}>
+          {t("overviewTab")}
+        </SubNavLink>
+        <SubNavLink href="/municipalities/filter" active={pathname.endsWith("/filter")} icon={<ListFilter />}>
+          {tf("nav")}
+        </SubNavLink>
+        <SubNavLink
           href={lastAnalysisId ? "/municipalities/analysis?analysis=" + encodeURIComponent(lastAnalysisId) : "/municipalities/analysis"}
           prefetch={false}
-          aria-label={t("analysisTab")}
+          active={pathname.endsWith("/analysis")}
+          icon={<BarChart3 />}
           data-testid="municipality-analysis-drop-target"
-          className={cn(
-            "inline-flex h-8 items-center gap-2 rounded-lg border border-transparent px-3 text-sm font-medium transition-all",
-            pathname.endsWith("/analysis") ? "bg-background shadow-sm" : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
-            dragging && "border-teal-600 bg-teal-50 text-teal-800 ring-2 ring-teal-600/25 dark:bg-teal-950 dark:text-teal-200",
-          )}
-          aria-current={pathname.endsWith("/analysis") ? "page" : undefined}
+          className={cn(dragging && "bg-brand-soft text-brand-ink ring-2 ring-brand/40 ring-inset")}
           onDragEnter={(event) => {
             if (event.dataTransfer.types.includes(MUNICIPALITY_DATASET_DRAG_TYPE)) {
               event.preventDefault();
@@ -143,10 +132,9 @@ export function MunicipalitiesSubnav() {
             }
           }}
         >
-          <BarChart3 className="size-4" />
-          <span className="hidden sm:inline">{dragging ? t("dropOnAnalysis") : t("analysisTab")}</span>
-        </Link>
-      </nav>
+          {dragging ? t("dropOnAnalysis") : t("analysisTab")}
+        </SubNavLink>
+      </SubNav>
 
       <Dialog open={Boolean(dataset)} onOpenChange={(open) => { if (!open) setDataset(null); }}>
         <DialogContent className="sm:max-w-lg" data-testid="municipality-analysis-picker">

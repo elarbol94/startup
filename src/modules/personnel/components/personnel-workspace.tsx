@@ -12,6 +12,7 @@ import {
   type ReactElement,
 } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ArrowRight,
   BadgeEuro,
@@ -32,6 +33,7 @@ import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { PageHeader } from "@/components/page-header";
+import { SubNav, SubNavButton } from "@/components/ui/sub-nav";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SwitchLike } from "./switch-like";
@@ -311,9 +313,9 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
   return (
     <div className="mx-auto max-w-[1500px] space-y-5">
       <Header t={t} />
-      <nav className="scroll-fade-x flex gap-1 overflow-x-auto rounded-xl border border-[#dce5e1] dark:border-border bg-[#f7f9f8] dark:bg-muted p-1" aria-label={t.title}>
-        {tabs.map((key) => <button key={key} type="button" aria-current={tab === key ? "page" : undefined} onClick={() => setTab(key)} className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition ${tab === key ? "bg-white dark:bg-card text-[#173c32] dark:text-foreground shadow-sm" : "text-[#71807a] dark:text-muted-foreground hover:text-[#29463e] dark:hover:text-foreground"}`}>{t[key]}</button>)}
-      </nav>
+      <SubNav label={t.title}>
+        {tabs.map((key) => <SubNavButton key={key} active={tab === key} onClick={() => setTab(key)}>{t[key]}</SubNavButton>)}
+      </SubNav>
 
       {tab === "overview" && <div className="space-y-5">
         <section className="grid gap-4 rounded-2xl border border-[#cbdad4] dark:border-border bg-white dark:bg-card p-5 shadow-[0_10px_30px_rgba(23,60,50,0.05)] md:grid-cols-4">
@@ -357,7 +359,9 @@ export function PersonnelWorkspace({ data, locale }: { data: PersonnelWorkspaceD
 }
 
 function Header({ t }: { t: Text }) {
+  const tAccounting = useTranslations("accountingShell");
   return <PageHeader
+    eyebrow={tAccounting("eyebrow")}
     title={t.title}
     description={t.subtitle}
     actions={<>
