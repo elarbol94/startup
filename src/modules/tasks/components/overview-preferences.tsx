@@ -1,7 +1,10 @@
 "use client";
-import { createContext, useCallback, useContext, useState, useSyncExternalStore } from "react";
-export const OverviewEditingContext = createContext(false);
-export const OverviewUserContext = createContext("");
+import { createContext, useCallback, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
+const OverviewUserContext = createContext("");
+/** Scopes the dashboard preferences (task view, table columns) to the signed-in user. */
+export function OverviewUserProvider({ userId, children }: { userId: string; children: ReactNode }) {
+  return <OverviewUserContext.Provider value={userId}>{children}</OverviewUserContext.Provider>;
+}
 const memory = new Map<string, string>();
 const eventName = "overview-preferences-change";
 function subscribe(callback: () => void) {
@@ -10,10 +13,6 @@ function subscribe(callback: () => void) {
   return () => { window.removeEventListener("storage", callback); window.removeEventListener(eventName, callback); };
 }
 const serverSnapshot = () => null;
-const subscribeReady = () => () => {};
-const clientReady = () => true;
-const serverReady = () => false;
-export const useOverviewReady = () => useSyncExternalStore(subscribeReady, clientReady, serverReady);
 export function useOverviewPreference(name: string, legacyKey?: string) {
   const userId = useContext(OverviewUserContext);
   const key = `management:overview:${userId}:${name}`;

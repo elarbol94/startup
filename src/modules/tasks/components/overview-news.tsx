@@ -1,48 +1,73 @@
 "use client";
-import { UserIdentity } from "@/components/user-identity";
-import { OverviewFilters, useOverviewFilters, matchesOverviewFilters } from "./overview-filters";
-import { localDateInZone } from "@/modules/calendar/date-utils";
-import { useTimeZone, useFormatter, useTranslations } from "next-intl";
+import { useState } from "react";
+import Link from "next/link";
+import { useFormatter, useTranslations } from "next-intl";
 import { Bell } from "lucide-react";
+import { UserIdentity } from "@/components/user-identity";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { withWorkItemFocus } from "@/modules/context/routes";
 import type { listNotifications } from "@/modules/wiki/research-queries";
-import { ItemDetails } from "./item-details";
 import { useMarkNotificationRead } from "@/modules/wiki/components/use-mark-notification-read";
-import { OverviewColumnPicker, OverviewTable, useOverviewTable } from "./overview-table";
+import { ItemDetails } from "./item-details";
+
+const shownItems = 6;
+type Activity = "mention" | "reply" | "assignment" | "resolved";
+
+/** "Neuigkeiten" (design 1b): the latest notifications as a compact list; "Alle" opens the full inbox. */
 export function OverviewNews({ items }: { items: ReturnType<typeof listNotifications> }) {
   const t = useTranslations("overviewLayout");
+  const dashboard = useTranslations("dashboard");
   const wiki = useTranslations("wiki");
   const format = useFormatter();
-  const timezone = useTimeZone() ?? "Europe/Vienna";
   const markRead = useMarkNotificationRead();
-  const rows = items.map(item => ({ ...item, title: item.taskTitle || item.pageTitle || wiki("notifications") }));
-  const filters = useOverviewFilters("news", [
-    { id: "search", label: t("titleColumn"), type: "search" },
-    { id: "actor", label: t("actorColumn"), options: [...new Map(items.map(item => [item.actorId, { value: item.actorId, label: item.actorName }])).values()] },
-    { id: "type", label: t("activityColumn"), options: ["assignment", "mention", "reply", "resolved"].map(value => ({ value, label: wiki(`notificationTypes.${value}`) })) },
-    { id: "status", label: t("statusColumn"), options: [{ value: "unread", label: t("unread") }, { value: "read", label: t("read") }] },
-    { id: "from", label: t("dateFrom"), type: "date" }, { id: "to", label: t("dateTo"), type: "date" },
-  ]);
-  const filteredRows = rows.filter(row => matchesOverviewFilters(filters.values, { search: row.title, actor: row.actorId, type: row.type, status: row.readAt ? "read" : "unread", date: localDateInZone(row.createdAt, timezone) }));
-  const table = useOverviewTable("news", filteredRows, [
-    { id: "title", label: t("titleColumn"), width: 230, wrap: true, value: item => item.title, render: item => <ItemDetails title={item.title} description={[`${item.actorName} ${wiki(`notificationTypes.${item.type}`)} ${item.title}`, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || "—"}
-      href={item.taskTitle && item.taskId ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task") : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null}
-      fields={[{ label: t("actorColumn"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: t("dateColumn"), value: format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" }) }]}
-      onOpen={markRead(item)} className="block w-full rounded font-medium"><span className={`block truncate ${item.readAt ? "" : "text-indigo-600 dark:text-indigo-300"}`}>{item.title}</span></ItemDetails> },
-    { id: "actor", label: t("actorColumn"), value: item => item.actorName, render: item => <UserIdentity userId={item.actorId} name={item.actorName} compact /> },
-    { id: "type", label: t("activityColumn"), value: item => wiki(`notificationTypes.${item.type}`) },
-    { id: "date", label: t("dateColumn"), width: 180, value: item => item.createdAt.getTime(), render: item => <span className="text-xs text-muted-foreground">{format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}</span> },
-    { id: "status", label: t("statusColumn"), width: 110, value: item => item.readAt ? 1 : 0, render: item => item.readAt ? t("read") : t("unread") },
-  ]);
-  const titleColumn = table.columns.find(column => column.id === "title")!;
-  // Phone layout (< md): title wraps, then who/what/when on one line.
-  const mobileRow = (item: typeof filteredRows[number]) => <div className="space-y-1">
-    <div className="text-sm [&_.truncate]:line-clamp-2 [&_.truncate]:whitespace-normal [&_.truncate]:break-words">{titleColumn.render!(item)}</div>
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-      <UserIdentity userId={item.actorId} name={item.actorName} compact />
-      <span>{wiki(`notificationTypes.${item.type}`)}</span>
-      <span>{format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" })}</span>
-    </div>
-  </div>;
-  return <section className="flex h-full min-h-0 flex-col bg-card"><header className="flex flex-wrap items-center gap-3 border-b px-4 py-4"><Bell className="size-4 text-muted-foreground" /><h2 className="flex-1 text-sm font-semibold">{t("news")}</h2><OverviewColumnPicker table={table} /><OverviewFilters filters={filters} /></header><OverviewTable table={table} label={t("news")} mobileRow={mobileRow} empty={wiki("noNotifications")} /></section>;
+  const [now] = useState(() => new Date());
+  const unread = items.filter(item => !item.readAt).length;
+  const when = (date: Date) => date.toDateString() === now.toDateString()
+    ? format.dateTime(date, { hour: "2-digit", minute: "2-digit" })
+    : format.dateTime(date, { day: "numeric", month: "short" });
+
+  return (
+    <section aria-labelledby="overview-news" className="overflow-hidden rounded-xl border bg-card shadow-card">
+      <header className="flex items-center gap-2.5 border-b border-line-soft px-[18px] py-3">
+        <h2 id="overview-news" className="text-sm font-semibold">{t("news")}</h2>
+        {unread > 0 && <span className="inline-flex h-5 items-center rounded-full bg-brand-soft px-2 text-[11px] font-semibold text-brand-ink">{dashboard("newsNew", { count: unread })}</span>}
+        <Button variant="ghost" size="sm" className="ml-auto" nativeButton={false} render={<Link href="/wiki/notifications" />}>{dashboard("allNews")}</Button>
+      </header>
+      {items.length === 0 ? (
+        <EmptyState compact icon={<Bell />} title={dashboard("newsEmpty")} />
+      ) : (
+        <ul className="divide-y divide-line-soft">
+          {items.slice(0, shownItems).map(item => {
+            const title = item.taskTitle || item.pageTitle || wiki("notifications");
+            const href = item.taskTitle && item.taskId
+              ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task")
+              : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null;
+            return (
+              <li key={item.id} className="flex items-center gap-3 px-[18px] py-2.5 transition-colors hover:bg-accent">
+                <UserIdentity userId={item.actorId} name={item.actorName} avatarOnly className="[&>span:first-child]:size-6 [&>span:first-child]:text-[10px]" />
+                <div className="min-w-0 flex-1">
+                  <ItemDetails
+                    title={title}
+                    description={[`${item.actorName} ${wiki(`notificationTypes.${item.type}`)} ${title}`, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")}
+                    origin={item.taskOrigin || item.pageTitle || item.taskRoute || "—"}
+                    href={href}
+                    fields={[{ label: t("actorColumn"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: t("dateColumn"), value: format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" }) }]}
+                    onOpen={markRead(item)}
+                    className="block w-full rounded"
+                  >
+                    <span className={cn("block truncate text-[13.5px] font-medium", !item.readAt && "text-brand-ink")}>{title}</span>
+                  </ItemDetails>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {item.actorName} {dashboard(`newsActivity.${item.type as Activity}`)} · {when(item.createdAt)}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
 }

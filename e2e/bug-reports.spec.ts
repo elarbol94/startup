@@ -95,7 +95,7 @@ test("shared bug reports preserve failed uploads and appear in both task views",
   await page.keyboard.press("Escape");
   await page.goto("/");
   const panel = page.locator('[data-overview-section="tasks"]');
-  await panel.getByRole("button", { name: "Alle Nutzer", exact: true }).click();
+  await panel.getByRole("radio", { name: "Alle", exact: true }).click();
   await panel.getByRole("button", { name: "Board", exact: true }).click();
   const card = panel.locator("[data-task-card]").filter({ hasText: title });
   await expect(card).toHaveCount(1);

@@ -1,15 +1,14 @@
 "use client";
-import { useContext, useRef, useState, type ReactNode, type CSSProperties } from "react";
+import { useRef, useState, type ReactNode, type CSSProperties } from "react";
 import { DndContext, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, useSortable, horizontalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useLocale, useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowUp, ArrowUpDown, Columns3 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cycleSort, parseColumnOrder, reorderColumns, parseColumnWidths, clampColumnWidth, parseTablePreferences, sortFromUrl, sortTableRows, type TablePreferences } from "../overview-table-model";
-import { OverviewEditingContext, useOverviewPreference } from "./overview-preferences";
+import { useOverviewPreference } from "./overview-preferences";
 /** `wrap` lets a cell wrap to two lines instead of truncating (e.g. titles that share a prefix). */
 export type OverviewColumn<T> = { id: string; label: string; value: (row: T) => string | number | null; render?: (row: T) => ReactNode; width?: number; wrap?: boolean };
 const mobileRowLimit = 6;
@@ -67,19 +66,6 @@ export function useOverviewTable<T extends { id: string }>(id: string, rows: T[]
   };
 }
 type TableController<T extends { id: string }> = ReturnType<typeof useOverviewTable<T>>;
-export function OverviewColumnPicker<T extends { id: string }>({ table }: { table: TableController<T> }) {
-  const t = useTranslations("overviewLayout");
-  const editing = useContext(OverviewEditingContext);
-  if (!editing) return null;
-  return <Popover><PopoverTrigger render={<Button variant="ghost" size="sm" aria-label={t("columns")} />}><Columns3 className="size-4" />{t("columns")}</PopoverTrigger>
-    <PopoverContent align="end" className="w-64 p-4">
-      <p className="mb-2 text-sm font-medium">{t("columns")}</p>
-      {table.columns.map(column => <label key={column.id} className="flex cursor-pointer items-center gap-2 py-1.5 text-sm"><input type="checkbox" checked={table.visible.includes(column.id)} disabled={table.visible.length === 1 && table.visible.includes(column.id)} onChange={() => table.toggleColumn(column.id)} />{column.label}</label>)}
-      <p className="mt-3 text-xs text-muted-foreground">{t("multiSortHint")}</p>
-      {!!table.rules.length && <Button variant="ghost" size="sm" className="mt-2" onClick={table.resetSort}>{t("resetSorting")}</Button>}
-    </PopoverContent>
-  </Popover>;
-}
 function DraggableHeading({ id, label, children, ...props }: { id: string; label: string; children: (handle: Pick<ReturnType<typeof useSortable>, "attributes" | "listeners">) => ReactNode; style: CSSProperties; "aria-sort": "none" | "other" | "ascending" | "descending" }) {
   const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id });
   return <th ref={setNodeRef} scope="col" {...props} className="relative px-3 py-2 font-medium" style={{ ...props.style, transform: CSS.Translate.toString(transform), transition: transition, zIndex: isDragging ? 30 : undefined, opacity: isDragging ? .7 : undefined }} data-column-id={id} data-column-label={label}>{children({ attributes, listeners })}</th>;

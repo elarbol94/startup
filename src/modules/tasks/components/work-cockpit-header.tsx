@@ -18,9 +18,8 @@ export function WorkCockpitHeader({ userName }: { userName: string }) {
   return (
     <PageHeader
       className="mb-0"
-      eyebrow={t("title")}
+      eyebrow={format.dateTime(now, { weekday: "long", day: "numeric", month: "long" })}
       title={t("welcome", { name: userName })}
-      description={<>{format.dateTime(now, { weekday: "long", day: "numeric", month: "long" })} · {t("workDescription")}</>}
       actions={<>
         <Button onClick={() => openTaskCreator()}>
           <ClipboardPlus />

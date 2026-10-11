@@ -1,6 +1,6 @@
 "use client";
 
-import { OverviewTable, OverviewColumnPicker, useOverviewTable } from "./overview-table";
+import { OverviewTable, useOverviewTable } from "./overview-table";
 import { UserIdentity } from "@/components/user-identity";
 import { DeadlineDetails } from "./deadline-details";
 
@@ -8,7 +8,6 @@ import { useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import {
-  CalendarClock,
   Check,
   MoreHorizontal,
   Pencil,
@@ -163,29 +162,17 @@ export function DeadlineOverview({
   ], "deadlineSort");
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-card">
-      <header className="border-b border-border/70 px-4 py-5 sm:px-6">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <span className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-xl bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300">
-              <CalendarClock className="size-4.5" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-semibold tracking-tight">{t("overview")}</h2>
-                <Badge variant="secondary" className="font-mono tabular-nums">{deadlines.length}</Badge>
-              </div>
-
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-1.5">
+    <section data-overview-section="deadlines" aria-labelledby="overview-deadlines-title" className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-card">
+      <header className="flex flex-wrap items-center gap-2.5 border-b border-line-soft px-[18px] py-3.5">
+        <h2 id="overview-deadlines-title" className="text-[15px] font-semibold whitespace-nowrap">{t("overview")}</h2>
+        <span className="text-xs text-muted-foreground tabular-nums">{deadlines.length}</span>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
           <Popover>
             <PopoverTrigger render={<Button variant="outline" size="sm" aria-label={t("filter")} />}>
               <SlidersHorizontal />
               {t("filter")}
               {adjustedFilterCount > 0 && (
-                <span className="grid min-w-4 place-items-center rounded-full bg-amber-600 px-1 text-[10px] text-white">{adjustedFilterCount}</span>
+                <span className="grid min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] text-brand-on tabular-nums">{adjustedFilterCount}</span>
               )}
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80 gap-3 p-3">
@@ -246,7 +233,6 @@ export function DeadlineOverview({
           <button type="button" onClick={() => setFilter("deadlineStatus", "all")} className="inline-flex h-6 items-center gap-1 rounded-full bg-muted px-2.5 text-xs text-muted-foreground transition-colors hover:text-foreground">
             {statusLabel}<X className="size-3" />
           </button>
-          <OverviewColumnPicker table={table} />
         </div>
       </header>
 

@@ -127,14 +127,6 @@ test("captures a contact, follows up an opportunity and deletes the contact", as
   await expect(taskDialog).toHaveCount(0);
   await expect(leadRow.getByRole("link", { name: "Aufgabe offen" })).toBeVisible();
 
-  // The dashboard can show open follow-ups.
-  await page.goto("/");
-  await page.getByRole("button", { name: "Layout anpassen" }).click();
-  await page.getByRole("button", { name: "Hinzufügen" }).click();
-  await page.getByRole("checkbox", { name: "Netzwerk · Nachfassen" }).check();
-  await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Fertig" }).click();
-  await expect(page.getByTestId("overview-network")).toContainText(name);
   await page.goto(contactUrl);
   await detail.getByRole("button", { name: "Mit Team teilen" }).click();
   await expect(detail.getByText("Das ganze Team kann diesen Kontakt sehen")).toBeVisible();

@@ -50,13 +50,18 @@ test("dashboard board creates, moves, edits, filters and remembers the view", as
   await expect(board).toHaveAttribute("aria-busy", "false");
   await edited.getByRole("combobox").selectOption("todo");
   await expect(todo.getByText(`${title} edited`, { exact: true })).toBeVisible();
-  await panel.getByRole("textbox", { name: "Aufgaben suchen" }).fill("does-not-match-any-task");
+  // Search lives in the filter menu (design 1b).
+  await panel.getByRole("button", { name: "Filter", exact: true }).click();
+  const search = page.getByRole("textbox", { name: "Aufgaben suchen" });
+  await search.fill("does-not-match-any-task");
   await expect(board.locator("[data-task-card]")).toHaveCount(0);
-  await panel.getByRole("textbox", { name: "Aufgaben suchen" }).fill("");
+  await search.fill("");
+  await page.keyboard.press("Escape");
   await panel.getByRole("button", { name: "Liste", exact: true }).click();
   await expect(board).toHaveCount(0);
   await page.reload();
-  await expect(panel.getByRole("button", { name: "Liste", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(panel.getByRole("button", { name: "Board", exact: true })).toBeVisible();
+  await expect(board).toHaveCount(0);
   await panel.getByRole("button", { name: "Board", exact: true }).click();
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(board).toBeVisible();
@@ -64,4 +69,31 @@ test("dashboard board creates, moves, edits, filters and remembers the view", as
   await page.screenshot({ path: "test-results/dashboard-board-mobile.png", fullPage: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.screenshot({ path: "test-results/dashboard-board-desktop.png", fullPage: true });
+});
+
+test("dashboard list groups tasks by due date and checks them off in place", async ({ page }) => {
+  const credentials = { username: "admin", password: "super-secret-1" };
+  let response = await page.request.post("/api/auth/sign-in/username", { data: credentials });
+  if (!response.ok()) response = await page.request.post("/api/auth/sign-up/email", { data: { ...credentials, name: "E2E Admin", email: "admin@example.com" } });
+  expect(response.ok()).toBe(true);
+  await page.goto("/");
+  const panel = page.locator('[data-overview-section="tasks"]');
+  await panel.getByRole("radio", { name: "Alle", exact: true }).click();
+  const title = `Overdue list task ${Date.now()}`;
+  await page.getByRole("button", { name: "Aufgabe erstellen", exact: true }).first().click();
+  await page.locator("#context-task-title").fill(title);
+  await page.locator("#context-task-due").fill("2020-01-15");
+  await page.getByRole("dialog").getByRole("button", { name: "Aufgabe erstellen", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
+  const overdue = panel.getByRole("group", { name: /^Überfällig · \d+$/ });
+  const row = overdue.getByRole("listitem").filter({ hasText: title });
+  await expect(row).toBeVisible();
+  // Checking it off strikes it through and keeps it where it was until the page reloads.
+  await row.getByRole("checkbox", { name: "Als erledigt markieren" }).click();
+  await expect(row.getByRole("checkbox", { name: "Wieder öffnen" })).toHaveAttribute("aria-checked", "true");
+  await expect(row.getByText(title, { exact: true })).toHaveClass(/line-through/);
+  await page.waitForLoadState("networkidle");
+  await page.reload();
+  await expect(panel.getByText(title, { exact: true })).toHaveCount(0);
 });
