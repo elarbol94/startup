@@ -5,6 +5,7 @@ import { FileText } from "lucide-react";
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { SelectAllCheckbox } from "@/components/row-selection";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useRowSelection } from "@/lib/use-row-selection";
 import type { WorkspacePage } from "../research-queries";
 import { parseTagList } from "../lib/tags";
@@ -58,12 +59,8 @@ export function PageTreeList({ pages }: { pages: WorkspacePage[] }) {
   );
 
   if (pages.length === 0)
-    return <div className="grid min-h-72 place-items-center rounded-xl border border-dashed bg-muted/20 text-center">
-      <div>
-        <FileText className="mx-auto mb-3 size-8 text-muted-foreground/60" />
-        <h2 className="font-medium">{t("noDocuments")}</h2>
-        <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t("noDocumentsDescription")}</p>
-      </div>
+    return <div className="rounded-xl border bg-card shadow-card">
+      <EmptyState icon={<FileText />} title={t("noDocuments")} description={t("noDocumentsDescription")} />
     </div>;
 
   // Dragging is off while filtering (the visible order is no longer the sibling
@@ -83,11 +80,11 @@ export function PageTreeList({ pages }: { pages: WorkspacePage[] }) {
       onToggleAll={() => saveCollapsed(allCollapsed ? [] : parentIds)}
     />
     {searching && <p role="status" className="px-1 text-xs text-muted-foreground">{t("workspace.documentCount", { shown: visible.length, total: pages.length })}</p>}
-    {visible.length === 0 ? <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("noSearchResults")}</p> :
+    {visible.length === 0 ? <p className="rounded-xl border bg-card px-[18px] py-6 text-center text-[13.5px] text-muted-foreground shadow-card">{t("noSearchResults")}</p> :
     <DndContext id="wiki-document-tree" sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event) => void handleDragEnd(event)}>
       <SortableContext items={visibleIds} strategy={verticalListSortingStrategy}>
-        <div className="divide-y overflow-hidden rounded-xl border">
-          <div className="flex h-9 items-center gap-2 bg-muted/30 pr-3 pl-3 text-xs text-muted-foreground">
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl border bg-card shadow-card">
+          <div className="flex h-9 items-center gap-2 pr-3 pl-3 text-[11.5px] font-medium text-muted-foreground">
             <SelectAllCheckbox selection={selection} />
             <span>{selection.count > 0 ? t("bulk.selectedOf", { count: selection.count, total: visible.length }) : t("bulk.selectHint")}</span>
           </div>

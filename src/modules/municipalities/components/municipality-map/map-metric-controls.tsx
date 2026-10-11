@@ -22,10 +22,10 @@ export function MapMetricControls({
   onDigitalViewChange, onCostMeasureChange, onCostCategoryChange, onYearChange,
 }: MapMetricControlsProps) {
   const controlButton =
-    "rounded-md px-2 py-1 text-[10px] font-medium aria-pressed:bg-teal-700 aria-pressed:text-white hover:bg-accent";
+    "rounded-[7px] px-2 py-1 text-[10px] font-medium text-muted-foreground hover:text-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-sm dark:aria-pressed:bg-secondary";
   return (
     <div
-      className="absolute top-16 left-3 z-10 hidden w-[min(20rem,calc(100%-1.5rem))] rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur lg:block"
+      className="absolute top-16 left-3 z-10 hidden w-[min(20rem,calc(100%-1.5rem))] rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur lg:block"
       data-testid="metric-control"
     >
       <div className="grid grid-cols-[5.5rem_1fr] items-center gap-2">
@@ -127,7 +127,7 @@ export function MapMetricControls({
           </div>
           {showAgeFilters ? (
             <div className="flex flex-wrap gap-1">
-              <div className="flex rounded-lg border bg-background p-0.5">
+              <div className="flex gap-0.5 rounded-[10px] border bg-muted p-[3px]">
                 {(["all", "female", "male"] as const).map((item) => (
                   <button
                     key={item}
@@ -295,7 +295,7 @@ export function MapMetricControls({
             {labels.costDefinition}
           </p>
           {peerGroupLabel && (
-            <p className="rounded-md border border-teal-200 bg-teal-50 px-2 py-1.5 text-[10px] leading-4 text-teal-900 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-100" data-testid="peer-comparison-group">
+            <p className="rounded-md border border-brand/30 bg-brand-soft px-2 py-1.5 text-[10px] leading-4 text-brand-ink" data-testid="peer-comparison-group">
               {peerGroupLabel}
             </p>
           )}
@@ -333,7 +333,7 @@ export function MapMetricControls({
           max={latestYear}
           value={year}
           aria-label={labels.year}
-          className="h-2 min-w-0 flex-1 accent-teal-700"
+          className="h-2 min-w-0 flex-1 accent-[var(--brand)]"
           onChange={(event) => onYearChange(Number(event.target.value))}
         />
         <button

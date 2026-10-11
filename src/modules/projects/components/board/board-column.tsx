@@ -152,12 +152,13 @@ export function BoardColumn({
 
   return (
     <div
-      className="flex min-w-[15rem] flex-1 basis-0 flex-col gap-2 rounded-lg bg-muted/50 p-2"
+      className="flex min-w-[15rem] flex-1 basis-0 flex-col gap-2 rounded-xl border border-line-soft bg-surface-raised p-2"
       data-column-name={column.name}
     >
-      <div className="flex items-center gap-2 px-1">
-        <span className="text-sm font-medium">{column.name}</span>
-        <span className="text-xs text-muted-foreground">{tasks.length}</span>
+      <div className="flex min-h-8 items-center gap-2 pr-0.5 pl-2">
+        {column.isCompleted && <CheckCircle2 className="size-3.5 shrink-0 text-brand-ink" aria-hidden />}
+        <span className="truncate text-[13.5px] font-semibold">{column.name}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">{tasks.length}</span>
         <div className="ml-auto flex items-center">
           <Button
             variant="ghost"

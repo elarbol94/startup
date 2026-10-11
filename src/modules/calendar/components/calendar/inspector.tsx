@@ -35,7 +35,7 @@ function LinkifiedText({ text }: { text: string }) {
         href={segment.href}
         target="_blank"
         rel="noopener noreferrer"
-        className="break-all text-primary underline underline-offset-2 hover:no-underline"
+        className="break-all text-brand-ink underline underline-offset-2 hover:no-underline"
       >
         {segment.value}
       </a>
@@ -76,21 +76,21 @@ export function Inspector({
   const showRsvp = item.kind === "event" && item.myResponse !== null && !item.detailsHidden;
 
   return (
-    <div className="sticky top-4 overflow-hidden rounded-2xl border bg-card">
-      <div className="h-1.5" style={{ backgroundColor: item.color }} aria-hidden />
-      <div className="p-4">
+    <div className="sticky top-4 overflow-hidden rounded-xl border bg-card shadow-card">
+      <div className="h-1" style={{ backgroundColor: item.color }} aria-hidden />
+      <div className="px-[18px] py-4">
         <div className="flex items-start gap-3">
           <span
-            className="grid size-9 shrink-0 place-items-center rounded-xl text-white"
+            className="grid size-9 shrink-0 place-items-center rounded-lg text-white"
             style={{ backgroundColor: item.color }}
           >
             <SourceIcon kind={item.kind} />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">
               {t("details")}
             </p>
-            <h2 className="mt-1 break-words text-base font-semibold leading-snug">{item.title}</h2>
+            <h2 className="mt-1 break-words text-[15px] font-semibold leading-snug">{item.title}</h2>
           </div>
           <ShortcutTooltip label={t("close")} keys={<CalendarShortcutKeys shortcuts={["Escape"]} />} hint={t("hintCloseDetails")}>
             <Button
@@ -104,7 +104,7 @@ export function Inspector({
             </Button>
           </ShortcutTooltip>
         </div>
-        <div className="mt-4 space-y-3 text-xs">
+        <div className="mt-4 space-y-3 text-[13px]">
           <p className="flex items-start gap-2">
             <Clock3 className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
             <span>
@@ -157,13 +157,13 @@ export function Inspector({
             <RsvpControl eventId={item.sourceId} response={item.myResponse} recurring={item.recurring} />
           )}
           {item.description && (
-            <p className="whitespace-pre-wrap break-words border-t pt-3 leading-relaxed text-muted-foreground">
+            <p className="whitespace-pre-wrap break-words border-t border-line-soft pt-3 leading-relaxed text-muted-foreground">
               <LinkifiedText text={item.description} />
             </p>
           )}
         </div>
         {syncedFrom && (
-          <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+          <p className="mt-4 rounded-md bg-surface-raised px-3 py-2 text-xs text-muted-foreground">
             {t("feeds.readOnly", { host: syncedFrom })}
           </p>
         )}

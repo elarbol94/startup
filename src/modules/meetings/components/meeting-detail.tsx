@@ -48,18 +48,20 @@ export function MeetingDetail({ detail, options, viewerId }: { detail: Detail; o
     <div className="space-y-4">
       {confirmElement}
       <Link href="/meetings" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{t("back")}</Link>
-      <MeetingHeader detail={detail} viewerId={viewerId} pending={pending} onSettings={() => setSettingsOpen(true)} onDelete={() => void remove()} />
+      <section className="overflow-hidden rounded-xl border bg-card shadow-card">
+        <MeetingHeader detail={detail} viewerId={viewerId} pending={pending} onSettings={() => setSettingsOpen(true)} onDelete={() => void remove()} />
+        {meeting.agenda && <p className="border-t border-line-soft px-[18px] py-3 text-[13.5px] whitespace-pre-wrap text-text-secondary">{meeting.agenda}</p>}
+      </section>
       <CallStatus detail={detail} />
-      {meeting.agenda && <p className="rounded-xl border bg-muted/30 p-3 text-sm whitespace-pre-wrap">{meeting.agenda}</p>}
-      <Tabs value={tab} onValueChange={(value) => setTab(String(value))}>
-        <TabsList>
+      <Tabs value={tab} onValueChange={(value) => setTab(String(value))} className="gap-0 overflow-hidden rounded-xl border bg-card shadow-card">
+        <TabsList variant="line" className="px-3">
           <TabsTrigger value="protocol">{t("tabs.protocol")}</TabsTrigger>
           <TabsTrigger value="transcript">{t("tabs.transcript")}</TabsTrigger>
           <TabsTrigger value="recordings">{t("tabs.recordings")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="protocol" className="pt-4"><ProtocolPanel detail={detail} options={options} /></TabsContent>
-        <TabsContent value="transcript" className="pt-4"><TranscriptPanel detail={detail} /></TabsContent>
-        <TabsContent value="recordings" className="pt-4"><RecordingsPanel detail={detail} /></TabsContent>
+        <TabsContent value="protocol" className="px-[18px] py-4"><ProtocolPanel detail={detail} options={options} /></TabsContent>
+        <TabsContent value="transcript" className="px-[18px] py-4"><TranscriptPanel detail={detail} /></TabsContent>
+        <TabsContent value="recordings" className="px-[18px] py-4"><RecordingsPanel detail={detail} /></TabsContent>
       </Tabs>
       {detail.role === "host" && <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} detail={detail} options={options} />}
     </div>

@@ -167,7 +167,7 @@ function FilterToggle({
   userId?: string;
 }) {
   return (
-    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-muted focus-within:ring-2 focus-within:ring-ring">
+    <label className="flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 py-2 text-xs hover:bg-accent focus-within:ring-2 focus-within:ring-ring">
       <input type="checkbox" aria-label={label} checked={checked} onChange={onChange} className="sr-only" />
       <span
         className={cn("grid size-3.5 place-items-center rounded-[4px] border", checked && "text-white")}

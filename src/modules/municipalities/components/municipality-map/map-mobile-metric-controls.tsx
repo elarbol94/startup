@@ -28,7 +28,7 @@ export function MobileMetricControls({
         <select
           id="municipality-data-kind-mobile"
           value={dataKind}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-11 w-full rounded-lg border bg-background px-3 text-sm"
           onChange={(event) => onDataKindChange(event.target.value as DataKind)}
         >
           <option value="base">{labels.dataKinds.base}</option>
@@ -41,7 +41,7 @@ export function MobileMetricControls({
         <select
           id="municipality-metric-mobile"
           value={metric}
-          className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+          className="h-11 w-full rounded-lg border bg-background px-3 text-sm"
           onChange={(event) => onMetricChange(event.target.value as MapMetric)}
         >
           {Object.entries(labels.metrics).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -54,7 +54,7 @@ export function MobileMetricControls({
           <select
             id="municipality-population-view-mobile"
             value={populationView}
-            className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+            className="h-11 w-full rounded-lg border bg-background px-3 text-sm"
             onChange={(event) => onPopulationViewChange(event.target.value as PopulationViewId)}
           >
             {Object.entries(labels.populationViews).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -71,7 +71,7 @@ export function MobileMetricControls({
           <select
             id="municipality-age-view-mobile"
             value={ageView}
-            className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+            className="h-11 w-full rounded-lg border bg-background px-3 text-sm"
             onChange={(event) => onAgeViewChange(event.target.value as AgeViewId)}
           >
             <optgroup label={labels.ageGroupsHeading}>
@@ -85,9 +85,9 @@ export function MobileMetricControls({
           </select>
           {showAgeFilters ? (
             <div className="space-y-2">
-              <div className="grid grid-cols-3 overflow-hidden rounded-lg border">
+              <div className="grid grid-cols-3 gap-0.5 rounded-[10px] border bg-muted p-[3px]">
                 {(["all", "female", "male"] as const).map((item) => (
-                  <button key={item} type="button" className="min-h-11 px-2 text-sm font-medium aria-pressed:bg-teal-700 aria-pressed:text-white" aria-pressed={sex === item} onClick={() => onSexChange(item)}>{labels.sexes[item]}</button>
+                  <button key={item} type="button" className="min-h-10 rounded-[7px] px-2 text-sm font-medium text-muted-foreground aria-pressed:bg-card aria-pressed:text-foreground aria-pressed:shadow-sm dark:aria-pressed:bg-secondary" aria-pressed={sex === item} onClick={() => onSexChange(item)}>{labels.sexes[item]}</button>
                 ))}
               </div>
             </div>
@@ -103,7 +103,7 @@ export function MobileMetricControls({
           <select
             id="municipality-movement-view-mobile"
             value={movementView}
-            className="h-11 w-full rounded-md border bg-background px-3 text-sm"
+            className="h-11 w-full rounded-lg border bg-background px-3 text-sm"
             onChange={(event) => onMovementViewChange(event.target.value as MovementTargetId)}
           >
             {Object.entries(labels.movements).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
@@ -117,11 +117,11 @@ export function MobileMetricControls({
       {metric === "politics" ? (
         <div className="space-y-3 border-t pt-4">
           <div className="space-y-2"><label htmlFor="municipality-politics-view-mobile" className="text-sm font-semibold">{labels.politicsView}</label>
-            <select id="municipality-politics-view-mobile" value={politicsView} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onPoliticsViewChange(event.target.value as PoliticsView)}>
+            <select id="municipality-politics-view-mobile" value={politicsView} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onPoliticsViewChange(event.target.value as PoliticsView)}>
               {Object.entries(labels.politicsViews).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select></div>
           {politicsView === "party-share" ? <div className="space-y-2"><label htmlFor="municipality-politics-party-mobile" className="text-sm font-semibold">{labels.politicsParty}</label>
-            <select id="municipality-politics-party-mobile" value={politicsParty} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onPoliticsPartyChange(event.target.value as CanonicalPartyId)}>
+            <select id="municipality-politics-party-mobile" value={politicsParty} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onPoliticsPartyChange(event.target.value as CanonicalPartyId)}>
               {Object.entries(labels.politicsParties).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select></div> : null}
           {politicsLoading ? <p className="text-xs text-muted-foreground">{labels.loadingPolitics}</p> : null}
@@ -132,7 +132,7 @@ export function MobileMetricControls({
       {metric === "custom" ? (
         <div className="space-y-2 border-t pt-4">
           <label htmlFor="municipality-custom-view-mobile" className="text-sm font-semibold">{labels.customView}</label>
-          <select id="municipality-custom-view-mobile" value={customView} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onCustomViewChange(event.target.value)}>
+          <select id="municipality-custom-view-mobile" value={customView} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onCustomViewChange(event.target.value)}>
             {Object.entries(labels.customViews).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
         </div>
@@ -141,7 +141,7 @@ export function MobileMetricControls({
       {metric === "digital" ? (
         <div className="space-y-3 border-t pt-4">
           <label htmlFor="municipality-digital-view-mobile" className="text-sm font-semibold">{labels.digitalView}</label>
-          <select id="municipality-digital-view-mobile" value={digitalView} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onDigitalViewChange(event.target.value as DigitalPlatformViewId)}>
+          <select id="municipality-digital-view-mobile" value={digitalView} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onDigitalViewChange(event.target.value as DigitalPlatformViewId)}>
             {Object.entries(labels.digitalViews).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
           </select>
           <p className="text-xs leading-5 text-muted-foreground">{labels.digitalDefinition}</p>
@@ -154,19 +154,19 @@ export function MobileMetricControls({
         <div className="space-y-3 border-t pt-4">
           <div className="space-y-2">
             <label htmlFor="municipality-cost-measure-mobile" className="text-sm font-semibold">{labels.costMeasure}</label>
-            <select id="municipality-cost-measure-mobile" value={costMeasure} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onCostMeasureChange(event.target.value as CostMeasureId)}>
+            <select id="municipality-cost-measure-mobile" value={costMeasure} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onCostMeasureChange(event.target.value as CostMeasureId)}>
               {Object.entries(labels.costMeasures).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
             </select>
           </div>
           <div className="space-y-2">
             <label htmlFor="municipality-cost-view-mobile" className="text-sm font-semibold">{labels.costView}</label>
-            <select id="municipality-cost-view-mobile" value={costCategory} className="h-11 w-full rounded-md border bg-background px-3 text-sm" onChange={(event) => onCostCategoryChange(event.target.value as CostTargetId)}>
+            <select id="municipality-cost-view-mobile" value={costCategory} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onCostCategoryChange(event.target.value as CostTargetId)}>
               {Object.entries(labels.costCategories).map(([id, label]) => <option key={id} value={id}>{id} · {label}</option>)}
             </select>
           </div>
           {costsLoading ? <p className="text-xs text-muted-foreground">{labels.loadingCosts}</p> : null}
           <p className="text-xs leading-5 text-muted-foreground">{labels.costDefinition}</p>
-          {peerGroupLabel ? <p className="rounded-md border border-teal-200 bg-teal-50 px-3 py-2 text-xs leading-5 text-teal-900 dark:border-teal-900 dark:bg-teal-950/30 dark:text-teal-100">{peerGroupLabel}</p> : null}
+          {peerGroupLabel ? <p className="rounded-md border border-brand/30 bg-brand-soft px-3 py-2 text-xs leading-5 text-brand-ink">{peerGroupLabel}</p> : null}
           {costsError ? <p className="text-xs text-destructive" role="alert">{labels.costsError}</p> : null}
         </div>
       ) : null}
@@ -178,7 +178,7 @@ export function MobileMetricControls({
         </div>
         <div className="flex items-center gap-3">
           <button type="button" className="grid size-11 shrink-0 place-items-center rounded-md border text-xl" aria-label={labels.previousYear} disabled={year === firstYear} onClick={() => onYearChange(year - 1)}>‹</button>
-          <input id="municipality-population-year-mobile" type="range" min={firstYear} max={latestYear} value={year} aria-label={labels.year} className="h-2 min-w-0 flex-1 accent-teal-700" onChange={(event) => onYearChange(Number(event.target.value))} />
+          <input id="municipality-population-year-mobile" type="range" min={firstYear} max={latestYear} value={year} aria-label={labels.year} className="h-2 min-w-0 flex-1 accent-[var(--brand)]" onChange={(event) => onYearChange(Number(event.target.value))} />
           <button type="button" className="grid size-11 shrink-0 place-items-center rounded-md border text-xl" aria-label={labels.nextYear} disabled={year === latestYear} onClick={() => onYearChange(year + 1)}>›</button>
         </div>
       </div> : null}

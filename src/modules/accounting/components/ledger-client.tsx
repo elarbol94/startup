@@ -6,12 +6,14 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useLocale, useTranslations } from "next-intl";
-import { ChevronDown, ChevronRight, Download, Filter, Paperclip, Plus } from "lucide-react";
+import { BookOpenText, ChevronDown, ChevronRight, Download, Filter, Paperclip, Plus } from "lucide-react";
 import { formatCents } from "@/lib/money";
 import type { EntryFilters, EntryRow } from "@/modules/accounting/queries";
 import type { categories as categoriesTable } from "@/modules/accounting/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
@@ -35,6 +37,15 @@ const EntryDialog = dynamic(() =>
 );
 
 type Category = typeof categoriesTable.$inferSelect;
+
+/** Unfinalised booking marker, styled like the draft invoice status pill (design 1b). */
+function DraftPill({ label, className }: { label: string; className?: string }) {
+  return (
+    <span className={cn("inline-flex h-5 items-center rounded-full bg-muted px-2 text-[11px] font-semibold whitespace-nowrap text-text-secondary", className)}>
+      {label}
+    </span>
+  );
+}
 
 export function LedgerClient({
   entries,
@@ -111,8 +122,8 @@ export function LedgerClient({
 
   return (
     <div className="flex flex-col gap-4">
-      <section className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 shadow-[0_1px_2px_rgba(20,47,39,0.03)] sm:p-5">
-        <div className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-[0.08em] text-[#71807a] dark:text-muted-foreground uppercase">
+      <section className="rounded-xl border bg-card px-[18px] py-3.5 shadow-card">
+        <div className="mb-2.5 flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
           <Filter className="size-3.5" />
           {tBookings("filters")}
         </div>
@@ -123,7 +134,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("year")}
-              className="w-full border-[#d4ddd8] sm:w-28 dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full sm:w-28"
             >
               <SelectValue />
             </SelectTrigger>
@@ -144,7 +155,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("month")}
-              className="w-full border-[#d4ddd8] sm:w-40 dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full sm:w-40"
             >
               <SelectValue>
                 {filters.month ? monthName(filters.month) : t("wholeYear")}
@@ -168,7 +179,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={tBookings("type")}
-              className="w-full border-[#d4ddd8] sm:w-36 dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full sm:w-36"
             >
               <SelectValue>
                 {filters.kind
@@ -191,7 +202,7 @@ export function LedgerClient({
           >
             <SelectTrigger
               aria-label={t("category")}
-              className="w-full border-[#d4ddd8] sm:w-56 dark:border-border bg-[#fbfcfb] dark:bg-muted"
+              className="w-full sm:w-56"
             >
               <SelectValue>
                 {filters.categoryId
@@ -216,7 +227,6 @@ export function LedgerClient({
               size="sm"
               nativeButton={false}
               render={<a href={exportHref} />}
-              className="border-[#d4ddd8] dark:border-border bg-white dark:bg-card text-[#315c73] dark:text-foreground hover:bg-[#edf2f0] dark:hover:bg-accent hover:text-[#234758] dark:hover:text-foreground"
             >
               <Download className="size-4" />
               {t("exportCsv")}
@@ -233,44 +243,35 @@ export function LedgerClient({
 
       <section
         aria-label={tBookings("periodTotals")}
-        className="grid grid-cols-1 overflow-hidden rounded-2xl sm:grid-cols-3 border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)]"
+        className="grid grid-cols-1 overflow-hidden rounded-xl border bg-card shadow-card sm:grid-cols-3"
       >
-        <div className="flex min-w-0 items-baseline justify-between gap-3 px-4 py-2.5 sm:block sm:p-5">
-          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
-            {t("incomePlural")}
-          </p>
-          <p className="text-sm font-semibold whitespace-nowrap tabular-nums text-[#2f6b55] dark:text-emerald-400 sm:mt-2 sm:text-lg">
-            {formatCents(totals.incomeGross, locale)}
-          </p>
-        </div>
-        <div className="flex min-w-0 items-baseline justify-between gap-3 border-t border-[#e3e8e5] dark:border-border px-4 py-2.5 sm:block sm:border-t-0 sm:border-l sm:p-5">
-          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
-            {t("expensePlural")}
-          </p>
-          <p className="text-sm font-semibold whitespace-nowrap tabular-nums text-[#273f38] dark:text-foreground sm:mt-2 sm:text-lg">
-            {formatCents(
-              totals.expenseGross === 0 ? 0 : -totals.expenseGross,
-              locale,
-            )}
-          </p>
-        </div>
-        <div className="flex min-w-0 items-baseline justify-between gap-3 border-t border-[#e3e8e5] dark:border-border bg-[#f8faf8] dark:bg-muted px-4 py-2.5 sm:block sm:border-t-0 sm:border-l sm:p-5">
-          <p className="truncate text-[11px] font-semibold tracking-[0.06em] text-[#7b8883] dark:text-muted-foreground uppercase sm:tracking-[0.08em]">
-            {t("balance")}
-          </p>
-          <p
-            className={`text-sm font-semibold whitespace-nowrap tabular-nums sm:mt-2 sm:text-lg ${
-              totals.balance >= 0 ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#a64f3c] dark:text-red-400"
-            }`}
+        {[
+          { key: "income", label: t("incomePlural"), value: totals.incomeGross },
+          { key: "expense", label: t("expensePlural"), value: totals.expenseGross === 0 ? 0 : -totals.expenseGross },
+          { key: "balance", label: t("balance"), value: totals.balance },
+        ].map((tile) => (
+          <div
+            key={tile.key}
+            className="flex min-w-0 items-baseline justify-between gap-3 px-[18px] py-2.5 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)] sm:block sm:py-4"
           >
-            {formatCents(totals.balance, locale)}
-          </p>
-        </div>
+            <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
+              {tile.label}
+            </p>
+            <p
+              className={cn(
+                "text-sm font-semibold tracking-[-0.02em] whitespace-nowrap tabular-nums sm:mt-2 sm:text-[22px] sm:leading-tight",
+                tile.key === "balance" && tile.value < 0 && "text-late",
+              )}
+            >
+              {formatCents(tile.value, locale)}
+            </p>
+          </div>
+        ))}
       </section>
 
       <section className="grid grid-cols-1 gap-3 md:hidden" aria-label={tBookings("title")}>
         {entries.length === 0 ? (
-          <div className="rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-8 text-center text-sm text-[#7a8782] dark:text-muted-foreground">{t("noEntries")}</div>
+          <div className="rounded-xl border bg-card shadow-card"><EmptyState compact icon={<BookOpenText />} title={t("noEntries")} /></div>
         ) : entries.map((entry) => {
           const sign = entry.kind === "expense" ? -1 : 1;
           const canEdit = canManagePersonnel || entry.categoryTemplate !== "personnel";
@@ -279,7 +280,7 @@ export function LedgerClient({
               key={entry.id}
               type="button"
               disabled={!canEdit}
-              className="w-full min-w-0 rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card p-4 text-left shadow-[0_1px_2px_rgba(20,47,39,0.03)] transition hover:border-[#b9cac2] dark:hover:border-border disabled:cursor-default disabled:opacity-75"
+              className="w-full min-w-0 rounded-xl border bg-card p-4 text-left shadow-card transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default disabled:opacity-75 disabled:hover:bg-card"
               onClick={() => {
                 if (!canEdit) return;
                 setDialogEntry(entry);
@@ -288,23 +289,23 @@ export function LedgerClient({
             >
               <div className="flex min-w-0 items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="line-clamp-2 font-semibold break-words text-[#213c35] dark:text-foreground">{entry.description}</p>
+                  <p className="line-clamp-2 text-[13.5px] font-semibold break-words">{entry.description}</p>
                   {entry.counterparty ? (
-                    <p className="mt-0.5 truncate text-xs text-[#71807a] dark:text-muted-foreground">{entry.counterparty}</p>
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">{entry.counterparty}</p>
                   ) : null}
                 </div>
-                <p className={`shrink-0 font-semibold whitespace-nowrap tabular-nums ${entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"}`}>
+                <p className="shrink-0 font-semibold whitespace-nowrap tabular-nums">
                   {formatCents(sign * entry.grossAmountCents, locale)}
                 </p>
               </div>
-              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-[#edf0ee] dark:border-border pt-3">
-                <span className="text-xs tabular-nums text-[#68756f] dark:text-muted-foreground">{bookingDate(entry.date)}</span>
-                <Badge variant="outline" className="max-w-full min-w-0 border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground">
+              <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-line-soft pt-3">
+                <span className="text-xs text-muted-foreground tabular-nums">{bookingDate(entry.date)}</span>
+                <Badge variant="outline" className="max-w-full min-w-0 rounded-full text-[11px] text-text-secondary">
                   <span className="mr-1 inline-block size-2 shrink-0 rounded-full" style={{ backgroundColor: entry.categoryColor }} />
                   <span className="truncate">{entry.categoryName}</span>
                 </Badge>
-                {entry.status === "draft" ? <Badge className="bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" variant="outline">{tBookings("draft")}</Badge> : null}
-                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 shrink-0 text-[#83918b] dark:text-muted-foreground" /> : null}
+                {entry.status === "draft" ? <DraftPill label={tBookings("draft")} /> : null}
+                {entry.attachmentCount > 0 ? <Paperclip className="ml-auto size-4 shrink-0 text-muted-foreground" /> : null}
                 {entry.createdBy ? (
                   <UserAttribution
                     userId={entry.createdBy}
@@ -318,38 +319,38 @@ export function LedgerClient({
         })}
       </section>
 
-      <section className="hidden overflow-hidden rounded-2xl border border-[#dfe5e1] dark:border-border bg-white dark:bg-card shadow-[0_1px_2px_rgba(20,47,39,0.03)] md:block">
-        <Table>
-          <TableHeader className="bg-[#f8faf8] dark:bg-muted">
-            <TableRow className="border-[#e3e8e5] dark:border-border hover:bg-transparent">
-              <TableHead className="h-10 w-28 pl-5 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pl-6">
+      <section className="hidden overflow-hidden rounded-xl border bg-card shadow-card md:block">
+        <Table className="text-[13.5px]">
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-9 w-28 pl-[18px] text-[11.5px] font-medium text-muted-foreground">
                 {t("date")}
               </TableHead>
-              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
+              <TableHead className="h-9 text-[11.5px] font-medium text-muted-foreground">
                 {t("description")}
               </TableHead>
-              <TableHead className="hidden h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase md:table-cell">
+              <TableHead className="hidden h-9 text-[11.5px] font-medium text-muted-foreground md:table-cell">
                 {t("counterparty")}
               </TableHead>
-              <TableHead className="h-10 text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase">
+              <TableHead className="h-9 text-[11.5px] font-medium text-muted-foreground">
                 {t("category")}
               </TableHead>
-              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase lg:table-cell">
+              <TableHead className="hidden h-9 text-right text-[11.5px] font-medium text-muted-foreground lg:table-cell">
                 {t("net")}
               </TableHead>
-              <TableHead className="hidden h-10 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase xl:table-cell">
+              <TableHead className="hidden h-9 text-right text-[11.5px] font-medium text-muted-foreground xl:table-cell">
                 {t("vat")}
               </TableHead>
-              <TableHead className="h-10 pr-5 text-right text-[11px] font-semibold tracking-[0.08em] text-[#7b8883] dark:text-muted-foreground uppercase sm:pr-6">
+              <TableHead className="h-9 pr-[18px] text-right text-[11.5px] font-medium text-muted-foreground">
                 {t("gross")}
               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {entries.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="h-40 text-center text-[#7a8782] dark:text-muted-foreground">
-                  {t("noEntries")}
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={7} className="whitespace-normal">
+                  <EmptyState icon={<BookOpenText />} title={t("noEntries")} />
                 </TableCell>
               </TableRow>
             )}
@@ -362,9 +363,10 @@ export function LedgerClient({
                 <TableRow
                   tabIndex={canEdit ? 0 : undefined}
                   aria-disabled={canEdit ? undefined : true}
-                  className={canEdit
-                    ? "cursor-pointer border-[#edf0ee] dark:border-border hover:bg-[#f6f9f7] dark:hover:bg-accent focus-visible:bg-[#f0f5f2] dark:focus-visible:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#315c73] dark:focus-visible:ring-ring"
-                    : "border-[#edf0ee] dark:border-border"}
+                  className={cn(
+                    "h-[42px] border-line-soft hover:bg-transparent",
+                    canEdit && "cursor-pointer hover:bg-accent focus-visible:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none focus-visible:ring-inset",
+                  )}
                   onClick={() => {
                     if (!canEdit) return;
                     setDialogEntry(entry);
@@ -383,14 +385,14 @@ export function LedgerClient({
                     setDialogOpen(true);
                   }}
                 >
-                  <TableCell className="whitespace-nowrap pl-5 text-[#68756f] dark:text-muted-foreground sm:pl-6">
+                  <TableCell className="pl-[18px] whitespace-nowrap text-muted-foreground tabular-nums">
                     {bookingDate(entry.date)}
                   </TableCell>
                   <TableCell className="max-w-72">
                     <span className="flex items-center gap-2">
                       <button
                         type="button"
-                        className="flex size-6 shrink-0 items-center justify-center rounded-md text-[#788680] dark:text-muted-foreground hover:bg-[#e8efeb] dark:hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#315c73] dark:focus-visible:ring-ring"
+                        className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         aria-label={tBookings("toggleDetails")}
                         aria-expanded={expandedId === entry.id}
                         onClick={(event) => {
@@ -402,7 +404,7 @@ export function LedgerClient({
                         {expandedId === entry.id ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                       </button>
                       <span className="min-w-0">
-                        <span className="block truncate font-medium text-[#213c35] dark:text-foreground">
+                        <span className="block truncate font-medium">
                           {entry.description}
                         </span>
                         {entry.createdBy ? (
@@ -414,18 +416,15 @@ export function LedgerClient({
                         ) : null}
                       </span>
                       {entry.attachmentCount > 0 && (
-                        <Paperclip className="size-3.5 shrink-0 text-[#83918b] dark:text-muted-foreground" />
+                        <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
                       )}
                     </span>
                   </TableCell>
-                  <TableCell className="hidden max-w-48 truncate text-[#71807a] dark:text-muted-foreground md:table-cell">
+                  <TableCell className="hidden max-w-48 truncate text-muted-foreground md:table-cell">
                     {entry.counterparty}
                   </TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className="border-[#dfe5e1] dark:border-border bg-[#fafbfa] dark:bg-muted text-[#52625c] dark:text-muted-foreground"
-                    >
+                    <Badge variant="outline" className="rounded-full text-[11px] text-text-secondary">
                       <span
                         className="mr-1 inline-block size-2 rounded-full"
                         style={{ backgroundColor: entry.categoryColor }}
@@ -433,65 +432,59 @@ export function LedgerClient({
                       {entry.categoryName}
                     </Badge>
                     {entry.status === "draft" && (
-                      <Badge className="ml-1 bg-amber-50 text-amber-800 dark:bg-amber-500/15 dark:text-amber-300" variant="outline">
-                        {tBookings("draft")}
-                      </Badge>
+                      <DraftPill className="ml-1" label={tBookings("draft")} />
                     )}
                   </TableCell>
-                  <TableCell className="hidden text-right tabular-nums text-[#5c6b66] dark:text-muted-foreground lg:table-cell">
+                  <TableCell className="hidden text-right text-text-secondary tabular-nums lg:table-cell">
                     {formatCents(sign * entry.netAmountCents, locale)}
                   </TableCell>
-                  <TableCell className="hidden text-right tabular-nums text-[#87938f] dark:text-muted-foreground xl:table-cell">
+                  <TableCell className="hidden text-right text-muted-foreground tabular-nums xl:table-cell">
                     {formatCents(sign * entry.vatAmountCents, locale)}
                   </TableCell>
-                  <TableCell
-                    className={`pr-5 text-right font-semibold tabular-nums sm:pr-6 ${
-                      entry.kind === "income" ? "text-[#2f6b55] dark:text-emerald-400" : "text-[#273f38] dark:text-foreground"
-                    }`}
-                  >
+                  <TableCell className="pr-[18px] text-right font-semibold tabular-nums">
                     {formatCents(sign * entry.grossAmountCents, locale)}
                   </TableCell>
                 </TableRow>
                 {expandedId === entry.id && (
-                  <TableRow className="border-[#e4eae7] dark:border-border bg-[#f8faf8] dark:bg-muted hover:bg-[#f8faf8] dark:hover:bg-accent">
-                    <TableCell colSpan={7} className="px-5 py-4 sm:px-6">
+                  <TableRow className="border-line-soft bg-surface-raised hover:bg-surface-raised">
+                    <TableCell colSpan={7} className="px-[18px] py-4">
                       <div className="grid gap-4 text-xs sm:grid-cols-[220px_1fr]">
-                        <div className="space-y-1 text-[#66756f] dark:text-muted-foreground">
-                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentDate")}:</strong> {entry.documentDate ?? "–"}</p>
-                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("documentNumber")}:</strong> {entry.documentNumber || "–"}</p>
-                          <p><strong className="text-[#2b473f] dark:text-foreground">{tBookings("deductible")}:</strong> {entry.deductiblePercent} %</p>
+                        <div className="space-y-1 text-muted-foreground">
+                          <p><strong className="font-semibold text-foreground">{tBookings("documentDate")}:</strong> {entry.documentDate ?? "–"}</p>
+                          <p><strong className="font-semibold text-foreground">{tBookings("documentNumber")}:</strong> {entry.documentNumber || "–"}</p>
+                          <p><strong className="font-semibold text-foreground">{tBookings("deductible")}:</strong> {entry.deductiblePercent} %</p>
                           <UserAttribution userId={entry.createdBy} relation="createdBy" className="pt-1" />
                         </div>
                         <div className="space-y-2">
-                        <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
+                        <div className="overflow-hidden rounded-lg border bg-card">
                           {entry.taxLines.map((line, index) => (
-                            <div key={line.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0">
-                              <span className="truncate text-[#52635d] dark:text-muted-foreground">{line.description || `${tBookings("taxLine")} ${index + 1}`}</span>
+                            <div key={line.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-line-soft px-3 py-2 last:border-b-0">
+                              <span className="truncate text-text-secondary">{line.description || `${tBookings("taxLine")} ${index + 1}`}</span>
                               <span>{line.vatRate} %</span>
                               <span className="tabular-nums">{formatCents(line.netAmountCents, locale)}</span>
-                              <strong className="tabular-nums text-[#29463e] dark:text-foreground">{formatCents(line.grossAmountCents, locale)}</strong>
+                              <strong className="font-semibold tabular-nums">{formatCents(line.grossAmountCents, locale)}</strong>
                             </div>
                           ))}
                         </div>
                         {entry.paymentLines.length > 0 && (
-                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
-                            <div className="bg-[#f1f5f2] dark:bg-muted px-3 py-2 font-semibold text-[#38554c] dark:text-foreground">{tBookings("payments")}</div>
+                          <div className="overflow-hidden rounded-lg border bg-card">
+                            <div className="border-b border-line-soft bg-muted px-3 py-2 text-[11px] font-semibold tracking-[0.1em] text-text-tertiary uppercase">{tBookings("payments")}</div>
                             {entry.paymentLines.map((line) => (
-                              <div key={line.id} className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0">
-                                <span className="whitespace-nowrap text-[#71807a] dark:text-muted-foreground">{line.date}</span>
-                                <span className="truncate text-[#52635d] dark:text-muted-foreground">{line.description}{line.recipient ? ` · ${line.recipient}` : ""}</span>
-                                <strong className="tabular-nums text-[#29463e] dark:text-foreground">{formatCents(line.amountCents, locale)}</strong>
+                              <div key={line.id} className="grid grid-cols-[auto_1fr_auto] gap-3 border-b border-line-soft px-3 py-2 last:border-b-0">
+                                <span className="whitespace-nowrap text-muted-foreground tabular-nums">{line.date}</span>
+                                <span className="truncate text-text-secondary">{line.description}{line.recipient ? ` · ${line.recipient}` : ""}</span>
+                                <strong className="font-semibold tabular-nums">{formatCents(line.amountCents, locale)}</strong>
                               </div>
                             ))}
                           </div>
                         )}
                         {entry.auditHistory.length > 0 && (
-                          <div className="overflow-hidden rounded-lg border border-[#dfe5e1] dark:border-border bg-white dark:bg-card">
-                            <div className="bg-[#f1f5f2] dark:bg-muted px-3 py-2 font-semibold text-[#38554c] dark:text-foreground">{tBookings("auditHistory")}</div>
+                          <div className="overflow-hidden rounded-lg border bg-card">
+                            <div className="border-b border-line-soft bg-muted px-3 py-2 text-[11px] font-semibold tracking-[0.1em] text-text-tertiary uppercase">{tBookings("auditHistory")}</div>
                             {entry.auditHistory.map((item) => (
-                              <div key={item.id} className="grid gap-1 border-b border-[#edf0ee] dark:border-border px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1fr]">
-                                <span className="whitespace-nowrap text-[#71807a] dark:text-muted-foreground">{format.dateTime(item.changedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
-                                <span className="text-[#52635d] dark:text-muted-foreground">{tBookings(`auditActions.${item.action}`)} · <UserIdentity userId={item.changedBy} name={item.changedByName} compact />{item.reason ? ` — ${item.reason}` : ""}</span>
+                              <div key={item.id} className="grid gap-1 border-b border-line-soft px-3 py-2 last:border-b-0 sm:grid-cols-[auto_1fr]">
+                                <span className="whitespace-nowrap text-muted-foreground tabular-nums">{format.dateTime(item.changedAt, { dateStyle: "medium", timeStyle: "short" })}</span>
+                                <span className="text-text-secondary">{tBookings(`auditActions.${item.action}`)} · <UserIdentity userId={item.changedBy} name={item.changedByName} compact />{item.reason ? ` — ${item.reason}` : ""}</span>
                               </div>
                             ))}
                           </div>

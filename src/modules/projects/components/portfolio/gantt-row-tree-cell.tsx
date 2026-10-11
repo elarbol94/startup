@@ -140,12 +140,13 @@ export function GanttRowTreeCell({
       className={cn(
         "sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r bg-card px-2.5",
         structureDrag?.id === row.id && "opacity-50",
-        structureDrop?.row.id === row.id && structureDrop.placement === "inside" && (structureDrop.valid ? "ring-2 ring-inset ring-sky-500 bg-sky-500/10" : "ring-2 ring-inset ring-red-500"),
-        row.kind === "project" && "bg-muted font-semibold",
+        structureDrop?.row.id === row.id && structureDrop.placement === "inside" && (structureDrop.valid ? "bg-[color-mix(in_oklab,var(--brand)_10%,var(--card))] ring-2 ring-brand ring-inset" : "ring-2 ring-destructive ring-inset"),
+        row.kind === "project" && "bg-surface-raised font-semibold",
         row.isSummary && row.kind !== "project" && "font-medium",
         row.kind === "subtask" && "bg-card",
+        // Opaque tint: the cell is sticky and must hide the bars scrolling underneath.
         selectedTaskId === row.task?.id &&
-          "bg-indigo-50 dark:bg-indigo-950",
+          "bg-[color-mix(in_oklab,var(--brand)_10%,var(--card))]",
       )}
       style={{
         width: treeWidth,
@@ -165,17 +166,17 @@ export function GanttRowTreeCell({
     >
       {!embedded && <button type="button" className="shrink-0 cursor-grab touch-none rounded p-1 text-muted-foreground opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 active:cursor-grabbing" aria-label={t("moveRow", { name: row.label })} title={t("moveRowHelp")} disabled={structurePending}
         onPointerDown={event => beginStructureDrag(event, row)} onPointerMove={updateStructureDrag} onPointerUp={endStructureDrag} onPointerCancel={cancelStructureDrag} onLostPointerCapture={cancelStructureDrag} onKeyDown={event => structureKey(event, row)} onClick={event => event.stopPropagation()}><GripVertical className="size-3.5" /></button>}
-      {structureDrop && insertionIndicatorId === row.id && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-[3px]", structureDrop.valid ? "bg-sky-500" : "bg-red-500", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
+      {structureDrop && insertionIndicatorId === row.id && <span className={cn("pointer-events-none absolute inset-x-0 z-50 h-[3px]", structureDrop.valid ? "bg-brand" : "bg-destructive", structureDrop.placement === "before" ? "top-0" : structureDrop.placement === "after" ? "bottom-0" : "hidden")} />}
       {row.kind === "project" && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedProjects, row.projectId)} aria-label={t("toggleProject")}>{expandedProjects.has(row.projectId) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
       {row.task && row.isSummary && <Button variant="ghost" size="icon-xs" onClick={() => toggle(setExpandedTasks, row.id)} aria-label={t("toggleSubtasks")}>{expandedTasks.has(row.id) ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}</Button>}
-      {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 fill-indigo-500 text-indigo-600" /> : <CircleDot className="size-3.5 text-muted-foreground" />)}
+      {(row.kind === "task" || row.kind === "subtask") && !row.isSummary && (row.isMilestone ? <Diamond className="size-3.5 shrink-0 fill-brand text-brand-ink" /> : <CircleDot className="size-3.5 shrink-0 text-muted-foreground" />)}
       <button
         type="button"
         onClick={() => row.task ? openTask(row.task) : toggle(setExpandedProjects, row.projectId)}
         onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
         onKeyDown={(event) => row.task && handleTaskScheduleKey(event, row)}
         className={cn(
-          "min-w-0 flex-1 line-clamp-2 rounded-sm text-left text-sm leading-tight focus-visible:outline-2 focus-visible:outline-ring",
+          "min-w-0 flex-1 line-clamp-2 rounded-sm text-left text-[13.5px] leading-tight focus-visible:outline-2 focus-visible:outline-ring",
           row.task && "hover:underline",
         )}
         title={row.task?.assigneeName ? `${row.label} · ${row.task.assigneeName}` : row.label}
@@ -194,8 +195,8 @@ export function GanttRowTreeCell({
         </Link>
       )}
       {row.task?.assignees.length ? <span className="flex w-12 shrink-0 items-center -space-x-1">{row.task.assignees.slice(0, 2).map(person => <UserIdentity key={person.id} userId={person.id} name={person.name} compact avatarOnly />)}{row.task.assignees.length > 2 && <span className="bg-card text-[10px]">+{row.task.assignees.length - 2}</span>}</span> : null}
-      {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600" aria-label={t("projectRiskExplanation")} /></span>}
-      {isConflict && <span tabIndex={0} title={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.task && isTaskDone(row.task) ? "text-muted-foreground" : "text-red-600")} aria-label={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")} /></span>}
+      {isRisk && <span tabIndex={0} title={t("projectRiskExplanation")}><AlertTriangle className="size-3.5 text-amber-600 dark:text-amber-400" aria-label={t("projectRiskExplanation")} /></span>}
+      {isConflict && <span tabIndex={0} title={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")}><GitBranch className={cn("size-3.5 shrink-0", row.task && isTaskDone(row.task) ? "text-muted-foreground" : "text-late")} aria-label={t(row.task && isTaskDone(row.task) ? "historicalConflict" : "activeConflict")} /></span>}
       {(() => {
         const hasDates = Boolean(row.startDate && row.dueDate);
         const label = hasDates ? t("showRowTimeline", { name: row.label }) : t("showRowTimelineUnavailable");
@@ -214,7 +215,7 @@ export function GanttRowTreeCell({
           </span>
         );
       })()}
-      <span className="w-10 shrink-0 text-right font-mono text-[10px] tabular-nums text-muted-foreground">{row.progress}%</span>
+      <span className="w-10 shrink-0 text-right text-[11.5px] tabular-nums text-muted-foreground">{row.progress}%</span>
       {!embedded && row.kind === "project" && (
         <DropdownMenu>
           <DropdownMenuTrigger

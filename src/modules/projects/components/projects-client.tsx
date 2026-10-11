@@ -7,10 +7,12 @@ import { toast } from "sonner";
 import { usePendingDeleteIds } from "@/lib/use-pending-delete";
 import { useBulkAction } from "@/lib/use-bulk-action";
 import { useRowSelection } from "@/lib/use-row-selection";
-import { Plus } from "lucide-react";
+import { Plus, SquareKanban } from "lucide-react";
 import { setProjectStatus } from "@/modules/projects/actions";
 import { setProjectsStatus } from "@/modules/projects/project-bulk-actions";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import {
   ProjectDialogs,
   type ProjectDialogState,
@@ -20,7 +22,7 @@ import {
 } from "@/modules/projects/components/project-dialog";
 import { ArchivedProjectRow } from "./projects-list/archived-project-row";
 import { BulkDeleteProjectsDialog } from "./projects-list/bulk-delete-projects-dialog";
-import { ProjectCard, type ProjectListItem } from "./projects-list/project-card";
+import { ProjectRow, projectTableCell, type ProjectHealth, type ProjectListItem } from "./projects-list/project-row";
 import { ProjectsBulkBar } from "./projects-list/projects-bulk-bar";
 
 export function ProjectsClient({
@@ -28,12 +30,15 @@ export function ProjectsClient({
   members = [],
   predecessorOptions = [],
   hideCreateButton = false,
+  health,
 }: {
   projects: ProjectListItem[];
   members?: ProjectMember[];
   predecessorOptions?: ProjectPredecessorOption[];
   /** Hide the inline "new project" button when the host page already offers one. */
   hideCreateButton?: boolean;
+  /** Progress and schedule risk per active project (from the portfolio schedule). */
+  health?: Map<string, ProjectHealth>;
 }) {
   const t = useTranslations("projects");
   const tCommon = useTranslations("common");
@@ -92,28 +97,52 @@ export function ProjectsClient({
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       {!hideCreateButton && (
-        <Button size="sm" className="self-start" onClick={() => setDialog({ kind: "create" })}>
+        <Button className="self-start" onClick={() => setDialog({ kind: "create" })}>
           <Plus className="size-4" />
           {t("newProject")}
         </Button>
       )}
 
-      {active.length === 0 && (
-        <p className="text-sm text-muted-foreground">{t("noProjects")}</p>
-      )}
-
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {active.map((project) => <ProjectCard key={project.id} project={project} selection={selection} onDialog={setDialog} />)}
-      </div>
+      <section className="overflow-hidden rounded-xl border bg-card shadow-card">
+        {active.length === 0 ? (
+          <EmptyState
+            icon={<SquareKanban />}
+            title={t("noProjects")}
+            actions={hideCreateButton ? undefined : (
+              <Button size="sm" onClick={() => setDialog({ kind: "create" })}><Plus className="size-4" />{t("newProject")}</Button>
+            )}
+          />
+        ) : (
+          <div className="overflow-x-auto max-md:overflow-x-visible">
+            <table className="w-full border-collapse text-[13.5px] max-md:block">
+              <thead className="max-md:hidden">
+                <tr className="border-b text-left text-[11.5px] font-medium text-muted-foreground">
+                  <th scope="col" className={cn(projectTableCell, "h-9 pl-[18px] font-medium")}>{t("name")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}>{t("progress")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}>{t("manager")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}>{t("targetEnd")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}>{t("viewTasks")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}>{tCommon("status")}</th>
+                  <th scope="col" className={cn(projectTableCell, "h-9 font-medium")}><span className="sr-only">{tCommon("actions")}</span></th>
+                </tr>
+              </thead>
+              <tbody className="max-md:block">
+                {active.map((project) => <ProjectRow key={project.id} project={project} health={health?.get(project.id)} selection={selection} onDialog={setDialog} />)}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {archived.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <h2 className="text-sm font-medium text-muted-foreground">
-            {t("archivedHeading")}
-          </h2>
-          <div className="flex flex-col divide-y rounded-md border">
+        <section className="overflow-hidden rounded-xl border bg-card shadow-card">
+          <div className="flex items-center gap-2 border-b border-line-soft px-[18px] py-3.5">
+            <h2 className="text-[14.5px] font-semibold">{t("archivedHeading")}</h2>
+            <span className="text-[13px] tabular-nums text-muted-foreground">{archived.length}</span>
+          </div>
+          <div className="flex flex-col divide-y divide-line-soft">
             {archived.map((project) => (
               <ArchivedProjectRow
                 key={project.id}
@@ -124,7 +153,7 @@ export function ProjectsClient({
               />
             ))}
           </div>
-        </div>
+        </section>
       )}
 
       <ProjectsBulkBar

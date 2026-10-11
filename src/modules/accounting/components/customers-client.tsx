@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2, Users } from "lucide-react";
 import {
   deleteCustomer,
   upsertCustomer,
@@ -17,6 +17,7 @@ import { saveProjectLinks } from "@/modules/context/project-link-actions";
 import type { ProjectRefDto } from "@/modules/context/project-link-refs";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
@@ -104,7 +105,7 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={t("customers")}
@@ -118,30 +119,27 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
         }
       />
 
-      <div className="rounded-md border">
-        <Table>
+      <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+        <Table className="text-[13.5px]">
           <TableHeader>
-            <TableRow>
-              <TableHead>{t("customerName")}</TableHead>
+            <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
+              <TableHead className="pl-[18px]">{t("customerName")}</TableHead>
               <TableHead className="hidden sm:table-cell">{t("customerUid")}</TableHead>
               <TableHead className="hidden sm:table-cell">{t("customerEmail")}</TableHead>
-              <TableHead className="w-20" />
+              <TableHead className="w-20 pr-[18px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {customers.length === 0 && (
-              <TableRow>
-                <TableCell
-                  colSpan={4}
-                  className="py-8 text-center text-muted-foreground"
-                >
-                  {t("noCustomers")}
+              <TableRow className="hover:bg-transparent">
+                <TableCell colSpan={4} className="whitespace-normal">
+                  <EmptyState icon={<Users />} title={t("noCustomers")} />
                 </TableCell>
               </TableRow>
             )}
             {customers.map((customer) => (
-              <TableRow key={customer.id}>
-                <TableCell className="max-w-0 font-medium whitespace-normal sm:max-w-none">
+              <TableRow key={customer.id} className="h-[42px] border-line-soft hover:bg-accent">
+                <TableCell className="max-w-0 pl-[18px] font-medium whitespace-normal sm:max-w-none">
                   <span className="break-words">{customer.name}</span>
                   {customer.projects.length > 0 && (
                     <span className="mt-1 flex flex-wrap gap-1 font-normal">
@@ -156,9 +154,9 @@ export function CustomersClient({ customers }: { customers: Customer[] }) {
                     </span>
                   ) : null}
                 </TableCell>
-                <TableCell className="hidden sm:table-cell">{customer.uid}</TableCell>
-                <TableCell className="hidden sm:table-cell">{customer.email}</TableCell>
-                <TableCell>
+                <TableCell className="hidden text-muted-foreground sm:table-cell">{customer.uid}</TableCell>
+                <TableCell className="hidden text-muted-foreground sm:table-cell">{customer.email}</TableCell>
+                <TableCell className="pr-[18px]">
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"

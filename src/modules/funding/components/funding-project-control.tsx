@@ -10,6 +10,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   FileCheck2,
+  HandCoins,
   Loader2,
   Pencil,
   Plus,
@@ -36,9 +37,9 @@ import {
 import { FundingProjectDialog } from "./project-dialog";
 import { StatusBadge } from "./funding-projects-client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -62,7 +63,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
+  "h-9 w-full rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
 type BudgetItem = FundingProjectControl["budgetItems"][number];
 type FinancingSource = FundingProjectControl["financingSources"][number];
@@ -99,7 +100,7 @@ export function FundingProjectControlView({
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-5">
       <div className="min-w-0">
         <Button variant="ghost" size="sm" className="-ml-2 mb-2" nativeButton={false} render={<Link href="/accounting/funding-projects" />}>
           <ArrowLeft className="size-4" /> {t("backToList")}
@@ -121,12 +122,12 @@ export function FundingProjectControlView({
         />
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <MetricStrip className="sm:grid-cols-2 xl:grid-cols-4">
         <Metric label={t("summary.totalCost")} value={formatCents(metrics.totalProjectCostCents, locale)} />
         <Metric label={t("summary.eligible")} value={formatCents(metrics.totalEligibleCostCents, locale)} />
         <Metric label={t("summary.requested")} value={formatCents(metrics.requestedGrantCents, locale)} />
         <Metric label={t("summary.financingGap")} value={formatCents(metrics.financingGapCents, locale)} risk={metrics.financingGapCents > 0} />
-      </div>
+      </MetricStrip>
 
       <Tabs defaultValue="project" className="min-w-0 gap-5">
         <TabsList variant="line" className="max-w-full overflow-x-auto" aria-label={t("sections.label")}>
@@ -137,9 +138,8 @@ export function FundingProjectControlView({
         </TabsList>
 
         <TabsContent value="project" className="grid gap-4">
-          <Card>
-            <CardHeader><CardTitle className="text-base">{t("sections.project")}</CardTitle></CardHeader>
-            <CardContent className="grid gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+          <Panel title={t("sections.project")}>
+            <div className="grid gap-x-8 gap-y-5 px-[18px] py-4 sm:grid-cols-2 lg:grid-cols-3">
               <Fact label={t("fields.template")} value={project.templateName || t("customTemplate")} />
               <Fact label={t("fields.programName")} value={project.programName} />
               <Fact label={t("fields.fundingNumber")} value={project.fundingNumber} />
@@ -154,25 +154,21 @@ export function FundingProjectControlView({
               <Fact label={t("fields.deMinimis")} value={project.deMinimisRelevant ? t("yes") : t("no")} />
               <Fact label={t("fields.otherAid")} value={formatCents(project.otherAidCents, locale)} />
               <div className="sm:col-span-2 lg:col-span-3"><Fact label={t("fields.notes")} value={project.notes} /></div>
-            </CardContent>
-          </Card>
+            </div>
+          </Panel>
           {networkContacts}
           <p className="text-xs text-muted-foreground">{t("templateDisclaimer")}</p>
         </TabsContent>
 
         <TabsContent value="cost-plan">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between border-b">
-              <div>
-                <CardTitle className="text-base">{t("sections.costPlan")}</CardTitle>
-                <p className="mt-1 text-sm text-muted-foreground">{t("costPlanDescription")}</p>
-              </div>
-              <Button size="sm" onClick={() => setBudgetItem(null)}><Plus className="size-4" /> {t("budget.add")}</Button>
-            </CardHeader>
-            <CardContent className="p-0">
+          <Panel
+            title={t("sections.costPlan")}
+            description={t("costPlanDescription")}
+            actions={<Button size="sm" onClick={() => setBudgetItem(null)}><Plus className="size-4" /> {t("budget.add")}</Button>}
+          >
               {control.budgetItems.length === 0 ? <Empty text={t("budget.empty")} /> : (
-                <Table>
-                  <TableHeader><TableRow>
+                <Table className={TABLE_CLASS}>
+                  <TableHeader><TableRow className={HEAD_ROW_CLASS}>
                     <TableHead>{t("budget.costType")}</TableHead><TableHead>{t("budget.description")}</TableHead><TableHead>{t("budget.workPackage")}</TableHead><TableHead>{t("budget.supplier")}</TableHead><TableHead>{t("budget.quantity")}</TableHead><TableHead>{t("budget.month")}</TableHead><TableHead className="text-right">{t("budget.total")}</TableHead><TableHead className="text-right">{t("budget.eligible")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead>
                   </TableRow></TableHeader>
                   <TableBody>{control.budgetItems.map((item) => (
@@ -190,53 +186,52 @@ export function FundingProjectControlView({
                   <TableFooter><TableRow><TableCell colSpan={6}>{t("total")}</TableCell><TableCell className="text-right tabular-nums">{formatCents(metrics.totalProjectCostCents, locale)}</TableCell><TableCell className="text-right tabular-nums">{formatCents(metrics.totalEligibleCostCents, locale)}</TableCell><TableCell /></TableRow></TableFooter>
                 </Table>
               )}
-            </CardContent>
-          </Card>
+          </Panel>
         </TabsContent>
 
         <TabsContent value="financing" className="grid gap-4">
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricStrip className="sm:grid-cols-2 xl:grid-cols-4">
             <Metric label={t("summary.requiredOwnFunds")} value={formatCents(metrics.requiredOwnFundsCents, locale)} />
             <Metric label={t("summary.financingTotal")} value={formatCents(metrics.financingTotalCents, locale)} />
             <Metric label={t("summary.financingGap")} value={formatCents(metrics.financingGapCents, locale)} risk={metrics.financingGapCents > 0} />
             <Metric label={t("summary.approved")} value={formatCents(project.approvedFundingCents, locale)} />
-          </div>
-          <Card>
-            <CardHeader className="flex-row items-center justify-between border-b"><CardTitle className="text-base">{t("financing.sources")}</CardTitle><Button size="sm" onClick={() => setSource(null)}><Plus /> {t("financing.addSource")}</Button></CardHeader>
-            <CardContent className="p-0">{control.financingSources.length === 0 ? <Empty text={t("financing.emptySources")} /> : <Table>
-              <TableHeader><TableRow><TableHead>{t("financing.sourceType")}</TableHead><TableHead>{t("financing.label")}</TableHead><TableHead className="text-right">{t("financing.amount")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader>
+          </MetricStrip>
+          <Panel title={t("financing.sources")} actions={<Button size="sm" onClick={() => setSource(null)}><Plus /> {t("financing.addSource")}</Button>}>
+            {control.financingSources.length === 0 ? <Empty text={t("financing.emptySources")} /> : <Table className={TABLE_CLASS}>
+              <TableHeader><TableRow className={HEAD_ROW_CLASS}><TableHead>{t("financing.sourceType")}</TableHead><TableHead>{t("financing.label")}</TableHead><TableHead className="text-right">{t("financing.amount")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader>
               <TableBody>{control.financingSources.map((item) => <TableRow key={item.id}><TableCell>{t(`sourceType.${item.sourceType}`)}</TableCell><TableCell>{item.label || "—"}</TableCell><TableCell className="text-right font-medium tabular-nums">{formatCents(item.amountCents, locale)}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon-xs" onClick={() => setSource(item)} aria-label={t("edit")}><Pencil /></Button><Button variant="ghost" size="icon-xs" onClick={() => remove(() => deleteFundingFinancingSource(item.id))} aria-label={t("delete")}><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody>
-            </Table>}</CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex-row items-center justify-between border-b"><CardTitle className="text-base">{t("financing.disbursements")}</CardTitle><Button size="sm" variant="outline" onClick={() => setDisbursement(null)}><Plus /> {t("financing.addDisbursement")}</Button></CardHeader>
-            <CardContent className="p-0">{control.disbursements.length === 0 ? <Empty text={t("financing.emptyDisbursements")} /> : <Table>
-              <TableHeader><TableRow><TableHead>{t("financing.label")}</TableHead><TableHead>{t("financing.plannedDate")}</TableHead><TableHead>{t("fields.status")}</TableHead><TableHead className="text-right">{t("financing.amount")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader>
-              <TableBody>{control.disbursements.map((item) => <TableRow key={item.id}><TableCell>{item.label}</TableCell><TableCell>{formatDate(item.plannedDate, locale)}</TableCell><TableCell><Badge variant={item.status === "received" ? "default" : "secondary"}>{t(`disbursementStatus.${item.status}`)}</Badge></TableCell><TableCell className="text-right font-medium tabular-nums">{formatCents(item.amountCents, locale)}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon-xs" onClick={() => setDisbursement(item)} aria-label={t("edit")}><Pencil /></Button><Button variant="ghost" size="icon-xs" onClick={() => remove(() => deleteFundingDisbursement(item.id))} aria-label={t("delete")}><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody>
-            </Table>}</CardContent>
-          </Card>
+            </Table>}
+          </Panel>
+          <Panel title={t("financing.disbursements")} actions={<Button size="sm" variant="outline" onClick={() => setDisbursement(null)}><Plus /> {t("financing.addDisbursement")}</Button>}>
+            {control.disbursements.length === 0 ? <Empty text={t("financing.emptyDisbursements")} /> : <Table className={TABLE_CLASS}>
+              <TableHeader><TableRow className={HEAD_ROW_CLASS}><TableHead>{t("financing.label")}</TableHead><TableHead>{t("financing.plannedDate")}</TableHead><TableHead>{t("fields.status")}</TableHead><TableHead className="text-right">{t("financing.amount")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader>
+              <TableBody>{control.disbursements.map((item) => <TableRow key={item.id}><TableCell>{item.label}</TableCell><TableCell>{formatDate(item.plannedDate, locale)}</TableCell><TableCell><Pill tone={item.status === "received" ? "brand" : "neutral"}>{t(`disbursementStatus.${item.status}`)}</Pill></TableCell><TableCell className="text-right font-medium tabular-nums">{formatCents(item.amountCents, locale)}</TableCell><TableCell><div className="flex justify-end gap-1"><Button variant="ghost" size="icon-xs" onClick={() => setDisbursement(item)} aria-label={t("edit")}><Pencil /></Button><Button variant="ghost" size="icon-xs" onClick={() => remove(() => deleteFundingDisbursement(item.id))} aria-label={t("delete")}><Trash2 /></Button></div></TableCell></TableRow>)}</TableBody>
+            </Table>}
+          </Panel>
         </TabsContent>
 
         <TabsContent value="settlement" className="grid gap-4">
           {control.warningCodes.length > 0 && <div className="grid gap-2" aria-label={t("warnings.title")}>
             {control.warningCodes.map((warning) => <Alert key={warning} variant={warning === "project_end_near" ? "default" : "destructive"}><AlertTriangle /><AlertTitle>{t(`warnings.${warning}.title`)}</AlertTitle><AlertDescription>{t(`warnings.${warning}.description`)}</AlertDescription></Alert>)}
           </div>}
-          <div className="grid gap-3 sm:grid-cols-3">
+          <MetricStrip className="sm:grid-cols-3">
             <Metric label={t("summary.plan")} value={formatCents(metrics.totalProjectCostCents, locale)} />
             <Metric label={t("summary.actual")} value={formatCents(metrics.totalActualCents, locale)} />
             <Metric label={t("summary.evidence")} value={`${metrics.evidenceComplete}/${metrics.evidenceTotal}`} />
-          </div>
-          <Card>
-            <CardHeader className="flex-row items-center justify-between border-b"><div><CardTitle className="text-base">{t("sections.settlement")}</CardTitle><p className="mt-1 text-sm text-muted-foreground">{t("settlement.description")}</p></div><Button size="sm" onClick={() => setAllocationOpen(true)} disabled={control.budgetItems.length === 0}><Plus /> {t("settlement.addActual")}</Button></CardHeader>
-            <CardContent className="p-0">{control.budgetItems.length === 0 ? <Empty text={t("settlement.empty")} /> : <Table>
-              <TableHeader><TableRow><TableHead>{t("budget.description")}</TableHead><TableHead className="text-right">{t("summary.plan")}</TableHead><TableHead className="text-right">{t("summary.actual")}</TableHead><TableHead className="text-right">{t("summary.variance")}</TableHead><TableHead>{t("summary.evidence")}</TableHead></TableRow></TableHeader>
-              <TableBody>{control.budgetItems.map((item) => <TableRow key={item.id}><TableCell><div className="max-w-80 whitespace-normal font-medium">{item.description}</div></TableCell><TableCell className="text-right tabular-nums">{formatCents(item.totalCents, locale)}</TableCell><TableCell className="text-right tabular-nums">{formatCents(item.actualCents, locale)}</TableCell><TableCell className={`text-right font-medium tabular-nums ${item.varianceCents < 0 ? "text-destructive" : ""}`}>{formatCents(item.varianceCents, locale)}</TableCell><TableCell>{item.evidenceTotal === 0 ? <Badge variant="secondary">{t("evidence.none")}</Badge> : item.evidenceComplete === item.evidenceTotal ? <Badge><CheckCircle2 /> {t("evidence.complete")}</Badge> : <Badge variant="destructive"><FileCheck2 /> {item.evidenceComplete}/{item.evidenceTotal}</Badge>}</TableCell></TableRow>)}</TableBody>
-            </Table>}</CardContent>
-          </Card>
-          {control.allocations.length > 0 && <Card>
-            <CardHeader><CardTitle className="text-base">{t("settlement.bookings")}</CardTitle></CardHeader>
-            <CardContent className="p-0"><Table><TableHeader><TableRow><TableHead>{t("settlement.bookingDate")}</TableHead><TableHead>{t("budget.description")}</TableHead><TableHead>{t("settlement.evidenceStatus")}</TableHead><TableHead className="text-right">{t("summary.actual")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader><TableBody>{control.allocations.map((allocation) => <TableRow key={allocation.id}><TableCell>{formatDate(allocation.bookingDate, locale)}</TableCell><TableCell>{allocation.description || control.budgetItems.find((item) => item.id === allocation.budgetItemId)?.description}</TableCell><TableCell><EvidenceBadge status={allocation.evidenceStatus} label={t(`evidence.${allocation.evidenceStatus}`)} /><div className="mt-2 min-w-72"><EvidencePanel targetType="fundingBookingAllocation" targetId={allocation.id} compact /></div></TableCell><TableCell className="text-right tabular-nums">{formatCents(allocation.actualAmountCents, locale)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon-xs" onClick={() => remove(() => deleteFundingBookingAllocation(allocation.id))} aria-label={t("delete")}><Trash2 /></Button></TableCell></TableRow>)}</TableBody></Table></CardContent>
-          </Card>}
+          </MetricStrip>
+          <Panel
+            title={t("sections.settlement")}
+            description={t("settlement.description")}
+            actions={<Button size="sm" onClick={() => setAllocationOpen(true)} disabled={control.budgetItems.length === 0}><Plus /> {t("settlement.addActual")}</Button>}
+          >
+            {control.budgetItems.length === 0 ? <Empty text={t("settlement.empty")} /> : <Table className={TABLE_CLASS}>
+              <TableHeader><TableRow className={HEAD_ROW_CLASS}><TableHead>{t("budget.description")}</TableHead><TableHead className="text-right">{t("summary.plan")}</TableHead><TableHead className="text-right">{t("summary.actual")}</TableHead><TableHead className="text-right">{t("summary.variance")}</TableHead><TableHead>{t("summary.evidence")}</TableHead></TableRow></TableHeader>
+              <TableBody>{control.budgetItems.map((item) => <TableRow key={item.id}><TableCell><div className="max-w-80 whitespace-normal font-medium">{item.description}</div></TableCell><TableCell className="text-right tabular-nums">{formatCents(item.totalCents, locale)}</TableCell><TableCell className="text-right tabular-nums">{formatCents(item.actualCents, locale)}</TableCell><TableCell className={`text-right font-medium tabular-nums ${item.varianceCents < 0 ? "text-late" : ""}`}>{formatCents(item.varianceCents, locale)}</TableCell><TableCell>{item.evidenceTotal === 0 ? <Pill tone="neutral">{t("evidence.none")}</Pill> : item.evidenceComplete === item.evidenceTotal ? <Pill tone="brand"><CheckCircle2 /> {t("evidence.complete")}</Pill> : <Pill tone="danger"><FileCheck2 /> {item.evidenceComplete}/{item.evidenceTotal}</Pill>}</TableCell></TableRow>)}</TableBody>
+            </Table>}
+          </Panel>
+          {control.allocations.length > 0 && <Panel title={t("settlement.bookings")}>
+            <Table className={TABLE_CLASS}><TableHeader><TableRow className={HEAD_ROW_CLASS}><TableHead>{t("settlement.bookingDate")}</TableHead><TableHead>{t("budget.description")}</TableHead><TableHead>{t("settlement.evidenceStatus")}</TableHead><TableHead className="text-right">{t("summary.actual")}</TableHead><TableHead><span className="sr-only">{t("actions")}</span></TableHead></TableRow></TableHeader><TableBody>{control.allocations.map((allocation) => <TableRow key={allocation.id}><TableCell>{formatDate(allocation.bookingDate, locale)}</TableCell><TableCell>{allocation.description || control.budgetItems.find((item) => item.id === allocation.budgetItemId)?.description}</TableCell><TableCell><EvidenceBadge status={allocation.evidenceStatus} label={t(`evidence.${allocation.evidenceStatus}`)} /><div className="mt-2 min-w-72"><EvidencePanel targetType="fundingBookingAllocation" targetId={allocation.id} compact /></div></TableCell><TableCell className="text-right tabular-nums">{formatCents(allocation.actualAmountCents, locale)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon-xs" onClick={() => remove(() => deleteFundingBookingAllocation(allocation.id))} aria-label={t("delete")}><Trash2 /></Button></TableCell></TableRow>)}</TableBody></Table>
+          </Panel>}
         </TabsContent>
       </Tabs>
 
@@ -251,19 +246,47 @@ export function FundingProjectControlView({
   );
 }
 
+const TABLE_CLASS = "text-[13.5px] [&_tbody_tr]:h-[42px] [&_tbody_tr]:border-line-soft [&_tbody_tr:hover]:bg-accent [&_td:first-child]:pl-[18px] [&_td:last-child]:pr-[18px] [&_th:first-child]:pl-[18px] [&_th:last-child]:pr-[18px]";
+const HEAD_ROW_CLASS = "hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground";
+
+/** Card (design 1b): 52 px header with title, optional muted description and right-aligned actions. */
+function Panel({ title, description, actions, children }: { title: string; description?: string; actions?: ReactNode; children: ReactNode }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-card">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-line-soft px-[18px] py-3">
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold">{title}</h2>
+          {description ? <p className="mt-0.5 text-xs text-muted-foreground">{description}</p> : null}
+        </div>
+        {actions}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/** KPI tiles as one bordered strip with hairline dividers (design 1b). */
+function MetricStrip({ className, children }: { className?: string; children: ReactNode }) {
+  return <div className={cn("grid overflow-hidden rounded-xl border bg-card shadow-card", className)}>{children}</div>;
+}
+
 function Metric({ label, value, risk = false }: { label: string; value: string; risk?: boolean }) {
-  return <Card className={`gap-2 py-4 ${risk ? "border-destructive/40 bg-destructive/[0.03]" : ""}`}><CardContent className="px-4"><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p><p className={`mt-1 text-xl font-semibold tabular-nums ${risk ? "text-destructive" : ""}`}>{value}</p></CardContent></Card>;
+  return <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]"><p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{label}</p><p className={cn("mt-2 truncate text-lg leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-[22px]", risk && "text-late")}>{value}</p></div>;
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
-  return <div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p><p className="mt-1 whitespace-pre-wrap text-sm font-medium">{value || "—"}</p></div>;
+  return <div><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-[13.5px] font-medium whitespace-pre-wrap">{value || "—"}</p></div>;
 }
 
-function Empty({ text }: { text: string }) { return <div className="px-6 py-12 text-center text-sm text-muted-foreground">{text}</div>; }
+function Pill({ tone, children }: { tone: "brand" | "danger" | "neutral"; children: ReactNode }) {
+  return <span className={cn("inline-flex h-5 w-fit shrink-0 items-center gap-1 rounded-full px-2 text-[11px] font-semibold whitespace-nowrap [&>svg]:size-3", tone === "brand" ? "bg-brand-soft text-brand-ink" : tone === "danger" ? "bg-destructive/15 text-destructive" : "bg-muted text-text-secondary")}>{children}</span>;
+}
+
+function Empty({ text }: { text: string }) { return <EmptyState compact icon={<HandCoins />} title={text} />; }
 function formatDate(value: string | null, locale: string) { return value ? new Intl.DateTimeFormat(locale, { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`)) : "—"; }
 function moneyText(value: number) { return (value / 100).toFixed(2).replace(".", ","); }
 function parseMoney(value: string) { const parsed = parseAmountToCents(value); if (parsed === null || parsed < 0) throw new Error("Invalid money"); return parsed; }
-function EvidenceBadge({ status, label }: { status: string; label: string }) { return <Badge variant={status === "complete" ? "default" : status === "missing" ? "destructive" : "secondary"}>{label}</Badge>; }
+function EvidenceBadge({ status, label }: { status: string; label: string }) { return <Pill tone={status === "complete" ? "brand" : status === "missing" ? "danger" : "neutral"}>{label}</Pill>; }
 
 function FormDialog({ open, onOpenChange, title, pending, onSubmit, children }: { open: boolean; onOpenChange: (open: boolean) => void; title: string; pending: boolean; onSubmit: (event: React.FormEvent) => void; children: React.ReactNode }) {
   const t = useTranslations("fundingProjects");

@@ -27,7 +27,7 @@ export function LeadTaskButton({ lead }: { lead: NetworkLeadView }) {
     return (
       <Link
         href={canonicalTaskHref(lead.task.id, lead.task.projectId)}
-        className="inline-flex max-w-56 items-center gap-1 rounded-full border px-1.5 hover:bg-muted"
+        className="inline-flex h-5 max-w-56 items-center gap-1 rounded-full bg-brand-soft px-2 text-[11px] font-semibold text-brand-ink hover:underline"
         title={lead.task.title}
       >
         <Icon className="size-3 shrink-0" />

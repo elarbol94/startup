@@ -49,14 +49,14 @@ function RecursiveTaskRows({
         key={task.id}
         data-subtask-id={task.id}
         data-subtask-title={task.title}
-        className="border-t border-violet-200/70 dark:border-violet-900"
+        className="border-t border-line-soft"
         style={{ paddingLeft: Math.min(depth, 8) * 14 }}
       >
         <div className="flex items-center gap-1.5 px-2 py-1.5">
           {children.length > 0 ? (
             <button
               type="button"
-              className="rounded p-0.5 hover:bg-violet-100 dark:hover:bg-violet-950"
+              className="rounded p-0.5 hover:bg-accent"
               onClick={(event) => {
                 event.stopPropagation();
                 onToggleTask(task.id);
@@ -67,7 +67,7 @@ function RecursiveTaskRows({
               {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
             </button>
           ) : (
-            <span className={`mx-1 size-1.5 rounded-full ${column?.isCompleted ? "bg-emerald-500" : "bg-violet-400"}`} />
+            <span className={`mx-1 size-1.5 rounded-full ${column?.isCompleted ? "bg-brand" : "bg-line-strong"}`} />
           )}
           <button
             type="button"
@@ -82,12 +82,12 @@ function RecursiveTaskRows({
           {task.startDate && task.dueDate ? (
             <CalendarDays className="size-3 text-muted-foreground" />
           ) : (
-            <AlertTriangle className="size-3 text-amber-600" aria-label={t("unscheduled")} />
+            <AlertTriangle className="size-3 text-amber-600 dark:text-amber-400" aria-label={t("unscheduled")} />
           )}
           {!task.isMilestone && onAddSubtask && (
             <button
               type="button"
-              className="rounded p-0.5 text-muted-foreground hover:bg-violet-100 hover:text-foreground dark:hover:bg-violet-950"
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={(event) => {
                 event.stopPropagation();
                 onAddSubtask(task);
@@ -160,8 +160,8 @@ export function TaskCard({
       onClick={onClick}
       data-task-id={task.id}
       data-task-title={task.title}
-      className={`flex cursor-pointer flex-col gap-2 rounded-md border bg-card p-3 text-sm shadow-xs ${
-        overlay ? "rotate-2 shadow-lg" : "hover:border-ring/40"
+      className={`flex cursor-pointer flex-col gap-2 rounded-lg border bg-card p-3 text-[13.5px] ${
+        overlay ? "rotate-2 shadow-lg" : "shadow-card transition-colors hover:border-line-strong"
       }`}
     >
       {onClick ? (
@@ -183,7 +183,7 @@ export function TaskCard({
         <span className="font-medium">{task.title}</span>
       )}
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className={`${PRIORITY_STYLES[task.priority]} border-transparent`}>
+        <span className={`inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[11px] font-semibold whitespace-nowrap ${PRIORITY_STYLES[task.priority]}`}>
           {t(
             task.priority === "high"
               ? "priorityHigh"
@@ -191,7 +191,7 @@ export function TaskCard({
                 ? "priorityLow"
                 : "priorityMedium",
           )}
-        </Badge>
+        </span>
         {task.reportKind && task.reportKind !== "bug" && <ReportKindBadge kind={task.reportKind} />}
         {task.agentWorkedAt && (
           <Badge variant="outline" className="gap-1 text-muted-foreground" title={t("agentWorkedHint")}>
@@ -202,7 +202,7 @@ export function TaskCard({
         {task.dueDate && (
           <span
             className={`flex items-center gap-1 text-xs ${
-              overdue ? "font-medium text-destructive" : "text-muted-foreground"
+              overdue ? "font-medium text-late" : "text-muted-foreground"
             }`}
           >
             <CalendarDays className="size-3" />
@@ -221,7 +221,7 @@ export function TaskCard({
         )}
       </div>
       {subtasks.length > 0 && (
-        <div className="mt-1 rounded-md border border-violet-200/80 bg-violet-50/45 dark:border-violet-900 dark:bg-violet-950/20">
+        <div className="mt-1 rounded-md border border-line-soft bg-surface-raised">
           <button
             type="button"
             className="flex w-full items-center gap-2 px-2.5 py-2 text-left"
@@ -236,9 +236,9 @@ export function TaskCard({
             aria-label={t("toggleSubtasks")}
           >
             {expanded ? (
-              <ChevronDown className="size-3.5 text-violet-600" />
+              <ChevronDown className="size-3.5 text-muted-foreground" />
             ) : (
-              <ChevronRight className="size-3.5 text-violet-600" />
+              <ChevronRight className="size-3.5 text-muted-foreground" />
             )}
             <span className="text-xs font-medium">
               {t("subtaskProgress", {
@@ -246,13 +246,13 @@ export function TaskCard({
                 total: leaves.length,
               })}
             </span>
-            <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+            <span className="ml-auto text-[11.5px] tabular-nums text-muted-foreground">
               {task.progress}%
             </span>
           </button>
-          <div className="mx-2.5 h-1 overflow-hidden rounded-full bg-violet-100 dark:bg-violet-950">
+          <div className="mx-2.5 h-1 overflow-hidden rounded-full bg-muted">
             <div
-              className="h-full rounded-full bg-violet-500 transition-[width]"
+              className="h-full rounded-full bg-brand transition-[width]"
               style={{ width: `${task.progress}%` }}
             />
           </div>

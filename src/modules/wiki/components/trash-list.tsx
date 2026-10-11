@@ -42,26 +42,26 @@ export function TrashList({ rows, canPurge }: { rows: TrashRow[]; canPurge: bool
   }
 
   return <>
-    <div className="divide-y rounded-xl border">
-      <div className="flex h-9 items-center gap-3 bg-muted/30 px-4 text-xs text-muted-foreground">
+    <div className="divide-y divide-line-soft overflow-hidden rounded-xl border bg-card shadow-card">
+      <div className="flex h-9 items-center gap-3 px-[18px] text-[11.5px] font-medium text-muted-foreground">
         <SelectAllCheckbox selection={selection} />
         <span>{selection.count > 0 ? t("bulk.selectedOf", { count: selection.count, total: rows.length }) : tSelection("selectAll")}</span>
       </div>
       {rows.map((row) => {
         const key = keyOf(row);
         return (
-          <div key={key} data-testid="trash-row" data-selected={selection.isSelected(key) || undefined} className="group flex flex-wrap items-center gap-3 p-4 data-selected:bg-accent/60">
+          <div key={key} data-testid="trash-row" data-selected={selection.isSelected(key) || undefined} className="group flex min-h-[52px] flex-wrap items-center gap-3 px-[18px] py-2 text-[13.5px] transition-colors hover:bg-accent data-selected:bg-brand-soft">
             <span className={cn("inline-flex transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100", selection.count > 0 && "sm:opacity-100")}>
               <RowSelectCheckbox id={key} label={row.title} selection={selection} />
             </span>
-            {row.type === "page" ? <FileText className="size-4 text-indigo-400" /> : <LibraryBig className="size-4 text-indigo-400" />}
+            {row.type === "page" ? <FileText className="size-4 shrink-0 text-muted-foreground" /> : <LibraryBig className="size-4 shrink-0 text-muted-foreground" />}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{row.title}</p>
-              <p className="text-xs text-muted-foreground">{row.deletedAtLabel}</p>
+              <p className="truncate font-medium">{row.title}</p>
+              <p className="text-xs text-muted-foreground tabular-nums">{row.deletedAtLabel}</p>
             </div>
             <div className="flex gap-1">
               <Button size="sm" variant="outline" disabled={pending} onClick={() => void restore([key])}><RotateCcw className="size-3.5" />{t("restore")}</Button>
-              {canPurge && <Button size="sm" variant="ghost" disabled={pending} onClick={() => void purge([key])}><Trash2 className="size-3.5 text-destructive" />{t("purge")}</Button>}
+              {canPurge && <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" disabled={pending} onClick={() => void purge([key])}><Trash2 className="size-3.5" />{t("purge")}</Button>}
             </div>
           </div>
         );

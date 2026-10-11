@@ -170,7 +170,7 @@ export function InvoiceEditor({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-3xl flex-col gap-6">
+    <form onSubmit={onSubmit} className="flex max-w-3xl flex-col gap-6 rounded-xl border bg-card p-[18px] shadow-card sm:p-6">
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-customer">{t("customer")}</Label>
@@ -214,10 +214,10 @@ export function InvoiceEditor({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="text-sm font-medium">{t("items")}</p>
+        <p className="text-[14.5px] font-semibold">{t("items")}</p>
         <div className="overflow-x-auto pb-1">
         <div className="flex flex-col gap-3 md:min-w-[640px] md:gap-2">
-          <div className="hidden md:grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2 px-1 text-xs font-medium text-muted-foreground">
+          <div className="hidden md:grid grid-cols-[1fr_90px_120px_90px_100px_32px] items-center gap-2 px-1 text-[11.5px] font-medium text-muted-foreground">
             <span>{t("itemDescription")}</span>
             <span>{t("quantity")}</span>
             <span>{t("unitPrice")}</span>
@@ -230,7 +230,7 @@ export function InvoiceEditor({
             return (
               <div
                 key={index}
-                className="grid grid-cols-2 items-end gap-3 rounded-lg border p-3 md:grid-cols-[1fr_90px_120px_90px_100px_32px] md:items-center md:gap-2 md:border-0 md:p-0"
+                className="grid grid-cols-2 items-end gap-3 rounded-lg border border-line-soft p-3 md:grid-cols-[1fr_90px_120px_90px_100px_32px] md:items-center md:gap-2 md:border-0 md:p-0"
               >
                 <div className="min-w-0 space-y-1 col-span-2 md:col-span-1">
                   <Label className="md:hidden" htmlFor={`invoice-description-${index}`}>{t("itemDescription")}</Label>
@@ -342,7 +342,7 @@ export function InvoiceEditor({
       </div>
 
       {totals && (
-        <div className="flex flex-col items-end gap-1 text-sm">
+        <div className="flex flex-col items-end gap-1 border-t border-line-soft pt-4 text-[13.5px] text-text-secondary">
           <span>
             {t("subtotal")}:{" "}
             <span className="tabular-nums">{formatCents(totals.netCents, locale)}</span>
@@ -357,7 +357,7 @@ export function InvoiceEditor({
                 </span>
               </span>
             ))}
-          <span className="text-base font-semibold">
+          <span className="mt-1 text-[15px] font-semibold text-foreground">
             {t("total")}:{" "}
             <span className="tabular-nums">
               {formatCents(totals.grossCents, locale)}

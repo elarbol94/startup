@@ -16,11 +16,11 @@ export function WorkspaceFilterBar({ filters, onChange, tags }: { filters: Works
   const set = (patch: Partial<WorkspaceFilters>) => onChange({ ...filters, ...patch });
   const hasFilters = Boolean(filters.query || filters.status !== "all" || filters.tag !== "all" || filters.favoritesOnly);
   return (
-    <div className="rounded-xl border bg-card p-3 shadow-xs">
+    <div>
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-56 flex-1">
-          <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-          <Input aria-label={t("searchNotes")} value={filters.query} onChange={(event) => set({ query: event.target.value })} placeholder={t("searchNotes")} className="pl-9" />
+          <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+          <Input aria-label={t("searchNotes")} value={filters.query} onChange={(event) => set({ query: event.target.value })} placeholder={t("searchNotes")} className="bg-card pl-8" />
         </div>
         <Select value={filters.status} onValueChange={(value) => set({ status: (value ?? "all") as PageStatus | "all" })}>
           <SelectTrigger aria-label={t("allPageStatuses")} className="w-36"><SelectValue /></SelectTrigger>
@@ -36,13 +36,13 @@ export function WorkspaceFilterBar({ filters, onChange, tags }: { filters: Works
             {tags.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button variant={filters.favoritesOnly ? "secondary" : "outline"} onClick={() => set({ favoritesOnly: !filters.favoritesOnly })}>
-          <Star className={cn("size-4", filters.favoritesOnly && "fill-indigo-400 text-indigo-500")} />
+        <Button variant="outline" className={cn(filters.favoritesOnly && "border-brand/40 bg-brand-soft text-brand-ink hover:bg-brand-soft hover:text-brand-ink")} onClick={() => set({ favoritesOnly: !filters.favoritesOnly })}>
+          <Star className={cn("size-4", filters.favoritesOnly && "fill-current")} />
           {t("favoritesOnly")}
         </Button>
       </div>
       {hasFilters && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span>{t("activeFilters")}</span>
           {filters.query && <Button variant="secondary" size="xs" onClick={() => set({ query: "" })}>{filters.query}<X /></Button>}
           {filters.status !== "all" && <Button variant="secondary" size="xs" onClick={() => set({ status: "all" })}>{t(`pageStatuses.${filters.status}`)}<X /></Button>}

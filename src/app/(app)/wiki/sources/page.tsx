@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { BookMarked } from "lucide-react";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { requireUser } from "@/lib/auth";
 import { listSourcesPage, listDocumentTypes, listTags } from "@/modules/wiki/research-queries";
 import { parseTagList } from "@/modules/wiki/lib/tags";
@@ -12,6 +14,7 @@ import { MetadataLookupDialog } from "@/modules/wiki/components/metadata-lookup-
 import { PdfUpload } from "@/modules/wiki/components/pdf-upload";
 import { listPdfDocumentsForSources } from "@/modules/wiki/pdf-queries";
 import { SourceTable, type SourceTableRow } from "@/modules/wiki/components/source-table";
+import { WIKI_PAGE_CLASS } from "@/modules/wiki/components/wiki-page-class";
 
 export default async function SourcesPage({ searchParams }: { searchParams: Promise<{ q?: string; status?: string; tag?: string; cursor?: string }> }) {
   const [, t, params] = await Promise.all([requireUser(), getTranslations("wiki"), searchParams]);
@@ -24,17 +27,17 @@ export default async function SourcesPage({ searchParams }: { searchParams: Prom
     return {
       id: source.id, title: source.title, href: readHref ?? `/wiki/sources/${source.id}`, tags: parseTagList(source.tags),
       contributors: source.contributors ? source.contributors.split(",").join(", ") : "", year: source.issuedDate.slice(0, 4),
-      typeLabel: t(`sourceTypes.${source.type}`), statusLabel: t(`readingStatuses.${source.readingStatus}`),
+      typeLabel: t(`sourceTypes.${source.type}`), status: source.readingStatus, statusLabel: t(`readingStatuses.${source.readingStatus}`),
       pdf: primary ? (readHref ? { label: `${primary.pageCount} ${t("pagesCount")}`, href: readHref } : { label: t(`pdfStatuses.${primary.status}`), failed: primary.status === "failed" }) : null,
       citationCount: source.citationCount, attachmentCount: source.attachmentCount,
     };
   });
-  return <div className="mx-auto max-w-7xl p-5 md:p-8"><PageHeader eyebrow={t("evidenceLibrary")} title={t("sources")} description={t("sourcesDescription")} actions={<><MetadataLookupDialog documentTypes={documentTypes} /><NewSourceDialog documentTypes={documentTypes} /></>} />
+  return <div className={WIKI_PAGE_CLASS}><PageHeader eyebrow={t("evidenceLibrary")} title={t("sources")} description={t("sourcesDescription")} actions={<><MetadataLookupDialog documentTypes={documentTypes} /><NewSourceDialog documentTypes={documentTypes} /></>} />
     <PdfUpload dropzone />
     <div className="my-4"><LibraryTools /></div>
     <SourceFilters key={`${params.q ?? ""}:${params.status ?? ""}:${params.tag ?? ""}`} initialQuery={params.q ?? ""} initialStatus={params.status ?? ""} initialTag={params.tag ?? ""} tags={tags} />
-    {sources.length === 0 ? <div className="mt-6 grid min-h-64 place-items-center rounded-xl border border-dashed bg-muted/20 text-center"><div><BookMarked className="mx-auto mb-3 size-8 text-indigo-400" /><h2 className="font-medium">{t("noSources")}</h2><p className="mt-1 text-sm text-muted-foreground">{t("noSourcesDescription")}</p></div></div> :
+    {sources.length === 0 ? <div className="mt-4 rounded-xl border bg-card shadow-card"><EmptyState icon={<BookMarked />} title={t("noSources")} description={t("noSourcesDescription")} /></div> :
     <SourceTable rows={rows} />}
-    {sourcePage.nextCursor && <div className="mt-4 flex justify-end"><Link className="rounded-md border bg-background px-4 py-2 text-sm font-medium hover:bg-accent" href={`/wiki/sources?${new URLSearchParams({ ...(params.q ? { q: params.q } : {}), ...(params.status ? { status: params.status } : {}), ...(params.tag ? { tag: params.tag } : {}), cursor: sourcePage.nextCursor }).toString()}`}>{t("nextPage")}</Link></div>}
+    {sourcePage.nextCursor && <div className="mt-4 flex justify-end"><Link className={buttonVariants({ variant: "outline" })} href={`/wiki/sources?${new URLSearchParams({ ...(params.q ? { q: params.q } : {}), ...(params.status ? { status: params.status } : {}), ...(params.tag ? { tag: params.tag } : {}), cursor: sourcePage.nextCursor }).toString()}`}>{t("nextPage")}</Link></div>}
   </div>;
 }

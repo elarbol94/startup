@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { ChevronDown, Trash2 } from "lucide-react";
+import { ChevronDown, Lightbulb, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useConfirm } from "@/components/ui/confirm-dialog";
+import { EmptyState } from "@/components/ui/empty-state";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { SelectAllCheckbox } from "@/components/row-selection";
 import { SelectionBar } from "@/components/selection-bar";
@@ -16,6 +17,7 @@ import { leadStatuses } from "../constants";
 import type { NetworkContactOption, NetworkLeadView } from "../queries";
 import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
+import { networkCardClass } from "./network-card";
 
 /** "Open opportunities": everything someone offered that we have not followed up yet. */
 export function OpportunitiesView({
@@ -52,29 +54,31 @@ export function OpportunitiesView({
       <div className="flex items-center justify-between gap-3 text-sm">
         <p className="text-muted-foreground">{t("opportunities.intro")}</p>
         <div className="flex shrink-0 items-center gap-3">
-        {leads.length > 0 && (
-          <Button size="sm" variant={selecting ? "secondary" : "outline"} aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
-            {selecting ? t("bulk.doneSelecting") : t("bulk.select")}
-          </Button>
-        )}
-        <Link
-          href={includeClosed ? "/network/opportunities" : "/network/opportunities?show=all"}
-          className="shrink-0 text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
-        >
-          {includeClosed ? t("opportunities.hideClosed") : t("opportunities.showClosed")}
-        </Link>
+          {leads.length > 0 && (
+            <Button size="sm" variant={selecting ? "secondary" : "outline"} aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : setSelecting(true))}>
+              {selecting ? t("bulk.doneSelecting") : t("bulk.select")}
+            </Button>
+          )}
+          <Link
+            href={includeClosed ? "/network/opportunities" : "/network/opportunities?show=all"}
+            className="shrink-0 font-medium text-brand-ink underline-offset-4 hover:underline"
+          >
+            {includeClosed ? t("opportunities.hideClosed") : t("opportunities.showClosed")}
+          </Link>
         </div>
       </div>
-      {selecting && leads.length > 0 && (
-        <div className="flex items-center gap-3 px-4 text-xs text-muted-foreground">
-          <SelectAllCheckbox selection={selection} />
-          <span>{tCommon("selection.selectAll")}</span>
-        </div>
-      )}
       {leads.length ? (
-        <LeadList leads={leads} today={today} showContact onEdit={(lead) => setDialog({ mode: "edit", lead })} selection={selecting ? selection : undefined} />
+        <div className={networkCardClass}>
+          {selecting && (
+            <div className="flex h-9 items-center gap-3 border-b border-line-soft px-[18px] text-[11.5px] font-medium text-muted-foreground">
+              <SelectAllCheckbox selection={selection} />
+              <span>{tCommon("selection.selectAll")}</span>
+            </div>
+          )}
+          <LeadList embedded leads={leads} today={today} showContact onEdit={(lead) => setDialog({ mode: "edit", lead })} selection={selecting ? selection : undefined} />
+        </div>
       ) : (
-        <div className="rounded-2xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("opportunities.empty")}</div>
+        <div className={networkCardClass}><EmptyState icon={<Lightbulb />} title={t("opportunities.empty")} /></div>
       )}
       <SelectionBar count={selection.count} onClear={selection.clear}>
         <DropdownMenu>

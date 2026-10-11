@@ -42,12 +42,12 @@ export function MobileWorkBreakdown({
           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
           className={cn(
             "grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border bg-card p-3 text-left",
-            row.kind === "subtask" && "border-l-2 border-l-indigo-400",
-            selectedTaskId === row.task?.id && "outline-2 outline-indigo-600",
+            row.kind === "subtask" && "border-l-2 border-l-brand/60",
+            selectedTaskId === row.task?.id && "outline-2 outline-brand",
           )}
           style={{ marginLeft: Math.min(row.depth ?? 0, 6) * 16 }}
         >
-          {row.isMilestone ? <Diamond className="size-4 fill-indigo-500 text-indigo-600" /> : <span className="size-2.5 rounded-full" style={{ backgroundColor: row.color }} />}
+          {row.isMilestone ? <Diamond className="size-4 fill-brand text-brand-ink" /> : <span className="size-2.5 rounded-full" style={{ backgroundColor: row.color }} />}
           <span className="min-w-0"><span className="block truncate text-sm font-medium">{row.label}</span><span className="block text-xs text-muted-foreground">{row.startDate ?? t("unscheduled")}{row.dueDate && !row.isMilestone ? ` – ${row.dueDate}` : ""}</span></span>
           <span className="font-mono text-xs tabular-nums text-muted-foreground">{row.progress}%</span>
         </button>

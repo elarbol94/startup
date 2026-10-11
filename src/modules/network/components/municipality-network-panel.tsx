@@ -31,9 +31,9 @@ export function MunicipalityNetworkPanel({ municipalityCode }: { municipalityCod
   const empty = data && !data.residents.length && !data.organizations.length;
 
   return (
-    <section className="rounded-2xl border bg-card p-4" data-testid="municipality-network-panel" aria-label={t("municipality.panelTitle")}>
+    <section className="rounded-xl border bg-card px-[18px] py-4 shadow-card" data-testid="municipality-network-panel" aria-label={t("municipality.panelTitle")}>
       <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold">
-        <Handshake className="size-4 text-muted-foreground" />
+        <Handshake className="size-4 text-brand-ink" />
         {t("municipality.panelTitle")}
       </h3>
       {!current ? (
@@ -43,10 +43,10 @@ export function MunicipalityNetworkPanel({ municipalityCode }: { municipalityCod
       ) : empty ? (
         <p className="text-sm text-muted-foreground">{t("municipality.empty")}</p>
       ) : (
-        <div className="space-y-3 text-sm">
+        <div className="space-y-3 text-[13.5px]">
           {data!.residents.length > 0 && (
             <div>
-              <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground"><Home className="size-3.5" />{t("municipality.residents")}</p>
+              <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase"><Home className="size-3.5" />{t("municipality.residents")}</p>
               <PeopleList people={data!.residents} showOrganization />
             </div>
           )}

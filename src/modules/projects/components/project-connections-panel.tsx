@@ -23,7 +23,7 @@ function Section({
   if (items.length === 0) return null;
   return (
     <section className="grid gap-1">
-      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase [&_svg]:size-3.5">
+      <h3 className="flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase [&_svg]:size-3.5">
         {icon}
         {title}
         <span className="font-normal tabular-nums">{items.length}</span>
@@ -33,7 +33,7 @@ function Section({
           <li key={item.id}>
             <Link
               href={item.href}
-              className="flex min-w-0 items-center gap-3 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+              className="flex min-w-0 items-center gap-3 rounded-md px-2 py-1.5 text-[13.5px] hover:bg-accent"
             >
               {render(item)}
             </Link>
@@ -53,11 +53,11 @@ export async function ProjectConnectionsPanel({ connections, today }: { connecti
   const empty = Object.values(connections).every((items) => items.length === 0);
 
   return (
-    <section id="connections" className="scroll-mt-20 rounded-2xl border bg-card p-4">
+    <section id="connections" className="scroll-mt-20 rounded-xl border bg-card p-[18px] shadow-card">
       <header className="mb-3 flex items-center gap-2">
         <Link2 className="size-4 text-muted-foreground" />
         <div>
-          <h2 className="text-sm font-semibold">{t("title")}</h2>
+          <h2 className="text-[14.5px] font-semibold">{t("title")}</h2>
           <p className="text-xs text-muted-foreground">{t("description")}</p>
         </div>
       </header>
@@ -103,7 +103,7 @@ export async function ProjectConnectionsPanel({ connections, today }: { connecti
                 </span>
                 {item.status === "draft" && <span className="text-[11px] text-muted-foreground">{t("draft")}</span>}
                 {item.amountCents !== undefined && (
-                  <span className={cn("shrink-0 text-xs tabular-nums", item.kind === "income" ? "text-emerald-700 dark:text-emerald-400" : "")}>
+                  <span className={cn("shrink-0 text-xs tabular-nums", item.kind === "income" && "text-[color:var(--money-positive)]")}>
                     {item.kind === "expense" ? "−" : "+"}
                     {formatCents(item.amountCents, locale)}
                   </span>

@@ -32,10 +32,10 @@ export function TeamDayCell({
   onSelect: (item: CalendarItem) => void;
 }) {
   const selectedRing = (item: CalendarItem) =>
-    item.id === selectedId && "ring-2 ring-foreground ring-offset-1 ring-offset-background";
+    item.id === selectedId && "ring-2 ring-brand ring-offset-1 ring-offset-card";
   const absence = data.absences[0];
   return (
-    <div className={cn("flex min-w-0 flex-col justify-center gap-1 border-r px-1.5 py-1.5 last:border-r-0", isToday && "bg-primary/[0.06]")}>
+    <div className={cn("flex min-w-0 flex-col justify-center gap-1 border-r border-line-soft px-1.5 py-1.5 last:border-r-0", isToday && "bg-brand-soft")}>
       <div className="flex h-3 min-w-0 items-center gap-1">
         <div className="flex min-w-0 flex-1 gap-0.5">
           {data.allDayMarkers.map((item) => (
@@ -52,7 +52,7 @@ export function TeamDayCell({
         </div>
         {data.tasks.length > 0 && (
           <span
-            className="shrink-0 rounded bg-muted px-1 text-[9px] leading-3 text-muted-foreground"
+            className="shrink-0 rounded-full border border-line-strong px-1.5 text-[10px] leading-3 font-medium text-text-secondary"
             title={data.tasks.map((task) => task.title).join("\n")}
           >
             {t("teamTaskCount", { count: data.tasks.length })}
@@ -71,7 +71,7 @@ export function TeamDayCell({
             )}
             style={{ backgroundImage: ABSENCE_STRIPES }}
           >
-            <span className="truncate rounded bg-background/80 px-1">{t("teamAbsent")}</span>
+            <span className="truncate rounded-md bg-card/80 px-1">{t("teamAbsent")}</span>
           </button>
         ) : (
           <>
@@ -85,7 +85,7 @@ export function TeamDayCell({
                   title={label}
                   aria-label={label}
                   onClick={() => onSelect(block.item)}
-                  className={cn("absolute min-w-[3px] rounded-[3px] transition-opacity hover:opacity-80", selectedRing(block.item))}
+                  className={cn("absolute min-w-[3px] rounded-[4px] transition-opacity hover:opacity-80", selectedRing(block.item))}
                   style={{
                     left: `${left}%`,
                     width: `${width}%`,

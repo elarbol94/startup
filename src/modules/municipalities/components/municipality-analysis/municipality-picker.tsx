@@ -46,7 +46,7 @@ export function MunicipalityPicker({
         onValueChange={(value) => setQuery(value)}
       />
       {results.length > 0 && (
-        <div className="absolute top-full right-0 left-0 z-20 mt-1 grid gap-0.5 rounded-lg border bg-background p-1 shadow-lg">
+        <div className="absolute top-full right-0 left-0 z-20 mt-1 grid gap-0.5 rounded-lg border bg-popover p-1 shadow-lg">
           {results.map((item) => (
             <button
               key={item.municipalityCode}

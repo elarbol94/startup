@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Inbox } from "lucide-react";
 import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useRowSelection } from "@/lib/use-row-selection";
 import type { WorkspacePage } from "../research-queries";
 import { parseTagList } from "../lib/tags";
@@ -47,16 +48,16 @@ export function WorkspacePageList({ pages: initialPages }: { pages: WorkspacePag
 
   if (pages.length === 0)
     return (
-      <div className="grid min-h-72 place-items-center rounded-xl border border-dashed bg-muted/20 text-center">
-        <div>
-          <Inbox className="mx-auto mb-3 size-8 text-indigo-400" />
-          <h2 className="font-medium">{t("inboxEmpty")}</h2>
-          <p className="mt-1 max-w-sm text-sm text-muted-foreground">{t.rich("inboxEmptyDescription", { keys: () => <ShortcutKeys shortcut={WIKI_SHORTCUTS.quickNote} className="align-middle" /> })}</p>
-        </div>
+      <div className="rounded-xl border bg-card shadow-card">
+        <EmptyState
+          icon={<Inbox />}
+          title={t("inboxEmpty")}
+          description={t.rich("inboxEmptyDescription", { keys: () => <ShortcutKeys shortcut={WIKI_SHORTCUTS.quickNote} className="align-middle" /> })}
+        />
       </div>
     );
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       <WorkspaceFilterBar filters={filters} onChange={setFilters} tags={tags} />
       {groups.map((group) => (
         <WorkspaceStatusGroup
@@ -69,7 +70,7 @@ export function WorkspacePageList({ pages: initialPages }: { pages: WorkspacePag
           selection={selection}
         >
           {group.pages.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">{t("emptyStatusGroup")}</p>
+            <p className="px-[18px] py-[11px] text-[13px] text-muted-foreground">{t("emptyStatusGroup")}</p>
           ) : group.pages.map((page) => (
             <WorkspaceNoteRow
               key={page.id}

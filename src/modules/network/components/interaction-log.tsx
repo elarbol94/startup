@@ -9,6 +9,7 @@ import { interactionChannels, type InteractionChannel } from "../constants";
 import { addNetworkInteraction, deleteNetworkInteraction } from "../interaction-actions";
 import type { NetworkContactDetail } from "../queries";
 import { InteractionEditForm } from "./interaction-edit-form";
+import { NetworkCard, NetworkCardEmpty, networkListClass } from "./network-card";
 import { dateOnly, selectClassName } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -37,10 +38,9 @@ export function InteractionLog({
   }
 
   return (
-    <section className="space-y-2">
-      <h3 className="font-medium">{t("history.title")}</h3>
+    <NetworkCard title={t("history.title")} count={interactions.length || undefined}>
       {canEdit && (
-        <form onSubmit={submit} className="grid gap-2 rounded-2xl border bg-card p-3 sm:grid-cols-[9.5rem_11rem_minmax(0,1fr)_auto]">
+        <form onSubmit={submit} className="grid gap-2 border-b border-line-soft bg-surface-raised px-[18px] py-3 sm:grid-cols-[9.5rem_11rem_minmax(0,1fr)_auto]">
           <Input
             type="date"
             required
@@ -72,9 +72,9 @@ export function InteractionLog({
         </form>
       )}
       {interactions.length ? (
-        <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-interactions">
+        <ul className={networkListClass} data-testid="network-interactions">
           {interactions.map((interaction) => (
-            <li key={interaction.id} className="flex items-start gap-3 px-4 py-2.5 text-sm">
+            <li key={interaction.id} className="flex items-start gap-3 px-[18px] py-2.5 text-[13.5px]">
               {canEdit && editingId === interaction.id ? (
                 <InteractionEditForm interaction={interaction} today={today} onDone={() => setEditingId(null)} />
               ) : (
@@ -114,8 +114,8 @@ export function InteractionLog({
           ))}
         </ul>
       ) : (
-        <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("history.empty")}</p>
+        <NetworkCardEmpty>{t("history.empty")}</NetworkCardEmpty>
       )}
-    </section>
+    </NetworkCard>
   );
 }

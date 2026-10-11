@@ -56,7 +56,7 @@ export function MiniMonth({
   return (
     <div className={cn("w-56 max-w-full", className)}>
       <div className="mb-1 flex items-center justify-between gap-1">
-        <p className="truncate pl-1 text-sm font-semibold" aria-live="polite">
+        <p className="truncate pl-1 text-[13.5px] font-semibold" aria-live="polite">
           {new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone: "UTC" }).format(month)}
         </p>
         <div className="flex shrink-0 items-center">
@@ -93,7 +93,7 @@ export function MiniMonth({
               key={day}
               className={cn(
                 "p-px",
-                inRange && "bg-muted",
+                inRange && "bg-accent",
                 rangeStart && "rounded-l-md",
                 rangeEnd && "rounded-r-md",
               )}
@@ -105,10 +105,10 @@ export function MiniMonth({
                 aria-current={isToday ? "date" : undefined}
                 aria-pressed={selected}
                 className={cn(
-                  "relative grid aspect-square w-full place-items-center rounded-md text-xs tabular-nums outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring",
+                  "relative grid aspect-square w-full place-items-center rounded-md text-[11.5px] tabular-nums outline-none transition-colors hover:bg-foreground/10 focus-visible:ring-2 focus-visible:ring-ring",
                   muted && "text-muted-foreground/45",
-                  isToday && !selected && "font-bold text-[#6D5EF7] ring-1 ring-inset ring-[#6D5EF7]/40",
-                  selected && "bg-foreground font-semibold text-background hover:bg-foreground",
+                  isToday && !selected && "font-bold text-brand-ink ring-1 ring-inset ring-brand/40",
+                  selected && "bg-brand font-bold text-brand-on hover:bg-brand",
                 )}
               >
                 {value.getUTCDate()}
@@ -117,7 +117,7 @@ export function MiniMonth({
                     aria-hidden
                     className={cn(
                       "absolute bottom-0.5 left-1/2 size-1 -translate-x-1/2 rounded-full",
-                      selected ? "bg-background" : "bg-muted-foreground/70",
+                      selected ? "bg-brand-on" : "bg-muted-foreground/70",
                     )}
                   />
                 )}

@@ -76,13 +76,13 @@ export function MonthView({
   return (
     <div className="h-full overflow-x-auto">
       <div className="flex h-full min-h-[44rem] min-w-[52rem] flex-col">
-        <div className="grid shrink-0 grid-cols-7 border-b bg-muted/[0.18]">
+        <div className="grid shrink-0 grid-cols-7 border-b">
           {days.slice(0, 7).map((day, index) => (
             <div
               key={day}
               className={cn(
-                "px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground",
-                index < 6 && "border-r",
+                "px-2.5 py-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-text-tertiary",
+                index < 6 && "border-r border-line-soft",
               )}
             >
               {weekdayFormat.format(parseDate(day))}

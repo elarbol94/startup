@@ -4,9 +4,9 @@ import type { DependencyType } from "@/modules/projects/schedule";
 import type { Zoom } from "./portfolio-types";
 
 export const LEFT_WIDTH = 440;
-export const ROW_HEIGHT = 44;
-export const HEADER_HEIGHT = 54;
-export const DEADLINE_LANE_HEIGHT = 36;
+export const ROW_HEIGHT = 40;
+export const HEADER_HEIGHT = 52;
+export const DEADLINE_LANE_HEIGHT = 40;
 export const FIT_PADDING_DAYS = 7;
 export const DAY_MS = 86_400_000;
 export const ZOOM_WIDTH: Record<Zoom, number> = {

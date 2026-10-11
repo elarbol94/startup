@@ -187,7 +187,7 @@ export function PopularTags({
         <button
           key={tag.value}
           type="button"
-          className={cn("rounded-full border px-2 py-0.5 text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground")}
+          className={cn("inline-flex h-6 items-center rounded-full border border-dashed border-line-strong px-2 text-xs text-text-secondary transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring")}
           onClick={() => onChange(parseTagInput([...value, tag.value]))}
         >
           + {tag.value}

@@ -10,9 +10,9 @@ import type { CalendarItem, CalendarResponse } from "../../../types";
 import { CalendarItemPeople } from "../calendar-item-people";
 
 const RESPONSE_STYLE = {
-  accepted: { Icon: Check, className: "bg-emerald-600 text-white", label: "inspectorResponseAccepted" },
+  accepted: { Icon: Check, className: "bg-brand text-brand-on", label: "inspectorResponseAccepted" },
   tentative: { Icon: CircleHelp, className: "bg-amber-500 text-white", label: "inspectorResponseTentative" },
-  declined: { Icon: X, className: "bg-rose-600 text-white", label: "inspectorResponseDeclined" },
+  declined: { Icon: X, className: "bg-destructive text-white", label: "inspectorResponseDeclined" },
   needs_action: { Icon: Clock3, className: "bg-muted text-muted-foreground", label: "inspectorResponseNeedsAction" },
 } as const satisfies Record<CalendarResponse, { Icon: unknown; className: string; label: string }>;
 

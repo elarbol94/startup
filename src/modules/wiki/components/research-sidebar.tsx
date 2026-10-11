@@ -26,6 +26,7 @@ import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { navItemClass } from "@/components/app-sidebar/nav-items";
 import { searchResearch } from "../research-actions";
 import { useQuickNoteCreator } from "./use-quick-note-creator";
 import { SearchSnippet } from "./search-snippet";
@@ -40,6 +41,7 @@ function NavItem({
   icon: Icon,
   label,
   badge,
+  highlight = false,
   compact,
   onNavigate,
 }: {
@@ -47,6 +49,8 @@ function NavItem({
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: number;
+  /** Unread counts read in brand ink; plain totals stay tertiary. */
+  highlight?: boolean;
   compact: boolean;
   onNavigate?: () => void;
 }) {
@@ -56,14 +60,11 @@ function NavItem({
     <Link
       href={href}
       aria-label={compact ? label : undefined}
+      aria-current={active ? "page" : undefined}
       onClick={onNavigate}
-      className={cn(
-        "relative flex h-10 items-center rounded-md text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-        compact ? "justify-center gap-0 px-0" : "gap-2 px-2",
-        active && "bg-indigo-50 text-indigo-950 dark:bg-indigo-950/50 dark:text-indigo-100",
-      )}
+      className={cn(navItemClass(active, compact), "relative")}
     >
-      <Icon className="size-4" />
+      <Icon className="size-[18px] shrink-0" />
       <span
         aria-hidden={compact}
         className={cn(
@@ -75,8 +76,10 @@ function NavItem({
       </span>
       {!!badge && (
         <span className={cn(
-          "rounded-full bg-indigo-100 text-[10px] tabular-nums text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
-          compact ? "absolute top-0.5 right-0.5 min-w-4 px-1 text-center" : "px-1.5",
+          "tabular-nums",
+          compact
+            ? cn("absolute top-0.5 right-0.5 h-4 min-w-4 rounded-full px-1 text-center text-[10px] leading-4 font-semibold", highlight ? "bg-brand text-brand-on" : "bg-muted text-text-secondary")
+            : cn("shrink-0 text-[11px]", active || highlight ? "text-brand-ink" : "text-text-tertiary", highlight && "font-semibold"),
         )}>
           {badge}
         </span>
@@ -94,10 +97,12 @@ function NavItem({
   );
 }
 
-function NavGroup({ label, compact, children, first = false }: { label: string; compact: boolean; children: React.ReactNode; first?: boolean }) {
+function NavGroup({ label, compact, children }: { label: string; compact: boolean; children: React.ReactNode }) {
   return (
-    <div role="group" aria-label={label} className={cn("flex flex-col gap-0.5", !first && "mt-3", !first && compact && "border-t pt-3")}>
-      {!compact && <p className="mb-0.5 px-2 text-[10px] font-semibold tracking-wider text-muted-foreground uppercase">{label}</p>}
+    <div role="group" aria-label={label} className="flex flex-col gap-0.5">
+      {compact
+        ? <div aria-hidden className="mx-1.5 my-2.5 h-px shrink-0 bg-sidebar-border" />
+        : <p className="shrink-0 truncate px-2.5 pt-4 pb-1.5 text-[10.5px] font-semibold tracking-[0.14em] text-text-tertiary uppercase">{label}</p>}
       {children}
     </div>
   );
@@ -212,8 +217,8 @@ export function ResearchSidebar({
     onNavigate?: () => void;
   }) {
     return (
-      <div className="relative p-3 pb-1">
-        <Search className="absolute top-5 left-5 size-3.5 text-muted-foreground" />
+      <div className="relative px-3 pt-3">
+        <Search className="pointer-events-none absolute top-5 left-5 size-3.5 text-muted-foreground" />
         <Input
           ref={inputRef}
           id={id}
@@ -221,26 +226,26 @@ export function ResearchSidebar({
           value={query}
           onChange={(event) => updateSearch(event.target.value)}
           placeholder={t("searchEverything")}
-          className="h-8 bg-background pr-7 pl-7 text-xs"
+          className="h-8 rounded-lg bg-card pr-7 pl-7 text-[12.5px] md:text-[12.5px]"
         />
         {query && (
           <button
             type="button"
             aria-label={t("clearResearchSearch")}
-            className="absolute top-5 right-5 text-muted-foreground"
+            className="absolute top-5 right-5 rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
             onClick={() => closeSearch()}
           >
             <X className="size-3.5" />
           </button>
         )}
         {searching && (
-          <div className="absolute top-12 right-3 left-3 z-50 rounded-lg border bg-popover p-3 text-xs text-muted-foreground shadow-xl">
+          <div className="absolute top-12 right-3 left-3 z-50 rounded-lg border bg-popover p-3 text-xs text-muted-foreground shadow-lg">
             {t("loading")}
           </div>
         )}
         {!searching && searchFailed && (
           <div
-            className="absolute top-12 right-3 left-3 z-50 grid justify-items-center gap-2 rounded-lg border bg-popover p-3 text-center text-xs text-destructive shadow-xl"
+            className="absolute top-12 right-3 left-3 z-50 grid justify-items-center gap-2 rounded-lg border bg-popover p-3 text-center text-xs text-destructive shadow-lg"
             role="alert"
           >
             <p>{t("researchSearchFailed")}</p>
@@ -255,20 +260,20 @@ export function ResearchSidebar({
           </div>
         )}
         {!searching && !searchFailed && results && (
-          <div className="absolute top-12 right-3 left-3 z-50 max-h-[28rem] overflow-y-auto rounded-lg border bg-popover p-1 shadow-xl">
+          <div className="absolute top-12 right-3 left-3 z-50 max-h-[28rem] overflow-y-auto rounded-lg border bg-popover p-1 shadow-lg">
             {results.results.length === 0 && <p className="p-3 text-xs text-muted-foreground">{t("noResults")}</p>}
             {/* One ranked list across all four kinds: capped per-type sections hid a
                 strong page hit behind weaker PDF hits. */}
             {results.results.map((item) => (
               <Link key={item.key} href={item.href} onClick={() => closeSearch(onNavigate)} className="block rounded-md px-2 py-1.5 hover:bg-accent">
                 <span className="flex items-center gap-1.5">
-                  <span className="rounded border px-1 text-[9px] tracking-wide text-muted-foreground uppercase">{t(`searchKinds.${item.kind}`)}</span>
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium">{item.title}{"pageNumber" in item ? ` · ${t("pageNumber", { page: item.pageNumber })}` : ""}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] font-semibold text-text-secondary">{t(`searchKinds.${item.kind}`)}</span>
+                  <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium">{item.title}{"pageNumber" in item ? ` · ${t("pageNumber", { page: item.pageNumber })}` : ""}</span>
                 </span>
-                <span className="mt-0.5 block truncate text-[11px] text-muted-foreground"><SearchSnippet value={item.snippet} /></span>
+                <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground"><SearchSnippet value={item.snippet} /></span>
               </Link>
             ))}
-            {results.results.length > 0 && <Link href={`/wiki/search?q=${encodeURIComponent(query)}`} onClick={() => closeSearch(onNavigate)} className="mt-1 block border-t px-2 pt-2 pb-1 text-[11px] font-medium text-indigo-600 hover:underline dark:text-indigo-300">{t("showAllResults")}</Link>}
+            {results.results.length > 0 && <Link href={`/wiki/search?q=${encodeURIComponent(query)}`} onClick={() => closeSearch(onNavigate)} className="mt-1 block border-t border-line-soft px-2 pt-2 pb-1 text-[11.5px] font-medium text-brand-ink hover:underline">{t("showAllResults")}</Link>}
           </div>
         )}
       </div>
@@ -293,9 +298,9 @@ export function ResearchSidebar({
     return (
       <TooltipProvider>
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className={cn("flex h-14 shrink-0 items-center border-b", compact ? "flex-col gap-2 px-2 py-3" : "gap-2 p-3")}>
-            <button type="button" onClick={() => { onNavigate?.(); openSearch(); }} aria-label={t("workspace.switcher")} title={`${t("workspace.switcher")} · ⇧ ⇧`} className="grid size-8 shrink-0 place-items-center rounded-md bg-indigo-600 text-white focus-visible:ring-2 focus-visible:ring-ring">
-              <BookOpen className="size-4" />
+          <div className={cn("flex h-14 shrink-0 items-center border-b border-sidebar-border", compact ? "flex-col gap-2 px-2 py-3.5" : "gap-2.5 pr-2 pl-3")}>
+            <button type="button" onClick={() => { onNavigate?.(); openSearch(); }} aria-label={t("workspace.switcher")} title={`${t("workspace.switcher")} · ⇧ ⇧`} className="grid size-7 shrink-0 place-items-center rounded-md bg-brand-soft text-brand-ink transition-colors outline-none hover:bg-brand/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
+              <BookOpen className="size-[15px]" />
             </button>
             <div
               aria-hidden={compact}
@@ -304,8 +309,8 @@ export function ResearchSidebar({
                 compact ? "max-w-0 -translate-x-1 opacity-0" : "max-w-48 translate-x-0 opacity-100",
               )}
             >
-                <p className="text-sm font-semibold">{t("researchWorkspace")}</p>
-                <p className="truncate text-[11px] text-muted-foreground">{t("sharedKnowledge")}</p>
+                <p className="truncate text-[13.5px] font-semibold">{t("researchWorkspace")}</p>
+                <p className="truncate text-[11.5px] text-muted-foreground">{t("sharedKnowledge")}</p>
             </div>
             {(!compact || sheet) && (
               <ShortcutTooltip label={t("quickNote")} shortcut={WIKI_SHORTCUTS.quickNote}>
@@ -329,14 +334,14 @@ export function ResearchSidebar({
           </div>
 
           {compact && !sheet ? (
-            <div className="flex justify-center px-2 py-3">
+            <div className="flex justify-center px-2 pt-3">
               <Tooltip>
                 <TooltipTrigger
                   render={
                     <button
                       type="button"
                       aria-label={t("searchEverything")}
-                      className="grid size-9 place-items-center rounded-md border border-transparent text-muted-foreground outline-none transition-colors hover:border-border hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-indigo-500"
+                      className="grid size-9 place-items-center rounded-lg border border-input text-text-secondary transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                       onClick={() => {
                         setPeeking(true);
                         requestAnimationFrame(() => desktopSearchRef.current?.focus());
@@ -354,7 +359,7 @@ export function ResearchSidebar({
           <nav
             id={navigationId}
             aria-label={t("researchNavigationLabel")}
-            className={cn("flex min-h-0 flex-1 flex-col overflow-y-auto", compact ? "p-2" : "p-3")}
+            className={cn("flex min-h-0 flex-1 flex-col gap-0.5 overflow-x-hidden overflow-y-auto", compact ? "px-2 py-3" : "p-3")}
           >
             <NavItem href="/wiki" icon={House} label={t("start")} compact={compact} onNavigate={onNavigate} />
             <NavGroup label={t("workspace.libraries")} compact={compact}>
@@ -366,17 +371,17 @@ export function ResearchSidebar({
             <NavGroup label={t("workspace.personal")} compact={compact}>
               <NavItem href="/wiki/inbox" icon={Inbox} label={t("inbox")} badge={counts.inbox} compact={compact} onNavigate={onNavigate} />
               <NavItem href="/wiki/favorites" icon={Star} label={t("favorites")} compact={compact} onNavigate={onNavigate} />
-              <NavItem href="/wiki/notifications" icon={Bell} label={t("notifications")} badge={counts.unread} compact={compact} onNavigate={onNavigate} />
+              <NavItem href="/wiki/notifications" icon={Bell} label={t("notifications")} badge={counts.unread} highlight compact={compact} onNavigate={onNavigate} />
               <NavItem href="/wiki/trash" icon={Trash2} label={t("trash")} badge={counts.trash} compact={compact} onNavigate={onNavigate} />
             </NavGroup>
           </nav>
           {!sheet && (
-            <div className={cn("shrink-0 border-t", compact ? "flex justify-center p-2" : "p-3")}>
+            <div className={cn("shrink-0 border-t border-sidebar-border", compact ? "flex justify-center px-2 py-2.5" : "px-3 py-2.5")}>
               <Button
                 type="button"
                 variant="ghost"
                 size={compact ? "icon-sm" : "sm"}
-                className={cn("text-muted-foreground", !compact && "w-full justify-start")}
+                className={cn("text-text-secondary", !compact && "h-9 w-full justify-start gap-2.5 px-2.5 text-[13.5px] font-medium")}
                 aria-pressed={!collapsed}
                 aria-label={collapsed ? t("workspace.pinRail") : t("workspace.collapseRail")}
                 title={collapsed ? t("workspace.pinRail") : t("workspace.collapseRail")}
@@ -397,7 +402,7 @@ export function ResearchSidebar({
 
   return (
     <>
-      <header data-testid="research-mobile-header" data-focus-chrome className="flex h-14 shrink-0 items-center gap-2 border-b bg-sidebar px-3 md:hidden">
+      <header data-testid="research-mobile-header" data-focus-chrome className="flex h-14 shrink-0 items-center gap-2.5 border-b border-sidebar-border bg-sidebar px-3 md:hidden">
         <Button
           type="button"
           variant="ghost"
@@ -405,13 +410,13 @@ export function ResearchSidebar({
           aria-label={t("openResearchNavigation")}
           aria-expanded={mobileOpen}
           onClick={() => setMobileOpen(true)}
-          className="bg-indigo-600 text-white hover:bg-indigo-500 hover:text-white"
+          className="bg-brand-soft text-brand-ink hover:bg-brand/20 hover:text-brand-ink"
         >
           <BookOpen className="size-4" />
         </Button>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold">{t("researchWorkspace")}</p>
-          <p className="truncate text-[11px] text-muted-foreground">{t("sharedKnowledge")}</p>
+          <p className="truncate text-[13.5px] font-semibold">{t("researchWorkspace")}</p>
+          <p className="truncate text-[11.5px] text-muted-foreground">{t("sharedKnowledge")}</p>
         </div>
         <ShortcutTooltip label={t("quickNote")} shortcut={WIKI_SHORTCUTS.quickNote}>
           <Button type="button" size="icon-sm" onClick={createNote} disabled={creating} aria-label={t("quickNote")}>
@@ -425,7 +430,7 @@ export function ResearchSidebar({
           data-testid="research-navigation-sheet"
           side="left"
           showCloseButton={false}
-          className="w-[min(22rem,90vw)] gap-0 p-0 md:hidden"
+          className="w-[min(20rem,88vw)] gap-0 bg-sidebar p-0 md:hidden"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{t("researchWorkspace")}</SheetTitle>
@@ -447,10 +452,10 @@ export function ResearchSidebar({
         data-focus-chrome
         data-expanded={expanded}
         className={cn(
-          "research-rail-transition fixed inset-y-0 left-[var(--app-rail-width,3.5rem)] z-30 hidden h-dvh shrink-0 flex-col border-r bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex",
+          "research-rail-transition fixed inset-y-0 left-[var(--app-rail-width,3.5rem)] z-30 hidden h-dvh shrink-0 flex-col border-r border-sidebar-border bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex",
           expanded ? "w-52" : "w-14",
           // While peeking the rail overlays the page, including the sticky workspace tab bar (z-40).
-          collapsed && peeking && "z-[45] shadow-xl",
+          collapsed && peeking && "z-[45] shadow-lg",
         )}
         onMouseEnter={() => { if (collapsed) setPeeking(true); }}
         onMouseLeave={() => setPeeking(false)}

@@ -35,7 +35,8 @@ type Props = {
   onSelect: (code: string) => void;
 };
 
-const panelClass = "rounded-2xl border bg-card p-4 text-sm lg:max-h-[min(70dvh,40rem)] lg:overflow-y-auto";
+const panelClass = "rounded-xl border bg-card px-[18px] py-4 text-[13.5px] shadow-card lg:max-h-[min(70dvh,40rem)] lg:overflow-y-auto";
+const labelClass = "text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase";
 
 export function NetworkMapPanel(props: Props) {
   return props.selectedCode ? <SelectedPanel {...props} /> : <OverviewPanel {...props} />;
@@ -46,7 +47,7 @@ function OverviewPanel({ filter, mode, byCode, summary, topCodes, valueLabel, un
   const municipalities = summary.filter((municipality) => municipality.personIds.length > 0).length;
   return (
     <aside className={panelClass} data-testid="network-map-panel" aria-label={t("map.summary.title")}>
-      <h2 className="mb-2 flex items-center gap-2 font-semibold"><Network className="size-4 text-muted-foreground" />{t("map.summary.title")}</h2>
+      <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold"><Network className="size-4 text-brand-ink" />{t("map.summary.title")}</h2>
       {summary.length === 0 ? (
         <p className="text-muted-foreground">{t(isContactListFiltered(filter) ? "map.summary.emptyFiltered" : "map.summary.empty")}</p>
       ) : (
@@ -56,13 +57,13 @@ function OverviewPanel({ filter, mode, byCode, summary, topCodes, valueLabel, un
         </>
       )}
       {unlocated > 0 && (
-        <Link href={networkFilterHref(filter)} className="mt-3 inline-flex rounded-full border px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground">
+        <Link href={networkFilterHref(filter)} className="mt-3 inline-flex h-6 items-center rounded-full border border-line-strong px-2.5 text-xs font-medium text-text-secondary hover:bg-accent hover:text-foreground">
           {t("map.summary.unlocated", { count: unlocated })}
         </Link>
       )}
       {topCodes.length > 0 && (
         <div className="mt-4">
-          <p className="mb-1 text-xs text-muted-foreground">{t("map.summary.top", { mode: t(`map.colorModes.${mode}`) })}</p>
+          <p className={`mb-1.5 ${labelClass}`}>{t("map.summary.top", { mode: t(`map.colorModes.${mode}`) })}</p>
           <ul className="space-y-0.5">
             {topCodes.map((code) => (
               <li key={code}>
@@ -92,8 +93,8 @@ function SelectedPanel({ filter, today, byCode, selected, selectedCode, connecti
     <aside className={panelClass} data-testid="network-map-panel" aria-label={name}>
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h2 className="truncate font-semibold">{name}</h2>
-          <Link href={municipalityHref(selectedCode)} className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
+          <h2 className="truncate text-sm font-semibold">{name}</h2>
+          <Link href={municipalityHref(selectedCode)} className="inline-flex items-center gap-1 text-xs font-medium text-brand-ink hover:underline">
             {t("map.panel.openMunicipality")}<ArrowUpRight className="size-3" />
           </Link>
         </div>
@@ -105,7 +106,7 @@ function SelectedPanel({ filter, today, byCode, selected, selectedCode, connecti
         <div className="space-y-3">
           {residents.length > 0 && (
             <div>
-              <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground"><Home className="size-3.5" />{t("map.panel.residents")}</p>
+              <p className={`mb-1.5 flex items-center gap-1.5 ${labelClass}`}><Home className="size-3.5" />{t("map.panel.residents")}</p>
               <PeopleList people={residents} today={today} showOrganization />
               <Link href={networkFilterHref(filter, { municipalityCode: selectedCode })} className="mt-1 inline-block text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
                 {t("map.panel.showInList")}
@@ -114,7 +115,7 @@ function SelectedPanel({ filter, today, byCode, selected, selectedCode, connecti
           )}
           {located.length > 0 && (
             <div className="space-y-2">
-              <p className="flex items-center gap-1.5 text-xs text-muted-foreground"><Building2 className="size-3.5" />{t("map.panel.organizations")}</p>
+              <p className={`flex items-center gap-1.5 ${labelClass}`}><Building2 className="size-3.5" />{t("map.panel.organizations")}</p>
               {located.map((organization) => {
                 const staff = atOrganization(organization.id);
                 return (
@@ -129,8 +130,8 @@ function SelectedPanel({ filter, today, byCode, selected, selectedCode, connecti
         </div>
       )}
       {connections.length > 0 && (
-        <div className="mt-4 border-t pt-3">
-          <p className="text-xs font-semibold">{t("map.panel.connections")}</p>
+        <div className="mt-4 border-t border-line-soft pt-3">
+          <p className={labelClass}>{t("map.panel.connections")}</p>
           <p className="mb-1 text-xs text-muted-foreground">{t("map.panel.connectionsHint")}</p>
           <ul className="space-y-0.5">
             {connections.map((connection) => (
@@ -168,7 +169,7 @@ function PeopleList({ people, today, showOrganization }: { people: NetworkMapPer
               {detail && <span className="text-muted-foreground"> · {detail}</span>}
             </Link>
             {person.closeness && <span className="shrink-0 text-[11px] text-muted-foreground">{t(`closeness.${person.closeness}`)}</span>}
-            {due && <span className="shrink-0 rounded-full bg-amber-100 px-1.5 text-[11px] text-amber-900 dark:bg-amber-950 dark:text-amber-200">{t("map.panel.reconnectDue")}</span>}
+            {due && <span className="inline-flex h-5 shrink-0 items-center rounded-full bg-brand-soft px-2 text-[11px] font-semibold text-brand-ink">{t("map.panel.reconnectDue")}</span>}
           </li>
         );
       })}

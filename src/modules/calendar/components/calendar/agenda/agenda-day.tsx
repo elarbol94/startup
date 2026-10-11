@@ -23,8 +23,8 @@ type DayProps = {
 
 function AgendaGroupDetails({ label, titles, children }: { label: string; titles: string; children: ReactNode }) {
   return (
-    <details className="group/agenda rounded-lg border border-dashed">
-      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 px-2 text-xs font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+    <details className="group/agenda rounded-md border border-dashed border-line-strong">
+      <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 rounded-md px-2.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground [&::-webkit-details-marker]:hidden">
         <ChevronRight className="size-3.5 shrink-0 transition-transform group-open/agenda:rotate-90" />
         <span className="shrink-0">{label}</span>
         <span className="min-w-0 truncate font-normal group-open/agenda:hidden">{titles}</span>
@@ -37,11 +37,11 @@ function AgendaGroupDetails({ label, titles, children }: { label: string; titles
 function NowDivider({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-2 px-2 py-0.5" role="separator" aria-label={label}>
-      <span className="w-[4.75rem] shrink-0 text-[0.6875rem] font-semibold uppercase tracking-wide text-primary">
+      <span className="w-[4.75rem] shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-late">
         {label}
       </span>
-      <span className="size-1.5 shrink-0 rounded-full bg-primary" />
-      <span className="h-px flex-1 bg-primary/60" />
+      <span className="size-1.5 shrink-0 rounded-full bg-late" />
+      <span className="h-[1.5px] flex-1 bg-late" />
     </div>
   );
 }
@@ -59,21 +59,21 @@ export function AgendaDay({ group, today, now, locale, timezone, t, selectedId, 
       <h3
         id={`agenda-${group.day}`}
         className={cn(
-          "sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-4 py-2 text-sm font-semibold backdrop-blur supports-[backdrop-filter]:bg-background/80",
-          isToday && "text-primary",
+          "sticky top-0 z-10 flex items-center gap-2 border-b border-line-soft bg-card/95 px-4 py-2.5 text-[13.5px] font-semibold backdrop-blur supports-[backdrop-filter]:bg-card/80",
+          isToday && "text-brand-ink",
         )}
       >
-        {isToday && <span className="size-2 rounded-full bg-primary" aria-hidden />}
+        {isToday && <span className="size-2 rounded-full bg-brand" aria-hidden />}
         {relation && <span>{relation === "today" ? t("today") : t("agendaTomorrow")}</span>}
         {relation && <span className="text-muted-foreground" aria-hidden>·</span>}
         <span className={cn(relation && "font-medium text-foreground/80")}>{formatDayHeading(group.day, locale)}</span>
       </h3>
-      <div className={cn("space-y-1 px-2 py-2 sm:px-3", isToday && "bg-primary/[0.03]")}>
+      <div className={cn("space-y-1.5 px-2 py-2.5 sm:px-3", isToday && "bg-brand-soft")}>
         {empty && isToday && (
-          <p className="px-2 py-1.5 text-sm text-muted-foreground">{t("agendaNothingToday")}</p>
+          <p className="px-2 py-1.5 text-[13px] text-muted-foreground">{t("agendaNothingToday")}</p>
         )}
         {allDay.length > 0 && (
-          <div className="space-y-0.5 rounded-lg bg-muted/40 p-1">
+          <div className="space-y-0.5 rounded-md bg-surface-raised p-1">
             {allDay.map(({ item, until }) => (
               <AgendaCompactRow
                 key={item.id}
@@ -87,7 +87,7 @@ export function AgendaDay({ group, today, now, locale, timezone, t, selectedId, 
           </div>
         )}
         {timed.length > 0 && (
-          <div className="space-y-0.5">
+          <div className="space-y-1.5">
             {timed.map(({ item, until }, index) => (
               <Fragment key={item.id}>
                 {index === divider && <NowDivider label={t("agendaNow")} />}

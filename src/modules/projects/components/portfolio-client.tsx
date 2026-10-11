@@ -11,9 +11,11 @@ import { hidePendingFromSchedule } from "@/modules/projects/pending-delete-view"
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { PortfolioSchedule } from "@/modules/projects/queries";
-import { taskAncestors } from "@/modules/projects/schedule";
+import { leafTasks, taskAncestors, weightedProgress } from "@/modules/projects/schedule";
 import { ProjectsClient } from "./projects-client";
 import { ProjectDialogs, projectPredecessorOptions, type ProjectDialogState } from "./project-dialog";
+import { SearchX, SquareKanban } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import { ZOOM_WIDTH } from "./portfolio/portfolio-constants";
@@ -22,6 +24,7 @@ import type {
   ProjectCard,
 } from "./portfolio/portfolio-types";
 import { layoutDependencyRoutes } from "./portfolio/dependency-geometry";
+import { projectRisk } from "./portfolio/portfolio-utils";
 import { DeadlineLane } from "./portfolio/deadline-lane";
 import { DependencyEditorPopovers } from "./portfolio/dependency-editor-panel";
 import { DependencyLines } from "./portfolio/dependency-lines";
@@ -220,6 +223,15 @@ export function PortfolioClient({
     toggleProject: (projectId: string) => toggle(setExpandedProjects, projectId),
   });
 
+  // Progress and risk per project for the overview table (same rules as the Gantt rows).
+  const projectHealth = useMemo(
+    () => new Map(schedule.projects.map((project) => {
+      const tasks = tasksByProject.get(project.id) ?? [];
+      return [project.id, { progress: weightedProgress(leafTasks(tasks)), atRisk: projectRisk(project, tasks, today) }];
+    })),
+    [schedule.projects, tasksByProject, today],
+  );
+
   // Focus mode adds subtasks under the focused task, otherwise under the selected task row.
   const subtaskParent = embedded ? null : focusedTask ?? selectedTask;
   useTimelineShortcuts({
@@ -298,9 +310,9 @@ export function PortfolioClient({
       )}
 
       {view === "projects" && !focusedTask ? (
-        <ProjectsClient projects={projects} members={schedule.members} hideCreateButton={!embedded} predecessorOptions={projectPredecessorOptions(schedule)} />
+        <ProjectsClient projects={projects} members={schedule.members} hideCreateButton={!embedded} predecessorOptions={projectPredecessorOptions(schedule)} health={projectHealth} />
       ) : (
-        <div className={cn("flex min-h-0 min-w-0 overflow-hidden rounded-lg border bg-card", !embedded && !focusedTask && "max-md:overflow-visible max-md:border-0 max-md:bg-transparent")}>
+        <div className={cn("flex min-h-0 min-w-0 overflow-hidden rounded-xl border bg-card shadow-card", !embedded && !focusedTask && "max-md:overflow-visible max-md:border-0 max-md:bg-transparent max-md:shadow-none")}>
           <div className="min-w-0 flex-1">
           {dependencySourceId && (
             <DependencyLinkingStrip
@@ -397,7 +409,16 @@ export function PortfolioClient({
               {rows.map((row) => (
                 <GanttRow key={row.id} row={row} {...rowContext} />
               ))}
-              {rows.length === 0 && <div className="sticky left-0 flex h-52 w-[min(100vw,50rem)] items-center justify-center text-sm text-muted-foreground">{t("noScheduleResults")}</div>}
+              {rows.length === 0 && (
+                <div className="sticky left-0 w-[min(100vw,50rem)]">
+                  {/* No second "new project" button here: the page header already has one (and e2e expects a single match). */}
+                  {schedule.projects.length === 0 && !embedded ? (
+                    <EmptyState icon={<SquareKanban />} title={t("noProjects")} />
+                  ) : (
+                    <EmptyState icon={<SearchX />} title={t("noScheduleResults")} />
+                  )}
+                </div>
+              )}
             </div>
           </div>
           </div>

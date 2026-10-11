@@ -45,16 +45,16 @@ export function ReceiptArchiveList({ receipts }: { receipts: ReceiptArchiveItem[
 
   return (
     <>
-      <ul className="divide-y">
+      <ul className="divide-y divide-line-soft">
         {visible.map((receipt) => {
           const title = receipt.counterparty?.trim() || receipt.description;
           const showDescription =
             !!receipt.counterparty?.trim() && receipt.description.trim() !== "" &&
             receipt.description !== receipt.counterparty;
           return (
-            <li key={receipt.id} className="group relative px-4 py-3 transition-colors hover:bg-muted/40">
+            <li key={receipt.id} className="group relative px-[18px] py-[11px] text-[13.5px] transition-colors hover:bg-accent">
               <div className="flex min-w-0 items-start gap-3">
-                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg border bg-background">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted">
                   <Paperclip className="size-3.5 text-muted-foreground" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -63,18 +63,13 @@ export function ReceiptArchiveList({ receipts }: { receipts: ReceiptArchiveItem[
                       href={`/api/files/${receipt.id}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="min-w-0 truncate font-medium after:absolute after:inset-0 hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+                      className="min-w-0 truncate font-medium outline-none after:absolute after:inset-0 hover:underline focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
                       aria-label={t("receiptFor", { description: receipt.description })}
                       title={receipt.fileName}
                     >
                       {title}
                     </a>
-                    <span
-                      className={cn(
-                        "shrink-0 text-sm font-semibold tabular-nums",
-                        receipt.entryKind === "income" && "text-green-700 dark:text-green-500",
-                      )}
-                    >
+                    <span className="shrink-0 font-semibold tabular-nums">
                       {formatCents(receipt.grossAmountCents, locale)}
                     </span>
                   </div>
@@ -98,7 +93,7 @@ export function ReceiptArchiveList({ receipts }: { receipts: ReceiptArchiveItem[
                         : tAccounting("expense")}
                     </span>
                   </div>
-                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground/80">
+                  <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-text-tertiary">
                     <span className="max-w-full truncate">{receipt.fileName}</span>
                     <span aria-hidden>·</span>
                     <span title={t("fileSize")}>{formatFileSize(receipt.sizeBytes, locale)}</span>
@@ -115,12 +110,12 @@ export function ReceiptArchiveList({ receipts }: { receipts: ReceiptArchiveItem[
         })}
       </ul>
       {receipts.length > COLLAPSED_COUNT ? (
-        <div className="border-t p-2">
+        <div className="border-t border-line-soft p-2">
           <button
             type="button"
             onClick={() => setExpanded((value) => !value)}
             aria-expanded={expanded}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="flex w-full items-center justify-center gap-1.5 rounded-md px-3 py-2 text-[13px] font-medium text-muted-foreground transition-colors outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           >
             {expanded ? t("showFewerReceipts") : t("showAllReceipts", { count: hidden })}
             <ChevronDown className={cn("size-4 transition-transform", expanded && "rotate-180")} />

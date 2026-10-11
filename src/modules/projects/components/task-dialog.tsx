@@ -371,9 +371,9 @@ export function TaskDialog({
     const [, codeKey] = DEPENDENCY_TYPE_KEYS[link.dependencyType];
     return (
       <div key={link.id} className="flex items-center gap-2 rounded-md border px-2 py-1.5 text-sm">
-        <GitBranch className="size-4 shrink-0 text-indigo-500" />
+        <GitBranch className="size-4 shrink-0 text-brand" />
         <span className="min-w-0 flex-1 truncate">{candidateLabel(link)}</span>
-        <span className="rounded-sm bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+        <span className="rounded-sm bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-brand-ink">
           {t(codeKey)}
         </span>
         <span className="font-mono text-[10px] text-muted-foreground">{link.lagDays >= 0 ? "+" : ""}{link.lagDays}d</span>
@@ -419,7 +419,7 @@ export function TaskDialog({
           )}
 
           {isSummary && (
-            <div className="rounded-md border border-violet-200 bg-violet-50/70 px-3 py-2.5 text-xs text-violet-950 dark:border-violet-900 dark:bg-violet-950/30 dark:text-violet-100">
+            <div className="rounded-md border border-l-2 border-l-brand bg-muted/50 px-3 py-2.5 text-xs text-text-secondary">
               <p>{t("summaryScheduleDescription")}</p>
               {unscheduledSubtasks > 0 && (
                 <p className="mt-2 flex items-center gap-1.5 text-amber-700 dark:text-amber-300">

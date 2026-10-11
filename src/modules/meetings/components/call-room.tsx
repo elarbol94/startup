@@ -116,14 +116,14 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
       : phase.reason === "idle" ? (phase.idleReason === "duration" ? t("call.durationLeft", { hours: CALL_CHECK_HOURS }) : t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }))
         : t("call.left");
     return (
-      <div className="mx-auto max-w-lg space-y-4 rounded-xl border p-5">
+      <div className="mx-auto max-w-lg space-y-4 rounded-xl border bg-card p-5 shadow-card">
         {header}
         <p className="text-sm">{message}</p>
         {phase.detail && <p className="text-xs text-muted-foreground">{phase.detail}</p>}
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         <div className="flex flex-wrap gap-2">
           {phase.reason !== "closed" && <Button disabled={pending} onClick={() => void join()}>{t("call.rejoin")}</Button>}
-          <Link href={back} className="inline-flex h-8 items-center rounded-lg border px-3 text-sm hover:bg-muted">{t("call.backToMeeting")}</Link>
+          <Link href={back} className="inline-flex h-8 items-center rounded-lg border px-3 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">{t("call.backToMeeting")}</Link>
         </div>
       </div>
     );
@@ -131,13 +131,13 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
 
   const ready = !record || (consentRecording && (!usesAi || consentAi));
   return (
-    <div className="mx-auto max-w-lg space-y-4 rounded-xl border p-5">
+    <div className="mx-auto max-w-lg space-y-4 rounded-xl border bg-card p-5 shadow-card">
       {header}
       <h2 className="text-lg font-semibold">{t("call.joinTitle")}</h2>
       <p className="text-sm text-muted-foreground">{t("call.tailscaleHint")}</p>
       {record && (
         <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-          <p className="flex items-center gap-2 font-medium"><CircleDot className="size-4 text-red-600" />{t("call.recordedNotice")}</p>
+          <p className="flex items-center gap-2 font-medium"><CircleDot className="size-4 text-destructive" />{t("call.recordedNotice")}</p>
           <label className="flex items-start gap-2">
             <Checkbox className="mt-0.5" checked={consentRecording} onCheckedChange={(checked) => setConsentRecording(checked === true)} />
             <span>{t("call.consentRecording")}</span>

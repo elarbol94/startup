@@ -48,7 +48,7 @@ const emptyProject: FundingProjectInput = {
 };
 
 const inputClass =
-  "h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
+  "h-9 w-full rounded-lg border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 
 function moneyText(cents: number | null) {
   return cents === null ? "" : (cents / 100).toFixed(2).replace(".", ",");
@@ -202,11 +202,11 @@ export function FundingProjectDialog({
               <Input id="funding-number" value={value.fundingNumber} onChange={(event) => set("fundingNumber", event.target.value)} />
             </div>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={value.vatDeductible} onChange={(event) => set("vatDeductible", event.target.checked)} className="size-4 rounded border-input" />
+              <input type="checkbox" checked={value.vatDeductible} onChange={(event) => set("vatDeductible", event.target.checked)} className="size-4 rounded border-input accent-brand" />
               {t("fields.vatDeductible")}
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={value.deMinimisRelevant} onChange={(event) => set("deMinimisRelevant", event.target.checked)} className="size-4 rounded border-input" />
+              <input type="checkbox" checked={value.deMinimisRelevant} onChange={(event) => set("deMinimisRelevant", event.target.checked)} className="size-4 rounded border-input accent-brand" />
               {t("fields.deMinimis")}
             </label>
             <div className="grid gap-2 md:col-span-2">

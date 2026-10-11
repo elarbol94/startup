@@ -12,7 +12,7 @@ export function SidebarSection({
   return (
     <section>
       <div className="mb-1.5 flex min-h-5 items-center justify-between gap-2">
-        <h2 className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">{title}</h2>
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">{title}</h2>
         {action}
       </div>
       {children}

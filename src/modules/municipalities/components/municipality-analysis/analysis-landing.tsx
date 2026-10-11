@@ -62,11 +62,11 @@ export function AnalysisLanding({
 
   return (
     <div className="grid gap-4" data-testid="municipality-analysis-landing">
-      <section className="overflow-hidden rounded-2xl border bg-card">
-        <div className="grid gap-5 p-5 sm:p-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center">
+      <section className="overflow-hidden rounded-xl border bg-card shadow-card">
+        <div className="grid gap-5 px-[18px] py-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-center">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">{t("newAnalysis")}</h2>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">{t("newAnalysisDescription")}</p>
+            <h2 className="text-[15px] font-semibold">{t("newAnalysis")}</h2>
+            <p className="mt-1 max-w-2xl text-[13.5px] leading-normal text-muted-foreground">{t("newAnalysisDescription")}</p>
           </div>
           <form action={createMunicipalityAnalysisAndRedirect} className="flex flex-col gap-2 sm:flex-row">
             <Input name="name" aria-label={t("analysisNamePlaceholder")} maxLength={120} required placeholder={t("analysisNamePlaceholder")} />
@@ -80,18 +80,18 @@ export function AnalysisLanding({
           <TabsTrigger value="saved" className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"><BarChart3 />{t("savedAnalyses")}</TabsTrigger>
           <TabsTrigger value="catalog" className="min-w-0 px-2 text-xs sm:px-3 sm:text-sm"><Database />{t("catalog")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="saved" className="rounded-2xl border bg-card p-5">
-          <h2 className="text-xl font-semibold">{t("savedAnalyses")}</h2>
-          <p className="mt-1 text-sm text-muted-foreground">{t("savedAnalysesDescription")}</p>
-          <div className="mt-5 grid gap-2">
+        <TabsContent value="saved" className="rounded-xl border bg-card px-[18px] py-4 shadow-card">
+          <h2 className="text-[15px] font-semibold">{t("savedAnalyses")}</h2>
+          <p className="mt-1 text-[13.5px] text-muted-foreground">{t("savedAnalysesDescription")}</p>
+          <div className="mt-4 grid gap-2">
             {analyses.map((analysis) => (
               <div key={analysis.id} className="flex items-center gap-2 rounded-xl border pr-3">
               <button
                 type="button"
-                className="group flex min-w-0 flex-1 items-center gap-4 rounded-xl border bg-background p-4 text-left transition-colors hover:bg-muted/50 hover:border-teal-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-600"
+                className="group flex min-w-0 flex-1 items-center gap-4 rounded-xl p-3 text-left transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => router.push(`/municipalities/analysis?analysis=${encodeURIComponent(analysis.id)}`)}
               >
-                <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground"><BarChart3 className="size-4" /></span>
+                <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand-soft text-brand-ink"><BarChart3 className="size-[18px]" /></span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold">{analysis.name}</span>
                   <span className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"><MapPin className="size-3 shrink-0" /><span className="truncate">{analysis.municipalityName ?? t("analysisSubjectNone")}</span></span>
@@ -102,11 +102,11 @@ export function AnalysisLanding({
               <Button variant="ghost" size="icon-sm" aria-label={`${t("deleteAnalysis")} · ${analysis.name}`} disabled={pending} onClick={() => setDeleting(analysis)}><Trash2 className="size-4 text-destructive" /></Button>
               </div>
             ))}
-            {!analyses.length && <p className="col-span-full rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("noAnalyses")}</p>}
+            {!analyses.length && <p className="col-span-full rounded-xl bg-surface-raised p-8 text-center text-[13.5px] text-muted-foreground">{t("noAnalyses")}</p>}
           </div>
         </TabsContent>
 
-        <TabsContent value="catalog" className="rounded-2xl border bg-card p-5">
+        <TabsContent value="catalog" className="rounded-xl border bg-card px-[18px] py-4 shadow-card">
           <DatasetCatalog variant="page" ownMetrics={metrics} onOpen={openAsAnalysis} />
         </TabsContent>
       </Tabs>

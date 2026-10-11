@@ -4,7 +4,6 @@ import { useCallback, useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { RotateCcw, Trash2, TriangleAlert, Upload } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useConfirm } from "@/components/ui/confirm-dialog";
@@ -13,6 +12,7 @@ import { deleteMeetingRecording, retryMeetingJob } from "../../meeting-actions";
 import { dismissFailedUpload } from "../../upload-actions";
 import type { MeetingDetail } from "../../queries";
 import { formatBytes, formatClock, useMeetingAction } from "../meeting-ui";
+import { MeetingPill } from "../meeting-pill";
 import { UploadDisclosure } from "./upload-disclosure";
 import { useChunkedUpload } from "./use-chunked-upload";
 
@@ -66,12 +66,12 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
     <div className="space-y-5">
       {confirmElement}
       {canContribute && detail.meeting.status !== "cancelled" && (
-        <UploadDisclosure keepOpen={progress.phase !== "idle"}><section className="space-y-3 rounded-xl border p-4">
-          <h3 className="font-medium">{t("recordings.uploadTitle")}</h3>
+        <UploadDisclosure keepOpen={progress.phase !== "idle"}><section className="space-y-3 rounded-xl border bg-surface-raised p-4">
+          <h3 className="text-sm font-semibold">{t("recordings.uploadTitle")}</h3>
           {progress.phase === "uploading" ? (
             <div className="space-y-2">
               <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={progress.totalBytes} aria-valuenow={progress.sentBytes}>
-                <div className="h-full bg-primary transition-all" style={{ width: `${Math.round((progress.sentBytes / Math.max(1, progress.totalBytes)) * 100)}%` }} />
+                <div className="h-full bg-brand transition-all" style={{ width: `${Math.round((progress.sentBytes / Math.max(1, progress.totalBytes)) * 100)}%` }} />
               </div>
               <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>
@@ -97,7 +97,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                 id={`${id}-file`}
                 type="file"
                 accept={[...Object.keys(MEETING_MEDIA_TYPES), ".mkv", ".m4a", ".opus"].join(",")}
-                className="block w-full text-sm file:mr-3 file:rounded-md file:border file:bg-background file:px-3 file:py-1.5 file:text-sm"
+                className="block w-full text-sm file:mr-3 file:rounded-lg file:border file:bg-card file:px-3 file:py-1.5 file:text-sm"
                 onChange={(event) => setFile(event.target.files?.[0] ?? null)}
               />
               <label className="flex items-start gap-2 text-sm">
@@ -130,13 +130,13 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
 
       {detail.jobs.length > 0 && (
         <section className="space-y-2">
-          <h3 className="font-medium">{t("jobs.title")}</h3>
-          <ul className="divide-y rounded-xl border text-sm">
+          <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("jobs.title")}</h3>
+          <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border text-[13.5px]">
             {detail.jobs.map((job) => (
-              <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+              <li key={job.id} className="flex flex-wrap items-center justify-between gap-2 px-[18px] py-2.5">
                 <span>{t(`jobs.stage.${job.stage}`)}</span>
                 <span className="flex items-center gap-2">
-                  <Badge variant={job.status === "failed" || job.status === "blocked" ? "destructive" : "secondary"}>{t(`jobs.status.${job.status}`)}</Badge>
+                  <MeetingPill tone={job.status === "failed" || job.status === "blocked" ? "negative" : job.status === "running" ? "active" : "neutral"}>{t(`jobs.status.${job.status}`)}</MeetingPill>
                   {(job.status === "failed" || job.status === "blocked") && canContribute && (
                     <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => retryMeetingJob(job.id))}><RotateCcw />{t("jobs.retry")}</Button>
                   )}
@@ -149,30 +149,30 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
       )}
 
       <section className="space-y-2">
-        <h3 className="font-medium">{t("recordings.title")}</h3>
-        {originals.length === 0 ? <p className="text-sm text-muted-foreground">{t("recordings.empty")}</p> : (
+        <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("recordings.title")}</h3>
+        {originals.length === 0 ? <p className="text-[13.5px] text-muted-foreground">{t("recordings.empty")}</p> : (
           <ul className="space-y-3">
             {originals.map((recording) => {
               const derived = derivedFor(recording.id);
               const playable = recording.purgeState === "active" && recording.attachmentId ? recording : derived?.purgeState === "active" && derived.attachmentId ? derived : null;
               return (
-                <li key={recording.id} className="space-y-2 rounded-xl border p-3">
+                <li key={recording.id} className="space-y-2 rounded-xl border px-[18px] py-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="min-w-0 text-sm">
+                    <div className="min-w-0 text-[13.5px]">
                       <p className="truncate font-medium" title={recording.fileName}>
                         {recording.source === "livekit" ? t("recordings.callTrack", {
                           name: recording.speakerName ?? t("recordings.unknownSpeaker"),
                           time: format.dateTime(new Date(recording.mediaStartedAt ?? recording.createdAt), { dateStyle: "medium", timeStyle: "short" }),
                         }) : recording.fileName}
                       </p>
-                      <p className="text-muted-foreground">
+                      <p className="text-xs text-muted-foreground tabular-nums">
                         {recording.durationMs ? formatClock(recording.durationMs) : "–"} · {formatBytes(recording.sizeBytes)}
                         {recording.expiresAt && recording.purgeState === "active" ? ` · ${t("recordings.expires", { date: format.dateTime(recording.expiresAt, { dateStyle: "medium" }) })}` : ""}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
-                      {recording.warnings.length > 0 && <Badge variant="outline" className="border-amber-500/60 text-amber-700 dark:text-amber-400"><TriangleAlert />{t("recordings.check")}</Badge>}
-                      {recording.purgeState !== "active" && <Badge variant="outline">{t(`recordings.purge.${recording.purgeState}`)}</Badge>}
+                      {recording.warnings.length > 0 && <MeetingPill tone="line" className="border-amber-500/60 text-amber-700 dark:text-amber-400"><TriangleAlert />{t("recordings.check")}</MeetingPill>}
+                      {recording.purgeState !== "active" && <MeetingPill tone="line">{t(`recordings.purge.${recording.purgeState}`)}</MeetingPill>}
                       {canManage && recording.purgeState === "active" && (
                         <Button size="icon-sm" variant="ghost" aria-label={t("recordings.delete")} disabled={pending} onClick={() => void remove(recording.id)}><Trash2 /></Button>
                       )}

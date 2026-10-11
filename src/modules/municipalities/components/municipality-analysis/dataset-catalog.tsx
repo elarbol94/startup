@@ -53,7 +53,7 @@ function CatalogRow({
       type="button"
       aria-label={`${entry.label} — ${openLabel}`}
       className={cn(
-        "rounded-lg border bg-background text-left hover:border-teal-600 hover:bg-teal-50 dark:hover:bg-teal-950",
+        "rounded-lg border bg-card text-left outline-none hover:border-brand hover:bg-brand-soft focus-visible:ring-2 focus-visible:ring-ring",
         page ? "px-3 py-2" : "px-2 py-1.5",
       )}
       draggable={!page}
@@ -62,8 +62,8 @@ function CatalogRow({
     >
       <span className="flex items-center gap-1.5">
         {entry.formula === null
-          ? <Database className={cn("shrink-0 text-teal-700 dark:text-teal-300", page ? "size-4" : "size-3")} />
-          : <Sigma className={cn("shrink-0 text-teal-700 dark:text-teal-300", page ? "size-4" : "size-3")} />}
+          ? <Database className={cn("shrink-0 text-brand-ink", page ? "size-4" : "size-3")} />
+          : <Sigma className={cn("shrink-0 text-brand-ink", page ? "size-4" : "size-3")} />}
         <span className={cn("font-medium", page ? "text-sm" : "text-[11px]")}>{entry.label}</span>
       </span>
       {/* Never truncated: a formula cut off after three terms is not a derivation. */}
@@ -172,7 +172,7 @@ export function DatasetCatalog({
   return (
     <section className={cn(page ? "" : "mt-3 border-t pt-3")} data-testid="kennzahl-catalog">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className={cn("font-semibold", page ? "text-xl" : "text-xs tracking-wide uppercase")}>
+        <h2 className={cn("font-semibold", page ? "text-[15px]" : "text-[11px] tracking-[0.12em] text-text-tertiary uppercase")}>
           {page ? t("catalogTitle") : t("catalog")}
         </h2>
         <span className={cn("text-muted-foreground", page ? "text-sm" : "text-[10px]")}>
@@ -197,7 +197,7 @@ export function DatasetCatalog({
 
         {visibleAusgangsdaten.length > 0 && (
           <div className={page ? "grid gap-5" : "grid gap-2.5"}>
-            <h3 className={cn("font-semibold", page ? "text-sm tracking-wide uppercase" : "text-[10px] tracking-wide uppercase")}>
+            <h3 className={cn("font-semibold", page ? "text-[11px] tracking-[0.12em] text-text-tertiary uppercase" : "text-[10.5px] tracking-[0.12em] text-text-tertiary uppercase")}>
               {t("dataKindBase")}
             </h3>
             {renderGroups(visibleAusgangsdaten)}
@@ -206,7 +206,7 @@ export function DatasetCatalog({
 
         {visibleKennzahlen.length > 0 && (
           <div className={page ? "grid gap-5" : "grid gap-2.5"}>
-            <h3 className={cn("font-semibold", page ? "text-sm tracking-wide uppercase" : "text-[10px] tracking-wide uppercase")}>
+            <h3 className={cn("font-semibold", page ? "text-[11px] tracking-[0.12em] text-text-tertiary uppercase" : "text-[10.5px] tracking-[0.12em] text-text-tertiary uppercase")}>
               {t("dataKindDerived")}
             </h3>
             {renderGroups(visibleKennzahlen)}
@@ -215,7 +215,7 @@ export function DatasetCatalog({
 
         {visibleOwn.length > 0 && (
           <div>
-            <h3 className={cn("font-semibold text-muted-foreground", page ? "text-xs tracking-wide uppercase" : "text-[10px] uppercase")}>
+            <h3 className={cn("font-semibold text-text-tertiary", page ? "text-[11px] tracking-[0.12em] uppercase" : "text-[10.5px] tracking-[0.12em] uppercase")}>
               {t("kennzahlOwnSection")}
             </h3>
             <div className={cn("mt-1.5 grid gap-1.5", page && "sm:grid-cols-2 xl:grid-cols-3")}>

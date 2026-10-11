@@ -25,8 +25,8 @@ export function PageTreeToolbar({ query, onQuery, status, onStatus, tag, onTag, 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative min-w-56 flex-1">
-        <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
-        <Input aria-label={t("searchDocuments")} value={query} onChange={(event) => onQuery(event.target.value)} placeholder={t("searchDocuments")} className="pl-9" />
+        <Search className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+        <Input aria-label={t("searchDocuments")} value={query} onChange={(event) => onQuery(event.target.value)} placeholder={t("searchDocuments")} className="bg-card pl-8" />
       </div>
       <Select value={status} onValueChange={(value) => onStatus(value ?? "all")}>
         <SelectTrigger aria-label={t("workspace.filterStatus")} className="w-40"><SelectValue /></SelectTrigger>
@@ -37,9 +37,9 @@ export function PageTreeToolbar({ query, onQuery, status, onStatus, tag, onTag, 
         <SelectContent><SelectItem value="all">{t("allTags")}</SelectItem>{tagOptions.map((item) => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}</SelectContent>
       </Select>}
       {searching ? (
-        <Button variant="ghost" size="sm" onClick={onClear}><X className="size-4" />{t("workspace.clearFilters")}</Button>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onClear}><X className="size-4" />{t("workspace.clearFilters")}</Button>
       ) : canCollapse && (
-        <Button variant="ghost" size="sm" onClick={onToggleAll}>
+        <Button variant="ghost" size="sm" className="text-muted-foreground" onClick={onToggleAll}>
           {allCollapsed ? <ChevronsUpDown className="size-4" /> : <ChevronsDownUp className="size-4" />}{t(allCollapsed ? "workspace.expandAll" : "workspace.collapseAll")}
         </Button>
       )}

@@ -51,7 +51,7 @@ export function MunicipalitySearchBox({
 
   return (
     <div className="absolute top-3 left-3 z-20 w-[min(24rem,calc(100%-5.5rem))]">
-      <div className="relative rounded-xl border bg-background/95 shadow-lg backdrop-blur">
+      <div className="relative rounded-[10px] border bg-card/95 shadow-lg backdrop-blur">
         <Search className="pointer-events-none absolute top-3 left-3 size-4 text-muted-foreground" />
         <input
           ref={inputRef}
@@ -69,7 +69,7 @@ export function MunicipalitySearchBox({
           aria-controls="municipality-search-results"
           aria-expanded={searchOpen && results.length > 0}
           role="combobox"
-          className="h-10 w-full rounded-xl bg-transparent pr-10 pl-9 text-sm outline-none focus:ring-2 focus:ring-teal-600/40"
+          className="h-10 w-full rounded-[10px] bg-transparent pr-10 pl-9 text-[13.5px] outline-none focus:ring-2 focus:ring-ring/50"
         />
         {!query && <ShortcutKeys shortcut={SECTION_PAGE_SHORTCUTS.municipalities.search} className="pointer-events-none absolute top-2.5 right-3 hidden sm:inline-flex" />}
         {query && (
@@ -100,7 +100,7 @@ export function MunicipalitySearchBox({
                   type="button"
                   role="option"
                   aria-selected={position === activeResult}
-                  className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${position === activeResult ? "bg-accent" : "hover:bg-accent"}`}
+                  className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-left text-[13.5px] ${position === activeResult ? "bg-accent" : "hover:bg-accent"}`}
                   onMouseDown={(event) => event.preventDefault()}
                   onMouseEnter={() => setActiveResult(position)}
                   onClick={() => updateSelection(item)}

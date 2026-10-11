@@ -23,12 +23,12 @@ export function DependencyLinkingStrip({
   const tCommon = useTranslations("common");
   return (
     <div
-      className="flex min-h-9 items-center gap-2 border-b border-indigo-200 bg-indigo-50/90 px-3 text-xs text-indigo-950 dark:border-indigo-900 dark:bg-indigo-950/35 dark:text-indigo-100"
+      className="flex min-h-9 items-center gap-2 border-b border-line-soft bg-brand-soft px-[18px] text-xs text-foreground"
       role="status"
       aria-live="polite"
       data-testid="dependency-linking-strip"
     >
-      <GitBranch className="size-3.5 text-indigo-600 dark:text-indigo-400" />
+      <GitBranch className="size-3.5 text-brand-ink" />
       <span className="font-medium">
         {t("dependencyLinkingSource", {
           name:
@@ -37,7 +37,7 @@ export function DependencyLinkingStrip({
             )?.title ?? "",
         })}
       </span>
-      <span className="text-indigo-700/80 dark:text-indigo-300/80">
+      <span className="text-text-secondary">
         {t("dependencyLinkingHint")}
       </span>
       <Button

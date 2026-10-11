@@ -16,8 +16,8 @@ type Handlers = {
 };
 
 const BASE =
-  "flex min-w-0 items-center gap-1 text-left text-[10px] leading-4 outline-none focus-visible:ring-2 focus-visible:ring-ring";
-const SELECTED = "ring-2 ring-[#6D5EF7] ring-offset-1 ring-offset-background";
+  "flex min-w-0 items-center gap-1 text-left text-[11.5px] leading-4 outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const SELECTED = "ring-2 ring-brand ring-offset-1 ring-offset-card";
 
 export function MonthBarButton({
   item,
@@ -44,12 +44,12 @@ export function MonthBarButton({
       title={item.title}
       className={cn(
         BASE,
-        "z-10 my-px h-5 rounded-md border-l-[3px] bg-background px-1.5 font-medium shadow-sm hover:ring-1 hover:ring-foreground/15",
+        "z-10 my-px h-5 rounded-md border-l-[3px] px-1.5 font-medium hover:ring-1 hover:ring-foreground/15",
         continuesBefore ? "ml-0 rounded-l-none border-l-0 pl-2" : "ml-1",
         continuesAfter ? "mr-0 rounded-r-none" : "mr-1",
         selected && SELECTED,
       )}
-      style={{ ...style, borderLeftColor: item.color, backgroundColor: `color-mix(in srgb, ${item.color} 14%, var(--background))` }}
+      style={{ ...style, borderLeftColor: item.color, backgroundColor: `color-mix(in oklab, ${item.color} 16%, var(--card))` }}
     >
       <SourceIcon kind={item.kind} />
       <span className="min-w-0 flex-1 truncate">{item.title}</span>
@@ -75,13 +75,13 @@ export function MonthEntryButton({
       title={time ? `${time} ${item.title}` : item.title}
       className={cn(
         BASE,
-        "h-5 w-full shrink-0 rounded px-1 hover:bg-muted",
-        item.allDay && "bg-muted/50",
+        "h-5 w-full shrink-0 rounded-md px-1 hover:bg-accent",
+        item.allDay && "bg-surface-raised",
         selected && SELECTED,
       )}
     >
       <span className="size-1.5 shrink-0 rounded-full" style={{ backgroundColor: item.color }} aria-hidden />
-      {time && <span className="shrink-0 font-mono text-[9px] tabular-nums text-muted-foreground">{time}</span>}
+      {time && <span className="shrink-0 font-mono text-[10.5px] tabular-nums text-muted-foreground">{time}</span>}
       <span className="min-w-0 flex-1 truncate">{item.title}</span>
     </button>
   );

@@ -75,19 +75,19 @@ export function DeadlineLane({
         aria-level={1}
         aria-selected={false}
         aria-expanded={expanded}
-        className="relative z-[2] flex border-b bg-amber-50/15 dark:bg-amber-950/5"
+        className="relative z-[2] flex border-b border-line-soft"
         style={{ width: totalWidth, height: DEADLINE_LANE_HEIGHT }}
       >
         <div
-          className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-l-2 border-l-amber-500 bg-card/95 px-3 font-semibold"
+          className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r bg-card px-3 font-semibold shadow-[inset_3px_0_0_var(--color-amber-500)]"
           style={{ width: treeWidth }}
         >
           <Button variant="ghost" size="icon-xs" onClick={onToggleExpanded} aria-label={tDeadlines("ganttToggle")}>
             {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
           </Button>
-          <CalendarClock className="size-3.5 text-amber-600" />
-          <span className="truncate text-xs">{tDeadlines("ganttLane")}</span>
-          <span className="ml-auto font-mono text-[10px] tabular-nums text-muted-foreground">{effectiveSchedule.deadlines.length}</span>
+          <CalendarClock className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+          <span className="truncate text-[13px]">{tDeadlines("ganttLane")}</span>
+          <span className="ml-auto text-xs font-normal tabular-nums text-muted-foreground">{effectiveSchedule.deadlines.length}</span>
         </div>
         <div className="relative" style={{ width: timelineWidth }}>
           {clusterDeadlineMarkers(
@@ -115,17 +115,17 @@ export function DeadlineLane({
                   >
                     <span
                       className={cn("absolute inset-0.5 rotate-45 rounded-[2px] border-2 bg-card shadow-xs", allDone && "opacity-45")}
-                      style={{ borderColor: allDone ? "#059669" : anyOverdue ? "#dc2626" : "#d97706" }}
+                      style={{ borderColor: allDone ? "#059669" : anyOverdue ? "var(--late)" : "#d97706" }}
                       aria-hidden
                     />
                     <span
-                      className={cn("relative rounded-full px-1 font-mono text-[9px] leading-3.5 font-semibold text-white tabular-nums", allDone ? "bg-emerald-600" : anyOverdue ? "bg-red-600" : "bg-amber-600")}
+                      className={cn("relative rounded-full px-1 font-mono text-[9px] leading-3.5 font-semibold text-white tabular-nums", allDone ? "bg-emerald-600" : anyOverdue ? "bg-destructive" : "bg-amber-600")}
                     >
                       {cluster.items.length}
                     </span>
                   </PopoverTrigger>
                   <PopoverContent className="w-72 p-1" align="center">
-                    <p className="px-2 pt-1 pb-1.5 text-[10px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">{t("deadlineCluster", { count: cluster.items.length })}</p>
+                    <p className="px-2 pt-1 pb-1.5 text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("deadlineCluster", { count: cluster.items.length })}</p>
                     {cluster.items.map((item) => {
                       const itemOverdue = isDeadlineOverdue({ deadlineDate: item.dueDate, deadlineAt: item.deadlineAt, status: item.status }, renderedAt);
                       const itemDate = localDateValue(item.dueDate);
@@ -139,10 +139,10 @@ export function DeadlineLane({
                           className="flex w-full items-start gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                           onClick={() => router.push(withWorkItemFocus(item.contextRoute || "/", item.id, "deadline"))}
                         >
-                          <Diamond className={cn("mt-0.5 size-3.5 shrink-0", item.status === "done" ? "text-emerald-600" : itemOverdue ? "fill-red-500 text-red-600" : "fill-amber-500 text-amber-600")} aria-hidden />
+                          <Diamond className={cn("mt-0.5 size-3.5 shrink-0", item.status === "done" ? "text-emerald-600" : itemOverdue ? "fill-late text-late" : "fill-amber-500 text-amber-600")} aria-hidden />
                           <span className="min-w-0 flex-1">
                             <span className={cn("block truncate", item.status === "done" && "text-muted-foreground line-through")}>{item.title}</span>
-                            <span className={cn("block text-xs", itemOverdue ? "font-medium text-red-700 dark:text-red-400" : "text-muted-foreground")}>
+                            <span className={cn("block text-xs", itemOverdue ? "font-medium text-late" : "text-muted-foreground")}>
                               {itemLabel}{itemOverdue ? ` · ${t("overdueTag")}` : ""}
                             </span>
                           </span>
@@ -167,19 +167,19 @@ export function DeadlineLane({
             role="treeitem"
             aria-level={2}
             aria-selected={false}
-            className="relative z-[2] flex border-b bg-amber-50/10 dark:bg-amber-950/5"
+            className="relative z-[2] flex border-b border-line-soft"
             style={{ width: totalWidth, height: DEADLINE_LANE_HEIGHT }}
           >
             <div
-              className="sticky left-0 z-20 flex shrink-0 items-center border-r border-l-2 border-l-amber-500/50 bg-card/95 pr-3 pl-10"
+              className="sticky left-0 z-20 flex shrink-0 items-center border-r bg-card pr-3 pl-10 shadow-[inset_3px_0_0_color-mix(in_oklab,var(--color-amber-500)_50%,transparent)]"
               style={{ width: treeWidth }}
             >
               <button
                 type="button"
-                className="flex min-w-0 flex-1 items-center gap-2 text-left text-xs hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+                className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] hover:underline focus-visible:outline-2 focus-visible:outline-ring"
                 onClick={() => router.push(withWorkItemFocus(deadline.contextRoute || "/", deadline.id, "deadline"))}
               >
-                <Diamond className={cn("size-3 shrink-0", deadline.status === "done" ? "text-emerald-600" : overdue ? "fill-red-500 text-red-600" : "fill-amber-500 text-amber-600")} aria-hidden />
+                <Diamond className={cn("size-3 shrink-0", deadline.status === "done" ? "text-emerald-600" : overdue ? "fill-late text-late" : "fill-amber-500 text-amber-600")} aria-hidden />
                 <span className={cn("truncate", deadline.status === "done" && "text-muted-foreground line-through")}>{deadline.title}</span>
               </button>
             </div>
@@ -247,7 +247,7 @@ function DeadlineMarker({
       )}
       style={{
         left: calendarDistance(range.start, deadline.dueDate) * dayWidth + dayWidth / 2,
-        borderColor: deadline.status === "done" ? "#059669" : overdue ? "#dc2626" : "#d97706",
+        borderColor: deadline.status === "done" ? "#059669" : overdue ? "var(--late)" : "#d97706",
       }}
       title={`${deadline.title} · ${deadlineLabel} · ${deadline.assigneeName || tDeadlines("unassigned")}`}
       aria-label={`${deadline.title}, ${deadlineLabel}`}

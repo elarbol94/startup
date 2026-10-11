@@ -70,7 +70,7 @@ const MunicipalityMap = dynamic(
   {
     ssr: false,
     loading: () => (
-      <Skeleton className="h-full min-h-[26rem] w-full rounded-2xl" />
+      <Skeleton className="h-full min-h-[26rem] w-full rounded-xl" />
     ),
   },
 );
@@ -279,13 +279,15 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
   if (loadError)
     return (
       <div
-        className="grid min-h-[34rem] place-items-center rounded-2xl border border-dashed bg-muted/20 p-8 text-center"
+        className="grid min-h-[34rem] place-items-center rounded-xl border bg-card p-8 text-center shadow-card"
         role="alert"
       >
-        <div>
-          <MapPinned className="mx-auto mb-3 size-9 text-muted-foreground" />
-          <p className="font-semibold">{t("loadErrorTitle")}</p>
-          <p className="mt-1 text-sm text-muted-foreground">
+        <div className="flex flex-col items-center gap-1.5">
+          <span aria-hidden className="mb-1.5 grid size-10 place-items-center rounded-xl bg-brand-soft text-brand-ink">
+            <MapPinned className="size-[18px]" />
+          </span>
+          <p className="text-[14.5px] font-semibold">{t("loadErrorTitle")}</p>
+          <p className="max-w-[360px] text-[13.5px] text-muted-foreground">
             {t("loadErrorDescription")}
           </p>
         </div>
@@ -293,7 +295,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
     );
   if (!index || !populationSeries || !activePopulation || year === null)
     return (
-      <Skeleton className="h-[calc(100dvh-12rem)] min-h-[34rem] w-full rounded-2xl" />
+      <Skeleton className="h-[calc(100dvh-12rem)] min-h-[34rem] w-full rounded-xl" />
     );
 
   const valueFor = dataset!.valueFor;
@@ -448,7 +450,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
       className="grid min-h-0 gap-0 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-4"
       data-testid="municipalities-workspace"
     >
-      {metric === "custom" && customInputs.some(input => input.kind === "condition") && <p className="col-span-full mb-3 rounded-lg border bg-muted/30 p-3 text-xs">{tf("snapshotHint")} {digitalPlatforms && tf("snapshotDate", { date: digitalPlatforms.referenceDate })}</p>}
+      {metric === "custom" && customInputs.some(input => input.kind === "condition") && <p className="col-span-full mb-3 rounded-lg border bg-surface-raised px-3.5 py-2.5 text-xs text-text-secondary">{tf("snapshotHint")} {digitalPlatforms && tf("snapshotDate", { date: digitalPlatforms.referenceDate })}</p>}
       <section
         className="relative h-[calc(100dvh-10.5rem)] min-h-[32rem] lg:h-[calc(100dvh-12rem)] lg:min-h-[38rem]"
         aria-label={t("mapRegionLabel")}

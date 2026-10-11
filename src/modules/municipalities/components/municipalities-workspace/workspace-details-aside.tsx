@@ -69,16 +69,16 @@ export function WorkspaceDetailsAside({
       aria-live="polite"
       data-testid="municipality-details"
     >
-      <div className="rounded-2xl border bg-card p-5 shadow-sm">
+      <div className="rounded-xl border bg-card px-[18px] py-4 shadow-card">
         {selected ? (
           <>
-            <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300">
-              <MapPinned className="size-5" />
+            <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand-ink">
+              <MapPinned className="size-[18px]" />
             </div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-teal-700 uppercase dark:text-teal-300">
+            <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-ink uppercase">
               {t("selectedMunicipality")}
             </p>
-            <h2 className="mt-1 text-2xl font-semibold tracking-tight">
+            <h2 className="mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em]">
               {selected.name}
             </h2>
             <div className="mt-5">{detailFacts}</div>
@@ -134,20 +134,20 @@ export function WorkspaceDetailsAside({
           </>
         ) : (
           <>
-            <div className="mb-4 flex size-10 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-              <MapPinned className="size-5" />
+            <div className="mb-3 flex size-10 items-center justify-center rounded-xl bg-brand-soft text-brand-ink">
+              <MapPinned className="size-[18px]" />
             </div>
-            <h2 className="font-semibold">{t("selectionTitle")}</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">
+            <h2 className="text-[14.5px] font-semibold">{t("selectionTitle")}</h2>
+            <p className="mt-1 text-[13.5px] leading-normal text-muted-foreground">
               {t("selectionDescription")}
             </p>
           </>
         )}
       </div>
       {selected && <MunicipalityNetworkPanel key={selected.municipalityCode} municipalityCode={selected.municipalityCode} />}
-      <div className="rounded-2xl border bg-muted/30 p-4 text-xs leading-5 text-muted-foreground">
-        <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
-          <Database className="size-4" />
+      <div className="rounded-xl border bg-surface-raised px-[18px] py-4 text-xs leading-5 text-muted-foreground">
+        <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
+          <Database className="size-3.5" />
           {t("dataBasis")}
         </div>
         <p>{t("dataBasisDescription", { count: index.count })}</p>

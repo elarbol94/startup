@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getFormatter, getTranslations } from "next-intl/server";
 import {
   CalendarRange,
+  History,
   CheckCircle2,
   CirclePlus,
   Clock3,
@@ -11,6 +12,7 @@ import {
   ReceiptText,
 } from "lucide-react";
 import { UserIdentity } from "@/components/user-identity";
+import { EmptyState } from "@/components/ui/empty-state";
 import { localDateInZone } from "@/modules/calendar/date-utils";
 import type { ActivityItem, ActivityKind } from "../activity";
 
@@ -89,8 +91,8 @@ export async function ProjectActivityFeed({
 
   if (items.length === 0) {
     return (
-      <section className="rounded-2xl border bg-card p-6 text-center text-sm text-muted-foreground">
-        {t("empty")}
+      <section className="rounded-xl border bg-card shadow-card">
+        <EmptyState icon={<History />} title={t("empty")} />
       </section>
     );
   }
@@ -99,13 +101,13 @@ export async function ProjectActivityFeed({
     <section className="grid max-w-3xl gap-5" aria-label={t("label")}>
       {days.map((day) => (
         <div key={day.date} className="grid gap-1">
-          <h2 className="sticky top-0 z-10 bg-background/95 py-1 text-xs font-semibold text-muted-foreground backdrop-blur">
+          <h2 className="sticky top-0 z-10 bg-background/95 py-1 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase backdrop-blur">
             {dayLabel(day.date)}
           </h2>
-          <ol className="ml-2.5 grid border-l pl-5">
+          <ol className="ml-2.5 grid border-l border-line-strong pl-5">
             {day.items.map((item) => (
-              <li key={item.id} className="relative flex min-w-0 items-start gap-2.5 py-1.5 text-sm">
-                <span className="absolute top-1.5 -left-[1.875rem] grid size-5 place-items-center rounded-full border bg-background text-muted-foreground [&_svg]:size-3">
+              <li key={item.id} className="relative flex min-w-0 items-start gap-2.5 py-1.5 text-[13.5px]">
+                <span className="absolute top-1.5 -left-[1.875rem] grid size-5 place-items-center rounded-full border bg-card text-muted-foreground [&_svg]:size-3">
                   {ICONS[item.kind]}
                 </span>
                 {item.actorId && <UserIdentity userId={item.actorId} compact className="shrink-0" />}
@@ -121,7 +123,7 @@ export async function ProjectActivityFeed({
         </div>
       ))}
       {hasMore && (
-        <Link href={moreHref} scroll={false} className="justify-self-start rounded-md border px-3 py-1.5 text-sm hover:bg-muted">
+        <Link href={moreHref} scroll={false} className="inline-flex h-8 items-center justify-self-start rounded-lg border bg-card px-2.5 text-[13.5px] font-medium hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring">
           {t("more")}
         </Link>
       )}

@@ -4,6 +4,7 @@
 // Used by calendar-client.tsx; the pieces live in ./agenda/.
 import type { useTranslations } from "next-intl";
 import { CalendarDays } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import type { CalendarItem } from "../../types";
 import { AgendaDay } from "./agenda/agenda-day";
 import { buildAgendaDays } from "./agenda/agenda-utils";
@@ -32,11 +33,8 @@ export function AgendaView({
   const groups = buildAgendaDays(items, days, today, timezone);
   if (groups.length === 0) {
     return (
-      <div className="grid min-h-[32rem] place-items-center p-8 text-center">
-        <div>
-          <CalendarDays className="mx-auto size-8 text-muted-foreground/50" />
-          <p className="mt-3 text-sm text-muted-foreground">{t("empty")}</p>
-        </div>
+      <div className="grid min-h-[32rem] place-items-center">
+        <EmptyState icon={<CalendarDays />} title={t("empty")} />
       </div>
     );
   }

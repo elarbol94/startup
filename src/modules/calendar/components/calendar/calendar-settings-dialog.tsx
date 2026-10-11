@@ -64,7 +64,7 @@ export function CalendarSettingsDialog({
             <label className="grid gap-1.5">
               <span className="text-xs font-medium">{t("calendarVisibility")}</span>
               <select
-                className="h-9 rounded-lg border bg-background px-2.5 text-sm"
+                className="h-9 rounded-lg border bg-popover px-2.5 text-sm"
                 value={draft.visibility}
                 onChange={(event) =>
                   setDraft({

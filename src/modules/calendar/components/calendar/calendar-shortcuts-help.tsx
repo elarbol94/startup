@@ -59,7 +59,7 @@ export function CalendarShortcutsHelp({
       <ShortcutTooltip label={t("shortcutHelp")} shortcut={KEYS.help} hint={t("hintShortcuts")}>
         <PopoverTrigger
           render={
-            <Button variant="ghost" size="icon-sm" className="hidden size-11 sm:inline-flex" aria-label={t("shortcutHelp")}>
+            <Button variant="ghost" size="icon-sm" className="hidden size-8 sm:inline-flex" aria-label={t("shortcutHelp")}>
               <Keyboard className="size-4" />
             </Button>
           }

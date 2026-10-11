@@ -49,13 +49,13 @@ export function TaskLane({
 
   return (
     <div className={cn("border-b", expanded && "max-h-[30vh] overflow-y-auto overscroll-contain")}>
-      <div className="grid bg-muted/[0.1] py-0.5" style={{ gridTemplateColumns, gridTemplateRows: `repeat(${rows}, auto)` }}>
+      <div className="grid py-0.5" style={{ gridTemplateColumns, gridTemplateRows: `repeat(${rows}, auto)` }}>
         <ShortcutTooltip label={t(expanded ? "weekTasksCollapse" : "weekTasksExpand")} hint={t("hintTaskLane")} side="right">
           <button
             type="button"
             aria-expanded={expanded}
             onClick={() => setExpanded(!expanded)}
-            className="flex items-start justify-center border-r px-0.5 py-1.5 text-[8px] text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex items-start justify-center border-r border-line-soft px-1 py-1.5 text-[9px] leading-tight text-text-tertiary outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             style={{ gridColumn: 1, gridRow: "1 / -1" }}
           >
             <span className="flex flex-col items-center gap-0.5">
@@ -67,7 +67,7 @@ export function TaskLane({
         {days.map((day, column) => (
           <div
             key={day}
-            className={cn("min-h-7", column < days.length - 1 && "border-r")}
+            className={cn("min-h-8", column < days.length - 1 && "border-r border-line-soft")}
             style={{ gridColumn: column + 2, gridRow: "1 / -1" }}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDropDay(event, day)}
@@ -96,7 +96,7 @@ export function TaskLane({
                   key={`count-${day}`}
                   aria-expanded={false}
                   onClick={() => setExpanded(true)}
-                  className="z-10 mx-1 my-0.5 flex min-w-0 items-center gap-1 justify-self-start truncate rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted/70 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                  className="z-10 mx-1.5 my-1 flex h-5 min-w-0 items-center gap-1 justify-self-start truncate rounded-full border border-line-strong px-2 text-[10.5px] font-medium text-text-secondary outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                   style={{ gridColumn: column + 2, gridRow: 1 }}
                 >
                   {tasks > 0 && <span className="truncate">{t("weekTasksCount", { count: tasks })}</span>}

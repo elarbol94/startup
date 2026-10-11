@@ -27,34 +27,34 @@ export function ActionItems({ detail, protocolId, items, options }: {
   const { pending, run } = useMeetingAction();
   const [accepting, setAccepting] = useState<ProtocolActionItem | null>(null);
   const canContribute = detail.role !== "viewer";
-  if (!items.length) return <p className="text-sm text-muted-foreground">{t("actionItems.none")}</p>;
+  if (!items.length) return <p className="text-[13.5px] text-muted-foreground">{t("actionItems.none")}</p>;
   const memberName = (userId: string | null) => detail.members.find((member) => member.userId === userId)?.name;
 
   return (
     <>
-      <ul className="space-y-2">
+      <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border bg-surface-raised">
         {items.map((item) => {
           const decision = detail.decisions.find((entry) => entry.itemKey === item.itemKey);
           return (
-            <li key={item.itemKey} className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 text-sm">
+            <li key={item.itemKey} className="flex flex-col gap-2 px-[18px] py-[11px] sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 text-[13.5px]">
                 <p>{item.text}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground tabular-nums">
                   {[memberName(item.assigneeUserId), item.dueDate].filter(Boolean).join(" · ") || t("protocol.noAssignee")}
                 </p>
               </div>
               {decision ? (
                 decision.status === "accepted" ? (
-                  <Badge variant="secondary" render={decision.taskProjectId ? <Link href={`/projects/${decision.taskProjectId}`} /> : undefined}>
+                  <Badge variant="secondary" className="bg-brand-soft text-[11px] font-semibold text-brand-ink" render={decision.taskProjectId ? <Link href={`/projects/${decision.taskProjectId}`} /> : undefined}>
                     <Check />{decision.taskTitle ? t("actionItems.taskCreated", { title: decision.taskTitle }) : t("actionItems.accepted")}
                   </Badge>
-                ) : <Badge variant="outline">{t("actionItems.rejected")}</Badge>
+                ) : <Badge variant="outline" className="border-line-strong text-[11px] text-text-secondary">{t("actionItems.rejected")}</Badge>
               ) : canContribute && (
                 <div className="flex shrink-0 gap-2">
                   <Button size="sm" variant="ghost" disabled={pending} onClick={() => run(() => decideActionItem({ meetingId: detail.meeting.id, protocolId, itemKey: item.itemKey, accept: false }))}>
                     <X />{t("actionItems.reject")}
                   </Button>
-                  <Button size="sm" onClick={() => setAccepting(item)}><Check />{t("actionItems.accept")}</Button>
+                  <Button size="sm" variant="outline" onClick={() => setAccepting(item)}><Check />{t("actionItems.accept")}</Button>
                 </div>
               )}
             </li>

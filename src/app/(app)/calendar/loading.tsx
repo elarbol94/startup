@@ -2,19 +2,19 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function CalendarLoading() {
   return (
-    <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-8 w-56" />
+    <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <Skeleton className="h-8 w-64" />
+        <div className="flex gap-2">
+          <Skeleton className="h-[34px] w-28 rounded-[10px]" />
+          <Skeleton className="hidden h-[34px] w-80 rounded-[10px] sm:block" />
+          <Skeleton className="h-8 w-32" />
         </div>
-        <Skeleton className="h-8 w-36" />
       </div>
-      <div className="grid min-h-[42rem] gap-4 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <Skeleton className="hidden rounded-2xl lg:block" />
-        <Skeleton className="rounded-2xl" />
+      <div className="flex min-h-[44rem] gap-4">
+        <Skeleton className="hidden w-60 shrink-0 rounded-xl xl:block" />
+        <Skeleton className="flex-1 rounded-xl" />
       </div>
     </div>
   );
 }
-

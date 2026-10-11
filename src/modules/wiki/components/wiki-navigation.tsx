@@ -116,14 +116,14 @@ export function WikiNavigation({ userId, children }: { userId: string; children:
             }} />
           {loading && <Loader2 className="absolute top-3 right-3 size-4 animate-spin" />}
         </div>
-        <div className="flex flex-wrap gap-1">{["all", "document", "source", "presentation", "section"].map((value) => <Button key={value} size="sm" variant={kind === value ? "secondary" : "ghost"} aria-pressed={kind === value} onClick={() => { setKind(value); setActive(0); }}>{t(value)}</Button>)}</div>
+        <div className="flex flex-wrap gap-1">{["all", "document", "source", "presentation", "section"].map((value) => <Button key={value} size="sm" variant="ghost" className={cn("text-text-secondary", kind === value && "bg-brand-soft text-brand-ink hover:bg-brand-soft hover:text-brand-ink")} aria-pressed={kind === value} onClick={() => { setKind(value); setActive(0); }}>{t(value)}</Button>)}</div>
         <div id="wiki-jump-results" role="listbox" aria-label={t("switcher")} aria-busy={loading} className="min-h-24 overflow-y-auto">
-          {visible.map((item, index) => { const Icon = wikiItemIcons[item.kind]; return <div role="option" aria-selected={index === selected} id={`wiki-jump-${index}`} key={item.href} onClick={() => navigate(item.href)} onMouseMove={() => setActive(index)} className={cn("flex cursor-pointer items-center gap-3 rounded-lg px-3 py-3", index === selected && "bg-accent")}>
-            <Icon className="size-4 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.snippet ? <SearchSnippet value={item.snippet} /> : t(item.kind)}</p></div>
+          {visible.map((item, index) => { const Icon = wikiItemIcons[item.kind]; return <div role="option" aria-selected={index === selected} id={`wiki-jump-${index}`} key={item.href} onClick={() => navigate(item.href)} onMouseMove={() => setActive(index)} className={cn("flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5", index === selected && "bg-accent")}>
+            <Icon className="size-4 shrink-0 text-muted-foreground" /><div className="min-w-0 flex-1"><p className="truncate text-[13.5px] font-medium">{item.title}</p><p className="truncate text-xs text-muted-foreground">{item.snippet ? <SearchSnippet value={item.snippet} /> : t(item.kind)}</p></div>
           </div>; })}
           {!visible.length && <p role="status" className="p-6 text-center text-sm text-muted-foreground">{t(loading ? "loading" : failed ? "searchFailed" : "empty")}</p>}
         </div>
-        <p className="border-t pt-3 text-xs text-muted-foreground">{t("keyboardHint")}</p>
+        <p className="border-t border-line-soft pt-3 text-xs text-muted-foreground">{t("keyboardHint")}</p>
       </DialogContent>
     </Dialog>
   </NavigationContext.Provider>;
@@ -132,5 +132,5 @@ export function WikiNavigation({ userId, children }: { userId: string; children:
 export function WikiSearchButton() {
   const { openSearch } = useWikiNavigation();
   const t = useTranslations("wiki.workspace");
-  return <button type="button" onClick={openSearch} className="flex min-h-14 w-full items-center gap-3 rounded-xl border bg-card px-4 text-left shadow-sm transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring"><Search className="size-5 shrink-0 text-muted-foreground" /><span className="flex-1 text-sm text-muted-foreground">{t("searchPlaceholder")}</span><kbd className="shrink-0 rounded border px-2 py-1 text-xs">⇧ ⇧</kbd></button>;
+  return <button type="button" onClick={openSearch} className="flex h-[46px] w-full items-center gap-2.5 rounded-lg border border-input bg-card px-3.5 text-left transition-colors outline-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-input/30"><Search className="size-[18px] shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1 truncate text-[14.5px] text-muted-foreground">{t("searchPlaceholder")}</span><kbd className="inline-flex h-5 shrink-0 items-center rounded-full border border-line-strong px-2 font-sans text-[11px] font-semibold text-text-secondary">⇧ ⇧</kbd></button>;
 }

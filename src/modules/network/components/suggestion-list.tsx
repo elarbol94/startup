@@ -14,7 +14,7 @@ function Highlighted({ value, query }: { value: string; query: string }) {
   return (
     <>
       {value.slice(0, index)}
-      <mark className="rounded-sm bg-amber-200/70 text-inherit dark:bg-amber-500/30">{value.slice(index, index + needle.length)}</mark>
+      <mark className="rounded-sm bg-brand-soft font-semibold text-inherit">{value.slice(index, index + needle.length)}</mark>
       {value.slice(index + needle.length)}
     </>
   );

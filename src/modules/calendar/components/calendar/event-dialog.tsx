@@ -283,7 +283,7 @@ export function EventDialog({
                     onClick={() => setDraft({ ...draft, scope })}
                     className={cn(
                       "flex-1 rounded-md px-3 py-1.5 text-xs font-medium",
-                      draft.scope === scope && "bg-background shadow-sm",
+                      draft.scope === scope && "bg-card shadow-sm",
                     )}
                   >
                     {scope === "occurrence"
@@ -394,7 +394,7 @@ export function EventDialog({
               <label className="grid gap-1.5">
                 <span className="text-xs font-medium">{t("calendarLabel")}</span>
                 <select
-                  className="h-8 rounded-lg border bg-background px-2.5 text-sm"
+                  className="h-8 rounded-lg border bg-popover px-2.5 text-sm"
                   value={draft.calendarId}
                   onChange={(event) =>
                     setDraft({ ...draft, calendarId: event.target.value })
@@ -438,7 +438,7 @@ export function EventDialog({
               <label className="grid gap-1.5">
                 <span className="text-xs font-medium">{t("repeat")}</span>
                 <select
-                  className="h-8 rounded-lg border bg-background px-2.5 text-sm"
+                  className="h-8 rounded-lg border bg-popover px-2.5 text-sm"
                   value={draft.repeat}
                   onChange={(event) =>
                     editDraft(
@@ -456,7 +456,7 @@ export function EventDialog({
               <label className="grid gap-1.5">
                 <span className="text-xs font-medium">{t("availability")}</span>
                 <select
-                  className="h-8 rounded-lg border bg-background px-2.5 text-sm"
+                  className="h-8 rounded-lg border bg-popover px-2.5 text-sm"
                   value={draft.availability}
                   onChange={(event) =>
                     setDraft({
@@ -472,7 +472,7 @@ export function EventDialog({
               <label className="grid gap-1.5">
                 <span className="text-xs font-medium">{t("reminder")}</span>
                 <select
-                  className="h-8 rounded-lg border bg-background px-2.5 text-sm"
+                  className="h-8 rounded-lg border bg-popover px-2.5 text-sm"
                   value={draft.reminderMinutes ?? "none"}
                   onChange={(event) =>
                     setDraft({
@@ -552,9 +552,9 @@ export function EventDialog({
             </details>
             {importSection}
             {conflicts.length > 0 && (
-              <div className="rounded-xl border border-[#E11D48]/30 bg-[#E11D48]/5 p-3">
+              <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3">
                 <div className="flex gap-2">
-                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-[#E11D48]" />
+                  <CircleAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
                   <div>
                     <p className="text-sm font-semibold">{t("conflictTitle")}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -575,7 +575,7 @@ export function EventDialog({
               </div>
             )}
           </div>
-          <DialogFooter className="sticky -bottom-6 z-10 mt-5 border-t bg-background py-4">
+          <DialogFooter className="sticky -bottom-6 z-10 mt-5 border-t bg-popover py-4">
             {draft.id && (
               <Button
                 type="button"

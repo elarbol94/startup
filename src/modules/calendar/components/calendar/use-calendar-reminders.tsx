@@ -25,7 +25,7 @@ export function useCalendarReminderPolling(
                 timeStyle: "short",
               }).format(new Date(reminder.startAt)),
             }),
-            icon: <AlarmClock className="size-4 text-[#D97706]" />,
+            icon: <AlarmClock className="size-4 text-brand-ink" />,
           });
         }
       } catch {

@@ -13,6 +13,7 @@ import { LeadTaskButton } from "./lead-task-button";
 import { LeadRowMenu } from "./lead-row-menu";
 import { RowSelectCheckbox } from "@/components/row-selection";
 import type { RowSelection } from "@/lib/use-row-selection";
+import { NetworkPill, networkCardClass, networkListClass } from "./network-card";
 import { dateOnly } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -27,19 +28,22 @@ export function LeadList({
   showContact,
   onEdit,
   selection,
+  embedded,
 }: {
   leads: NetworkLeadView[];
   today: string;
   showContact?: boolean;
   onEdit: (lead: NetworkLeadView) => void;
   selection?: RowSelection;
+  /** Inside a card that already draws the border (no own card chrome). */
+  embedded?: boolean;
 }) {
   const t = useTranslations("network");
   const format = useFormatter();
   const { pending, run } = useNetworkAction();
 
   return (
-    <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-lead-list">
+    <ul className={cn(networkListClass, !embedded && networkCardClass)} data-testid="network-lead-list">
       {leads.map((lead) => {
         const active = isLeadActive(lead.status);
         const overdue = isLeadOverdue(lead, today);
@@ -48,7 +52,7 @@ export function LeadList({
           ? `/network/${lead.targetContact.id}`
           : lead.targetOrganizationId ? `/network/organizations/${lead.targetOrganizationId}` : null;
         return (
-          <li key={lead.id} data-selected={selection?.isSelected(lead.id) || undefined} className="flex items-start gap-3 px-4 py-3 data-selected:bg-accent/60">
+          <li key={lead.id} data-selected={selection?.isSelected(lead.id) || undefined} className="flex items-start gap-3 px-[18px] py-[11px] transition-colors hover:bg-accent data-selected:bg-brand-soft">
             {selection ? (
               <RowSelectCheckbox className="mt-1" id={lead.id} label={lead.summary} selection={selection} />
             ) : (
@@ -61,7 +65,7 @@ export function LeadList({
               />
             )}
             <div className="min-w-0 flex-1 space-y-1">
-              <div className={cn("text-sm", !active && "text-muted-foreground line-through")}>
+              <div className={cn("text-[13.5px]", !active && "text-muted-foreground line-through")}>
                 {showContact && (
                   <Link href={`/network/${lead.contactId}`} className="font-medium hover:underline">{lead.contactName}</Link>
                 )}
@@ -78,12 +82,12 @@ export function LeadList({
                   )}
                   {lead.nextStep && <span>{t("lead.next", { step: lead.nextStep })}</span>}
                   {lead.dueOn && (
-                    <span className={cn("inline-flex items-center gap-1", overdue && "font-medium text-destructive")}>
+                    <span className={cn("inline-flex items-center gap-1", overdue && "font-medium text-late")}>
                       <CalendarClock className="size-3" />
                       {format.dateTime(dateOnly(lead.dueOn), { dateStyle: "medium", timeZone: "UTC" })}
                     </span>
                   )}
-                  {lead.status !== "open" && <span className="rounded-full border px-1.5">{t(`statuses.${lead.status}`)}</span>}
+                  {lead.status !== "open" && <NetworkPill tone={lead.status === "asked" ? "brand" : "line"}>{t(`statuses.${lead.status}`)}</NetworkPill>}
                   {lead.task && <LeadTaskButton lead={lead} />}
                 </div>
               )}

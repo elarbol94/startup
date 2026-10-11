@@ -2,5 +2,30 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { FileText, LibraryBig, Star } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { PageHeader } from "@/components/page-header";
+import { EmptyState } from "@/components/ui/empty-state";
 import { listFavorites } from "@/modules/wiki/research-queries";
-export default async function FavoritesPage() { const currentUser = await requireUser(); const t = await getTranslations("wiki"); const items = listFavorites(currentUser.id); return <div className="mx-auto max-w-5xl p-5 md:p-8"><header className="mb-7 border-b pb-5"><p className="mb-1 text-xs font-semibold tracking-[0.16em] text-indigo-600 uppercase">{t("personalView")}</p><h1 className="text-3xl font-semibold tracking-tight">{t("favorites")}</h1></header>{items.length ? <div className="grid gap-3 md:grid-cols-2">{items.map((item) => <Link key={`${item.entityType}-${item.entityId}`} href={item.entityType === "page" ? `/wiki/pages/${item.slug}` : `/wiki/sources/${item.entityId}`} className="flex items-center gap-3 rounded-xl border p-4 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/20">{item.entityType === "page" ? <FileText className="size-5 text-indigo-500" /> : <LibraryBig className="size-5 text-indigo-500" />}<span className="font-medium">{item.title}</span></Link>)}</div> : <div className="grid min-h-64 place-items-center rounded-xl border border-dashed text-center"><div><Star className="mx-auto mb-2 size-8 text-indigo-300" /><p className="font-medium">{t("noFavorites")}</p></div></div>}</div>; }
+import { WIKI_PAGE_CLASS } from "@/modules/wiki/components/wiki-page-class";
+
+export default async function FavoritesPage() {
+  const currentUser = await requireUser();
+  const t = await getTranslations("wiki");
+  const items = listFavorites(currentUser.id);
+  return <div className={WIKI_PAGE_CLASS}>
+    <PageHeader eyebrow={t("personalView")} title={t("favorites")} />
+    <div className="overflow-hidden rounded-xl border bg-card shadow-card">
+      {items.length ? <ul className="divide-y divide-line-soft">{items.map((item) => {
+        const Icon = item.entityType === "page" ? FileText : LibraryBig;
+        return <li key={`${item.entityType}-${item.entityId}`}>
+          <Link
+            href={item.entityType === "page" ? `/wiki/pages/${item.slug}` : `/wiki/sources/${item.entityId}`}
+            className="flex items-center gap-3 px-[18px] py-[11px] text-[13.5px] transition-colors outline-none hover:bg-accent focus-visible:bg-accent"
+          >
+            <Icon className="size-4 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 flex-1 truncate font-medium">{item.title}</span>
+          </Link>
+        </li>;
+      })}</ul> : <EmptyState icon={<Star />} title={t("noFavorites")} />}
+    </div>
+  </div>;
+}

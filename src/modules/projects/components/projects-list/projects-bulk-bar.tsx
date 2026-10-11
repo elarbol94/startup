@@ -5,7 +5,7 @@ import { Archive, ArchiveRestore, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SelectionBar } from "@/components/selection-bar";
 import type { RowSelection } from "@/lib/use-row-selection";
-import type { ProjectListItem } from "./project-card";
+import type { ProjectListItem } from "./project-row";
 
 export function ProjectsBulkBar({ selection, projects, pending, onStatus, onDelete }: {
   selection: RowSelection;

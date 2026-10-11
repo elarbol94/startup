@@ -249,7 +249,7 @@ function QuickCreateForm({
         />
         <span className="sr-only">{t("calendarLabel")}</span>
         <select
-          className="h-8 min-w-0 flex-1 rounded-lg border bg-background px-2.5 text-sm"
+          className="h-8 min-w-0 flex-1 rounded-lg border bg-popover px-2.5 text-sm"
           value={calendarId}
           onChange={(event) => setCalendarId(event.target.value)}
           disabled={saving}

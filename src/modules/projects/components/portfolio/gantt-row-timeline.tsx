@@ -128,7 +128,7 @@ export function GanttRowTimeline({
   );
   const dependencyTargetHandle = isDependencyTarget ? (
     <span
-      className="pointer-events-none absolute top-1/2 -left-1 z-20 size-2.5 -translate-y-1/2 rounded-full border-2 border-indigo-600 bg-card shadow-sm"
+      className="pointer-events-none absolute top-1/2 -left-1 z-20 size-2.5 -translate-y-1/2 rounded-full border-2 border-brand bg-card shadow-sm"
       aria-hidden
     />
   ) : null;
@@ -150,7 +150,7 @@ export function GanttRowTimeline({
         aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight"
         title={t("dragStart")}
         disabled={scheduleCommitPending || dependencyCommitPending}
-        className="absolute top-2 z-30 flex h-7 w-3 touch-none cursor-ew-resize items-center justify-center rounded-l-sm border border-r-0 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none"
+        className="absolute top-2 z-30 flex h-6 w-3 touch-none cursor-ew-resize items-center justify-center rounded-l-sm border border-r-0 bg-card/95 text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none"
         style={{ left: startHandleLeft }}
         onClick={(event) => {
           event.preventDefault();
@@ -185,7 +185,7 @@ export function GanttRowTimeline({
         aria-keyshortcuts="ArrowLeft ArrowRight Shift+ArrowLeft Shift+ArrowRight"
         title={t("dragEnd")}
         disabled={scheduleCommitPending || dependencyCommitPending}
-        className="absolute top-2 z-30 flex h-7 w-3 touch-none cursor-ew-resize items-center justify-center rounded-r-sm border border-l-0 bg-background/95 text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none"
+        className="absolute top-2 z-30 flex h-6 w-3 touch-none cursor-ew-resize items-center justify-center rounded-r-sm border border-l-0 bg-card/95 text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none"
         style={{ left: endHandleLeft }}
         onClick={(event) => {
           event.preventDefault();
@@ -222,10 +222,10 @@ export function GanttRowTimeline({
       title={t("dependencyConnectorHint")}
       disabled={scheduleCommitPending || dependencyCommitPending}
       className={cn(
-        "absolute top-[22px] z-40 size-3 -translate-y-1/2 rounded-full border-2 bg-card shadow-sm transition-[transform,opacity] duration-150 hover:scale-125 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none",
+        "absolute top-[20px] z-40 size-3 -translate-y-1/2 rounded-full border-2 bg-card shadow-sm transition-[transform,opacity] duration-150 hover:scale-125 focus-visible:outline-2 focus-visible:outline-ring disabled:pointer-events-none",
         isDependencySource
-          ? "border-amber-600 opacity-100"
-          : "border-indigo-600 opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100",
+          ? "border-brand bg-brand opacity-100"
+          : "border-brand opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus:opacity-100",
       )}
       style={{
         left: row.isMilestone
@@ -272,7 +272,7 @@ export function GanttRowTimeline({
         <button
           type="button"
           data-task-bar="true"
-          className="group absolute top-2 h-7 cursor-grab overflow-hidden rounded-md border border-dashed border-slate-500 bg-slate-100/80 text-left shadow-xs active:cursor-grabbing dark:bg-slate-900/70"
+          className="group absolute top-2 h-6 cursor-grab overflow-hidden rounded-[6px] border border-dashed border-line-strong bg-muted/80 text-left active:cursor-grabbing"
           style={{
             left: calendarDistance(range.start, row.placement.startDate) * dayWidth,
             width: Math.max(
@@ -287,7 +287,7 @@ export function GanttRowTimeline({
           title={t("dragProjectPreset")}
           aria-label={`${row.label}, ${t("dragProjectPreset")}`}
         >
-          <span className="block truncate px-2 text-[10px] font-medium leading-6 text-muted-foreground">
+          <span className="block truncate px-2 text-[11px] font-medium leading-[22px] text-muted-foreground">
             {t("projectTimelinePreset")}
           </span>
         </button>
@@ -309,9 +309,9 @@ export function GanttRowTimeline({
           onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
           aria-current={selectedTaskId === row.task.id ? "true" : undefined}
           className={cn(
-            "group absolute top-2 h-7 cursor-grab overflow-visible rounded-md border border-dashed border-indigo-400 bg-indigo-50/80 text-left shadow-xs active:cursor-grabbing dark:bg-indigo-950/30",
-            isDependencyTarget && "ring-2 ring-indigo-400/70",
-            selectedTaskId === row.task.id && "outline-2 outline-offset-1 outline-indigo-600",
+            "group absolute top-2 h-6 cursor-grab overflow-visible rounded-[6px] border border-dashed border-brand/60 bg-[color-mix(in_oklab,var(--brand)_8%,var(--card))] text-left active:cursor-grabbing",
+            isDependencyTarget && "ring-2 ring-brand/60",
+            selectedTaskId === row.task.id && "outline-2 outline-offset-1 outline-brand",
           )}
           style={{
             left: row.placement
@@ -327,12 +327,12 @@ export function GanttRowTimeline({
           title={t("dragToSchedule")}
           aria-label={`${row.label}, ${t("unscheduled")}`}
         >
-          <span className="block truncate px-2 text-[10px] font-medium leading-6 text-indigo-800 dark:text-indigo-200">
+          <span className="block truncate px-2 text-[11px] font-medium leading-[22px] text-brand-ink">
             {row.isSummary
               ? t("unscheduledSubtasks", { count: row.unscheduledCount ?? 0 })
               : t("unscheduled")}
           </span>
-          <span className="absolute inset-y-0 right-0 hidden w-3 items-center justify-center bg-background/70 text-foreground group-hover:flex"><ChevronRight className="size-3" /></span>
+          <span className="absolute inset-y-0 right-0 hidden w-3 items-center justify-center bg-card/70 text-foreground group-hover:flex"><ChevronRight className="size-3" /></span>
         </button>
       )}
       {scheduled && row.isMilestone && !row.isSummary ? (
@@ -351,16 +351,16 @@ export function GanttRowTimeline({
           onKeyDown={(event) => handleTaskScheduleKey(event, row)}
           onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
           className={cn(
-            "group absolute top-2 h-7 cursor-grab overflow-visible rounded-md focus-visible:ring-2 focus-visible:ring-ring",
-            isCritical && criticalVisible && "ring-2 ring-red-500",
-            isDependencyTarget && "ring-2 ring-indigo-400/70",
-            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-indigo-600",
+            "group absolute top-2 h-6 cursor-grab overflow-visible rounded-md focus-visible:ring-2 focus-visible:ring-ring",
+            isCritical && criticalVisible && "ring-2 ring-late",
+            isDependencyTarget && "ring-2 ring-brand/60",
+            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-brand",
           )}
           style={{ left, width: Math.max(dayWidth, 24) }}
           aria-current={selectedTaskId === row.task?.id ? "true" : undefined}
           aria-label={`${row.label}, ${row.startDate}`}
         >
-          <span className="absolute top-1/2 left-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rotate-45 border-2 border-indigo-700 bg-indigo-500 shadow-sm" />
+          <span className="absolute top-1/2 left-1/2 size-3.5 -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-[2px] border-2 border-brand-ink bg-brand" />
           {dependencyTargetHandle}
         </button>
       ) : scheduled && row.isSummary ? (
@@ -380,25 +380,25 @@ export function GanttRowTimeline({
           onFocus={() => row.task && !isDraftTask(row.task.id) && setSelectedTaskId(row.task.id)}
           data-summary-bracket="true"
           className={cn(
-            "group absolute top-[13px] h-[18px] cursor-grab overflow-visible rounded-[4px] focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing",
-            isCritical && criticalVisible && "ring-2 ring-red-500",
-            isDependencyTarget && "ring-2 ring-indigo-400/70",
-            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-indigo-600",
+            "group absolute top-[11px] h-[18px] cursor-grab overflow-visible rounded-[4px] focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing",
+            isCritical && criticalVisible && "ring-2 ring-late",
+            isDependencyTarget && "ring-2 ring-brand/60",
+            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-brand",
           )}
           style={{ left, width }}
           aria-label={`${row.label}, ${row.startDate} - ${row.dueDate}`}
           aria-current={selectedTaskId === row.task?.id ? "true" : undefined}
           title={row.label}
         >
-          <span className="pointer-events-none absolute inset-0 rounded-[4px] border border-indigo-500/75 bg-indigo-100/85 shadow-xs dark:bg-indigo-950/65" />
+          <span className="pointer-events-none absolute inset-0 rounded-[4px] border border-brand/70 bg-[color-mix(in_oklab,var(--brand)_14%,var(--card))]" />
           <span
-            className="pointer-events-none absolute inset-y-0.5 left-0.5 rounded-[3px] bg-indigo-500/35"
+            className="pointer-events-none absolute inset-y-0.5 left-0.5 rounded-[3px] bg-brand/35"
             style={{ width: `${row.progress}%` }}
           />
-          <span className="pointer-events-none absolute top-[calc(100%-1px)] left-0 h-1.5 w-0.5 bg-indigo-700 dark:bg-indigo-300" />
-          <span className="pointer-events-none absolute top-[calc(100%-1px)] right-0 h-1.5 w-0.5 bg-indigo-700 dark:bg-indigo-300" />
+          <span className="pointer-events-none absolute top-[calc(100%-1px)] left-0 h-1.5 w-0.5 bg-brand-ink" />
+          <span className="pointer-events-none absolute top-[calc(100%-1px)] right-0 h-1.5 w-0.5 bg-brand-ink" />
           {dependencyTargetHandle}
-          {width > 72 && <span className="pointer-events-none relative z-[1] block truncate px-2 text-left text-[10px] font-semibold leading-[17px] text-indigo-950 dark:text-indigo-100">{row.label}</span>}
+          {width > 72 && <span className="pointer-events-none relative z-[1] block truncate px-2 text-left text-[11px] font-semibold leading-[17px] text-foreground">{row.label}</span>}
         </button>
       ) : scheduled && (
         <button
@@ -437,11 +437,11 @@ export function GanttRowTimeline({
             "group absolute overflow-visible border transition-shadow motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-ring",
             "cursor-grab active:cursor-grabbing",
             row.kind === "project"
-              ? "top-2 h-7 rounded-md border-2 shadow-sm"
-              : "top-2 h-7 rounded-md shadow-xs",
-            isCritical && criticalVisible && "ring-2 ring-red-500",
-            isDependencyTarget && "ring-2 ring-indigo-400/70",
-            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-indigo-600",
+              ? "top-2 h-6 rounded-[6px] border-[1.5px]"
+              : "top-2 h-6 rounded-[6px]",
+            isCritical && criticalVisible && "ring-2 ring-late",
+            isDependencyTarget && "ring-2 ring-brand/60",
+            selectedTaskId === row.task?.id && "outline-2 outline-offset-1 outline-brand",
           )}
           style={{
             left,
@@ -471,12 +471,12 @@ export function GanttRowTimeline({
           ))}
           {dependencyTargetHandle}
           {width > 72 && <span className={cn(
-            "relative z-[1] block truncate px-2 text-left text-[10px]",
+            "relative z-[1] block truncate px-2 text-left text-[11px]",
             row.kind === "project"
-              ? "font-semibold leading-6"
-              : "font-medium leading-6",
+              ? "font-semibold leading-[21px]"
+              : "font-medium leading-[22px]",
           )}>{row.label}</span>}
-          {manager && <span className="pointer-events-none absolute right-5 top-1/2 z-[2] max-w-40 -translate-y-1/2 truncate rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover:opacity-100"><UserIdentity userId={project.managerId} name={manager} compact /></span>}
+          {manager && <span className="pointer-events-none absolute right-5 top-1/2 z-[2] max-w-40 -translate-y-1/2 truncate rounded-md bg-popover/95 px-1.5 py-0.5 text-[11px] font-medium text-foreground opacity-0 shadow-sm transition-opacity motion-reduce:transition-none group-hover:opacity-100"><UserIdentity userId={project.managerId} name={manager} compact /></span>}
         </button>
       )}
       {resizeControls}
@@ -487,7 +487,7 @@ export function GanttRowTimeline({
         <span
           key={span.key}
           data-project-overflow={span.key}
-          className="pointer-events-none absolute top-2 h-7 rounded-md border border-dashed border-amber-500/80"
+          className="pointer-events-none absolute top-2 h-6 rounded-[6px] border border-dashed border-amber-500/80"
           style={{
             left: span.left,
             width: Math.max(2, span.width),

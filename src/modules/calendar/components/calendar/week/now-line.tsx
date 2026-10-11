@@ -9,11 +9,11 @@ export function NowLine({ minutes, isToday }: { minutes: number; isToday: boolea
       data-testid={isToday ? "calendar-now-line" : undefined}
       className={cn(
         "pointer-events-none absolute inset-x-0 z-30 h-0 border-t",
-        isToday ? "border-t-2 border-red-500 dark:border-red-400" : "border-red-500/25 dark:border-red-400/25",
+        isToday ? "border-t-[1.5px] border-late" : "border-late/25",
       )}
       style={{ top: minutes }}
     >
-      {isToday && <span className="absolute -left-[5px] -top-[5px] size-[9px] rounded-full bg-red-500 dark:bg-red-400" />}
+      {isToday && <span className="absolute -left-[4.5px] -top-[5px] size-[8px] rounded-full bg-late" />}
     </div>
   );
 }

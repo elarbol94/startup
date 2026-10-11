@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { ArrowLeft } from "lucide-react";
 import { requireUser } from "@/lib/auth";
+import { PageHeader } from "@/components/page-header";
 import { NetworkContactsPanel } from "@/modules/network/components/network-contacts-panel";
 import { listLinkedNetworkContacts } from "@/modules/network/link-queries";
 import { listNetworkContactOptions } from "@/modules/network/queries";
@@ -71,40 +72,47 @@ export default async function ProjectBoardPage({
 
   return (
     <div className="grid min-w-0 gap-5">
-      <header className="flex flex-wrap items-center gap-3 border-b pb-4">
-        <Link
-          href="/projects"
-          aria-label={t("backToProjects")}
-          className="grid size-8 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <ArrowLeft className="size-4" />
-        </Link>
-        <span
-          className="size-3 rounded-full"
-          style={{ backgroundColor: project.color }}
+      <div className="grid gap-4">
+        <PageHeader
+          className="mb-0"
+          eyebrow={
+            <Link
+              href="/projects"
+              aria-label={t("backToProjects")}
+              className="inline-flex items-center gap-1 rounded-sm hover:underline focus-visible:outline-2 focus-visible:outline-ring"
+            >
+              <ArrowLeft className="size-3" aria-hidden />
+              {t("title")}
+            </Link>
+          }
+          title={
+            <span className="flex min-w-0 items-center gap-2.5">
+              <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: project.color }} aria-hidden />
+              <span className="truncate">{project.name}</span>
+            </span>
+          }
+          description={
+            <>
+              <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                <UserAttribution userId={project.managerId} relation="managedBy" />
+                <UserAttribution userId={project.createdBy} relation="createdBy" />
+              </span>
+              {project.description && <span className="mt-1 block truncate">{project.description}</span>}
+            </>
+          }
+          actions={
+            <>
+              <ProjectQuickCreate projectId={projectId} projectName={project.name} />
+              <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
+            </>
+          }
         />
-        <div className="min-w-0">
-          <h1 className="truncate text-2xl font-semibold tracking-tight">
-            {project.name}
-          </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1">
-            <UserAttribution userId={project.managerId} relation="managedBy" />
-            <UserAttribution userId={project.createdBy} relation="createdBy" />
-          </div>
-          {project.description && (
-            <p className="mt-0.5 max-w-2xl truncate text-xs text-muted-foreground">
-              {project.description}
-            </p>
-          )}
-          <div className="mt-2 grid gap-1.5">
-            <ProjectPulseChips projectId={projectId} pulse={pulse} />
-            <ProjectDependencyBadges badges={dependencyBadges} />
-          </div>
+        <div className="grid gap-1.5">
+          <ProjectPulseChips projectId={projectId} pulse={pulse} />
+          <ProjectDependencyBadges badges={dependencyBadges} />
         </div>
         <ProjectViewTabs projectId={projectId} view={view} />
-        <ProjectQuickCreate projectId={projectId} projectName={project.name} />
-        <ProjectSettingsButton project={project} members={members} predecessorOptions={projectPredecessorOptions} />
-      </header>
+      </div>
 
       {activity ? (
         <ProjectActivityFeed

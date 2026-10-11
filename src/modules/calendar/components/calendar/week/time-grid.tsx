@@ -82,10 +82,10 @@ export function TimeGrid({
 
   return (
     <div className="relative grid" style={{ gridTemplateColumns }}>
-      <div className="border-r">
+      <div className="border-r border-line-soft">
         {HOURS.map((hour) => (
-          <div key={hour} className="border-b pr-2 text-right" style={{ height: HOUR_HEIGHT }}>
-            <span className="-translate-y-2.5 inline-block font-mono text-[10px] text-muted-foreground">
+          <div key={hour} className="border-b border-line-soft pr-2 text-right" style={{ height: HOUR_HEIGHT }}>
+            <span className="-translate-y-2.5 inline-block font-mono text-[10.5px] tabular-nums text-muted-foreground">
               {formatMinutes(hour * 60)}
             </span>
           </div>
@@ -98,7 +98,7 @@ export function TimeGrid({
           <div
             key={day}
             data-calendar-day={day}
-            className={cn("relative border-r last:border-r-0", day === today && "bg-[#6D5EF7]/[0.025]")}
+            className={cn("relative border-r border-line-soft last:border-r-0", day === today && "bg-brand/[0.03]")}
             {...handlersFor(day)}
           >
             {working ? (
@@ -114,7 +114,7 @@ export function TimeGrid({
                 type="button"
                 key={hour}
                 data-slot-hour={hour}
-                className="relative block w-full border-b text-left outline-none hover:bg-muted/30 focus-visible:bg-muted/40"
+                className="relative block w-full border-b border-line-soft text-left outline-none hover:bg-accent/60 focus-visible:bg-accent"
                 style={{ height: HOUR_HEIGHT }}
                 onDragOver={(event) => event.preventDefault()}
                 onDrop={(event) => {
@@ -147,7 +147,7 @@ export function TimeGrid({
             {dayPreview && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0.5 z-40 overflow-hidden rounded-md border border-primary/60 bg-primary/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-foreground shadow-sm"
+                className="pointer-events-none absolute inset-x-[3px] z-40 overflow-hidden rounded-md border border-brand/50 border-l-[3px] border-l-brand bg-brand-soft px-1.5 py-0.5 font-mono text-[11.5px] font-medium tabular-nums text-brand-ink"
                 style={{ top: dayPreview.start, height: dayPreview.end - dayPreview.start }}
               >
                 {formatMinutes(dayPreview.start)}–{formatMinutes(dayPreview.end)}

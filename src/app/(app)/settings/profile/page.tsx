@@ -13,7 +13,7 @@ export default async function ProfileSettingsPage() {
   const availability = listMarkColorAvailability(currentUser.id);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       <AccountForm userId={currentUser.id} name={currentUser.name} email={currentUser.email} />
       <AppearanceForm />
       <MarkColorForm

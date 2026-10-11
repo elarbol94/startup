@@ -22,7 +22,7 @@ export default async function NewInvoicePage({
   const customers = listCustomers();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <AccountingNav />
       <div className="flex items-center gap-2">
         <Button
@@ -33,7 +33,7 @@ export default async function NewInvoicePage({
         >
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 className="text-[22px] leading-tight font-semibold tracking-[-0.025em] sm:text-[26px]">
           {t("newInvoice")}
         </h1>
       </div>

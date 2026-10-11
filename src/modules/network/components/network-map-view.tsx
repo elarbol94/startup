@@ -22,7 +22,7 @@ import { useMunicipalityIndex } from "./network-map/use-municipality-index";
 
 const NetworkMapCanvas = dynamic(
   () => import("./network-map/network-map-canvas").then((module) => module.NetworkMapCanvas),
-  { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-2xl" /> },
+  { ssr: false, loading: () => <Skeleton className="h-full w-full rounded-xl" /> },
 );
 
 /**
@@ -84,7 +84,7 @@ export function NetworkMapView({ data, params, today }: { data: NetworkMapPayloa
       <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_20rem]" aria-label={t("map.regionLabel")}>
         <div className="h-[min(70dvh,40rem)] min-h-[22rem]">
           {failed ? (
-            <p className="grid h-full place-items-center rounded-2xl border text-sm text-muted-foreground">{t("map.loadFailed")}</p>
+            <p className="grid h-full place-items-center rounded-xl border bg-card text-[13.5px] text-muted-foreground">{t("map.loadFailed")}</p>
           ) : index ? (
             <NetworkMapCanvas
               austriaBounds={index.bounds}
@@ -103,7 +103,7 @@ export function NetworkMapView({ data, params, today }: { data: NetworkMapPayloa
               onFitNetwork={bounds ? () => setFocus({ for: bounds, bounds: [...bounds] }) : null}
             />
           ) : (
-            <Skeleton className="h-full w-full rounded-2xl" aria-label={t("map.loading")} />
+            <Skeleton className="h-full w-full rounded-xl" aria-label={t("map.loading")} />
           )}
         </div>
         <NetworkMapPanel

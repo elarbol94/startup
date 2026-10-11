@@ -270,9 +270,9 @@ export function ScheduleInspector({
 
   const inspectorContent = (
     <>
-      <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+      <div className="flex items-start justify-between gap-3 border-b border-line-soft px-[18px] py-3.5">
         <div className="min-w-0">
-          <h2 className="truncate text-base font-medium text-foreground">
+          <h2 className="truncate text-[14.5px] font-semibold text-foreground">
             {task ? t("editTask") : parentTaskId ? t("newSubtask") : t("newTask")}
           </h2>
           <p className="mt-0.5 text-xs text-muted-foreground">
@@ -307,7 +307,7 @@ export function ScheduleInspector({
       </div>
         <form onSubmit={saveTask} className="flex flex-col gap-5 px-4 pb-6">
           {parentTask && (
-            <div className="rounded-md border-l-2 border-l-violet-500 bg-muted/45 px-3 py-2 text-sm">
+            <div className="rounded-md border-l-2 border-l-brand bg-muted/50 px-3 py-2 text-sm">
               <span className="text-xs text-muted-foreground">{t("subtaskOf")}</span>
               <span className="ml-2 font-medium">
                 {breadcrumbs.map((item) => item.title).join(" / ")}
@@ -471,12 +471,12 @@ export function ScheduleInspector({
               {childTasks.length === 0 ? (
                 <p className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">{t("noSubtasks")}</p>
               ) : (
-                <div className="divide-y rounded-md border">
+                <div className="divide-y divide-line-soft rounded-lg border">
                   {childTasks.map((child) => (
-                    <button key={child.id} type="button" onClick={() => onOpenTask(child)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted/50">
-                      {child.isMilestone ? <Diamond className="size-3.5 fill-violet-500 text-violet-600" /> : <CircleDot className="size-3.5 text-muted-foreground" />}
+                    <button key={child.id} type="button" onClick={() => onOpenTask(child)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13.5px] hover:bg-accent">
+                      {child.isMilestone ? <Diamond className="size-3.5 fill-brand text-brand-ink" /> : <CircleDot className="size-3.5 text-muted-foreground" />}
                       <span className="min-w-0 flex-1 truncate">{child.title}</span>
-                      <span className="font-mono text-[10px] text-muted-foreground">{child.progress}%</span>
+                      <span className="text-[11.5px] tabular-nums text-muted-foreground">{child.progress}%</span>
                     </button>
                   ))}
                 </div>
@@ -495,7 +495,7 @@ export function ScheduleInspector({
                   <div key={dependency.id} className="flex items-center gap-1 rounded-md border p-1 text-sm">
                     <button
                       type="button"
-                      className="flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-muted/55 focus-visible:outline-2 focus-visible:outline-ring"
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring"
                       onClick={() =>
                         setDependencyEditorDraft({
                           ...dependency,
@@ -504,9 +504,9 @@ export function ScheduleInspector({
                         })
                       }
                     >
-                      <GitBranch className="size-4 shrink-0 text-indigo-500" />
+                      <GitBranch className="size-4 shrink-0 text-brand" />
                       <span className="min-w-0 flex-1 truncate">{predecessor?.title}</span>
-                      <span className="rounded-sm bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                      <span className="rounded-sm bg-brand-soft px-1.5 py-0.5 font-mono text-[10px] font-semibold text-brand-ink">
                         {t(dependencyTypeCodeKey(dependencyTypeOf(dependency)))}
                       </span>
                       <span className="font-mono text-[10px] text-muted-foreground">{dependency.lagDays >= 0 ? "+" : ""}{dependency.lagDays}d</span>
@@ -630,7 +630,7 @@ export function ScheduleInspector({
           aria-valuemax={520}
           aria-valuenow={dockWidth}
           tabIndex={0}
-          className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize bg-transparent transition-colors motion-reduce:transition-none hover:bg-violet-400/45 focus-visible:bg-violet-500"
+          className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-col-resize bg-transparent transition-colors motion-reduce:transition-none hover:bg-brand/40 focus-visible:bg-brand focus-visible:outline-none"
           onPointerDown={onDockResizePointerDown}
           onKeyDown={onDockResizeKeyDown}
         />

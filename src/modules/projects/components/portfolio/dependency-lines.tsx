@@ -53,7 +53,7 @@ function DependencyRouteHandle({
       aria-orientation={horizontal ? "horizontal" : "vertical"}
       aria-label={label}
       aria-valuetext={valueText}
-      className="text-indigo-600 outline-none focus-visible:[filter:drop-shadow(0_0_0.2rem_rgb(79_70_229_/_0.45))]"
+      className="text-brand outline-none focus-visible:[filter:drop-shadow(0_0_0.2rem_color-mix(in_oklab,var(--brand)_45%,transparent))]"
       style={{
         pointerEvents: "all",
         cursor: dragging
@@ -159,9 +159,9 @@ export function DependencyLines({
     >
       <defs>
         {[
-          ["gantt-dependency-arrow", "#64748b"],
-          ["gantt-dependency-arrow-active", "#4f46e5"],
-          ["gantt-dependency-arrow-conflict", "#ef4444"],
+          ["gantt-dependency-arrow", "var(--muted-foreground)"],
+          ["gantt-dependency-arrow-active", "var(--brand)"],
+          ["gantt-dependency-arrow-conflict", "var(--late)"],
         ].map(([id, fill]) => (
           <marker
             key={id}
@@ -225,10 +225,10 @@ export function DependencyLines({
               className={cn(
                 "transition-[stroke-width,color,opacity] duration-150 motion-reduce:transition-none",
                 conflict && (selected || hovered)
-                  ? "text-red-500"
+                  ? "text-late"
                   : selected || hovered
-                    ? "text-indigo-600 dark:text-indigo-400"
-                    : "text-slate-500 dark:text-slate-400",
+                    ? "text-brand"
+                    : "text-muted-foreground",
               )}
             />
             <path
@@ -340,7 +340,7 @@ export function DependencyLines({
             strokeDasharray="4 3"
             strokeWidth="2"
             markerEnd="url(#gantt-dependency-arrow-active)"
-            className="text-indigo-500"
+            className="text-brand"
           />
         );
       })()}

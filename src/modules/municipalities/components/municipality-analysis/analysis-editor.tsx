@@ -596,8 +596,8 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
   );
 
   return (
-    <div className="flex min-h-[42rem] flex-col overflow-hidden rounded-2xl border bg-card shadow-sm lg:h-[calc(100vh-10.5rem)]" data-analysis-editor data-owns-double-shift data-testid="municipality-analysis-editor">
-      <header className="flex flex-wrap items-center gap-2 border-b bg-background px-3 py-2">
+    <div className="flex min-h-[42rem] flex-col overflow-hidden rounded-xl border bg-card shadow-card lg:h-[calc(100vh-10.5rem)]" data-analysis-editor data-owns-double-shift data-testid="municipality-analysis-editor">
+      <header className="flex flex-wrap items-center gap-2 border-b border-line-soft bg-card px-3 py-2">
         <select id="analysis-switcher" className="h-8 max-w-52 rounded-lg border bg-background px-2 text-xs" value={analysis.id} aria-label={t("savedAnalyses")} onChange={(event) => router.push(`/municipalities/analysis?analysis=${encodeURIComponent(event.target.value)}`)}>
           {analyses.map((item) => <option key={item.id} value={item.id}>{analysisOptionLabel(item, t)}</option>)}
         </select>
@@ -620,23 +620,23 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className={cn("hidden min-h-0 shrink-0 border-r bg-muted/10 transition-[width] lg:flex lg:flex-col", paletteCollapsed ? "w-11 p-1" : "w-64 p-3")}>
+        <aside className={cn("hidden min-h-0 shrink-0 border-r bg-surface-raised transition-[width] lg:flex lg:flex-col", paletteCollapsed ? "w-11 p-1" : "w-64 p-3")}>
           <div className="mb-2 flex items-center justify-between">
-            {!paletteCollapsed && <h2 className="text-xs font-semibold tracking-wide uppercase">{t("studioLibrary")}</h2>}
+            {!paletteCollapsed && <h2 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioLibrary")}</h2>}
             <Button variant="ghost" size="icon-sm" className={cn(paletteCollapsed && "mx-auto")} aria-label={paletteCollapsed ? t("studioOpenPalette") : t("studioClosePalette")} onClick={() => setPaletteCollapsed((value) => !value)}>{paletteCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}</Button>
           </div>
           {!paletteCollapsed && palettePanel}
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col bg-muted/20">
-          <div className="flex flex-wrap items-center gap-1 border-b bg-background px-2 py-1.5">
+          <div className="flex flex-wrap items-center gap-1 border-b border-line-soft bg-card px-2 py-1.5">
             <Button variant="outline" size="sm" className="lg:hidden" onClick={() => setPaletteSheetOpen(true)}><Menu className="size-3.5" />{t("studioLibrary")}</Button>
             <AnalysisQuickAddButton onOpen={() => setQuickAddOpen(true)} />
             <span className="mx-1 h-5 w-px bg-border" />
             <AnalysisHistoryButtons canUndo={historyDepth.undo > 0} canRedo={historyDepth.redo > 0} onUndo={undoLastEdit} onRedo={redoLastEdit} />
             <Button variant="ghost" size="sm" onClick={autoLayout}><WandSparkles className="size-3.5" />{t("studioAutoLayout")}</Button>
             <Button variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.2, duration: 250 })}><Maximize2 className="size-3.5" />{t("studioFit")}</Button>
-            {selectedNodeIds.length > 1 && <span className="ml-auto rounded-full bg-teal-100 px-2 py-1 text-[10px] font-medium text-teal-800 dark:bg-teal-950 dark:text-teal-200">{t("studioSelectionCount", { count: selectedNodeIds.length })}</span>}
+            {selectedNodeIds.length > 1 && <span className="ml-auto inline-flex h-5 items-center rounded-full bg-brand-soft px-2 text-[11px] font-semibold text-brand-ink">{t("studioSelectionCount", { count: selectedNodeIds.length })}</span>}
             <Button variant="outline" size="sm" className="ml-auto lg:hidden" onClick={() => setInspectorSheetOpen(true)}><SlidersHorizontal className="size-3.5" />{t("studioInspector")}</Button>
           </div>
           <div
@@ -676,13 +676,13 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
               {graph.nodes.length > 4 && <MiniMap position="bottom-right" pannable zoomable nodeColor={(node) => node.type === "operator" ? "#8b5cf6" : node.type === "annotation" ? "#f59e0b" : "#0d9488"} maskColor="rgb(15 23 42 / 0.08)" />}
             </ReactFlow>
             {!graph.nodes.length && <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center"><div><BarChart3 className="mx-auto size-8 text-muted-foreground" /><p className="mt-2 text-sm font-semibold">{t("emptyAnalysisTitle")}</p><p className="mt-1 max-w-xs text-xs text-muted-foreground">{t("studioEmptyDescription")}</p></div></div>}
-            {!data && !dataError && graph.nodes.some(({ type }) => type !== "annotation") && <div className="pointer-events-none absolute inset-x-0 top-2 grid place-items-center" role="status"><span className="flex items-center gap-2 rounded-full border bg-background/95 px-3 py-1 text-xs shadow-sm backdrop-blur"><Loader2 className="size-3.5 animate-spin" />{t("analysisDataLoading")}</span></div>}
+            {!data && !dataError && graph.nodes.some(({ type }) => type !== "annotation") && <div className="pointer-events-none absolute inset-x-0 top-2 grid place-items-center" role="status"><span className="flex items-center gap-2 rounded-full border bg-card/95 px-3 py-1 text-xs shadow-sm backdrop-blur"><Loader2 className="size-3.5 animate-spin" />{t("analysisDataLoading")}</span></div>}
           </div>
         </section>
 
-        <aside className={cn("hidden min-h-0 shrink-0 border-l bg-background transition-[width] lg:flex lg:flex-col", inspectorCollapsed ? "w-11 p-1" : "w-72 p-3")}>
+        <aside className={cn("hidden min-h-0 shrink-0 border-l bg-card transition-[width] lg:flex lg:flex-col", inspectorCollapsed ? "w-11 p-1" : "w-72 p-3")}>
           <div className="mb-2 flex items-center justify-between">
-            {!inspectorCollapsed && <h2 className="text-xs font-semibold tracking-wide uppercase">{t("studioInspector")}</h2>}
+            {!inspectorCollapsed && <h2 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioInspector")}</h2>}
             <Button variant="ghost" size="icon-sm" className={cn(inspectorCollapsed && "mx-auto")} aria-label={inspectorCollapsed ? t("studioOpenInspector") : t("studioCloseInspector")} onClick={() => setInspectorCollapsed((value) => !value)}>{inspectorCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}</Button>
           </div>
           {!inspectorCollapsed && inspectorPanel}

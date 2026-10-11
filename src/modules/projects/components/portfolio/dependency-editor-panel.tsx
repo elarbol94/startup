@@ -58,9 +58,9 @@ export function DependencyEditorPanel({
 
   return (
     <div className="grid gap-3" data-testid="dependency-editor">
-      <div className="rounded-md border-l-2 border-l-indigo-500 bg-muted/35 px-3 py-2">
+      <div className="rounded-md border-l-2 border-l-brand bg-muted/50 px-3 py-2">
         <p className="truncate text-xs font-medium">{predecessor?.title}</p>
-        <div className="my-1 flex items-center gap-1 text-[10px] font-medium uppercase tracking-[0.08em] text-indigo-600 dark:text-indigo-400">
+        <div className="my-1 flex items-center gap-1 text-[10.5px] font-semibold tracking-[0.12em] text-brand-ink uppercase">
           <span>{t(dependencyTypeCodeKey(draft.dependencyType))}</span>
           <ArrowRight className="size-3" aria-hidden />
         </div>
@@ -85,8 +85,8 @@ export function DependencyEditorPanel({
                 className={cn(
                   "group/type rounded-md border px-2.5 py-2 text-left transition-[border-color,background-color,box-shadow] duration-150 motion-reduce:transition-none",
                   selected
-                    ? "border-indigo-500 bg-indigo-50 shadow-[inset_0_0_0_1px_color-mix(in_oklab,#4f46e5_24%,transparent)] dark:bg-indigo-950/35"
-                    : "border-border bg-card hover:border-indigo-300 hover:bg-muted/45",
+                    ? "border-brand bg-brand-soft shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--brand)_24%,transparent)]"
+                    : "border-border bg-card hover:border-line-strong hover:bg-accent",
                 )}
                 onClick={() =>
                   onChange({ ...draft, dependencyType: type })
@@ -119,7 +119,7 @@ export function DependencyEditorPanel({
                   buttons?.[nextIndex]?.focus();
                 }}
               >
-                <span className="block font-mono text-[11px] font-semibold text-indigo-700 dark:text-indigo-300">
+                <span className="block font-mono text-[11px] font-semibold text-brand-ink">
                   {t(dependencyTypeCodeKey(type))}
                 </span>
                 <span className="mt-0.5 block text-xs font-medium">

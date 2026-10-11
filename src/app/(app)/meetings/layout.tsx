@@ -6,7 +6,7 @@ export default async function MeetingsLayout({ children }: { children: React.Rea
   await requireUser();
   const t = await getTranslations("meetings");
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+    <div className="flex w-full flex-col gap-4">
       <PageHeader className="mb-0" title={t("title")} description={t("description")} />
       <div className="min-w-0">{children}</div>
     </div>

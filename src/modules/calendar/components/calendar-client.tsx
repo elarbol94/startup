@@ -151,7 +151,7 @@ export function CalendarClient({
   };
 
   return (
-    <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-4">
+    <div className="mx-auto flex w-full max-w-[112rem] flex-col gap-5">
       <CalendarToolbar
         periodLabel={periodLabel(view, date, range, locale, t)}
         t={t}
@@ -171,14 +171,17 @@ export function CalendarClient({
       />
 
       <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="relative flex min-h-[44rem] min-w-0 rounded-2xl border bg-card xl:h-[calc(100dvh-9rem)]">
+        <div className="relative flex min-h-[44rem] min-w-0 gap-4 xl:h-[calc(100dvh-9rem)]">
           {nav.navigating ? (
-            <div role="status" aria-label={t("coreLoading")} className="pointer-events-none absolute inset-x-4 top-0 z-30 h-0.5 animate-pulse rounded-full bg-primary" />
+            <div role="status" aria-label={t("coreLoading")} className="pointer-events-none absolute inset-x-4 top-0 z-30 h-0.5 animate-pulse rounded-full bg-brand" />
           ) : null}
           <CalendarSidebar {...sharedFilterProps} today={today} />
           <div
             aria-busy={nav.navigating}
-            className={cn("min-w-0 flex-1 transition-opacity duration-200 xl:overflow-y-auto", nav.navigating && "opacity-60")}
+            className={cn(
+              "min-w-0 flex-1 overflow-clip rounded-xl border bg-card shadow-card transition-opacity duration-200 xl:overflow-y-auto",
+              nav.navigating && "opacity-60",
+            )}
           >
             <CalendarViewArea
               view={view}

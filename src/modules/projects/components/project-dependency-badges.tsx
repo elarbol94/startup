@@ -46,7 +46,7 @@ export async function ProjectDependencyBadges({ badges }: { badges: DependencyBa
         </span>
       ))}
       {badges.blocks.length > 0 && (
-        <span className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border bg-background py-0.5 pr-1 pl-2 text-xs text-muted-foreground">
+        <span className="inline-flex h-7 max-w-full min-w-0 items-center gap-1.5 rounded-full border bg-card py-0.5 pr-1 pl-2 text-xs text-text-secondary">
           <ArrowRight className="size-3.5 shrink-0" />
           <span className="shrink-0">{t("blocks", { count: badges.blocks.length })}</span>
           {badges.blocks.map((block) => (

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ArrowLeft, CalendarCheck, Lock, Merge, Pencil, Plus, Trash2, UsersRound } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { deleteNetworkContact, markNetworkContactContacted, setNetworkContactVisibility } from "../contact-actions";
 import type { MergeContactSummary } from "../merge-fields";
@@ -22,6 +21,7 @@ import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
 import { dateOnly } from "./network-ui";
 import { MunicipalityLink } from "./municipality-link";
+import { NetworkCard, NetworkCardEmpty, NetworkPill, networkCardClass, networkLabelClass } from "./network-card";
 import { useNetworkAction } from "./use-network-action";
 
 export function ContactDetail({
@@ -91,17 +91,17 @@ export function ContactDetail({
         {t("contact.back")}
       </Link>
 
-      <section className="space-y-4 rounded-2xl border bg-card p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <section className={networkCardClass}>
+        <div className="flex flex-col gap-3 border-b border-line-soft px-[18px] py-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="text-xl font-semibold tracking-tight" data-testid="network-contact-name">{contact.name}</h2>
+              <h2 className="text-lg leading-snug font-semibold tracking-[-0.01em]" data-testid="network-contact-name">{contact.name}</h2>
               {contact.notYetSpoken && (
-                <Badge variant="outline" title={t("notYetSpoken.hint")} data-testid="network-not-spoken-badge">{t("notYetSpoken.badge")}</Badge>
+                <NetworkPill tone="line" title={t("notYetSpoken.hint")} data-testid="network-not-spoken-badge">{t("notYetSpoken.badge")}</NetworkPill>
               )}
             </div>
             {(contact.role || contact.organization) && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-[13.5px] text-muted-foreground">
                 {contact.role}
                 {contact.role && contact.organization && " · "}
                 {contact.organizationId ? (
@@ -144,60 +144,61 @@ export function ContactDetail({
           </div>
         </div>
 
-        {facts.length > 0 && (
-          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
-            {facts.map((fact) => (
-              <div key={fact.label} className="min-w-0">
-                <dt className="text-xs text-muted-foreground">{fact.label}</dt>
-                <dd className="min-w-0">{fact.value}</dd>
-              </div>
-            ))}
-          </dl>
-        )}
+        <div className="space-y-4 px-[18px] py-4">
+          {facts.length > 0 && (
+            <dl className="grid gap-x-6 gap-y-3 text-[13.5px] sm:grid-cols-2 lg:grid-cols-3">
+              {facts.map((fact) => (
+                <div key={fact.label} className="min-w-0">
+                  <dt className="text-xs text-muted-foreground">{fact.label}</dt>
+                  <dd className="min-w-0">{fact.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
 
-        <div>
-          <div className="mb-1 text-xs text-muted-foreground">{t("fields.tags")}</div>
-          <ContactTagsEditor contactId={contact.id} tags={contact.tags} suggestions={tagSuggestions} canEdit={contact.canEdit} />
-        </div>
-
-        {contact.notes && (
           <div>
-            <div className="mb-1 text-xs text-muted-foreground">{t("fields.notes")}</div>
-            <p className="text-sm whitespace-pre-wrap">{contact.notes}</p>
+            <div className={`mb-1.5 ${networkLabelClass}`}>{t("fields.tags")}</div>
+            <ContactTagsEditor contactId={contact.id} tags={contact.tags} suggestions={tagSuggestions} canEdit={contact.canEdit} />
           </div>
-        )}
-      </section>
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="font-medium">{t("contact.leadsTitle")}</h3>
-          {contact.canEdit && (
-            <Button size="sm" variant="outline" onClick={() => setLeadDialog({ mode: "create", contactId: contact.id })}>
-              <Plus className="size-4" />
-              {t("lead.add")}
-            </Button>
+          {contact.notes && (
+            <div>
+              <div className={`mb-1.5 ${networkLabelClass}`}>{t("fields.notes")}</div>
+              <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-text-secondary">{contact.notes}</p>
+            </div>
           )}
         </div>
-        {contact.leads.length ? (
-          <LeadList leads={contact.leads} today={today} onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
-        ) : (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("contact.noLeads")}</p>
-        )}
       </section>
+
+      <NetworkCard
+        title={t("contact.leadsTitle")}
+        count={contact.leads.length || undefined}
+        actions={contact.canEdit && (
+          <Button size="sm" variant="outline" onClick={() => setLeadDialog({ mode: "create", contactId: contact.id })}>
+            <Plus className="size-4" />
+            {t("lead.add")}
+          </Button>
+        )}
+      >
+        {contact.leads.length ? (
+          <LeadList embedded leads={contact.leads} today={today} onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
+        ) : (
+          <NetworkCardEmpty>{t("contact.noLeads")}</NetworkCardEmpty>
+        )}
+      </NetworkCard>
 
       <ContactLinks contactId={contact.id} links={contact.links} canEdit={contact.canEdit} />
 
       <InteractionLog contactId={contact.id} interactions={contact.interactions} canEdit={contact.canEdit} today={today} />
 
       {contact.introducedBy.length > 0 && (
-        <section className="space-y-2">
-          <h3 className="font-medium">{t("contact.introducedBy")}</h3>
-          <LeadList leads={contact.introducedBy} today={today} showContact onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
-        </section>
+        <NetworkCard title={t("contact.introducedBy")} count={contact.introducedBy.length}>
+          <LeadList embedded leads={contact.introducedBy} today={today} showContact onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
+        </NetworkCard>
       )}
 
       {contact.canManage && (
-        <div className="flex flex-wrap justify-end gap-2 border-t pt-4">
+        <div className="flex flex-wrap justify-end gap-2 border-t border-line-soft pt-4">
           <Button variant="outline" size="sm" disabled={pending} onClick={() => setMerging(true)} data-testid="network-merge-open">
             <Merge className="size-4" />
             {t("merge.open")}

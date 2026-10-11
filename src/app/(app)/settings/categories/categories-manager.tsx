@@ -121,31 +121,31 @@ export function CategoriesManager({ categories }: { categories: Category[] }) {
 
       {grouped.map((group) => (
         <div key={group.kind} className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium text-muted-foreground">
+          <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
             {group.kind === "income"
               ? tAccounting("incomePlural")
               : tAccounting("expensePlural")}
           </h3>
-          <div className="flex flex-col divide-y rounded-md border">
+          <div className="flex flex-col divide-y divide-line-soft overflow-hidden rounded-lg border">
             {group.items.map((category) => (
               <div
                 key={category.id}
-                className="flex items-center gap-3 px-3 py-2"
+                className="flex items-center gap-3 px-3.5 py-2 transition-colors hover:bg-accent"
               >
                 <span
                   className="inline-block size-3 shrink-0 rounded-full"
                   style={{ backgroundColor: category.color }}
                 />
                 <span
-                  className={`flex-1 text-sm ${
+                  className={`flex-1 text-[13.5px] ${
                     category.archived ? "text-muted-foreground line-through" : ""
                   }`}
                 >
                   {category.name}
                 </span>
-                <Badge variant="outline">{t(`templates.${category.template}`)}</Badge>
+                <Badge variant="outline" className="border-line-strong text-[11px] text-text-secondary">{t(`templates.${category.template}`)}</Badge>
                 {category.archived && (
-                  <Badge variant="secondary">{t("archived")}</Badge>
+                  <Badge variant="secondary" className="text-[11px]">{t("archived")}</Badge>
                 )}
                 <Button
                   variant="ghost"

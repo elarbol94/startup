@@ -59,6 +59,7 @@ import type { ProjectDialogState } from "../project-dialog";
 import type { EmbeddedProjectPlanner, SetState, Zoom } from "./portfolio-types";
 import { parseDate, projectRisk } from "./portfolio-utils";
 import { PortfolioShortcutList } from "./portfolio-shortcuts";
+import { ZoomSegment } from "./zoom-segment";
 import type { usePortfolioFocus } from "./use-portfolio-focus";
 import type { usePortfolioRows } from "./use-portfolio-rows";
 import type { useStructureDrag } from "./use-structure-drag";
@@ -93,7 +94,7 @@ export function PortfolioHeader({
         <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
           <span>{t("activeProjectCount", { count: schedule.projects.length })}</span>
           <span aria-hidden>·</span>
-          <span className={cn(riskCount > 0 && "text-amber-700 dark:text-amber-400")}>{t("riskProjectCount", { count: riskCount })}</span>
+          <span className={cn(riskCount > 0 && "font-medium text-amber-700 dark:text-amber-400")}>{t("riskProjectCount", { count: riskCount })}</span>
           {nextMilestone?.dueDate && (
             <>
               <span aria-hidden>·</span>
@@ -167,8 +168,8 @@ export function TimelineToolbar({
   }) {
   const t = useTranslations("projects");
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b pb-3">
-      {!embedded && <SubNav label={t("views")} className="w-full">
+    <div className="flex flex-col gap-4">
+      {!embedded && <SubNav label={t("views")}>
         <ShortcutTooltip label={t("timeline")} shortcut={PROJECTS_PAGE_SHORTCUTS.timeline}>
           <SubNavButton active={view === "timeline"} icon={<CalendarClock />} onClick={() => setView("timeline")}>{t("timeline")}</SubNavButton>
         </ShortcutTooltip>
@@ -177,8 +178,8 @@ export function TimelineToolbar({
         </ShortcutTooltip>
       </SubNav>}
       {view === "timeline" && (
-        <>
-          <div className="relative w-full sm:w-64 lg:w-72">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-full sm:w-[280px]">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <ShortcutTooltip label={t("focusSearch")} shortcut={PROJECTS_PAGE_SHORTCUTS.search}>
             <Input
@@ -196,12 +197,12 @@ export function TimelineToolbar({
             {query.trim() && (
               <div
                 id="schedule-search-results"
-                className="absolute top-[calc(100%+0.35rem)] left-0 z-50 w-full min-w-72 overflow-hidden rounded-lg border bg-popover p-1 text-popover-foreground shadow-lg"
+                className="absolute top-[calc(100%+0.35rem)] left-0 z-50 w-full min-w-72 overflow-hidden rounded-[10px] border bg-popover p-1 text-popover-foreground shadow-lg"
                 role="listbox"
               >
                 {searchResults.projects.length > 0 && (
                   <>
-                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    <p className="px-2 py-1 text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
                       {t("projectsGroup")}
                     </p>
                     {searchResults.projects.map((project) => (
@@ -210,7 +211,7 @@ export function TimelineToolbar({
                         type="button"
                         role="option"
                         aria-selected={false}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13.5px] hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                         onClick={() => revealProject(project.id)}
                       >
                         <span className="size-2 rounded-full" style={{ backgroundColor: project.color }} />
@@ -221,7 +222,7 @@ export function TimelineToolbar({
                 )}
                 {searchResults.tasks.length > 0 && (
                   <>
-                    <p className="mt-1 border-t px-2 pt-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    <p className="mt-1 border-t border-line-soft px-2 pt-2 pb-1 text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
                       {t("tasksGroup")}
                     </p>
                     {searchResults.tasks.map((task) => {
@@ -232,7 +233,7 @@ export function TimelineToolbar({
                           type="button"
                           role="option"
                           aria-selected={false}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13.5px] hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
                           onClick={() => {
                             setQuery("");
                             enterTaskFocus(task);
@@ -240,7 +241,7 @@ export function TimelineToolbar({
                         >
                           <Focus className="size-3.5 text-muted-foreground" />
                           <span className="min-w-0 flex-1 truncate">{task.title}</span>
-                          <span className="max-w-24 truncate text-[10px] text-muted-foreground">{project?.name}</span>
+                          <span className="max-w-24 truncate text-[11px] text-muted-foreground">{project?.name}</span>
                         </button>
                       );
                     })}
@@ -257,18 +258,12 @@ export function TimelineToolbar({
           <div className="flex w-full gap-2 sm:w-auto"><Select value={owner} onValueChange={(value) => setOwner(value ?? "all")}><SelectTrigger className="min-w-0 flex-1 sm:w-44 sm:flex-none" aria-label={t("allOwners")}><SelectValue>{owner === "all" ? t("allOwners") : <UserIdentity userId={owner} />}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allOwners")}</SelectItem>{schedule.members.map((member) => <SelectItem key={member.id} value={member.id}><UserIdentity userId={member.id} name={member.name} /></SelectItem>)}</SelectContent></Select>
           <Select value={health} onValueChange={(value) => setHealth((value ?? "all") as typeof health)}><SelectTrigger className="min-w-0 flex-1 sm:w-40 sm:flex-none" aria-label={t("allHealth")}><SelectValue>{health === "risk" ? t("atRisk") : health === "track" ? t("onTrack") : t("allHealth")}</SelectValue></SelectTrigger><SelectContent><SelectItem value="all">{t("allHealth")}</SelectItem><SelectItem value="track">{t("onTrack")}</SelectItem><SelectItem value="risk">{t("atRisk")}</SelectItem></SelectContent></Select></div>
           <div className={cn("flex items-center gap-2 lg:ml-auto", !embedded && "max-md:hidden")} role="group" aria-label={t("timelineControls")}>
-            <div className="flex rounded-md border p-0.5">
-              {(["week", "month", "quarter"] as const).map((option) => (
-                <ShortcutTooltip key={option} label={t(option)} shortcut={PROJECTS_PAGE_SHORTCUTS[option]}>
-                  <Button size="xs" variant={zoom === option ? "secondary" : "ghost"} aria-pressed={zoom === option} onClick={() => setTimelineZoom(option)}>{t(option)}</Button>
-                </ShortcutTooltip>
-              ))}
-            </div>
+            <ZoomSegment zoom={zoom} setTimelineZoom={setTimelineZoom} />
             <ShortcutTooltip label={t("today")} shortcut={PROJECTS_PAGE_SHORTCUTS.today}>
-              <Button size="sm" variant="outline" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
+              <Button variant="outline" onClick={scrollToToday}><LocateFixed className="size-4" />{t("today")}</Button>
             </ShortcutTooltip>
             <DropdownMenu>
-              <DropdownMenuTrigger render={<Button size="sm" variant="outline" aria-label={t("viewOptions")}><Ellipsis className="size-4" /><span className="hidden sm:inline">{t("viewOptionsShort")}</span>{(criticalVisible || !linesVisible) && <span className="size-1.5 rounded-full bg-indigo-500" aria-hidden />}</Button>} />
+              <DropdownMenuTrigger render={<Button variant="outline" aria-label={t("viewOptions")}><Ellipsis className="size-4" /><span className="hidden sm:inline">{t("viewOptionsShort")}</span>{(criticalVisible || !linesVisible) && <span className="size-1.5 rounded-full bg-brand" aria-hidden />}</Button>} />
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuItem onClick={fitTimelineView}><Minimize2 className="size-4" />{t("fitView")}<DropdownMenuShortcut><ShortcutKeys shortcut={PROJECTS_PAGE_SHORTCUTS.fitView} /></DropdownMenuShortcut></DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -277,7 +272,7 @@ export function TimelineToolbar({
                 <DropdownMenuItem disabled={structurePending} onClick={tidyDependencyLines}><WandSparkles className="size-4" />{t("tidyLines")}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Popover><ShortcutTooltip label={t("timelineHelp")}><PopoverTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("timelineHelp")}><CircleHelp className="size-4" /></Button>} /></ShortcutTooltip>
+            <Popover><ShortcutTooltip label={t("timelineHelp")}><PopoverTrigger render={<Button size="icon" variant="ghost" aria-label={t("timelineHelp")}><CircleHelp className="size-4" /></Button>} /></ShortcutTooltip>
               <PopoverContent align="end" className="max-h-[75vh] w-80 space-y-3 overflow-y-auto text-xs"><p>{t("structureHelp")}</p><p>{t("lineHelp")}</p><p>{t("zoomHelp")}</p><p>{t("panHelp")}</p><PortfolioShortcutList /></PopoverContent>
             </Popover>
           </div>
@@ -285,7 +280,7 @@ export function TimelineToolbar({
           <p className={structureDrag ? "w-full min-w-0 truncate text-xs text-muted-foreground" : "sr-only"} role="status" aria-live="polite">
             {structureDrag ? structureDrop?.valid ? t("drop" + (structureDrop.placement === "inside" ? "Inside" : structureDrop.placement === "before" ? "Before" : "After"), { name: structureDrop.row.label }) : t("structureInvalid") : ""}
           </p>
-        </>
+        </div>
       )}
     </div>
   );

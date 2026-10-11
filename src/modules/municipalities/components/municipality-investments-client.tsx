@@ -177,14 +177,14 @@ export function MunicipalityInvestmentsClient({
   }
 
   return <div className="space-y-4 pb-8">
-    <header className="flex flex-col gap-4 rounded-2xl border bg-card p-5 shadow-sm md:flex-row md:items-end md:justify-between">
+    <header className="flex flex-col gap-4 rounded-xl border bg-card px-[18px] py-4 shadow-card md:flex-row md:items-end md:justify-between">
       <div>
         <Button variant="ghost" size="sm" className="-ml-2 mb-3" render={<Link href={`/municipalities/overview?municipality=${data.municipality.code}`} />}>
           <ArrowLeft className="size-4" />{t("back")}
         </Button>
-        <p className="text-xs font-semibold tracking-[0.16em] text-teal-700 uppercase dark:text-teal-300">{t("eyebrow")}</p>
-        <h2 className="mt-1 text-3xl font-semibold tracking-tight">{data.municipality.name}</h2>
-        <p className="mt-1 max-w-3xl text-sm text-muted-foreground">{t("description")}</p>
+        <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-ink uppercase">{t("eyebrow")}</p>
+        <h2 className="mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em]">{data.municipality.name}</h2>
+        <p className="mt-1 max-w-3xl text-[13.5px] text-muted-foreground">{t("description")}</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Badge variant="outline">{data.municipality.state}</Badge>
           <Badge variant="outline">{data.municipality.code}</Badge>
@@ -201,20 +201,20 @@ export function MunicipalityInvestmentsClient({
       </div>
     </header>
 
-    <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" aria-label={t("summary")}>
+    <section className="grid overflow-hidden rounded-xl border bg-card shadow-card sm:grid-cols-2 xl:grid-cols-4" aria-label={t("summary")}>
       {[
         [t("directInvestments"), currency.format(directInvestmentCents / 100)],
         [t("positions"), integer.format(filtered.length)],
         [t("assetDetails"), integer.format(matchedPositions)],
         [t("averagePosition"), currency.format(averageCents / 100)],
-      ].map(([label, value]) => <Card key={label}><CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="text-2xl tabular-nums">{value}</CardTitle>
-        <p className="text-xs text-muted-foreground">{t("period")}: {periodLabel}</p>
-      </CardHeader></Card>)}
+      ].map(([label, value]) => <div key={label} className="px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="mt-1 text-[22px] leading-tight font-semibold tabular-nums">{value}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{t("period")}: {periodLabel}</p>
+      </div>)}
     </section>
 
-    <Card>
+    <Card className="shadow-card">
       <CardContent className="grid gap-3 pt-1 sm:grid-cols-2 xl:grid-cols-5">
         <Filter label={t("year")}><select className="h-9 w-full rounded-lg border bg-background px-3 text-sm" value={year} onChange={(event) => setYear(event.target.value)}>
           <option value="all">{t("allYears")}</option>{[...data.availableYears].reverse().map((value) => <option key={value} value={value}>{value}</option>)}
@@ -228,9 +228,9 @@ export function MunicipalityInvestmentsClient({
         <Filter label={t("minimum")}><Input type="number" min="0" step="100" value={minimum} onValueChange={setMinimum} /></Filter>
         <Filter label={t("search")}><div className="relative"><Search className="pointer-events-none absolute top-2.5 left-3 size-4 text-muted-foreground" /><Input className="pl-9" type="search" value={query} onValueChange={setQuery} placeholder={t("searchPlaceholder")} /></div></Filter>
       </CardContent>
-      <div className="flex min-h-12 flex-wrap items-center gap-2 border-t px-6 py-3">
+      <div className="flex min-h-12 flex-wrap items-center gap-2 border-t border-line-soft px-6 py-3">
         <span className="text-xs font-semibold text-muted-foreground">{t("activeFilters")}</span>
-        {activeFilters.length ? activeFilters.map((filter) => <button key={filter.id} type="button" onClick={filter.clear} className="rounded-full border bg-background px-3 py-1 text-xs font-medium hover:border-teal-500 hover:text-teal-700">{filter.label} ×</button>) : <span className="text-xs text-muted-foreground">{t("noActiveFilters")}</span>}
+        {activeFilters.length ? activeFilters.map((filter) => <button key={filter.id} type="button" onClick={filter.clear} className="inline-flex h-6 items-center rounded-full border border-brand bg-brand-soft px-2.5 text-xs font-medium text-brand-ink hover:bg-accent">{filter.label} ×</button>) : <span className="text-xs text-muted-foreground">{t("noActiveFilters")}</span>}
         <Button className="ml-auto" variant="ghost" size="sm" onClick={resetFilters}><RotateCcw className="size-4" />{t("resetFilters")}</Button>
       </div>
     </Card>
@@ -243,13 +243,13 @@ export function MunicipalityInvestmentsClient({
       </div>
     </div>
 
-    <Card><CardHeader><CardTitle>{t("details")}</CardTitle><CardDescription>{t("resultCount", { count: filtered.length })}</CardDescription></CardHeader><CardContent>
+    <Card className="shadow-card"><CardHeader><CardTitle>{t("details")}</CardTitle><CardDescription>{t("resultCount", { count: filtered.length })}</CardDescription></CardHeader><CardContent>
       <div className="grid gap-3 md:hidden">
         {visible.map((position) => (
           <button
             key={position.id}
             type="button"
-            className="rounded-xl border bg-background p-4 text-left transition hover:border-teal-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600"
+            className="rounded-xl border bg-card p-4 text-left shadow-card transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
             onClick={() => setSelectedPosition(position)}
           >
             <div className="flex items-start justify-between gap-3">
@@ -260,21 +260,21 @@ export function MunicipalityInvestmentsClient({
               </div>
               <strong className="shrink-0 tabular-nums">{exactCurrency.format(position.amountCents / 100)}</strong>
             </div>
-            <div className="mt-3 flex flex-wrap gap-1.5 border-t pt-3">
+            <div className="mt-3 flex flex-wrap gap-1.5 border-t border-line-soft pt-3">
               <Badge variant="outline">{typeLabels[position.investmentType]}</Badge>
               <Badge variant="outline">{position.detailLevel === "municipality" ? t("detailed") : t("aggregated")}</Badge>
-              {position.assetMatchStatus === "matched" ? <Badge className="bg-teal-700 text-white">{t("assetMatched")}</Badge> : null}
+              {position.assetMatchStatus === "matched" ? <Badge className="bg-brand-soft text-brand-ink">{t("assetMatched")}</Badge> : null}
               {position.amountCents < 0 ? <Badge variant="destructive">{t("correction")}</Badge> : null}
             </div>
           </button>
         ))}
-        {!filtered.length ? <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("noResults")}</p> : null}
+        {!filtered.length ? <p className="rounded-xl border bg-card p-8 text-center text-[13.5px] text-muted-foreground">{t("noResults")}</p> : null}
       </div>
-      <div className="hidden overflow-x-auto rounded-xl border md:block"><table className="w-full min-w-[72rem] border-collapse text-sm">
-        <thead className="bg-muted/70 text-left text-xs text-muted-foreground"><tr>
-          <SortableHeader label={t("year")} onClick={() => updateSort("year")} /><th className="px-3 py-2.5">{t("taskArea")}</th>
-          <SortableHeader label={t("descriptionLabel")} onClick={() => updateSort("description")} /><th className="px-3 py-2.5">{t("investmentType")}</th>
-          <th className="px-3 py-2.5">{t("projectCode")}</th><th className="px-3 py-2.5">{t("sourceDetail")}</th>
+      <div className="hidden overflow-x-auto rounded-xl border bg-card shadow-card md:block"><table className="w-full min-w-[72rem] border-collapse text-[13.5px]">
+        <thead className="text-left text-[11.5px] text-muted-foreground"><tr>
+          <SortableHeader label={t("year")} onClick={() => updateSort("year")} /><th className="h-9 px-3 font-medium">{t("taskArea")}</th>
+          <SortableHeader label={t("descriptionLabel")} onClick={() => updateSort("description")} /><th className="h-9 px-3 font-medium">{t("investmentType")}</th>
+          <th className="h-9 px-3 font-medium">{t("projectCode")}</th><th className="h-9 px-3 font-medium">{t("sourceDetail")}</th>
           <SortableHeader label={t("amount")} onClick={() => updateSort("amount")} align="right" />
         </tr></thead><tbody>{grouped.map((group) => <GroupRows key={group.id} group={group} taskLabels={taskLabels} typeLabels={typeLabels} exactCurrency={exactCurrency} t={t} onSelect={setSelectedPosition} />)}</tbody>
       </table>{!filtered.length && <p className="p-8 text-center text-sm text-muted-foreground">{t("noResults")}</p>}</div>
@@ -286,7 +286,7 @@ export function MunicipalityInvestmentsClient({
       </div>}
     </CardContent></Card>
 
-    <Card className="bg-muted/25"><CardHeader><CardTitle className="flex items-center gap-2"><Database className="size-4" />{t("methodology")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
+    <Card className="bg-surface-raised"><CardHeader><CardTitle className="flex items-center gap-2"><Database className="size-4" />{t("methodology")}</CardTitle></CardHeader><CardContent className="space-y-2 text-sm leading-6 text-muted-foreground">
       <p>{t("methodologyTextV2")}</p>
       <p>{t("source")}: <a className="underline underline-offset-2" href={data.source.url} target="_blank" rel="noreferrer">{data.source.title}</a> · <a className="underline underline-offset-2" href={data.source.definitionUrl} target="_blank" rel="noreferrer">VRV 2015</a></p>
       <p className="text-xs">{data.years.map((entry) => `${entry.year}: ${entry.statisticsFile}${entry.municipalityFile ? ` + ${entry.municipalityFile}` : ""}${entry.assetMunicipalityFile && entry.assetReconciliation === "matched" ? ` + ${entry.assetMunicipalityFile}` : ""}`).join(" · ")}</p>
@@ -318,21 +318,21 @@ function BreakdownCard({ title, description, rows, selected, onSelect, currency,
 }) {
   const maximum = Math.max(1, ...rows.map(({ value }) => Math.abs(value)));
   const total = rows.reduce((sum, row) => sum + Math.abs(row.value), 0);
-  return <Card><CardHeader><CardTitle>{title}</CardTitle>{description && <CardDescription>{description}</CardDescription>}</CardHeader><CardContent className="space-y-2">
+  return <Card className="shadow-card"><CardHeader><CardTitle>{title}</CardTitle>{description && <CardDescription>{description}</CardDescription>}</CardHeader><CardContent className="space-y-2">
     {rows.length ? rows.map((row) => {
       const active = selected === row.id;
       const share = total ? Math.abs(row.value) / total : 0;
       return <button key={row.id} type="button" aria-pressed={active} title={`${row.label}: ${currency.format(row.value / 100)} · ${row.count} · ${percent.format(share)}`} onClick={() => onSelect(row.id)}
-        className={`grid w-full grid-cols-[minmax(7rem,1fr)_minmax(7rem,2fr)_auto] items-center gap-3 rounded-lg p-2 text-left text-xs transition hover:bg-muted/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 ${active ? "bg-teal-50 ring-1 ring-teal-500 dark:bg-teal-950/30" : ""}`}>
+        className={`grid w-full grid-cols-[minmax(7rem,1fr)_minmax(7rem,2fr)_auto] items-center gap-3 rounded-lg p-2 text-left text-xs transition hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${active ? "bg-brand-soft ring-1 ring-brand" : ""}`}>
         <span className="truncate font-medium" title={row.label}>{row.label}</span>
-        <span className="h-2.5 overflow-hidden rounded-full bg-muted"><span className={`block h-full rounded-full ${row.value < 0 ? "bg-red-500" : "bg-teal-600"}`} style={{ width: `${Math.max(1, Math.abs(row.value) / maximum * 100)}%` }} /></span>
+        <span className="h-2.5 overflow-hidden rounded-full bg-muted"><span className={`block h-full rounded-full ${row.value < 0 ? "bg-destructive" : "bg-brand"}`} style={{ width: `${Math.max(1, Math.abs(row.value) / maximum * 100)}%` }} /></span>
         <span className="text-right"><strong className="block tabular-nums">{currency.format(row.value / 100)}</strong><span className="text-[10px] text-muted-foreground">{row.count} · {percent.format(share)}</span></span>
       </button>;
     }) : <p className="text-sm text-muted-foreground">{empty}</p>}
   </CardContent></Card>;
 }
 function SortableHeader({ label, onClick, align = "left" }: { label: string; onClick: () => void; align?: "left" | "right" }) {
-  return <th className={`px-3 py-2.5 ${align === "right" ? "text-right" : ""}`}><button className="font-semibold hover:text-foreground" onClick={onClick}>{label} ↕</button></th>;
+  return <th className={`h-9 px-3 ${align === "right" ? "text-right" : ""}`}><button className="font-medium hover:text-foreground" onClick={onClick}>{label} ↕</button></th>;
 }
 function GroupRows({ group, taskLabels, typeLabels, exactCurrency, t, onSelect }: {
   group: { id: InvestmentTaskAreaId; positions: MunicipalityInvestmentPosition[] };
@@ -340,14 +340,14 @@ function GroupRows({ group, taskLabels, typeLabels, exactCurrency, t, onSelect }
   exactCurrency: Intl.NumberFormat; t: ReturnType<typeof useTranslations<"municipalityInvestments">>;
   onSelect: (position: MunicipalityInvestmentPosition) => void;
 }) {
-  return <><tr className="border-t bg-muted/35"><td colSpan={7} className="px-3 py-2 font-semibold">{taskLabels[group.id]}</td></tr>
-    {group.positions.map((position) => <tr key={position.id} className="border-t align-top transition hover:bg-muted/30">
+  return <><tr className="border-t bg-surface-raised"><td colSpan={7} className="px-3 py-2 pl-[18px] text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{taskLabels[group.id]}</td></tr>
+    {group.positions.map((position) => <tr key={position.id} className="border-t border-line-soft align-top transition hover:bg-accent">
       <td className="px-3 py-3 tabular-nums">{position.year}</td>
       <td className="px-3 py-3">{taskLabels[position.taskArea]}<span className="mt-1 block font-mono text-[11px] text-muted-foreground">{position.approachCode}</span></td>
-      <td className="px-3 py-3"><button type="button" className="text-left hover:text-teal-700 hover:underline" onClick={() => onSelect(position)}><span className="font-medium">{position.approachText || "—"}</span>{position.accountText && <span className="mt-1 block text-xs text-muted-foreground">{position.accountText} · {position.accountCode}</span>}</button></td>
+      <td className="px-3 py-3"><button type="button" className="text-left hover:text-brand-ink hover:underline" onClick={() => onSelect(position)}><span className="font-medium">{position.approachText || "—"}</span>{position.accountText && <span className="mt-1 block text-xs text-muted-foreground">{position.accountText} · {position.accountCode}</span>}</button></td>
       <td className="px-3 py-3">{typeLabels[position.investmentType]}<span className="mt-1 block font-mono text-[11px] text-muted-foreground">{position.investmentType}</span></td>
       <td className="px-3 py-3 font-mono text-xs">{position.projectCode}</td>
-      <td className="px-3 py-3"><div className="flex flex-wrap gap-1"><Badge variant="outline" title={position.detailLevel === "municipality" ? t("detailedHint") : t("aggregatedHint")}>{position.detailLevel === "municipality" ? t("detailed") : t("aggregated")}</Badge>{position.assetMatchStatus === "matched" && <Badge className="bg-teal-700 text-white" title={t("assetMatchedHint")}>{t("assetMatched")}</Badge>}{position.assetMatchStatus === "ambiguous" && <Badge variant="secondary" title={t("assetAmbiguousHint")}>{t("assetAmbiguous")}</Badge>}</div></td>
+      <td className="px-3 py-3"><div className="flex flex-wrap gap-1"><Badge variant="outline" title={position.detailLevel === "municipality" ? t("detailedHint") : t("aggregatedHint")}>{position.detailLevel === "municipality" ? t("detailed") : t("aggregated")}</Badge>{position.assetMatchStatus === "matched" && <Badge className="bg-brand-soft text-brand-ink" title={t("assetMatchedHint")}>{t("assetMatched")}</Badge>}{position.assetMatchStatus === "ambiguous" && <Badge variant="secondary" title={t("assetAmbiguousHint")}>{t("assetAmbiguous")}</Badge>}</div></td>
       <td className="px-3 py-3 text-right font-semibold tabular-nums">{position.amountCents < 0 && <Badge className="mr-2" variant="destructive">{t("correction")}</Badge>}{exactCurrency.format(position.amountCents / 100)}</td>
     </tr>)}</>;
 }
@@ -358,17 +358,17 @@ function InvestmentDetailDialog({ position, assets, history, exactCurrency, task
 }) {
   return <Dialog open={Boolean(position)} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">{position && <>
     <DialogHeader><DialogTitle>{position.approachText || position.accountText || t("positionDetails")}</DialogTitle><DialogDescription>{t("positionDetailDescription")}</DialogDescription></DialogHeader>
-    <div className="grid gap-3 rounded-xl border bg-muted/20 p-4 sm:grid-cols-2">
+    <div className="grid gap-3 rounded-xl border bg-surface-raised p-4 sm:grid-cols-2">
       <Detail label={t("year")} value={String(position.year)} /><Detail label={t("amount")} value={exactCurrency.format(position.amountCents / 100)} />
       <Detail label={t("taskArea")} value={`${taskLabels[position.taskArea]} · ${position.approachCode}`} /><Detail label={t("investmentType")} value={`${typeLabels[position.investmentType]} · ${position.investmentType}`} />
       <Detail label={t("descriptionLabel")} value={`${position.approachText || "—"} · ${position.accountText || "—"} · ${position.accountCode}`} /><Detail label={t("projectCode")} value={position.projectCode} />
     </div>
     <section className="space-y-3"><h3 className="font-semibold">{t("linkedAssets")}</h3>
       {assets.length ? assets.map((asset) => <div key={asset.id} className="rounded-xl border p-4">
-        <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{asset.accountText || asset.approachText || asset.sourceAssetId}</p><p className="mt-1 text-xs text-muted-foreground">{asset.approachText} · MVAG {asset.mvagCode} · {asset.sourceAssetId}</p></div><Badge className="bg-teal-700 text-white">{t("exactlyMatched")}</Badge></div>
+        <div className="flex flex-wrap items-start justify-between gap-2"><div><p className="font-semibold">{asset.accountText || asset.approachText || asset.sourceAssetId}</p><p className="mt-1 text-xs text-muted-foreground">{asset.approachText} · MVAG {asset.mvagCode} · {asset.sourceAssetId}</p></div><Badge className="bg-brand-soft text-brand-ink">{t("exactlyMatched")}</Badge></div>
         <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4"><Detail label={t("assetAddition")} value={exactCurrency.format(asset.additionsCents / 100)} /><Detail label={t("assetDisposal")} value={exactCurrency.format(asset.disposalsCents / 100)} /><Detail label={t("openingBalance")} value={exactCurrency.format(asset.openingBalanceCents / 100)} /><Detail label={t("closingBalance")} value={exactCurrency.format(asset.closingBalanceCents / 100)} /></div>
         <p className="mt-3 text-xs text-muted-foreground">{t("source")}: {asset.sourceFile}</p>
-      </div>) : <p className="rounded-xl border border-dashed p-4 text-sm text-muted-foreground">{position.assetMatchStatus === "ambiguous" ? t("ambiguousAssetDetails") : t("noAssetDetails")}</p>}
+      </div>) : <p className="rounded-xl border bg-surface-raised p-4 text-[13.5px] text-muted-foreground">{position.assetMatchStatus === "ambiguous" ? t("ambiguousAssetDetails") : t("noAssetDetails")}</p>}
     </section>
     {history.length > 0 && <section className="space-y-2"><h3 className="font-semibold">{t("projectHistory")}</h3>{history.map((entry) => <div key={entry.id} className="flex justify-between gap-4 rounded-lg border p-3 text-sm"><span>{entry.year} · {entry.approachText} · {entry.accountText}</span><strong className="whitespace-nowrap tabular-nums">{exactCurrency.format(entry.amountCents / 100)}</strong></div>)}</section>}
   </>}</DialogContent></Dialog>;

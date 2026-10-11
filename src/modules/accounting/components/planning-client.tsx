@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ChevronDown, ChevronLeft, ChevronRight, Save } from "lucide-react";
+import { CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { toast } from "sonner";
 import { savePlanning, type PlanningInput } from "../actions";
 import type { PlanningRow } from "../queries";
@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -289,7 +289,7 @@ export function PlanningClient({
     const difference = actual - planned;
     if (difference === 0 || (planned === 0 && actual === 0)) return "text-muted-foreground";
     const favorable = kind === "income" ? difference > 0 : difference < 0;
-    return favorable ? "text-green-700 dark:text-green-500" : "text-destructive";
+    return favorable ? "text-text-secondary" : "text-late";
   }
 
   function sumCell(kind: Kind, planned: number, actual: number, strong = false) {
@@ -315,7 +315,7 @@ export function PlanningClient({
     const planned = sum(plannedByRow[row.categoryId] ?? []);
     const actual = sum(row.actualByMonth);
     return (
-      <tr key={row.categoryId} className="border-b transition-colors hover:bg-muted/30">
+      <tr key={row.categoryId} className="transition-colors hover:bg-accent">
         <th
           scope="row"
           className="sticky left-0 z-10 min-w-44 max-w-56 border-r bg-card px-3 py-1.5 text-left font-medium"
@@ -358,7 +358,7 @@ export function PlanningClient({
     const label = t(kind === "income" ? "incomePlural" : "expensePlural");
     return (
       <tbody key={kind}>
-        <tr className="border-b bg-muted font-semibold">
+        <tr className="bg-muted font-semibold">
           <th
             scope="rowgroup"
             className="sticky left-0 z-10 border-r bg-muted px-3 py-2 text-left"
@@ -405,7 +405,7 @@ export function PlanningClient({
   ) : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={`${t("planning")} ${year}`}
@@ -435,45 +435,37 @@ export function PlanningClient({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        <KpiCard
-          label={t("plannedIncome")}
-          value={formatCents(totals.plannedIncome, locale)}
-          className="text-green-700 dark:text-green-500"
-        />
+      <div className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card shadow-card xl:grid-cols-4">
+        <KpiCard label={t("plannedIncome")} value={formatCents(totals.plannedIncome, locale)} />
         <KpiCard label={t("plannedExpenses")} value={formatCents(totals.plannedExpense, locale)} />
         <KpiCard
           label={t("plannedResult")}
           value={formatCents(plannedResult, locale)}
-          className={plannedResult < 0 ? "text-destructive" : undefined}
+          className={plannedResult < 0 ? "text-late" : undefined}
         />
         <KpiCard
           label={t("actualResult")}
           value={formatCents(actualResult, locale)}
-          className={actualResult < 0 ? "text-destructive" : undefined}
+          className={actualResult < 0 ? "text-late" : undefined}
         />
       </div>
 
       {rows.length === 0 ? (
-        <Card>
-          <CardContent>
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              {t("noPlanningCategories")}
-            </p>
-          </CardContent>
-        </Card>
+        <div className="rounded-xl border bg-card shadow-card">
+          <EmptyState icon={<CalendarRange />} title={t("noPlanningCategories")} />
+        </div>
       ) : (
         <>
           {/* Laptop/desktop: full-year grid with sticky category and total columns. */}
-          <Card className="hidden gap-0 pb-0 md:flex">
-            <CardHeader className="flex flex-row items-center justify-between gap-3 border-b">
-              <CardTitle>{t("monthlyPlanning")}</CardTitle>
+          <section className="hidden min-w-0 flex-col overflow-hidden rounded-xl border bg-card shadow-card md:flex">
+            <header className="flex min-h-[52px] items-center justify-between gap-3 border-b border-line-soft px-[18px] py-2">
+              <h2 className="text-[15px] font-semibold">{t("monthlyPlanning")}</h2>
               {emptyToggle}
-            </CardHeader>
+            </header>
             <div className="relative max-w-full overflow-x-auto overscroll-x-contain" data-testid="planning-grid">
-              <table className="w-full border-separate border-spacing-0 text-sm [&_td]:border-b [&_th]:border-b">
+              <table className="w-full border-separate border-spacing-0 text-[13.5px] [&_td]:border-b [&_td]:border-line-soft [&_th]:border-b [&_th]:border-line-soft">
                 <thead>
-                  <tr className="text-xs text-muted-foreground">
+                  <tr className="h-9 text-[11.5px] text-muted-foreground">
                     <th
                       scope="col"
                       className="sticky left-0 z-20 border-r bg-card px-3 py-2 text-left font-medium"
@@ -507,7 +499,7 @@ export function PlanningClient({
                         key={month}
                         className={cn(
                           "border-b-0! px-2 py-2.5 text-right tabular-nums whitespace-nowrap",
-                          value < 0 && "text-destructive",
+                          value < 0 && "text-late",
                         )}
                       >
                         {plain(value)}
@@ -517,13 +509,13 @@ export function PlanningClient({
                       className="sticky right-0 z-10 border-b-0! border-l bg-card px-3 py-2.5 text-right tabular-nums whitespace-nowrap shadow-[-6px_0_8px_-6px_rgb(0_0_0/0.25)]"
                       title={`${t("actualResult")}: ${formatCents(actualResult, locale)}`}
                     >
-                      <div className={cn(plannedResult < 0 && "text-destructive")}>
+                      <div className={cn(plannedResult < 0 && "text-late")}>
                         {formatCents(plannedResult, locale)}
                       </div>
                       <div
                         className={cn(
                           "text-[11px] font-normal",
-                          actualResult < 0 ? "text-destructive" : "text-muted-foreground",
+                          actualResult < 0 ? "text-late" : "text-muted-foreground",
                         )}
                       >
                         {t("actual")} {formatCents(actualResult, locale)}
@@ -533,10 +525,10 @@ export function PlanningClient({
                 </tfoot>
               </table>
             </div>
-          </Card>
+          </section>
 
           {/* Phone: one month at a time, categories listed vertically. */}
-          <Card className="gap-0 py-0 md:hidden">
+          <section className="flex flex-col overflow-hidden rounded-xl border bg-card shadow-card md:hidden">
             <div className="flex items-center gap-2 border-b p-3">
               <Button
                 variant="outline"
@@ -583,7 +575,7 @@ export function PlanningClient({
               const actual = section.actualByMonth[mobileMonth];
               return (
                 <section key={kind} className="border-b last:border-b-0">
-                  <div className="flex items-baseline justify-between gap-3 bg-muted/60 px-3 py-2">
+                  <div className="flex items-baseline justify-between gap-3 bg-muted px-[18px] py-2">
                     <h3 className="text-sm font-semibold">
                       {t(kind === "income" ? "incomePlural" : "expensePlural")}
                     </h3>
@@ -596,13 +588,13 @@ export function PlanningClient({
                       </p>
                     </div>
                   </div>
-                  <ul className="divide-y">
+                  <ul className="divide-y divide-line-soft">
                     {section.rows.filter(isVisible).map((row) => {
                       const key = `${row.categoryId}-${mobileMonth}`;
                       const rowPlanned = plannedByRow[row.categoryId]?.[mobileMonth] ?? 0;
                       const rowActual = row.actualByMonth[mobileMonth] ?? 0;
                       return (
-                        <li key={row.categoryId} className="flex items-center gap-3 px-3 py-2">
+                        <li key={row.categoryId} className="flex items-center gap-3 px-[18px] py-2">
                           <div className="min-w-0 flex-1">
                             <p className="flex min-w-0 items-center gap-2 text-sm font-medium">
                               <span
@@ -636,19 +628,19 @@ export function PlanningClient({
                 </section>
               );
             })}
-            <div className="flex items-center justify-between gap-3 border-t bg-muted/40 px-3 py-2.5">
+            <div className="flex items-center justify-between gap-3 border-t bg-muted px-[18px] py-2.5">
               <span className="text-sm font-semibold">{t("planningResult")}</span>
               <span
                 className={cn(
                   "text-sm font-semibold tabular-nums",
-                  resultByMonth[mobileMonth] < 0 && "text-destructive",
+                  resultByMonth[mobileMonth] < 0 && "text-late",
                 )}
               >
                 {formatCents(resultByMonth[mobileMonth], locale)}
               </span>
             </div>
             {emptyToggle ? <div className="border-t p-2">{emptyToggle}</div> : null}
-          </Card>
+          </section>
         </>
       )}
     </div>
@@ -665,18 +657,16 @@ function KpiCard({
   className?: string;
 }) {
   return (
-    <Card size="sm" className="min-w-0">
-      <CardContent>
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p
-          className={cn(
-            "mt-1.5 truncate text-lg font-semibold tabular-nums sm:text-2xl",
-            className,
-          )}
-        >
-          {value}
-        </p>
-      </CardContent>
-    </Card>
+    <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
+      <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{label}</p>
+      <p
+        className={cn(
+          "mt-2 truncate text-lg leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-[22px]",
+          className,
+        )}
+      >
+        {value}
+      </p>
+    </div>
   );
 }

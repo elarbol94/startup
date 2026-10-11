@@ -24,8 +24,8 @@ export function WorkspaceStatusGroup({ status, ids, open, collapsible, onToggleO
   const selected = ids.filter((id) => selection.isSelected(id)).length;
   const label = t(`pageStatuses.${status}`);
   return (
-    <section data-testid={`workspace-group-${status}`} className="overflow-hidden rounded-xl border bg-card">
-      <div className="flex items-center justify-between gap-3 bg-muted/30 px-4 py-3">
+    <section data-testid={`workspace-group-${status}`} className="overflow-hidden rounded-xl border bg-card shadow-card">
+      <div className={cn("flex min-h-[52px] items-center justify-between gap-3 px-[18px] py-2.5", open && "border-b border-line-soft")}>
         <div className="flex items-center gap-3">
           {open && ids.length > 0 && (
             <Checkbox
@@ -35,17 +35,17 @@ export function WorkspaceStatusGroup({ status, ids, open, collapsible, onToggleO
               onClick={(event) => { event.preventDefault(); selection.setMany(ids, selected !== ids.length); }}
             />
           )}
-          <h2 className="font-medium">{label}</h2>
-          <span className="rounded-full bg-background px-2 py-0.5 text-xs tabular-nums text-muted-foreground">{ids.length}</span>
+          <h2 className="text-[14.5px] font-semibold">{label}</h2>
+          <span className="text-xs text-muted-foreground tabular-nums">{ids.length}</span>
         </div>
         {collapsible && (
-          <Button variant="ghost" size="sm" onClick={onToggleOpen} aria-expanded={open}>
+          <Button variant="ghost" size="sm" className="-mr-2 text-muted-foreground" onClick={onToggleOpen} aria-expanded={open}>
             <ChevronDown className={cn("size-4 transition-transform", open && "rotate-180")} />
             {open ? t("collapse") : t("expand")}
           </Button>
         )}
       </div>
-      {open && <div className="divide-y">{children}</div>}
+      {open && <div className="divide-y divide-line-soft">{children}</div>}
     </section>
   );
 }

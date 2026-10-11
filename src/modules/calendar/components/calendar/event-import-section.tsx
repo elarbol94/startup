@@ -217,10 +217,10 @@ export function EventImportSection({
       <summary className="cursor-pointer text-sm font-medium">{t("importTitle")}</summary>
     <section
       className={cn(
-        "rounded-xl border border-dashed bg-muted/15 p-3 transition-colors",
+        "rounded-xl border border-dashed p-3 transition-colors",
         importBusy
-          ? "border-[#6D5EF7]/60 bg-[#6D5EF7]/5"
-          : "border-border hover:border-[#6D5EF7]/40",
+          ? "border-brand/60 bg-brand-soft"
+          : "border-line-strong bg-surface-raised/50 hover:border-brand/40",
       )}
       onDragOver={(event) => {
         event.preventDefault();
@@ -245,7 +245,7 @@ export function EventImportSection({
       }}
     >
       <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg border bg-background text-[#6D5EF7]">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink">
           {importBusy ? (
             <Loader2 className="size-4 animate-spin motion-reduce:animate-none" />
           ) : (
@@ -326,7 +326,7 @@ export function EventImportSection({
         )}
         {importResult && (
           <div className="flex flex-wrap items-center gap-1.5 text-xs">
-            <Check className="size-3.5 text-[#059669]" />
+            <Check className="size-3.5 text-brand-ink" />
             <span className="font-medium">{importResult.label}</span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
               {importResult.method === "ai"
@@ -337,7 +337,7 @@ export function EventImportSection({
               importResult.fields.map((field) => (
                 <span
                   key={field}
-                  className="rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+                  className="rounded-full border px-2 py-0.5 text-[10px] text-muted-foreground"
                 >
                   {importFieldLabels[field]}
                 </span>

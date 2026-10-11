@@ -691,7 +691,7 @@ export function ProjectSettingsButton({
           render={
             <Button
               variant="outline"
-              size="icon-sm"
+              size="icon"
               aria-label={t("projectSettings")}
               title={t("projectSettings")}
             />

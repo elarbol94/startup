@@ -1,16 +1,15 @@
 "use client";
 
-// Tasks / Knowledge / Activity switch of the project page, with its 1–3 keyboard shortcuts.
-import Link from "next/link";
+// Tasks / Knowledge / Activity underline tabs (design 1b) of the project page, with their 1–3 keyboard shortcuts.
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { BookOpen, History, KanbanSquare } from "lucide-react";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { SubNav, SubNavLink } from "@/components/ui/sub-nav";
 import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { PROJECT_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
-import { cn } from "@/lib/utils";
 
 export type ProjectView = "tasks" | "knowledge" | "activity";
 
@@ -30,28 +29,19 @@ export function ProjectViewTabs({ projectId, view }: { projectId: string; view: 
   })));
 
   return (
-    <nav
-      aria-label={t("projectView")}
-      className="ml-auto flex rounded-lg border bg-muted/40 p-1"
-    >
+    <SubNav label={t("projectView")}>
       {tabs.map((tab) => (
         <ShortcutTooltip key={tab.id} label={tab.label} shortcut={tab.shortcut}>
-          <Link
+          <SubNavLink
             href={tab.href}
-            aria-current={view === tab.id ? "page" : undefined}
+            active={view === tab.id}
+            icon={<tab.icon />}
             aria-keyshortcuts={ariaKeyShortcuts(tab.shortcut)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-              view === tab.id
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
-            )}
           >
-            <tab.icon className="size-4" />
             {tab.label}
-          </Link>
+          </SubNavLink>
         </ShortcutTooltip>
       ))}
-    </nav>
+    </SubNav>
   );
 }

@@ -47,7 +47,7 @@ export function WorkspaceDetailsSheet({
       <div className="space-y-4" aria-live="polite" data-testid="mobile-municipality-details">
         {selected ? (
           <>
-            <div className="rounded-xl border bg-card p-4">
+            <div className="rounded-xl border bg-card px-[18px] py-4 shadow-card">
               {detailFacts}
               {metric === "digital" && digitalView === "providers" ? renderDigitalCostMethodology() : null}
               {metric === "digital" && selectedDigitalPlatforms && digitalPlatforms ? (
@@ -66,7 +66,7 @@ export function WorkspaceDetailsSheet({
                   onOpenHistory={() => setPoliticsHistoryRequested(true)}
                 />
               </div>
-              <p className="mt-4 flex items-center gap-1.5 border-t pt-3 text-xs text-muted-foreground">
+              <p className="mt-4 flex items-center gap-1.5 border-t border-line-soft pt-3 text-xs text-muted-foreground">
                 <Users className="size-3.5" />
                 {metric === "digital"
                   ? t("digitalReference", { date: digitalReferenceDate })
@@ -123,13 +123,13 @@ export function WorkspaceDetailsSheet({
             </Button>
           </>
         ) : (
-          <div className="rounded-xl border bg-muted/30 p-4 text-sm leading-6 text-muted-foreground">
+          <div className="rounded-xl border bg-surface-raised p-4 text-sm leading-6 text-muted-foreground">
             {t("selectionDescription")}
           </div>
         )}
-        <div className="rounded-xl border bg-muted/30 p-4 text-xs leading-5 text-muted-foreground">
-          <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
-            <Database className="size-4" />
+        <div className="rounded-xl border bg-surface-raised p-4 text-xs leading-5 text-muted-foreground">
+          <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
+            <Database className="size-3.5" />
             {t("dataBasis")}
           </div>
           <p>{t("dataBasisDescription", { count: index.count })}</p>

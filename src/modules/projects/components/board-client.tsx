@@ -383,15 +383,16 @@ export function BoardClient({
       {readOnly && (
         <div
           role="status"
-          className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          className="flex flex-wrap items-center gap-3 rounded-xl border bg-card px-[18px] py-3.5 text-[13.5px] shadow-card"
         >
-          <Archive className="size-4 shrink-0" />
+          <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-text-secondary" aria-hidden>
+            <Archive className="size-4" />
+          </span>
           <div className="min-w-0 flex-1">
-            <p className="font-medium">{t("archivedTitle")}</p>
-            <p className="text-xs opacity-80">{t("archivedDescription")}</p>
+            <p className="font-semibold">{t("archivedTitle")}</p>
+            <p className="text-[13px] text-muted-foreground">{t("archivedDescription")}</p>
           </div>
           <Button
-            size="sm"
             variant="outline"
             onClick={onRestoreProject}
             disabled={restoring}
@@ -422,7 +423,6 @@ export function BoardClient({
         )}
         <ShortcutTooltip label={t("newTask")} shortcut={PROJECT_PAGE_SHORTCUTS.newTask}>
           <Button
-            size="sm"
             className={hideHeader ? "" : "ml-auto"}
             onClick={() => {
               openNewTask(columns[0]?.id ?? "");
@@ -444,7 +444,7 @@ export function BoardClient({
         onDragEnd={onDragEnd}
         onDragCancel={restoreCancelledDrag}
       >
-        <div className="flex min-w-0 max-w-full flex-1 items-start gap-3 overflow-x-auto pb-4">
+        <div className="flex min-w-0 max-w-full flex-1 items-start gap-4 overflow-x-auto pb-4">
           {columns.map((column, index) => (
             <BoardColumn
               key={column.id}
@@ -488,8 +488,7 @@ export function BoardClient({
           {!readOnly && (
             <Button
               variant="outline"
-              size="sm"
-              className="mt-1 shrink-0"
+              className="mt-1.5 shrink-0"
               onClick={() => openColumnDialog(null)}
             >
               <Plus className="size-4" />

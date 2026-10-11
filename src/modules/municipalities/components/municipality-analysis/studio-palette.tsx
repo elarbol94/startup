@@ -55,14 +55,14 @@ export function StudioPalette({
         <div className="grid gap-4 py-3">
           {OPERATOR_GROUPS.map((group) => (
             <section key={group.key}>
-              <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t(`studioOperatorGroup_${group.key}`)}</h3>
+              <h3 className="text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t(`studioOperatorGroup_${group.key}`)}</h3>
               <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                 {group.operators.map((operator) => (
                   <button
                     key={operator}
                     type="button"
                     draggable
-                    className="flex h-9 items-center gap-2 rounded-lg border bg-background px-2 text-left text-xs font-medium hover:border-violet-500 hover:bg-violet-50 dark:hover:bg-violet-950"
+                    className="flex h-9 items-center gap-2 rounded-lg border bg-card px-2 text-left text-xs font-medium hover:bg-accent"
                     title={t(`operator_${operator}`)}
                     aria-label={t("addOperator", { operator: t(`operator_${operator}`) })}
                     onClick={() => onOperator(operator)}
@@ -76,7 +76,7 @@ export function StudioPalette({
             </section>
           ))}
           <section>
-            <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t("studioOperatorGroup_inputs")}</h3>
+            <h3 className="text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioOperatorGroup_inputs")}</h3>
             <div className="mt-1.5 grid grid-cols-2 gap-1.5">
               {/* Draggable like the operators beside it: the drop handler has always
                   accepted a constant, but nothing offered one to drag. */}

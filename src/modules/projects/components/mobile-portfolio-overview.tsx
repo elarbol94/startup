@@ -83,11 +83,11 @@ export function MobilePortfolioOverview({
   return (
     <div className="grid gap-5 md:hidden" data-testid="mobile-portfolio">
       <section aria-labelledby="mobile-projects-heading" className="grid gap-2">
-        <h2 id="mobile-projects-heading" className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+        <h2 id="mobile-projects-heading" className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
           {t("mobileProjectsHeading")} <span className="font-mono tabular-nums">({projects.length})</span>
         </h2>
         {projects.length === 0 && (
-          <p className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">{t("mobileNoProjects")}</p>
+          <p className="rounded-xl border border-dashed border-line-strong p-4 text-center text-[13.5px] text-muted-foreground">{t("mobileNoProjects")}</p>
         )}
         {projects.map((project) => {
           const tasks = tasksByProject.get(project.id) ?? [];
@@ -103,7 +103,7 @@ export function MobilePortfolioOverview({
               href={`/projects/${project.id}`}
               aria-label={t("openProjectPage", { name: project.name })}
               className={cn(
-                "grid gap-2.5 rounded-lg border border-l-4 bg-card p-3 text-left transition-colors hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-ring",
+                "grid gap-2.5 rounded-xl border border-l-4 bg-card p-3 text-left shadow-card transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring",
               )}
               style={{ borderLeftColor: project.color }}
             >
@@ -111,10 +111,10 @@ export function MobilePortfolioOverview({
                 <span className="min-w-0 flex-1 text-sm leading-snug font-semibold">{project.name}</span>
                 <span
                   className={cn(
-                    "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    "inline-flex h-5 shrink-0 items-center rounded-full px-2 text-[11px] font-semibold",
                     health.atRisk
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                      : "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300",
+                      ? "bg-amber-500/15 text-amber-800 dark:text-amber-300"
+                      : "bg-brand-soft text-brand-ink",
                   )}
                 >
                   {health.atRisk ? t("atRisk") : t("onTrack")}
@@ -135,7 +135,7 @@ export function MobilePortfolioOverview({
                 <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted" aria-hidden>
                   <div className="h-full rounded-full" style={{ width: `${progress}%`, backgroundColor: project.color }} />
                 </div>
-                <span className="w-9 text-right font-mono text-xs tabular-nums text-muted-foreground">{progress}%</span>
+                <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">{progress}%</span>
               </div>
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 text-xs text-muted-foreground">
                 <span className="flex min-w-0 items-center gap-2">
@@ -145,7 +145,7 @@ export function MobilePortfolioOverview({
                   )}
                 </span>
                 <span className="flex min-w-0 items-center gap-1">
-                  {next?.isMilestone ? <Diamond className="size-3 shrink-0 fill-indigo-500 text-indigo-600" aria-hidden /> : <CalendarClock className="size-3 shrink-0" aria-hidden />}
+                  {next?.isMilestone ? <Diamond className="size-3 shrink-0 fill-brand text-brand-ink" aria-hidden /> : <CalendarClock className="size-3 shrink-0" aria-hidden />}
                   {next ? (
                     <span className="truncate"><span className="sr-only">{t("nextUp")}: </span><span className="font-medium text-foreground">{shortDate(next.dueDate!)}</span> · {next.title}</span>
                   ) : project.targetEndDate ? (
@@ -162,7 +162,7 @@ export function MobilePortfolioOverview({
 
       {(overdue.length > 0 || upcoming.length > 0) && (
         <section aria-labelledby="mobile-deadlines-heading" className="grid gap-3">
-          <h2 id="mobile-deadlines-heading" className="text-xs font-semibold tracking-[0.08em] text-muted-foreground uppercase">
+          <h2 id="mobile-deadlines-heading" className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
             {t("mobileDeadlinesHeading")}
           </h2>
           {overdue.length > 0 && (
@@ -195,7 +195,7 @@ function DeadlineGroup({
   const overdue = tone === "overdue";
   return (
     <div className="grid gap-1.5">
-      <h3 className={cn("text-sm font-medium", overdue && "text-red-700 dark:text-red-400")}>
+      <h3 className={cn("text-[13.5px] font-medium", overdue && "text-late")}>
         {title} <span className="font-mono text-xs tabular-nums">({deadlines.length})</span>
       </h3>
       <ul className="grid gap-1.5">
@@ -204,19 +204,19 @@ function DeadlineGroup({
             <Link
               href={deadlineHref(deadline)}
               className={cn(
-                "grid grid-cols-[auto_1fr] items-center gap-3 rounded-lg border p-3 text-left focus-visible:outline-2 focus-visible:outline-ring",
+                "grid grid-cols-[auto_1fr] items-center gap-3 rounded-xl border p-3 text-left focus-visible:outline-2 focus-visible:outline-ring",
                 overdue
-                  ? "border-red-300 bg-red-50/60 dark:border-red-900/70 dark:bg-red-950/20"
+                  ? "border-destructive/30 bg-destructive/5"
                   : "bg-card",
               )}
             >
-              <Diamond className={cn("size-4", overdue ? "fill-red-500 text-red-600" : "fill-amber-500 text-amber-600")} aria-hidden />
+              <Diamond className={cn("size-4", overdue ? "fill-late text-late" : "fill-amber-500 text-amber-600")} aria-hidden />
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{deadline.title}</span>
                 <span className="flex flex-wrap items-center gap-x-2 text-xs">
-                  <span className={overdue ? "font-medium text-red-700 dark:text-red-400" : "text-muted-foreground"}>{label(deadline)}</span>
+                  <span className={overdue ? "font-medium text-late" : "text-muted-foreground"}>{label(deadline)}</span>
                   {overdue && (
-                    <span className="rounded-sm bg-red-600 px-1.5 py-px text-[10px] font-semibold tracking-wide text-white uppercase">{overdueTag}</span>
+                    <span className="inline-flex h-5 items-center rounded-full bg-destructive/15 px-2 text-[11px] font-semibold text-destructive">{overdueTag}</span>
                   )}
                 </span>
               </span>

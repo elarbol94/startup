@@ -204,10 +204,10 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
   const renderDigitalCostMethodology = () => (
     <p className="mt-3 text-[11px] leading-4 text-muted-foreground" data-testid="digital-cost-methodology">
       {t("digitalCostMethodology")} {t("digitalCostSources")}:{" "}
-      <a className="text-teal-700 underline underline-offset-2 dark:text-teal-300" href="https://cdn.citiesapps.com/pages/f8f520c0e306b26e1627e156/page-file-system/1706179605834_NiederschriftGR16.06.2023.pdf" target="_blank" rel="noreferrer">{t("digitalCostPublicOffers")}</a>,{" "}
-      <a className="text-teal-700 underline underline-offset-2 dark:text-teal-300" href="https://citiesapps.com/help-center/faq/faq-cities-und-municipalities" target="_blank" rel="noreferrer">CITIES</a>,{" "}
-      <a className="text-teal-700 underline underline-offset-2 dark:text-teal-300" href="https://gemeindeapp.at/faq/" target="_blank" rel="noreferrer">GemeindeApp</a>,{" "}
-      <a className="text-teal-700 underline underline-offset-2 dark:text-teal-300" href="https://daheim-app.at/" target="_blank" rel="noreferrer">Daheim App</a>.
+      <a className="text-brand-ink underline underline-offset-2" href="https://cdn.citiesapps.com/pages/f8f520c0e306b26e1627e156/page-file-system/1706179605834_NiederschriftGR16.06.2023.pdf" target="_blank" rel="noreferrer">{t("digitalCostPublicOffers")}</a>,{" "}
+      <a className="text-brand-ink underline underline-offset-2" href="https://citiesapps.com/help-center/faq/faq-cities-und-municipalities" target="_blank" rel="noreferrer">CITIES</a>,{" "}
+      <a className="text-brand-ink underline underline-offset-2" href="https://gemeindeapp.at/faq/" target="_blank" rel="noreferrer">GemeindeApp</a>,{" "}
+      <a className="text-brand-ink underline underline-offset-2" href="https://daheim-app.at/" target="_blank" rel="noreferrer">Daheim App</a>.
     </p>
   );
   const costMeasureDefinitions: Record<CostMeasureId, string> = {

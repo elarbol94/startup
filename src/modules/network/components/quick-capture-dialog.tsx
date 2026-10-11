@@ -172,8 +172,8 @@ export function QuickCaptureDialog({
                     type="button"
                     aria-pressed={form.kind === kind}
                     className={cn(
-                      "rounded-full border px-2.5 py-0.5 text-xs transition-colors",
-                      form.kind === kind ? "border-primary bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted",
+                      "inline-flex h-6 items-center rounded-full border px-2.5 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      form.kind === kind ? "border-brand bg-brand-soft text-brand-ink" : "border-line-strong text-text-secondary hover:bg-accent hover:text-foreground",
                     )}
                     onClick={() => setForm((current) => ({ ...current, kind }))}
                   >

@@ -2,14 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
-import { CheckCircle2, Pencil, RefreshCw } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { CheckCircle2, CircleCheck, CircleHelp, Pencil, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { approveProtocol, regenerateProtocol } from "../../protocol-actions";
 import { emptyProtocol, type ProtocolContent } from "../../protocol-content";
 import type { MeetingDetail } from "../../queries";
 import type { MeetingFormOptions } from "../new-meeting-dialog";
 import { formatClock, useMeetingAction } from "../meeting-ui";
+import { MeetingPill } from "../meeting-pill";
 import { ActionItems } from "./action-items";
 import { ProtocolEditor } from "./protocol-editor";
 import { speakerName, speakerOrder } from "./transcript-panel";
@@ -23,7 +23,7 @@ function Evidence({ ids, segments, nameOf }: { ids: string[]; segments: Map<stri
   return (
     <details className="mt-1 text-xs text-muted-foreground">
       <summary className="cursor-pointer select-none">{t("protocol.evidence", { count: found.length })}</summary>
-      <ul className="mt-1 space-y-1 border-l pl-3">
+      <ul className="mt-1 space-y-1 border-l-2 border-line-strong pl-3">
         {found.map((segment) => (
           <li key={segment.id}><span className="font-mono tabular-nums">{formatClock(segment.startMs)}</span> {nameOf(segment.speakerKey)}: „{segment.text}“</li>
         ))}
@@ -38,26 +38,35 @@ function ProtocolView({ content, segments, nameOf, actionItems }: {
   const t = useTranslations("meetings");
   const section = (title: string, children: React.ReactNode) => (
     <section className="space-y-2">
-      <h3 className="font-medium">{title}</h3>
+      <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{title}</h3>
       {children}
     </section>
   );
-  const list = (items: Array<{ key: string; text: string; evidence: string[] }>) => items.length
-    ? <ul className="list-disc space-y-1.5 pl-5 text-sm">{items.map((item) => <li key={item.key}>{item.text}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></li>)}</ul>
-    : <p className="text-sm text-muted-foreground">{t("protocol.nothing")}</p>;
+  const list = (items: Array<{ key: string; text: string; evidence: string[] }>, Icon: typeof CircleCheck) => items.length
+    ? (
+      <ul className="space-y-1 text-[13.5px]">
+        {items.map((item) => (
+          <li key={item.key} className="flex gap-2 py-1">
+            <Icon className="mt-0.5 size-[15px] shrink-0 text-brand-ink" aria-hidden />
+            <div className="min-w-0">{item.text}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></div>
+          </li>
+        ))}
+      </ul>
+    )
+    : <p className="text-[13.5px] text-muted-foreground">{t("protocol.nothing")}</p>;
   return (
-    <div className="space-y-5">
-      {content.summary && <p className="text-sm whitespace-pre-wrap">{content.summary}</p>}
+    <div className="space-y-[18px]">
+      {content.summary && <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-text-secondary">{content.summary}</p>}
       {section(t("protocol.agenda"), content.agendaItems.length ? (
-        <ol className="list-decimal space-y-2 pl-5 text-sm">
+        <ol className="list-decimal space-y-2 pl-5 text-[13.5px] marker:text-text-tertiary">
           {content.agendaItems.map((item) => (
-            <li key={item.key}><span className="font-medium">{item.title}</span>{item.summary && <p className="whitespace-pre-wrap">{item.summary}</p>}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></li>
+            <li key={item.key}><span className="font-medium">{item.title}</span>{item.summary && <p className="whitespace-pre-wrap text-text-secondary">{item.summary}</p>}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></li>
           ))}
         </ol>
-      ) : <p className="text-sm text-muted-foreground">{t("protocol.nothing")}</p>)}
-      {section(t("protocol.decisions"), list(content.decisions))}
+      ) : <p className="text-[13.5px] text-muted-foreground">{t("protocol.nothing")}</p>)}
+      {section(t("protocol.decisions"), list(content.decisions, CircleCheck))}
       {section(t("protocol.actionItems"), actionItems)}
-      {section(t("protocol.openQuestions"), list(content.openQuestions))}
+      {section(t("protocol.openQuestions"), list(content.openQuestions, CircleHelp))}
     </div>
   );
 }
@@ -92,7 +101,7 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
   if (!current) {
     const generating = detail.meeting.aiPolicy === "openai" && detail.recordings.length > 0;
     return (
-      <div className="space-y-3 text-sm">
+      <div className="space-y-3 text-[13.5px]">
         <p className="text-muted-foreground">{generating ? t("protocol.generating") : t("protocol.empty")}</p>
         {canContribute && <Button variant="outline" onClick={() => setEditing(true)}><Pencil />{t("protocol.writeManually")}</Button>}
       </div>
@@ -101,10 +110,10 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
 
   const isApproved = approved?.id === current.id;
   return (
-    <div className="space-y-5">
+    <div className="space-y-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <Badge variant={isApproved ? "default" : "secondary"}>{isApproved ? t("protocol.approved") : t("protocol.draft")}</Badge>
+        <div className="flex flex-wrap items-center gap-2 text-[13px]">
+          <MeetingPill tone={isApproved ? "ok" : "draft"}>{isApproved ? t("protocol.approved") : t("protocol.draft")}</MeetingPill>
           <span className="text-muted-foreground">{t("protocol.version", { version: current.version })} · {t(`protocol.source.${current.source}`)}</span>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -125,11 +134,15 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
         actionItems={isApproved
           ? <ActionItems detail={detail} protocolId={current.id} items={current.content.actionItems} options={options} />
           : current.content.actionItems.length
-            ? <ul className="list-disc space-y-1.5 pl-5 text-sm">{current.content.actionItems.map((item) => <li key={item.itemKey}>{item.text}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></li>)}</ul>
-            : <p className="text-sm text-muted-foreground">{t("protocol.nothing")}</p>}
+            ? (
+              <ul className="divide-y divide-line-soft overflow-hidden rounded-xl border bg-surface-raised text-[13.5px]">
+                {current.content.actionItems.map((item) => <li key={item.itemKey} className="px-[18px] py-[11px]">{item.text}<Evidence ids={item.evidence} segments={segments} nameOf={nameOf} /></li>)}
+              </ul>
+            )
+            : <p className="text-[13.5px] text-muted-foreground">{t("protocol.nothing")}</p>}
       />
       {approved && !isApproved && (
-        <details className="rounded-xl border p-3">
+        <details className="rounded-xl border bg-surface-raised px-[18px] py-3">
           <summary className="cursor-pointer text-sm font-medium">{t("protocol.showApproved", { version: approved.version })}</summary>
           <div className="mt-3">
             <ProtocolView content={approved.content} segments={segments} nameOf={nameOf}

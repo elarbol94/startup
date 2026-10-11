@@ -11,12 +11,6 @@ import {
 } from "@/modules/accounting/queries";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   Table,
   TableBody,
   TableCell,
@@ -26,6 +20,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { YearSelect } from "./year-select";
+
+/** Report card (design 1b): 52 px header with hairline, table flush to the edges. */
+function ReportCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-card">
+      <h2 className="border-b border-line-soft px-[18px] py-3.5 text-[15px] font-semibold">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
 export default async function ReportPage({
   searchParams,
@@ -64,7 +68,7 @@ export default async function ReportPage({
     .reduce((sum, row) => sum + row.vat, 0);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={`${t("report")} ${year}`}
@@ -83,15 +87,11 @@ export default async function ReportPage({
         }
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="min-w-0">
-          <CardHeader>
-            <CardTitle>{t("monthlyOverview")}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
+      <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-2">
+        <ReportCard title={t("monthlyOverview")}>
+            <Table className="text-[13.5px] [&_tbody_tr]:h-[42px] [&_tbody_tr]:border-line-soft [&_td:first-child]:pl-[18px] [&_td:last-child]:pr-[18px] [&_th:first-child]:pl-[18px] [&_th:last-child]:pr-[18px]">
               <TableHeader>
-                <TableRow>
+                <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
                   <TableHead>{t("month")}</TableHead>
                   <TableHead className="text-right">{t("incomePlural")}</TableHead>
                   <TableHead className="text-right">{t("expensePlural")}</TableHead>
@@ -116,7 +116,7 @@ export default async function ReportPage({
                       </TableCell>
                       <TableCell
                         className={`text-right font-medium tabular-nums ${
-                          balance < 0 ? "text-destructive" : ""
+                          balance < 0 ? "text-late" : ""
                         }`}
                       >
                         {formatCents(balance, locale)}
@@ -136,7 +136,7 @@ export default async function ReportPage({
                   </TableCell>
                   <TableCell
                     className={`text-right font-semibold tabular-nums ${
-                      totalIncome - totalExpense < 0 ? "text-destructive" : ""
+                      totalIncome - totalExpense < 0 ? "text-late" : ""
                     }`}
                   >
                     {formatCents(totalIncome - totalExpense, locale)}
@@ -144,18 +144,13 @@ export default async function ReportPage({
                 </TableRow>
               </TableFooter>
             </Table>
-          </CardContent>
-        </Card>
+          </ReportCard>
 
-        <div className="flex min-w-0 flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("vatSummaryTitle")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
+        <div className="flex min-w-0 flex-col gap-5">
+          <ReportCard title={t("vatSummaryTitle")}>
+              <Table className="text-[13.5px] [&_tbody_tr]:h-[42px] [&_tbody_tr]:border-line-soft [&_td:first-child]:pl-[18px] [&_td:last-child]:pr-[18px] [&_th:first-child]:pl-[18px] [&_th:last-child]:pr-[18px]">
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
                     <TableHead>{t("vatRate")}</TableHead>
                     <TableHead className="text-right">{t("vatCollected")}</TableHead>
                     <TableHead className="text-right">{t("vatPaid")}</TableHead>
@@ -192,17 +187,12 @@ export default async function ReportPage({
                   </TableRow>
                 </TableFooter>
               </Table>
-            </CardContent>
-          </Card>
+            </ReportCard>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t("categoryBreakdown")}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
+          <ReportCard title={t("categoryBreakdown")}>
+              <Table className="text-[13.5px] [&_tbody_tr]:h-[42px] [&_tbody_tr]:border-line-soft [&_td:first-child]:pl-[18px] [&_td:last-child]:pr-[18px] [&_th:first-child]:pl-[18px] [&_th:last-child]:pr-[18px]">
                 <TableHeader>
-                  <TableRow>
+                  <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
                     <TableHead>{t("category")}</TableHead>
                     <TableHead className="text-right">{t("net")}</TableHead>
                     <TableHead className="text-right">{t("deductible")}</TableHead>
@@ -243,8 +233,7 @@ export default async function ReportPage({
                   ))}
                 </TableBody>
               </Table>
-            </CardContent>
-          </Card>
+            </ReportCard>
         </div>
       </div>
     </div>

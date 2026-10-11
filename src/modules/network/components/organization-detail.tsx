@@ -25,6 +25,7 @@ import { LeadDialog, type LeadDialogState } from "./lead-dialog";
 import { LeadList } from "./lead-list";
 import { MunicipalityLink } from "./municipality-link";
 import { MunicipalityPicker, type MunicipalityValue } from "./municipality-picker";
+import { NetworkCard, NetworkCardEmpty, networkListClass, networkRowClass } from "./network-card";
 import { OrganizationMergeDialog, type OrganizationMergeStart } from "./organization-merge-dialog";
 import { useNetworkAction } from "./use-network-action";
 
@@ -54,10 +55,10 @@ export function OrganizationDetail({
         {t("organizations.back")}
       </Link>
 
-      <section className="space-y-3 rounded-2xl border bg-card p-4 sm:p-5">
+      <section className="space-y-3 rounded-xl border bg-card px-[18px] py-4 shadow-card">
         <div className="flex items-start justify-between gap-3">
-          <h2 className="flex min-w-0 items-center gap-2 text-xl font-semibold tracking-tight">
-            <Building2 className="size-5 shrink-0 text-muted-foreground" />
+          <h2 className="flex min-w-0 items-center gap-2 text-lg leading-snug font-semibold tracking-[-0.01em]">
+            <span aria-hidden className="grid size-8 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink"><Building2 className="size-4" /></span>
             <span className="truncate">{organization.name}</span>
           </h2>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -74,28 +75,27 @@ export function OrganizationDetail({
           </div>
         </div>
         {organization.municipalityCode && (
-          <p className="inline-flex items-center gap-1.5 text-sm">
+          <p className="inline-flex items-center gap-1.5 text-[13.5px]">
             <MapPin className="size-4 shrink-0 text-muted-foreground" />
             <MunicipalityLink code={organization.municipalityCode} name={organization.municipalityName ?? organization.municipalityCode} />
           </p>
         )}
         {organization.website && (
-          <a href={organization.website} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-sm break-all underline-offset-4 hover:underline">
+          <a href={organization.website} target="_blank" rel="noreferrer noopener" className="inline-flex items-center gap-1.5 text-[13.5px] break-all underline-offset-4 hover:underline">
             <Globe className="size-4 shrink-0 text-muted-foreground" />
             {organization.website.replace(/^https?:\/\/(www\.)?/, "")}
           </a>
         )}
-        {organization.notes && <p className="text-sm whitespace-pre-wrap">{organization.notes}</p>}
+        {organization.notes && <p className="text-[13.5px] leading-relaxed whitespace-pre-wrap text-text-secondary">{organization.notes}</p>}
         <p className="text-xs text-muted-foreground">{t("organizations.sharedHint")}</p>
       </section>
 
-      <section className="space-y-2">
-        <h3 className="font-medium">{t("organizations.peopleTitle")}</h3>
+      <NetworkCard title={t("organizations.peopleTitle")} count={organization.people.length || undefined}>
         {organization.people.length ? (
-          <ul className="divide-y overflow-hidden rounded-2xl border bg-card">
+          <ul className={networkListClass}>
             {organization.people.map((person) => (
               <li key={person.id}>
-                <Link href={`/network/${person.id}`} className="flex items-center gap-2 px-4 py-3 text-sm hover:bg-muted/50">
+                <Link href={`/network/${person.id}`} className={`${networkRowClass} flex items-center gap-2 outline-none transition-colors hover:bg-accent focus-visible:bg-accent`}>
                   <span className="font-medium">{person.name}</span>
                   {person.visibility === "private"
                     ? <Lock className="size-3.5 text-muted-foreground" aria-label={t("visibility.private")} />
@@ -106,18 +106,17 @@ export function OrganizationDetail({
             ))}
           </ul>
         ) : (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("organizations.noPeople")}</p>
+          <NetworkCardEmpty>{t("organizations.noPeople")}</NetworkCardEmpty>
         )}
-      </section>
+      </NetworkCard>
 
-      <section className="space-y-2">
-        <h3 className="font-medium">{t("organizations.introsTitle")}</h3>
+      <NetworkCard title={t("organizations.introsTitle")} count={organization.introductions.length || undefined}>
         {organization.introductions.length ? (
-          <LeadList leads={organization.introductions} today={today} showContact onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
+          <LeadList embedded leads={organization.introductions} today={today} showContact onEdit={(lead) => setLeadDialog({ mode: "edit", lead })} />
         ) : (
-          <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("organizations.noIntros")}</p>
+          <NetworkCardEmpty>{t("organizations.noIntros")}</NetworkCardEmpty>
         )}
-      </section>
+      </NetworkCard>
 
       <OrganizationEditDialog
         organization={organization}

@@ -19,9 +19,9 @@ export function CallStatus({ detail }: { detail: MeetingDetail }) {
     ?? call.joined.find((entry) => entry.userId === call.startedBy)?.name ?? t("detailUi.unknownPerson");
 
   return (
-    <section className="space-y-2 rounded-xl border border-red-500/30 bg-red-500/5 p-3 text-sm" aria-label={call.record ? t("call.runningRecorded") : t("call.running")}>
+    <section className="space-y-2 rounded-xl border border-destructive/30 bg-destructive/5 px-[18px] py-3 text-[13.5px]" aria-label={call.record ? t("call.runningRecorded") : t("call.running")}>
       <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-        {call.record ? <CircleDot className="size-4 text-red-600" aria-hidden /> : <Video className="size-4 text-red-600" aria-hidden />}
+        {call.record ? <CircleDot className="size-4 text-destructive" aria-hidden /> : <Video className="size-4 text-destructive" aria-hidden />}
         <span className="font-medium">{call.record ? t("call.runningRecorded") : t("call.running")}</span>
         <span className="text-muted-foreground">{t("detailUi.callStarted", { time: time(call.startedAt), name: starter })}</span>
       </p>
@@ -30,7 +30,7 @@ export function CallStatus({ detail }: { detail: MeetingDetail }) {
         {call.joined.length === 0 ? <span className="text-muted-foreground">{t("detailUi.callNobodyJoined")}</span> : (
           <ul className="flex flex-wrap gap-1.5">
             {call.joined.map((entry) => (
-              <li key={entry.userId} className="rounded-full border bg-background px-2 py-0.5 text-xs">
+              <li key={entry.userId} className="rounded-full border bg-card px-2 py-0.5 text-xs">
                 {entry.name} <span className="text-muted-foreground">· {t("detailUi.callJoinedAt", { time: time(entry.joinedAt) })}</span>
               </li>
             ))}

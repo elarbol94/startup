@@ -8,8 +8,8 @@ import { FileText, Plus, Search, X } from "lucide-react";
 import { UserAttribution } from "@/components/user-identity";
 import { formatCents } from "@/lib/money";
 import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
@@ -22,7 +22,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { InvoiceStatusBadge } from "./invoice-status-badge";
+import { InvoiceStatusBadge, StatusPill } from "./invoice-status-badge";
 import { ProjectChip, ProjectDot } from "@/modules/projects/components/project-chip";
 
 export type InvoiceListItem = {
@@ -85,27 +85,27 @@ export function OverdueFilterTile({
 }) {
   const content = (
     <>
-      <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{label}</p>
       <p
         className={cn(
-          "mt-2 text-2xl font-semibold tabular-nums",
-          count > 0 && "text-destructive",
+          "mt-2 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular-nums",
+          count > 0 && "text-late",
         )}
       >
         {count}
       </p>
       {count > 0 ? (
-        <p className="mt-1 text-xs text-muted-foreground group-hover:text-foreground">
+        <p className="mt-0.5 text-xs text-muted-foreground group-hover:text-foreground">
           {hint}
         </p>
       ) : null}
     </>
   );
-  if (count === 0) return <div className="p-4">{content}</div>;
+  if (count === 0) return <div className="px-[18px] py-4">{content}</div>;
   return (
     <a
       href="?status=overdue#invoices"
-      className="group block p-4 text-left transition-colors hover:bg-muted/40 focus-visible:outline-2 focus-visible:-outline-offset-2"
+      className="group block px-[18px] py-4 text-left transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       onClick={(event) => {
         event.preventDefault();
         setInvoiceStatusParam("overdue");
@@ -209,9 +209,9 @@ export function InvoiceList({
   function statusBadge(invoice: InvoiceListItem) {
     if (isInvoiceOverdue(invoice, today)) {
       return (
-        <Badge variant="destructive" title={tInvoices("statusSent")}>
+        <StatusPill className="bg-late/15 text-late" title={tInvoices("statusSent")}>
           {t("overdue")}
-        </Badge>
+        </StatusPill>
       );
     }
     return <InvoiceStatusBadge status={invoice.status} />;
@@ -221,7 +221,7 @@ export function InvoiceList({
     if (!invoice.dueDate) return "–";
     const overdue = isInvoiceOverdue(invoice, today);
     return (
-      <span className={cn(overdue && "font-medium text-destructive")}>
+      <span className={cn(overdue && "font-medium text-late")}>
         {formatDate(invoice.dueDate)}
       </span>
     );
@@ -231,26 +231,27 @@ export function InvoiceList({
 
   if (invoices.length === 0) {
     return (
-      <div className="flex min-h-40 flex-col items-center justify-center px-5 py-10 text-center">
-        <FileText className="mb-3 size-7 text-muted-foreground/60" />
-        <p className="text-sm font-medium">{tInvoices("noInvoices")}</p>
-        <Button
-          className="mt-4"
-          variant="outline"
-          size="sm"
-          nativeButton={false}
-          render={<Link href="/accounting/invoices/new" />}
-        >
-          <Plus className="size-4" />
-          {tInvoices("newInvoice")}
-        </Button>
-      </div>
+      <EmptyState
+        icon={<FileText />}
+        title={tInvoices("noInvoices")}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            nativeButton={false}
+            render={<Link href="/accounting/invoices/new" />}
+          >
+            <Plus className="size-4" />
+            {tInvoices("newInvoice")}
+          </Button>
+        }
+      />
     );
   }
 
   return (
     <>
-      <div className="flex flex-col gap-3 border-b px-3 py-3 sm:px-5">
+      <div className="flex flex-col gap-3 border-b border-line-soft px-3 py-3 sm:px-[18px]">
         <div className="relative">
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <ShortcutTooltip label={t("searchLabel")} shortcut={SECTION_PAGE_SHORTCUTS.accounting.invoiceSearch}>
@@ -269,7 +270,7 @@ export function InvoiceList({
           ref={filterBarRef}
           role="group"
           aria-label={tInvoices("status")}
-          className="scroll-fade-x -mx-3 flex gap-1.5 px-3 sm:-mx-5 sm:px-5"
+          className="scroll-fade-x -mx-3 flex gap-1.5 px-3 sm:-mx-[18px] sm:px-[18px]"
         >
           {INVOICE_STATUS_FILTERS.map((option) => {
             const active = option === status;
@@ -280,21 +281,21 @@ export function InvoiceList({
                 aria-pressed={active}
                 onClick={() => setInvoiceStatusParam(option)}
                 className={cn(
-                  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2",
+                  "inline-flex h-7 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[12.5px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active
-                    ? "border-foreground bg-foreground text-background"
-                    : "bg-background text-muted-foreground hover:text-foreground",
+                    ? "border-transparent bg-brand-soft text-brand-ink"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
                   !active &&
                     option === "overdue" &&
                     counts.overdue > 0 &&
-                    "text-destructive hover:text-destructive",
+                    "text-late hover:text-late",
                 )}
               >
                 {filterLabels[option]}
                 <span
                   className={cn(
                     "tabular-nums",
-                    active ? "text-background/70" : "text-muted-foreground",
+                    active ? "text-brand-ink/70" : "text-text-tertiary",
                   )}
                 >
                   {counts[option]}
@@ -306,12 +307,12 @@ export function InvoiceList({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="flex min-h-40 flex-col items-center justify-center px-5 py-10 text-center">
-          <Search className="mb-3 size-6 text-muted-foreground/60" />
-          <p className="text-sm font-medium">{t("noMatchingInvoices")}</p>
-          {filtersActive ? (
+        <EmptyState
+          compact
+          icon={<Search />}
+          title={t("noMatchingInvoices")}
+          actions={filtersActive ? (
             <Button
-              className="mt-3"
               variant="outline"
               size="sm"
               onClick={() => {
@@ -322,8 +323,8 @@ export function InvoiceList({
               <X className="size-4" />
               {t("resetFilters")}
             </Button>
-          ) : null}
-        </div>
+          ) : undefined}
+        />
       ) : (
         <>
           <ul className="grid grid-cols-1 gap-2 p-3 md:hidden">
@@ -334,13 +335,13 @@ export function InvoiceList({
                   <a
                     href={`/accounting/invoices/${invoice.id}`}
                     className={cn(
-                      "block min-w-0 rounded-xl border bg-background p-3.5 transition hover:border-foreground/25 focus-visible:outline-2 focus-visible:outline-offset-2",
-                      overdue && "border-destructive/40",
+                      "block min-w-0 rounded-xl border bg-card p-3.5 transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                      overdue && "border-late/40",
                     )}
                   >
                     <div className="flex min-w-0 items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-semibold">{invoice.invoiceNumber}</p>
+                        <p className="truncate text-[13.5px] font-semibold">{invoice.invoiceNumber}</p>
                         <p className="mt-0.5 line-clamp-2 text-sm break-words text-muted-foreground">
                           {invoice.customerName}
                         </p>
@@ -359,7 +360,7 @@ export function InvoiceList({
                         {formatCents(invoice.grossCents, locale)}
                       </p>
                     </div>
-                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t pt-2.5">
+                    <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-t border-line-soft pt-2.5">
                       <span className="text-xs text-muted-foreground">
                         {tInvoices("dueDate")}: {dueDate(invoice)}
                       </span>
@@ -372,14 +373,14 @@ export function InvoiceList({
           </ul>
 
           <div className="hidden overflow-x-auto md:block">
-            <Table>
+            <Table className="text-[13.5px]">
               <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-5">{tInvoices("invoiceNumber")}</TableHead>
+                <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
+                  <TableHead className="pl-[18px]">{tInvoices("invoiceNumber")}</TableHead>
                   <TableHead>{tInvoices("customer")}</TableHead>
                   <TableHead>{tInvoices("dueDate")}</TableHead>
                   <TableHead>{tInvoices("status")}</TableHead>
-                  <TableHead className="pr-5 text-right">{tInvoices("total")}</TableHead>
+                  <TableHead className="pr-[18px] text-right">{tInvoices("total")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -388,12 +389,12 @@ export function InvoiceList({
                   return (
                     <TableRow
                       key={invoice.id}
-                      className={cn("relative", overdue && "bg-destructive/5 hover:bg-destructive/10")}
+                      className={cn("relative h-[42px] border-line-soft hover:bg-accent", overdue && "bg-late/5 hover:bg-late/10")}
                     >
-                      <TableCell className="pl-5 font-medium">
+                      <TableCell className="pl-[18px] font-medium">
                         <a
                           href={`/accounting/invoices/${invoice.id}`}
-                          className="after:absolute after:inset-0 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2"
+                          className="outline-none after:absolute after:inset-0 focus-visible:after:ring-2 focus-visible:after:ring-ring focus-visible:after:ring-inset"
                         >
                           {invoice.invoiceNumber}
                         </a>
@@ -410,9 +411,9 @@ export function InvoiceList({
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="whitespace-nowrap">{dueDate(invoice)}</TableCell>
+                      <TableCell className="whitespace-nowrap tabular-nums">{dueDate(invoice)}</TableCell>
                       <TableCell>{statusBadge(invoice)}</TableCell>
-                      <TableCell className="pr-5 text-right font-medium tabular-nums">
+                      <TableCell className="pr-[18px] text-right font-semibold tabular-nums">
                         {formatCents(invoice.grossCents, locale)}
                       </TableCell>
                     </TableRow>

@@ -14,12 +14,12 @@ export function TeamTimelineTrack({
   children?: React.ReactNode;
 }) {
   return (
-    <div className={cn("relative overflow-hidden rounded-sm bg-muted/35", className)}>
+    <div className={cn("relative overflow-hidden rounded-[4px] bg-surface-raised", className)}>
       {ticks.map((tick) => (
         <span
           key={tick}
           aria-hidden="true"
-          className="absolute inset-y-0 w-px bg-border/70"
+          className="absolute inset-y-0 w-px bg-border"
           style={{ left: `${percentOf({ start: tick, end: tick }, range).left}%` }}
         />
       ))}
@@ -42,13 +42,13 @@ export function TeamDayHeader({
   ticks: number[];
 }) {
   return (
-    <div className={cn("min-w-0 border-r px-1.5 pt-2 pb-1 last:border-r-0", isToday && "bg-primary/[0.06]")}>
+    <div className={cn("min-w-0 border-r border-line-soft px-1.5 pt-2 pb-1 last:border-r-0", isToday && "bg-brand-soft")}>
       <p className="flex items-baseline justify-center gap-1.5 text-center">
-        <span className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">{label}</span>
+        <span className={cn("text-[10px] font-semibold uppercase tracking-[0.12em] text-text-tertiary", isToday && "text-brand-ink")}>{label}</span>
         <span
           className={cn(
-            "font-mono text-xs",
-            isToday && "rounded-full bg-primary px-1.5 font-semibold text-primary-foreground",
+            "font-mono text-xs tabular-nums",
+            isToday && "rounded-full bg-brand px-1.5 font-semibold text-brand-on",
           )}
         >
           {date}

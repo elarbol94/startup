@@ -5,6 +5,7 @@
 import { type DragEvent } from "react";
 import { useTranslations } from "next-intl";
 import { Check, Focus, GripVertical } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 import { UserIdentities } from "@/components/user-identity";
 import type { CalendarWorkspace } from "../../types";
 
@@ -22,15 +23,16 @@ export function UnscheduledTray({
   onSelect: (task: CalendarWorkspace["unscheduledTasks"][number]) => void;
 }) {
   return (
-    <div className="sticky top-4 rounded-2xl border bg-card p-4">
-      <div className="flex items-center gap-2">
-        <Focus className="size-4 text-[#6D5EF7]" />
-        <h2 className="text-sm font-semibold">{t("unscheduled")}</h2>
+    <div className="sticky top-4 overflow-hidden rounded-xl border bg-card shadow-card">
+      <div className="flex items-center gap-2.5 border-b border-line-soft px-[18px] py-3.5">
+        <Focus className="size-4 text-brand-ink" />
+        <h2 className="text-[14px] font-semibold">{t("unscheduled")}</h2>
+        {tasks.length > 0 && <span className="text-[12.5px] tabular-nums text-muted-foreground">{tasks.length}</span>}
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+      <p className="px-[18px] pt-2.5 pb-1 text-[12.5px] leading-relaxed text-muted-foreground">
         {t("unscheduledDescription")}
       </p>
-      <div className="mt-4 space-y-2">
+      <div className="flex flex-col gap-2 px-3.5 pt-2.5 pb-3.5">
         {tasks.map((task) => (
           <button
             type="button"
@@ -39,26 +41,19 @@ export function UnscheduledTray({
             onDragStart={(event) => onDragStart(event, task.id)}
             onDragEnd={onDragEnd}
             onClick={() => onSelect(task)}
-            className="flex w-full cursor-grab items-center gap-2 rounded-xl border bg-background p-2.5 text-left active:cursor-grabbing"
+            className="flex w-full cursor-grab items-center gap-2 rounded-md border bg-surface-raised px-2.5 py-2 text-left outline-none transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
           >
-            <GripVertical className="size-4 shrink-0 text-muted-foreground" />
+            <GripVertical className="size-3.5 shrink-0 text-muted-foreground" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-medium">{task.title}</span>
-              <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+              <span className="block truncate text-[13px] font-medium">{task.title}</span>
+              <span className="mt-0.5 block truncate text-[11.5px] text-muted-foreground">
                 {task.projectName ?? ""}
                 <UserIdentities userIds={task.assigneeIds} compact />
               </span>
             </span>
           </button>
         ))}
-        {tasks.length === 0 && (
-          <div className="rounded-xl border border-dashed p-4 text-center">
-            <Check className="mx-auto size-5 text-[#059669]" />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("noUnscheduled")}
-            </p>
-          </div>
-        )}
+        {tasks.length === 0 && <EmptyState compact icon={<Check />} title={t("noUnscheduled")} />}
       </div>
     </div>
   );

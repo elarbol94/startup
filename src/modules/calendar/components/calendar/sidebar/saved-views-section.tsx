@@ -27,7 +27,7 @@ export function SavedViewsSection({
 }) {
   const list = (
     <div className="space-y-px">
-      {savedViews.length === 0 && <p className="px-2 py-1 text-xs text-muted-foreground">{t("sidebarNoSavedViews")}</p>}
+      {savedViews.length === 0 && <p className="px-2 py-1 text-[12.5px] text-muted-foreground">{t("sidebarNoSavedViews")}</p>}
       {savedViews.map((saved) => (
         <Button key={saved.id} variant="ghost" size="sm" className="w-full justify-start font-normal" onClick={() => onApply(saved)}>
           <Bookmark className="text-muted-foreground" />

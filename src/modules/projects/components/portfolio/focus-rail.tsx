@@ -36,6 +36,7 @@ import type { PortfolioDependency, SetState, Zoom } from "./portfolio-types";
 import type { usePortfolioFocus } from "./use-portfolio-focus";
 import type { useTaskTreeActions } from "./use-task-tree-actions";
 import type { useTimelineLayout } from "./use-timeline-layout";
+import { ZoomSegment } from "./zoom-segment";
 
 export function FocusRail({
   focusedTask,
@@ -91,7 +92,7 @@ export function FocusRail({
     .filter((task): task is PortfolioTask => Boolean(task));
   return (
     <section
-      className="relative overflow-hidden rounded-xl border bg-card shadow-xs"
+      className="relative overflow-hidden rounded-xl border bg-card shadow-card"
       aria-label={t("focusMode")}
       data-testid="gantt-focus-rail"
     >
@@ -131,7 +132,7 @@ export function FocusRail({
             ))}
           </nav>
           <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <strong className="truncate text-sm font-semibold">
+            <strong className="truncate text-[14.5px] font-semibold">
               {focusedTask.title}
             </strong>
             <span className="font-mono text-[11px] tabular-nums text-muted-foreground">
@@ -207,20 +208,7 @@ export function FocusRail({
           <ShortcutTooltip label={t("today")} shortcut={PROJECTS_PAGE_SHORTCUTS.today}>
             <Button size="icon-sm" variant="ghost" className="hidden md:inline-flex" onClick={scrollToToday} aria-label={t("today")}><LocateFixed className="size-4" /></Button>
           </ShortcutTooltip>
-          <div className="hidden rounded-md border p-0.5 md:flex">
-            {(["week", "month", "quarter"] as const).map((option) => (
-              <ShortcutTooltip key={option} label={t(option)} shortcut={PROJECTS_PAGE_SHORTCUTS[option]}>
-                <Button
-                  size="xs"
-                  variant={zoom === option ? "secondary" : "ghost"}
-                  aria-pressed={zoom === option}
-                  onClick={() => setTimelineZoom(option)}
-                >
-                  {t(option)}
-                </Button>
-              </ShortcutTooltip>
-            ))}
-          </div>
+          <ZoomSegment zoom={zoom} setTimelineZoom={setTimelineZoom} className="max-md:hidden" />
           <ShortcutTooltip label={t("criticalPath")} shortcut={PROJECTS_PAGE_SHORTCUTS.criticalPath}>
             <Button
               size="icon-sm"

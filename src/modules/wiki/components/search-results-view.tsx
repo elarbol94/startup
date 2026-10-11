@@ -9,15 +9,21 @@ import type { SearchHit } from "../research-actions";
 import { SearchSnippet } from "./search-snippet";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { PageHeader } from "@/components/page-header";
+import { cn } from "@/lib/utils";
+import { WIKI_PAGE_CLASS } from "./wiki-page-class";
 
 const KINDS = ["all", "page", "source", "pdfPage", "annotation"] as const;
 
+const KIND_ICONS: Record<SearchHit["kind"], typeof FileText> = { page: FileText, source: LibraryBig, annotation: Highlighter, pdfPage: BookOpen };
+
 function KindIcon({ kind }: { kind: SearchHit["kind"] }) {
-  if (kind === "page") return <FileText className="mt-0.5 size-4 shrink-0 text-indigo-500" />;
-  if (kind === "source") return <LibraryBig className="mt-0.5 size-4 shrink-0 text-emerald-600" />;
-  if (kind === "annotation") return <Highlighter className="mt-0.5 size-4 shrink-0 text-fuchsia-600" />;
-  return <BookOpen className="mt-0.5 size-4 shrink-0 text-amber-600" />;
+  const Icon = KIND_ICONS[kind];
+  return <Icon className="mt-0.5 size-4 shrink-0 text-muted-foreground" />;
 }
+
+const chipClass = (active: boolean) => cn("text-text-secondary", active && "border-transparent bg-brand-soft text-brand-ink hover:bg-brand-soft hover:text-brand-ink");
 
 export function SearchResultsView({ query, kind, tagId, tags, results }: {
   query: string;
@@ -43,21 +49,21 @@ export function SearchResultsView({ query, kind, tagId, tags, results }: {
   const visible = kind === "all" ? results : results.filter((hit) => hit.kind === kind);
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 p-6">
-      <h1 className="text-xl font-semibold">{t("searchResultsTitle")}</h1>
+    <div className={cn(WIKI_PAGE_CLASS, "space-y-4")}>
+      <PageHeader title={t("searchResultsTitle")} className="mb-5" />
 
       <form
         className="relative"
         onSubmit={(event) => { event.preventDefault(); go(draft, kind); }}
       >
-        <Search className="absolute top-3 left-3 size-4 text-muted-foreground" />
+        <Search className="pointer-events-none absolute top-3.5 left-3.5 size-[18px] text-muted-foreground" />
         <Input
           autoFocus
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           aria-label={t("searchResultsTitle")}
           placeholder={t("launchpadSearchPlaceholder")}
-          className="h-11 pl-9"
+          className="h-[46px] bg-card pl-10 text-[14.5px] md:text-[14.5px]"
         />
       </form>
 
@@ -68,13 +74,14 @@ export function SearchResultsView({ query, kind, tagId, tags, results }: {
             <Button
               key={item}
               type="button"
-              size="xs"
-              variant={kind === item ? "secondary" : "outline"}
+              size="sm"
+              variant="outline"
+              className={chipClass(kind === item)}
               aria-pressed={kind === item}
               onClick={() => go(query, item)}
             >
               {item === "all" ? t("searchKindAll") : t(`searchKinds.${item}`)}
-              <span className="ml-1 text-muted-foreground tabular-nums">{count}</span>
+              <span className="ml-0.5 text-[11px] opacity-70 tabular-nums">{count}</span>
             </Button>
           );
         })}
@@ -82,13 +89,14 @@ export function SearchResultsView({ query, kind, tagId, tags, results }: {
 
       {tags.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          <span className="self-center text-xs text-muted-foreground">{t("tags")}</span>
+          <span className="mr-1 self-center text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("tags")}</span>
           {tags.map((tag) => (
             <Button
               key={tag.id}
               type="button"
-              size="xs"
-              variant={tagId === tag.id ? "secondary" : "ghost"}
+              size="sm"
+              variant="ghost"
+              className={chipClass(tagId === tag.id)}
               aria-pressed={tagId === tag.id}
               onClick={() => go(query, kind, tagId === tag.id ? "" : tag.id)}
             >
@@ -99,19 +107,19 @@ export function SearchResultsView({ query, kind, tagId, tags, results }: {
       )}
 
       {!query ? (
-        <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("searchResultsEmptyQuery")}</p>
+        <div className="rounded-xl border bg-card shadow-card"><EmptyState icon={<Search />} title={t("searchResultsEmptyQuery")} /></div>
       ) : visible.length === 0 ? (
-        <p className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">{t("noResults")}</p>
+        <div className="rounded-xl border bg-card shadow-card"><EmptyState icon={<Search />} title={t("noResults")} /></div>
       ) : (
-        <div className="divide-y rounded-xl border bg-card">
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl border bg-card shadow-card">
           {visible.map((hit) => (
-            <Link key={hit.key} href={hit.href} className="flex gap-3 p-3 transition-colors hover:bg-accent">
+            <Link key={hit.key} href={hit.href} className="flex gap-3 px-[18px] py-[11px] text-[13.5px] transition-colors outline-none hover:bg-accent focus-visible:bg-accent">
               <KindIcon kind={hit.kind} />
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-center gap-2">
-                  <span className="text-sm font-medium">{hit.title}</span>
+                  <span className="font-medium">{hit.title}</span>
                   {"pageNumber" in hit && <span className="text-xs text-muted-foreground">{t("pageNumber", { page: hit.pageNumber })}</span>}
-                  <span className="rounded border px-1 text-[9px] tracking-wide text-muted-foreground uppercase">{t(`searchKinds.${hit.kind}`)}</span>
+                  <span className="inline-flex h-5 items-center rounded-full bg-muted px-2 text-[11px] font-semibold text-text-secondary">{t(`searchKinds.${hit.kind}`)}</span>
                 </span>
                 <span className="mt-0.5 block text-xs text-muted-foreground"><SearchSnippet value={hit.snippet} /></span>
               </span>

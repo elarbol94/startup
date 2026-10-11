@@ -28,7 +28,7 @@ export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
   const [draft, setDraft] = useState<SpeakerMap>(() => transcript?.speakerMap ?? {});
   const [editing, setEditing] = useState(false);
   if (!transcript) {
-    return <p className="text-sm text-muted-foreground">{detail.meeting.aiPolicy === "none" ? t("transcript.aiOff") : t("transcript.empty")}</p>;
+    return <p className="text-[13.5px] text-muted-foreground">{detail.meeting.aiPolicy === "none" ? t("transcript.aiOff") : t("transcript.empty")}</p>;
   }
   const canContribute = detail.role !== "viewer";
   const fallback = (index: number) => t("transcript.speaker", { number: index });
@@ -42,9 +42,9 @@ export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
       {transcript.missingInputs.length > 0 && (
         <p className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm" role="status">{t("transcript.missing", { count: transcript.missingInputs.length })}</p>
       )}
-      {order.length > 0 && <section className="space-y-2 rounded-xl border p-4">
+      {order.length > 0 && <section className="space-y-2 rounded-xl border bg-surface-raised p-4">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="font-medium">{t("transcript.speakers")}</h3>
+          <h3 className="text-sm font-semibold">{t("transcript.speakers")}</h3>
           {canContribute && !editing && <Button size="sm" variant="outline" onClick={() => { setDraft(transcript.speakerMap); setEditing(true); }}>{t("transcript.nameSpeakers")}</Button>}
         </div>
         <p className="text-xs text-muted-foreground">{t("transcript.speakersHint")}</p>
@@ -87,12 +87,12 @@ export function TranscriptPanel({ detail }: { detail: MeetingDetail }) {
         )}
         {!editing && detail.meeting.aiPolicy === "openai" && <p className="text-xs text-muted-foreground">{t("transcript.regenerateHint")}</p>}
       </section>}
-      <ol className="space-y-2">
+      <ol className="divide-y divide-line-soft">
         {transcript.segments.map((segment) => (
-          <li key={segment.id} id={`segment-${segment.id}`} className="grid gap-1 text-sm sm:grid-cols-[4.5rem_9rem_1fr]">
+          <li key={segment.id} id={`segment-${segment.id}`} className="grid gap-1 py-2 text-[13.5px] sm:grid-cols-[4.5rem_9rem_1fr]">
             <span className="font-mono text-xs text-muted-foreground tabular-nums">{formatClock(segment.startMs)}</span>
             <span className="truncate font-medium">{speakerName(segment.speakerKey, transcript.speakerMap, order, fallback)}</span>
-            <span>{segment.text}</span>
+            <span className="text-text-secondary">{segment.text}</span>
           </li>
         ))}
       </ol>

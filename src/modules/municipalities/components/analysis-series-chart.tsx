@@ -67,7 +67,7 @@ export function AnalysisSeriesChart({ series, label, compact = false, trueLabel,
           </g>
         ))}
         {chart.zeroY !== null && <line x1={chart.plotLeft} x2={chart.plotRight} y1={chart.zeroY} y2={chart.zeroY} stroke="currentColor" strokeOpacity="0.35" strokeDasharray="3 3" data-testid="analysis-chart-zero-line" />}
-        {chart.paths.map((path) => <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth={compact ? 3 : 2.5} strokeLinecap="round" strokeLinejoin="round" className="text-teal-700 dark:text-teal-300" />)}
+        {chart.paths.map((path) => <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth={compact ? 3 : 2.5} strokeLinecap="round" strokeLinejoin="round" className="text-brand" />)}
         {chart.points.map((point) => (
           <circle key={point.year} cx={point.x} cy={point.y} r={compact ? 5 : 8} fill="transparent" onPointerEnter={() => setHoveredYear(point.year)} onPointerLeave={() => setHoveredYear(null)} />
         ))}

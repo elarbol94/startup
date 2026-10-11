@@ -61,7 +61,7 @@ export function CalendarSidebar({
 
   if (collapsed) {
     return (
-      <aside aria-label={t("sidebarLabel")} className="hidden w-11 shrink-0 flex-col items-center border-r pt-3 xl:flex" data-testid="calendar-sidebar">
+      <aside aria-label={t("sidebarLabel")} className="hidden w-12 shrink-0 flex-col items-center rounded-xl border bg-card pt-3 shadow-card xl:flex" data-testid="calendar-sidebar">
         <ShortcutTooltip label={t("sidebarExpand")} hint={t("hintSidebarExpand")} side="right">
           <Button size="icon-sm" variant="ghost" aria-label={t("sidebarExpand")} aria-expanded={false} onClick={() => setCollapsed(false)}>
             <PanelLeftOpen />
@@ -72,8 +72,8 @@ export function CalendarSidebar({
   }
 
   return (
-    <aside aria-label={t("sidebarLabel")} className="hidden w-60 shrink-0 flex-col border-r xl:flex" data-testid="calendar-sidebar">
-      <div className="flex items-center gap-1 px-3 pt-3">
+    <aside aria-label={t("sidebarLabel")} className="hidden w-60 shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-card xl:flex" data-testid="calendar-sidebar">
+      <div className="flex items-center gap-1 px-4 pt-4">
         <div className="min-w-0 flex-1">
           <CalendarSearchInput t={t} filters={filters} updateFilters={updateFilters} />
         </div>
@@ -83,7 +83,7 @@ export function CalendarSidebar({
           </Button>
         </ShortcutTooltip>
       </div>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-3 pt-3 pb-5">
+      <div className="min-h-0 flex-1 space-y-[18px] overflow-y-auto px-4 pt-3.5 pb-5">
         <MiniMonth
           t={t}
           className="w-full"

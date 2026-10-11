@@ -46,11 +46,11 @@ export function MunicipalityDigitalPlatformsPanel({
   return (
     <section className="rounded-xl border bg-card p-4" data-testid="municipality-digital-platforms-panel">
       <div className="flex items-start gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-brand-soft text-brand-ink">
           <Layers3 className="size-4" />
         </span>
         <div className="min-w-0">
-          <h3 className="font-semibold">{t("digitalProfileTitle")}</h3>
+          <h3 className="text-sm font-semibold">{t("digitalProfileTitle")}</h3>
           <p className="mt-0.5 text-xs text-muted-foreground">
             {platforms.length
               ? t("digitalProfileSummary", { platforms: platforms.length, areas: groups.length })
@@ -60,23 +60,23 @@ export function MunicipalityDigitalPlatformsPanel({
       </div>
 
       {groups.length ? (
-        <div className="mt-4 divide-y rounded-lg border">
+        <div className="mt-4 divide-y divide-line-soft rounded-lg border">
           {groups.map(({ kind, items }) => (
             <details key={kind} className="group px-3 py-2 first:rounded-t-lg last:rounded-b-lg" open={groups.length <= 3}>
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-medium">
                 <span>{kindLabels[kind]}</span>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums text-muted-foreground">
+                <span className="inline-flex h-5 items-center rounded-full bg-muted px-2 text-[11px] font-semibold text-text-secondary tabular-nums">
                   {number.format(items.length)}
                 </span>
               </summary>
-              <ul className="mt-2 space-y-2 border-t pt-2">
+              <ul className="mt-2 space-y-2 border-t border-line-soft pt-2">
                 {items.map((platform) => (
                   <li key={platform.id} className="text-xs">
                     <a
                       href={platform.url}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-start gap-1 font-medium text-teal-700 underline underline-offset-2 hover:text-teal-800 dark:text-teal-300"
+                      className="inline-flex items-start gap-1 font-medium text-brand-ink underline underline-offset-2"
                     >
                       <span>{platform.name}</span>
                       <ExternalLink className="mt-0.5 size-3 shrink-0" />

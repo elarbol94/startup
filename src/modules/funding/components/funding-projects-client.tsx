@@ -3,17 +3,17 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowRight, Landmark, Plus } from "lucide-react";
+import { ArrowRight, HandCoins, Landmark, Plus } from "lucide-react";
 import { formatCents } from "@/lib/money";
 import type { FundingProjectListRow } from "@/modules/funding/queries";
 import { FundingProjectDialog } from "./project-dialog";
 import { AccountingPageHeader } from "@/modules/accounting/components/accounting-page-header";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
+import { cn } from "@/lib/utils";
 import {
   Table,
   TableBody,
@@ -48,7 +48,7 @@ export function FundingProjectsClient({
   );
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={t("title")}
@@ -63,65 +63,67 @@ export function FundingProjectsClient({
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <SummaryCard label={t("summary.totalCost")} value={formatCents(totals.costs, locale)} />
-        <SummaryCard label={t("summary.requested")} value={formatCents(totals.requested, locale)} />
-        <SummaryCard label={t("summary.approved")} value={formatCents(totals.approved, locale)} />
+      <div className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card shadow-card sm:grid-cols-3">
+        <SummaryTile label={t("summary.totalCost")} value={formatCents(totals.costs, locale)} />
+        <SummaryTile label={t("summary.requested")} value={formatCents(totals.requested, locale)} />
+        <SummaryTile label={t("summary.approved")} value={formatCents(totals.approved, locale)} />
       </div>
 
-      <Card>
-        <CardHeader className="border-b">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Landmark className="size-4 text-muted-foreground" />
-            {t("portfolio")}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
+      <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-card">
+        <header className="flex items-center gap-2.5 border-b border-line-soft px-[18px] py-3.5">
+          <Landmark className="size-4 text-muted-foreground" aria-hidden="true" />
+          <h2 className="text-[15px] font-semibold">{t("portfolio")}</h2>
+          {projects.length > 0 ? (
+            <span className="text-xs text-muted-foreground tabular-nums">{projects.length}</span>
+          ) : null}
+        </header>
           {projects.length === 0 ? (
-            <div className="grid place-items-center gap-2 px-6 py-16 text-center">
-              <Landmark className="size-8 text-muted-foreground" />
-              <p className="font-medium">{t("empty.title")}</p>
-              <p className="max-w-md text-sm text-muted-foreground">{t("empty.description")}</p>
-            </div>
+            <EmptyState
+              icon={<HandCoins />}
+              title={t("empty.title")}
+              description={t("empty.description")}
+            />
           ) : (
             <>
-            <div className="grid gap-3 p-3 md:hidden">
+            <ul className="divide-y divide-line-soft md:hidden">
               {projects.map((project) => (
-                <Link key={project.id} href={`/accounting/funding-projects/${project.id}`} className="rounded-xl border bg-background p-4 transition hover:border-foreground/25 focus-visible:outline-2 focus-visible:outline-offset-2">
+                <li key={project.id}>
+                <Link href={`/accounting/funding-projects/${project.id}`} className="block px-[18px] py-3.5 text-[13.5px] transition-colors outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <h2 className="font-semibold">{project.name}</h2>
-                      <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{project.fundingBody} · {project.programName || project.templateName || t("customTemplate")}</p>
+                      <h3 className="font-semibold">{project.name}</h3>
+                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{project.fundingBody} · {project.programName || project.templateName || t("customTemplate")}</p>
                     </div>
                     <StatusBadge status={project.status} label={t(`status.${project.status}`)} />
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-3 border-t pt-3 text-xs">
-                    <div><dt className="text-muted-foreground">{t("summary.totalCost")}</dt><dd className="mt-1 font-semibold tabular-nums">{formatCents(project.totalProjectCostCents, locale)}</dd></div>
-                    <div><dt className="text-muted-foreground">{t("summary.approved")}</dt><dd className="mt-1 font-semibold tabular-nums">{formatCents(project.approvedFundingCents, locale)}</dd></div>
-                    <div><dt className="text-muted-foreground">{t("summary.requested")}</dt><dd className="mt-1 font-medium tabular-nums">{formatCents(project.requestedGrantCents, locale)}</dd></div>
-                    <div><dt className="text-muted-foreground">{t("summary.ownFunds")}</dt><dd className="mt-1 font-medium tabular-nums">{formatCents(project.requiredOwnFundsCents, locale)}</dd></div>
+                  <dl className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                    <div><dt className="text-muted-foreground">{t("summary.totalCost")}</dt><dd className="mt-0.5 font-semibold tabular-nums">{formatCents(project.totalProjectCostCents, locale)}</dd></div>
+                    <div><dt className="text-muted-foreground">{t("summary.approved")}</dt><dd className="mt-0.5 font-semibold tabular-nums">{formatCents(project.approvedFundingCents, locale)}</dd></div>
+                    <div><dt className="text-muted-foreground">{t("summary.requested")}</dt><dd className="mt-0.5 font-medium tabular-nums">{formatCents(project.requestedGrantCents, locale)}</dd></div>
+                    <div><dt className="text-muted-foreground">{t("summary.ownFunds")}</dt><dd className="mt-0.5 font-medium tabular-nums">{formatCents(project.requiredOwnFundsCents, locale)}</dd></div>
                   </dl>
                 </Link>
+                </li>
               ))}
-            </div>
+            </ul>
             <div className="hidden overflow-x-auto md:block">
-            <Table>
+            <Table className="text-[13.5px]">
               <TableHeader>
-                <TableRow>
-                  <TableHead>{t("fields.name")}</TableHead>
+                <TableRow className="hover:bg-transparent [&>th]:h-9 [&>th]:text-[11.5px] [&>th]:font-medium [&>th]:text-muted-foreground">
+                  <TableHead className="pl-[18px]">{t("fields.name")}</TableHead>
                   <TableHead>{t("fields.fundingBody")}</TableHead>
                   <TableHead>{t("fields.status")}</TableHead>
                   <TableHead className="text-right">{t("summary.totalCost")}</TableHead>
                   <TableHead className="text-right">{t("summary.requested")}</TableHead>
                   <TableHead className="text-right">{t("summary.approved")}</TableHead>
                   <TableHead className="text-right">{t("summary.ownFunds")}</TableHead>
-                  <TableHead><span className="sr-only">{t("openProject")}</span></TableHead>
+                  <TableHead className="pr-[18px]"><span className="sr-only">{t("openProject")}</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {projects.map((project) => (
-                  <TableRow key={project.id}>
-                    <TableCell>
+                  <TableRow key={project.id} className="h-[42px] border-line-soft hover:bg-accent">
+                    <TableCell className="pl-[18px]">
                       <div className="min-w-48">
                         <Link href={`/accounting/funding-projects/${project.id}`} className="font-medium hover:underline">
                           {project.name}
@@ -129,13 +131,13 @@ export function FundingProjectsClient({
                         <p className="text-xs text-muted-foreground">{project.programName || project.templateName || t("customTemplate")}</p>
                       </div>
                     </TableCell>
-                    <TableCell>{project.fundingBody}</TableCell>
+                    <TableCell className="text-muted-foreground">{project.fundingBody}</TableCell>
                     <TableCell><StatusBadge status={project.status} label={t(`status.${project.status}`)} /></TableCell>
                     <MoneyCell value={project.totalProjectCostCents} locale={locale} />
                     <MoneyCell value={project.requestedGrantCents} locale={locale} />
                     <MoneyCell value={project.approvedFundingCents} locale={locale} />
                     <MoneyCell value={project.requiredOwnFundsCents} locale={locale} />
-                    <TableCell className="text-right">
+                    <TableCell className="pr-[18px] text-right">
                       <Button variant="ghost" size="icon-sm" nativeButton={false} render={<Link href={`/accounting/funding-projects/${project.id}`} aria-label={t("openProject")} />}>
                         <ArrowRight className="size-4" />
                       </Button>
@@ -147,22 +149,19 @@ export function FundingProjectsClient({
             </div>
             </>
           )}
-        </CardContent>
-      </Card>
+      </section>
 
       <FundingProjectDialog open={dialogOpen} onOpenChange={setDialogOpen} project={null} templates={templates} />
     </div>
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
+function SummaryTile({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="min-w-0 gap-2 py-4 first:col-span-2 sm:first:col-span-1">
-      <CardContent className="px-4">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <p className="mt-1 truncate text-lg font-semibold tabular-nums sm:text-xl">{value}</p>
-      </CardContent>
-    </Card>
+    <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)] first:col-span-2 sm:first:col-span-1">
+      <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{label}</p>
+      <p className="mt-2 truncate text-lg leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-[22px]">{value}</p>
+    </div>
   );
 }
 
@@ -170,7 +169,20 @@ function MoneyCell({ value, locale }: { value: number; locale: string }) {
   return <TableCell className="text-right font-medium tabular-nums">{formatCents(value, locale)}</TableCell>;
 }
 
+/** Funding project status as a 1b pill: running/approved in brand, rejected destructive, rest neutral. */
 export function StatusBadge({ status, label }: { status: string; label: string }) {
-  const variant = status === "rejected" ? "destructive" : status === "active" || status === "approved" ? "default" : "secondary";
-  return <Badge variant={variant}>{label}</Badge>;
+  return (
+    <span
+      className={cn(
+        "inline-flex h-5 w-fit shrink-0 items-center rounded-full px-2 text-[11px] font-semibold whitespace-nowrap",
+        status === "rejected"
+          ? "bg-destructive/15 text-destructive"
+          : status === "active" || status === "approved"
+            ? "bg-brand-soft text-brand-ink"
+            : "bg-muted text-text-secondary",
+      )}
+    >
+      {label}
+    </span>
+  );
 }

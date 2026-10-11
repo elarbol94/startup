@@ -93,7 +93,7 @@ export function AnalysisInspectorPanel({
               <p className="mt-1 text-xs text-muted-foreground">{t("studioSelectionHint")}</p>
             </div>
             <div>
-              <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t("studioAlign")}</h3>
+              <h3 className="text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioAlign")}</h3>
               <div className="mt-1.5 grid grid-cols-3 gap-1">
                 {([
                   ["align-left", AlignStartVertical], ["align-center", AlignCenterVertical], ["align-right", AlignEndVertical],
@@ -104,7 +104,7 @@ export function AnalysisInspectorPanel({
               </div>
             </div>
             <div>
-              <h3 className="text-[10px] font-semibold tracking-wide text-muted-foreground uppercase">{t("studioDistribute")}</h3>
+              <h3 className="text-[10.5px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioDistribute")}</h3>
               <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                 <Button variant="outline" size="sm" onClick={() => arrangeSelection("distribute-horizontal")}><Columns3 className="size-3.5" />{t("studioHorizontal")}</Button>
                 <Button variant="outline" size="sm" onClick={() => arrangeSelection("distribute-vertical")}><Rows3 className="size-3.5" />{t("studioVertical")}</Button>
@@ -151,7 +151,7 @@ export function AnalysisInspectorPanel({
                       <button
                         key={color}
                         type="button"
-                        className={cn("size-7 rounded-full border-2", NOTE_STYLES[color], selectedNode.data.color === color && "ring-2 ring-teal-600 ring-offset-2")}
+                        className={cn("size-7 rounded-full border-2", NOTE_STYLES[color], selectedNode.data.color === color && "ring-2 ring-ring ring-offset-2 ring-offset-card")}
                         aria-label={t(`studioNoteColor_${color}`)}
                         title={t(`studioNoteColor_${color}`)}
                         onClick={() => setAnnotation(selectedNode.id, selectedNode.data.text, color)}

@@ -43,17 +43,17 @@ export function AllDayBarButton({
       }}
       onClick={() => onSelect(item)}
       className={cn(
-        "group z-10 mx-1 my-0.5 flex min-w-0 items-center gap-1.5 rounded-md border-l-[3px] px-1.5 py-1 text-left text-[10px] text-foreground shadow-sm outline-none hover:ring-1 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring",
+        "group z-10 mx-1 my-0.5 flex min-w-0 items-center gap-1.5 rounded-md border-l-[3px] px-1.5 py-1 text-left text-[11.5px] text-foreground outline-none hover:ring-1 hover:ring-foreground/15 focus-visible:ring-2 focus-visible:ring-ring",
         item.startDate! < days[0] && "rounded-l-none",
         item.endDate! > addDays(days[days.length - 1], 1) && "rounded-r-none",
         draggingId === item.id && "opacity-45",
-        selected && "ring-2 ring-primary hover:ring-primary",
+        selected && "ring-2 ring-brand hover:ring-brand",
       )}
       style={{
         gridColumn: `${startColumn + 2} / ${endColumn + 2}`,
         gridRow: lane + 1,
         borderLeftColor: item.color,
-        backgroundColor: `color-mix(in srgb, ${item.color} 14%, var(--background))`,
+        backgroundColor: `color-mix(in oklab, ${item.color} 16%, var(--card))`,
       }}
       title={item.title}
     >

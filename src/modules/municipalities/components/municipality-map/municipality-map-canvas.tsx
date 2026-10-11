@@ -46,7 +46,7 @@ export function MunicipalityMapCanvas({
 
   return (
     <div
-      className="relative h-full min-h-0 overflow-hidden rounded-2xl bg-[#e8ece9]"
+      className="relative h-full min-h-0 overflow-hidden rounded-xl border bg-[#e8ece9]"
       data-testid={testId}
       data-map-ready={ready}
       data-overlay-markers={markers ? markers.length : undefined}
@@ -56,7 +56,7 @@ export function MunicipalityMapCanvas({
         className="h-full w-full"
         aria-label={labels.map}
       />
-      <div className="absolute top-16 right-3 z-10 flex flex-col overflow-hidden rounded-lg border bg-background/95 shadow-sm backdrop-blur lg:top-3">
+      <div className="absolute top-16 right-3 z-10 flex flex-col overflow-hidden rounded-[10px] border bg-card/95 shadow-sm backdrop-blur lg:top-3">
         <button
           type="button"
           className="grid size-11 place-items-center text-lg hover:bg-accent lg:size-9"

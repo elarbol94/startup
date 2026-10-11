@@ -73,10 +73,10 @@ export function LocationsManager({ locations }: { locations: Location[] }) {
 
   return <div className="flex flex-col gap-4">
     <ShortcutTooltip label={t("add")} shortcut={SECTION_PAGE_SHORTCUTS.settings.create}><Button size="sm" className="self-start" onClick={() => edit(null)}><Plus className="size-4" />{t("add")}</Button></ShortcutTooltip>
-    <div className="divide-y rounded-lg border">
-      {locations.map((location) => <div key={location.id} className="flex items-center gap-3 px-3 py-3">
-        <span className="grid size-8 place-items-center rounded-lg bg-emerald-50 text-emerald-800"><MapPin className="size-4" /></span>
-        <div className="min-w-0 flex-1"><p className={location.active ? "text-sm font-medium" : "text-sm text-muted-foreground line-through"}>{location.name}</p><p className="text-xs text-muted-foreground">{location.municipality} · {location.state}</p></div>
+    <div className="divide-y divide-line-soft overflow-hidden rounded-lg border">
+      {locations.map((location) => <div key={location.id} className="flex items-center gap-3 px-3.5 py-2.5 transition-colors hover:bg-accent">
+        <span className="grid size-8 place-items-center rounded-lg bg-brand-soft text-brand-ink"><MapPin className="size-4" /></span>
+        <div className="min-w-0 flex-1"><p className={location.active ? "text-[13.5px] font-medium" : "text-[13.5px] text-muted-foreground line-through"}>{location.name}</p><p className="text-xs text-muted-foreground">{location.municipality} · {location.state}</p></div>
         {location.name === "Graz / Steiermark" && <Badge variant="secondary">{t("default")}</Badge>}
         {!location.active && <Badge variant="outline">{t("inactive")}</Badge>}
         <Button type="button" variant="ghost" size="icon-xs" onClick={() => edit(location)} aria-label={t("edit")}><Pencil className="size-3.5" /></Button>

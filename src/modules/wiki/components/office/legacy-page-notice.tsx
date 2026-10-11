@@ -7,7 +7,9 @@ import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { ArrowLeft, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { convertDocumentToOffice } from "../../office/conversion-actions";
+import { WIKI_PAGE_CLASS } from "../wiki-page-class";
 
 /**
  * A page still stored in the old editor's format (only possible after restoring
@@ -32,10 +34,10 @@ export function LegacyPageNotice({ page, canConvert }: { page: { id: string; tit
     }
   }
 
-  return <div className="mx-auto max-w-2xl space-y-4 p-8">
-    <Link href="/wiki/pages" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{t("back")}</Link>
-    <h1 className="text-2xl font-semibold">{page.title}</h1>
-    <div className="space-y-3 rounded-lg border bg-muted/40 p-4 text-sm">
+  return <div className={cn(WIKI_PAGE_CLASS, "max-w-3xl space-y-4")}>
+    <Link href="/wiki/pages" className="inline-flex items-center gap-1 rounded-md text-[13px] text-muted-foreground outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"><ArrowLeft className="size-4" />{t("back")}</Link>
+    <h1 className="text-[22px] leading-[1.2] font-semibold tracking-[-0.025em] break-words sm:text-[26px]">{page.title}</h1>
+    <div className="space-y-3 rounded-xl border bg-card px-[18px] py-4 text-[13.5px] shadow-card">
       <p>{t("description")}</p>
       <div className="flex flex-wrap gap-2">
         <Button variant="outline" size="sm" render={<a href={`/api/wiki/pages/${encodeURIComponent(page.id)}/export?format=html&disposition=inline`} target="_blank" rel="noopener" />}><FileText className="size-4" />{t("open")}</Button>

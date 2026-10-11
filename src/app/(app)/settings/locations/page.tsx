@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { requireUser } from "@/lib/auth";
 import { listAllBusinessLocations } from "@/modules/settings/queries";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SettingsCard } from "../settings-card";
 import { LocationsManager } from "./locations-manager";
 
 export default async function LocationsSettingsPage() {
@@ -10,12 +10,8 @@ export default async function LocationsSettingsPage() {
   if (user.role !== "admin") redirect("/settings/profile");
   const t = await getTranslations("settings.locations");
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("title")}</CardTitle>
-        <CardDescription>{t("description")}</CardDescription>
-      </CardHeader>
-      <CardContent><LocationsManager locations={listAllBusinessLocations()} /></CardContent>
-    </Card>
+    <SettingsCard title={t("title")} description={t("description")}>
+      <LocationsManager locations={listAllBusinessLocations()} />
+    </SettingsCard>
   );
 }

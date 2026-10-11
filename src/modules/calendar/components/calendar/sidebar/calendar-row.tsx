@@ -37,7 +37,7 @@ export function CalendarRow({
 }) {
   const manageSubscription = calendar.role === "owner" && calendar.subscription;
   return (
-    <div className={cn("group flex items-center gap-1 rounded-md transition-colors hover:bg-muted/60", !dense && "border pr-2")}>
+    <div className={cn("group flex items-center gap-1 rounded-md transition-colors hover:bg-accent", !dense && "border pr-2")}>
       <label
         className={cn(
           "flex min-w-0 flex-1 cursor-pointer items-center gap-2.5 rounded-md focus-within:ring-2 focus-within:ring-ring",

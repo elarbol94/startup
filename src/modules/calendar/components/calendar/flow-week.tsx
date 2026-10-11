@@ -56,7 +56,7 @@ export function FlowWeek({
 }) {
   const now = useNowMinute();
   const hydrated = useHydrated();
-  const gridTemplateColumns = `3rem repeat(${days.length}, minmax(0, 1fr))`;
+  const gridTemplateColumns = `3.25rem repeat(${days.length}, minmax(0, 1fr))`;
   const workRange = workingRange(preferences);
   const workingDay = (day: string) => isWorkingDay(day, preferences.workingDays);
   const allDayEvents = items.filter((item) => item.allDay && !isTaskLaneKind(item.kind));
@@ -86,7 +86,7 @@ export function FlowWeek({
         ref={scrollRef}
         data-testid="calendar-week-scroll"
         data-week-scroll-key={scrollKey}
-        className="relative max-h-[calc(100dvh-12rem)] min-h-80 overflow-auto rounded-2xl [overflow-anchor:none]"
+        className="relative max-h-[calc(100dvh-12rem)] min-h-80 overflow-auto rounded-xl [overflow-anchor:none]"
       >
         <div className={cn(days.length >= 5 && "min-w-[40rem]")}>
           <div className="sticky top-0 z-30 bg-card">

@@ -68,7 +68,7 @@ export function MonthWeekRow({
 
   return (
     <div
-      className="grid min-h-[8.5rem] flex-1 grid-cols-7 border-b last:border-b-0"
+      className="grid min-h-[8.5rem] flex-1 grid-cols-7 border-b border-line-soft last:border-b-0"
       style={{ gridTemplateRows: `auto auto repeat(${lanes}, ${LANE_HEIGHT}) auto minmax(0, 1fr)` }}
       onDragOver={(event) => event.preventDefault()}
       onDrop={(event) => onDrop(event, dayAt(event))}
@@ -81,10 +81,10 @@ export function MonthWeekRow({
             key={`bg-${day}`}
             aria-hidden
             className={cn(
-              column < days.length - 1 && "border-r",
-              (weekday === 0 || weekday === 6) && "bg-muted/[0.22]",
-              parseDate(day).getUTCMonth() !== month && "bg-muted/40",
-              day === today && "bg-[#6D5EF7]/[0.07] ring-1 ring-inset ring-[#6D5EF7]/45",
+              column < days.length - 1 && "border-r border-line-soft",
+              (weekday === 0 || weekday === 6) && "bg-surface-raised/40",
+              parseDate(day).getUTCMonth() !== month && "bg-surface-raised",
+              day === today && "bg-brand-soft",
             )}
             style={{ gridColumn: column + 1, gridRow: "1 / -1" }}
           />
@@ -100,15 +100,15 @@ export function MonthWeekRow({
               onClick={() => onOpenDay(day)}
               aria-label={t("monthOpenDay", { date: formatDay(day) })}
               className={cn(
-                "grid size-6 place-items-center rounded-full text-xs font-semibold outline-none hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring",
-                outside && "font-normal text-muted-foreground/70",
-                day === today && "bg-[#6D5EF7] text-white shadow-sm hover:bg-[#6D5EF7]/90",
+                "grid size-6 place-items-center rounded-full text-xs font-semibold tabular-nums outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring",
+                outside && "font-normal text-text-tertiary",
+                day === today && "bg-brand text-brand-on hover:bg-brand/90",
               )}
             >
               {parseDate(day).getUTCDate()}
             </button>
             {column === 0 && (
-              <span className="ml-auto font-mono text-[9px] text-muted-foreground/80">
+              <span className="ml-auto font-mono text-[10px] text-text-tertiary">
                 {t("calendarWeek", { week: isoWeek(day) })}
               </span>
             )}
@@ -122,7 +122,7 @@ export function MonthWeekRow({
           aria-expanded={expanded}
           aria-label={expanded ? t("monthOngoingCollapse") : t("monthOngoingExpand")}
           onClick={onToggleExpanded}
-          className="z-10 mx-1 flex min-w-0 items-center gap-1 rounded px-1 text-left text-[10px] text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+          className="z-10 mx-1 flex min-w-0 items-center gap-1 rounded-md px-1 text-left text-[11px] text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
           style={{ gridColumn: "1 / -1", gridRow: 2 }}
         >
           <ChevronRight className={cn("size-3 shrink-0 transition-transform", expanded && "rotate-90")} />
@@ -172,7 +172,7 @@ export function MonthWeekRow({
               <button
                 type="button"
                 onClick={() => onOpenDay(cell.day)}
-                className="h-5 self-start rounded-full border bg-background px-2 text-[10px] text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-5 self-start rounded-full border border-line-strong px-2 text-[10.5px] font-medium text-text-secondary outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t("monthTaskChip", { count: cell.taskChip })}
               </button>
@@ -181,7 +181,7 @@ export function MonthWeekRow({
               <button
                 type="button"
                 onClick={() => onOpenDay(cell.day)}
-                className="h-5 self-start truncate rounded px-1 text-left text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-5 self-start truncate rounded-md px-1 text-left text-[11px] font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t("moreAllDay", { count: cell.hidden })}
               </button>

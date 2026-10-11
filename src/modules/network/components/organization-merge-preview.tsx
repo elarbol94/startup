@@ -68,8 +68,8 @@ export function OrganizationMergePreview({
                     <label
                       key={side}
                       className={cn(
-                        "flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-1.5",
-                        chosen === side ? "border-primary bg-primary/5" : "hover:bg-muted",
+                        "flex min-w-0 cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-1.5 accent-[var(--brand)]",
+                        chosen === side ? "border-brand bg-brand-soft" : "hover:bg-accent",
                       )}
                     >
                       <input

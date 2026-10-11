@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { linkNetworkContact, searchNetworkLinkTargets, unlinkNetworkContact } from "../link-actions";
 import type { NetworkContactLink, NetworkLinkTarget } from "../link-queries";
 import { LinkTargetIcon } from "./link-target-icon";
+import { NetworkCard, NetworkCardEmpty, networkListClass } from "./network-card";
 import { useNetworkAction } from "./use-network-action";
 
 /** Projects, funding projects and wiki pages this contact is involved in. */
@@ -25,20 +26,20 @@ export function ContactLinks({ contactId, links, canEdit }: { contactId: string;
   const [picking, setPicking] = useState(false);
 
   return (
-    <section className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="font-medium">{t("links.title")}</h3>
-        {canEdit && (
-          <Button size="sm" variant="outline" onClick={() => setPicking(true)}>
-            <Link2 className="size-4" />
-            {t("links.add")}
-          </Button>
-        )}
-      </div>
+    <NetworkCard
+      title={t("links.title")}
+      count={links.length || undefined}
+      actions={canEdit && (
+        <Button size="sm" variant="outline" onClick={() => setPicking(true)}>
+          <Link2 className="size-4" />
+          {t("links.add")}
+        </Button>
+      )}
+    >
       {links.length ? (
-        <ul className="divide-y overflow-hidden rounded-2xl border bg-card" data-testid="network-contact-links">
+        <ul className={networkListClass} data-testid="network-contact-links">
           {links.map((link) => (
-            <li key={link.linkId} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+            <li key={link.linkId} className="flex items-center gap-3 px-[18px] py-2.5 text-[13.5px] transition-colors hover:bg-accent">
               <LinkTargetIcon type={link.type} className="size-4 shrink-0 text-muted-foreground" />
               <Link href={link.href} className="min-w-0 flex-1 truncate hover:underline">
                 {link.title}
@@ -53,7 +54,7 @@ export function ContactLinks({ contactId, links, canEdit }: { contactId: string;
           ))}
         </ul>
       ) : (
-        <p className="rounded-2xl border border-dashed p-6 text-center text-sm text-muted-foreground">{t("links.empty")}</p>
+        <NetworkCardEmpty>{t("links.empty")}</NetworkCardEmpty>
       )}
       <Dialog open={picking} onOpenChange={setPicking}>
         {picking && (
@@ -64,7 +65,7 @@ export function ContactLinks({ contactId, links, canEdit }: { contactId: string;
           />
         )}
       </Dialog>
-    </section>
+    </NetworkCard>
   );
 }
 
@@ -106,7 +107,7 @@ function LinkPicker({ linked, onPick, pending }: { linked: Set<string>; onPick: 
                 <button
                   type="button"
                   disabled={pending}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted disabled:opacity-50"
+                  className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-[13.5px] outline-none hover:bg-accent focus-visible:bg-accent disabled:opacity-50"
                   onClick={() => onPick(target)}
                 >
                   <LinkTargetIcon type={target.type} className="size-4 shrink-0 text-muted-foreground" />

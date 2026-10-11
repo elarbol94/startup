@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
-import { CalendarCheck, Lock } from "lucide-react";
+import { BellRing, CalendarCheck, Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { markNetworkContactContacted } from "../contact-actions";
 import type { NetworkReconnectItem } from "../reconnect-queries";
+import { NetworkCard, networkListClass, networkRowClass } from "./network-card";
 import { dateOnly } from "./network-ui";
 import { useNetworkAction } from "./use-network-action";
 
@@ -30,22 +31,27 @@ export function ReconnectList({ contacts, today }: { contacts: NetworkReconnectI
   if (!contacts.length) return null;
 
   return (
-    <section className="space-y-2" aria-labelledby="network-reconnect-title" data-testid="network-reconnect">
-      <div>
-        <h2 id="network-reconnect-title" className="font-medium">{t("reconnect.title")}</h2>
-        <p className="text-sm text-muted-foreground">{t("reconnect.intro")}</p>
-      </div>
-      <ul className="divide-y rounded-2xl border bg-card">
+    <NetworkCard
+      aria-labelledby="network-reconnect-title"
+      data-testid="network-reconnect"
+      heading="h2"
+      titleId="network-reconnect-title"
+      title={t("reconnect.title")}
+      count={contacts.length}
+      icon={<BellRing className="size-4 text-brand-ink" aria-hidden />}
+    >
+      <p className="border-b border-line-soft px-[18px] py-2.5 text-xs text-muted-foreground">{t("reconnect.intro")}</p>
+      <ul className={networkListClass}>
         {contacts.map((contact) => (
-          <li key={contact.id} className="flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <li key={contact.id} className={`${networkRowClass} flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between`}>
             <div className="min-w-0">
               <Link href={`/network/${contact.id}`} className="inline-flex items-center gap-1 font-medium underline-offset-4 hover:underline">
                 {contact.visibility === "private" && <Lock className="size-3.5 text-muted-foreground" />}
                 {contact.name}
               </Link>
-              {contact.organization && <span className="text-sm text-muted-foreground"> · {contact.organization}</span>}
+              {contact.organization && <span className="text-muted-foreground"> · {contact.organization}</span>}
               <p className="flex flex-wrap gap-x-2 text-xs text-muted-foreground">
-                <span className="font-medium text-foreground">{dueLabel(contact)}</span>
+                <span className="font-medium text-late">{dueLabel(contact)}</span>
                 <span>{t("reconnect.every", { days: contact.reconnectEveryDays })}</span>
                 {contact.lastContactOn && (
                   <span>{t("reconnect.lastContact", { date: format.dateTime(dateOnly(contact.lastContactOn), { dateStyle: "medium", timeZone: "UTC" }) })}</span>
@@ -66,6 +72,6 @@ export function ReconnectList({ contacts, today }: { contacts: NetworkReconnectI
           </li>
         ))}
       </ul>
-    </section>
+    </NetworkCard>
   );
 }

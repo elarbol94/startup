@@ -107,7 +107,7 @@ export function NetworkMapCanvas({
         </button>
       )}
     >
-      <div className="absolute top-3 left-3 z-10 w-60 max-w-[calc(100%-5rem)] space-y-2 rounded-xl border bg-background/95 p-3 text-xs shadow-sm backdrop-blur">
+      <div className="absolute top-3 left-3 z-10 w-60 max-w-[calc(100%-5rem)] space-y-2 rounded-xl border bg-card/95 p-3 text-xs shadow-card backdrop-blur">
         <label className="block space-y-1">
           <span className="font-semibold">{t("map.colorBy")}</span>
           <select

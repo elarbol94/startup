@@ -57,8 +57,8 @@ export function WorkspaceDetailFacts({
   return (
     <div className="grid gap-4">
       <section>
-        <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("dataKindBase")}</h3>
-        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+        <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("dataKindBase")}</h3>
+        <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-[13.5px]">
           <dt className="text-muted-foreground">{t("municipalityCode")}</dt><dd className="font-mono font-medium">{selected.municipalityCode}</dd>
           <dt className="text-muted-foreground">{t("state")}</dt><dd className="font-medium">{selected.state}</dd>
           <dt className="text-muted-foreground">{t("district")}</dt><dd className="font-medium">{selectedProfile?.district ?? t("profileDataUnavailable")}</dd>
@@ -68,15 +68,15 @@ export function WorkspaceDetailFacts({
           <dt className="text-muted-foreground">{t("officialWebsite")}</dt>
           <dd className="min-w-0 font-medium">
             {selectedProfile?.officialWebsite ? (
-              <a className="break-all text-teal-700 underline underline-offset-2 hover:text-teal-800" href={selectedProfile.officialWebsite} target="_blank" rel="noreferrer">{t("openWebsite")}</a>
+              <a className="break-all text-brand-ink underline underline-offset-2" href={selectedProfile.officialWebsite} target="_blank" rel="noreferrer">{t("openWebsite")}</a>
             ) : t("profileDataUnavailable")}
           </dd>
         </dl>
       </section>
       {hasDerivedFacts ? (
         <section>
-          <h3 className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">{t("dataKindDerived")}</h3>
-          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+          <h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("dataKindDerived")}</h3>
+          <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-[13.5px]">
             {showsDigitalCosts ? <>
               <dt className="text-muted-foreground">{t("digitalCostAnnualLabel")}</dt><dd className="font-semibold tabular-nums" data-testid="digital-cost-annual">{selectedDigitalCostEstimate ? formatDigitalCostRange(selectedDigitalCostEstimate.annualEuros) : t("digitalCostUnavailable")}</dd>
               <dt className="text-muted-foreground">{t("digitalCostSetupLabel")}</dt><dd className="font-medium tabular-nums">{selectedDigitalCostEstimate ? formatDigitalCostRange(selectedDigitalCostEstimate.setupEuros) : t("digitalCostUnavailable")}</dd>

@@ -15,6 +15,7 @@ import {
   type UserMarkColor,
 } from "@/lib/user-mark-colors";
 import { cn } from "@/lib/utils";
+import { SettingsCard } from "../settings-card";
 
 type Availability = {
   key: UserMarkColor;
@@ -61,34 +62,28 @@ export function MarkColorForm({
     });
   }
 
-  return <section className="space-y-6">
-    <div>
-      <h2 className="text-lg font-semibold tracking-tight">{t("title")}</h2>
-      <p className="mt-1 text-sm text-muted-foreground">{t("description")}</p>
-    </div>
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="flex items-center gap-3">
-        <span
-          className="grid size-11 shrink-0 place-items-center rounded-full border-2 bg-background text-sm font-semibold"
-          style={{ ...userMarkColorStyle(selected), borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-solid)", color: "white" }}
-        >
-          {initialsForName(name)}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium">{name}</p>
-          <p className="text-xs text-muted-foreground">{t("previewLabel")}</p>
-        </div>
-        <mark
-          className="ml-auto rounded px-2 py-1 text-sm text-foreground"
-          style={{ ...userMarkColorStyle(selected), backgroundColor: "var(--user-mark-highlight)", boxShadow: "inset 0 -2px var(--user-mark-solid)" }}
-        >
-          {t("sampleText")}
-        </mark>
+  return <SettingsCard title={t("title")} description={t("description")} contentClassName="flex flex-col gap-4">
+    <div className="flex flex-wrap items-center gap-3">
+      <span
+        className="grid size-11 shrink-0 place-items-center rounded-full text-base font-semibold"
+        style={{ ...userMarkColorStyle(selected), backgroundColor: "var(--user-mark-solid)", color: "white" }}
+      >
+        {initialsForName(name)}
+      </span>
+      <div className="min-w-0">
+        <p className="truncate text-[13.5px] font-medium">{name}</p>
+        <p className="text-xs text-muted-foreground">{t("previewLabel")}</p>
       </div>
+      <mark
+        className="ml-auto rounded px-2 py-1 text-[13.5px] text-foreground"
+        style={{ ...userMarkColorStyle(selected), backgroundColor: "var(--user-mark-highlight)", boxShadow: "inset 0 -2px var(--user-mark-solid)" }}
+      >
+        {t("sampleText")}
+      </mark>
     </div>
-    <fieldset disabled={pending}>
-      <legend className="mb-3 text-sm font-medium">{t("chooseColor")}</legend>
-      <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-8 sm:gap-2">
+    <fieldset disabled={pending} className="border-t border-line-soft pt-4">
+      <legend className="float-left mb-2.5 w-full text-[13px] font-medium">{t("chooseColor")}</legend>
+      <div className="clear-left flex flex-wrap gap-1.5">
         {USER_MARK_COLORS.map((color) => {
           const item = availabilityByKey.get(color.key);
           const disabled = !item?.available;
@@ -102,24 +97,18 @@ export function MarkColorForm({
             title={disabled ? t("unavailableColor", { color: t(`colors.${color.key}`) }) : t(`colors.${color.key}`)}
             onClick={() => choose(color.key)}
             className={cn(
-              "group relative flex flex-col items-center justify-center gap-1 rounded-lg border px-1 py-2 text-[11px] font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-ring",
-              active && "border-transparent ring-2",
-              disabled && "cursor-not-allowed opacity-45 grayscale-[.25]",
+              "relative grid size-7 place-items-center rounded-full outline-none transition focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+              active && "shadow-[0_0_0_2px_var(--card),0_0_0_4px_var(--brand)]",
+              disabled && "cursor-not-allowed opacity-40",
             )}
-            style={{
-              ...userMarkColorStyle(color.key),
-              borderColor: active ? "var(--user-mark-solid)" : undefined,
-              boxShadow: active ? "0 0 0 1px var(--user-mark-solid)" : undefined,
-            }}
+            style={{ ...userMarkColorStyle(color.key), backgroundColor: "var(--user-mark-solid)" }}
           >
-            <span className="size-6 rounded-full border-2 bg-background shadow-sm" style={{ borderColor: "var(--user-mark-solid)", backgroundColor: "var(--user-mark-highlight)" }} />
-            <span aria-hidden className="hidden w-full truncate text-center sm:block">{t(`colors.${color.key}`)}</span>
-            {active && <Check className="absolute right-1 top-1 size-3" style={{ color: "var(--user-mark-solid)" }} />}
-            {disabled && <LockKeyhole className="absolute right-1 top-1 size-2.5 text-muted-foreground" />}
+            {active && <Check className="size-3.5 text-white" />}
+            {disabled && <LockKeyhole className="size-3 text-white" />}
           </button>;
         })}
       </div>
       <p className="mt-3 text-xs text-muted-foreground">{t("availabilityHint")}</p>
     </fieldset>
-  </section>;
+  </SettingsCard>;
 }

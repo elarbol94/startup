@@ -61,9 +61,9 @@ export function GanttRow(props: GanttRowProps) {
       }
       aria-selected={selectedTaskId === row.task?.id}
       className={cn(
-        "group/row relative flex border-b last:border-b-0",
-        row.kind === "project" && "bg-muted/20",
-        row.task && isDraftTask(row.task.id) && "bg-indigo-50/60 dark:bg-indigo-950/30",
+        "group/row relative flex border-b border-line-soft last:border-b-0",
+        row.kind === "project" && "bg-surface-raised/40",
+        row.task && isDraftTask(row.task.id) && "bg-brand-soft",
       )}
       style={{ width: totalWidth, height: ROW_HEIGHT }}
     >

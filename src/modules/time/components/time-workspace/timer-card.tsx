@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { TimeEntryView } from "../../queries";
 import { startTimer, stopTimer, updateRunningTimer } from "../../timer-actions";
 import { assignmentPayload, emptyAssignment, type Assignment, type WorkOptions } from "./time-types";
@@ -65,17 +66,19 @@ export function TimerCard({
       assignment.kind !== running.kind ||
       assignment.note !== running.note);
 
+  const statusLine = running
+    ? [t("timer.running", { time: clockInVienna(running.startedAt) }), running.projectName].filter(Boolean).join(" · ")
+    : t("timer.idle");
+
   return (
-    <section className="rounded-2xl border bg-card p-5 shadow-sm">
+    <section className="flex flex-col gap-4 rounded-xl border bg-card px-[18px] py-4 shadow-card">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold tracking-[0.12em] text-muted-foreground uppercase">{t("timer.title")}</p>
-          <p className="mt-1 font-mono text-3xl font-semibold tabular-nums" aria-live="off">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("timer.title")}</p>
+          <p className={cn("mt-1 font-mono text-[34px] leading-tight font-semibold tabular-nums", running && "text-brand-ink")} aria-live="off">
             {running ? formatElapsed(now - running.startedAt) : "0:00:00"}
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {running ? t("timer.running", { time: clockInVienna(running.startedAt) }) : t("timer.idle")}
-          </p>
+          <p className="truncate text-[13px] text-muted-foreground">{statusLine}</p>
         </div>
         {running ? (
           <div className="flex flex-wrap items-end gap-2">
@@ -93,7 +96,6 @@ export function TimerCard({
             </div>
             <Button
               size="lg"
-              variant="destructive"
               disabled={pending}
               onClick={() =>
                 run(
@@ -117,7 +119,7 @@ export function TimerCard({
           </Button>
         )}
       </div>
-      <div className="mt-4 border-t pt-4">
+      <div className="border-t border-line-soft pt-4">
         <WorkFields value={assignment} onChange={setAssignment} options={options} disabled={pending} />
         {dirty && (
           <div className="mt-3 flex justify-end">

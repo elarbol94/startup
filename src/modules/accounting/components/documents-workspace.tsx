@@ -21,6 +21,7 @@ import {
   receiptDocumentCount,
 } from "@/modules/accounting/queries";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { CreateShortcutLink } from "./create-shortcut-link";
 import { InvoiceList, OverdueFilterTile } from "./invoice-list";
 import { linkedProjectsFor } from "@/modules/context/project-link-refs";
@@ -57,7 +58,7 @@ export async function DocumentsWorkspace({
   const summary = invoiceStatusSummary(today);
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <AccountingPageHeader
         className="mb-0"
         title={t("title")}
@@ -78,48 +79,48 @@ export async function DocumentsWorkspace({
       />
 
       <section
-        className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card xl:grid-cols-4"
+        className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card shadow-card xl:grid-cols-4"
         aria-label={t("workStatus")}
       >
-        <div className="border-r border-b p-4 xl:border-b-0">
-          <p className="text-xs font-medium text-muted-foreground">{t("drafts")}</p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">{summary.draftCount}</p>
+        <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
+          <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("drafts")}</p>
+          <p className="mt-2 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular-nums">{summary.draftCount}</p>
         </div>
-        <div className="min-w-0 border-b p-4 xl:border-r xl:border-b-0">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
+          <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
             {t("openInvoices")}
           </p>
-          <p className="mt-2 truncate text-xl font-semibold tabular-nums sm:text-2xl">
+          <p className="mt-2 truncate text-lg leading-tight font-semibold tracking-[-0.02em] tabular-nums sm:text-[22px]">
             {formatCents(summary.outstandingCents, locale)}
           </p>
-          <p className="mt-1 text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {t("outstanding", { count: summary.openCount })}
           </p>
         </div>
-        <div className="border-r">
+        <div className="min-w-0 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
           <OverdueFilterTile
             count={summary.overdueCount}
             label={t("overdue")}
             hint={t("showOverdue")}
           />
         </div>
-        <div className="p-4">
-          <p className="text-xs font-medium text-muted-foreground">
+        <div className="min-w-0 px-[18px] py-4 shadow-[1px_0_0_var(--border),0_1px_0_var(--border)]">
+          <p className="truncate text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">
             {t("receiptCount")}
           </p>
-          <p className="mt-2 text-2xl font-semibold tabular-nums">{totalReceipts}</p>
+          <p className="mt-2 text-[22px] leading-tight font-semibold tracking-[-0.02em] tabular-nums">{totalReceipts}</p>
         </div>
       </section>
 
-      <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.75fr)]">
         <section
           id="invoices"
-          className="min-w-0 scroll-mt-4 overflow-hidden rounded-xl border bg-card"
+          className="min-w-0 scroll-mt-4 overflow-hidden rounded-xl border bg-card shadow-card"
         >
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-3 sm:px-5 sm:py-4">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-soft px-[18px] py-3">
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold">{t("invoiceSection")}</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">
+              <h2 className="text-[15px] font-semibold">{t("invoiceSection")}</h2>
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {t("invoiceSectionDescription")}
               </p>
             </div>
@@ -150,7 +151,7 @@ export async function DocumentsWorkspace({
             />
           </Suspense>
           {invoicePage.nextCursor && (
-            <div className="flex justify-end border-t p-3">
+            <div className="flex justify-end border-t border-line-soft px-[18px] py-3">
               <Button
                 variant="outline"
                 size="sm"
@@ -168,32 +169,31 @@ export async function DocumentsWorkspace({
           )}
         </section>
 
-        <section className="min-w-0 overflow-hidden rounded-xl border bg-card">
-          <div className="border-b px-4 py-3 sm:px-5 sm:py-4">
-            <h2 className="font-semibold">{t("receiptSection")}</h2>
-            <p className="mt-0.5 text-sm text-muted-foreground">
+        <section className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-card">
+          <div className="border-b border-line-soft px-[18px] py-3">
+            <h2 className="text-[15px] font-semibold">{t("receiptSection")}</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {t("receiptSectionDescription")}
             </p>
           </div>
 
           {receipts.length === 0 ? (
-            <div className="flex min-h-72 flex-col items-center justify-center px-6 py-10 text-center">
-              <Paperclip className="mb-3 size-7 text-muted-foreground/60" />
-              <p className="text-sm font-medium">{t("noReceipts")}</p>
-              <p className="mt-1 max-w-xs text-sm text-muted-foreground">
-                {t("noReceiptsHint")}
-              </p>
-              <Button
-                className="mt-4"
-                variant="outline"
-                size="sm"
-                nativeButton={false}
-                render={<Link href="/accounting?new=expense" />}
-              >
-                <Upload className="size-4" />
-                {t("captureReceipt")}
-              </Button>
-            </div>
+            <EmptyState
+              icon={<Paperclip />}
+              title={t("noReceipts")}
+              description={t("noReceiptsHint")}
+              actions={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link href="/accounting?new=expense" />}
+                >
+                  <Upload className="size-4" />
+                  {t("captureReceipt")}
+                </Button>
+              }
+            />
           ) : (
             <ReceiptArchiveList
               receipts={receipts.map((receipt) => ({
@@ -211,7 +211,7 @@ export async function DocumentsWorkspace({
             />
           )}
           {receiptPage.nextCursor && (
-            <div className="flex justify-end border-t p-3">
+            <div className="flex justify-end border-t border-line-soft px-[18px] py-3">
               <Button
                 variant="outline"
                 size="sm"

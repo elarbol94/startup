@@ -5,6 +5,7 @@ import { liveSessionCodeSchema } from "@/modules/wiki/lib/live-session";
 import { getLiveSessionByCode, getPresentation } from "@/modules/wiki/presentation-queries";
 import { PresentationJoinForm } from "@/modules/wiki/components/presentation-live";
 import { PresentationPlayer } from "@/modules/wiki/components/presentation-player";
+import { WIKI_PAGE_CLASS } from "@/modules/wiki/components/wiki-page-class";
 
 /**
  * Read-only follow view. `requireUser` first: a join code is a convenience for people who
@@ -18,10 +19,10 @@ export default async function FollowLiveSessionPage({ params }: { params: Promis
   if (!session || !session.live) {
     const t = await getTranslations("wiki");
     return (
-      <div className="p-5 md:p-8">
-        <div className="mx-auto max-w-md rounded-xl border bg-card p-6 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">{t("presentations.followNotFound")}</h1>
-          <p className="mt-1 mb-4 text-sm text-muted-foreground">{t("presentations.followNotFoundDescription")}</p>
+      <div className={WIKI_PAGE_CLASS}>
+        <div className="mx-auto max-w-md rounded-xl border bg-card px-6 py-8 text-center shadow-card">
+          <h1 className="text-[14.5px] font-semibold">{t("presentations.followNotFound")}</h1>
+          <p className="mt-1 mb-4 text-[13.5px] text-muted-foreground">{t("presentations.followNotFoundDescription")}</p>
           <div className="flex justify-center">
             <PresentationJoinForm />
           </div>

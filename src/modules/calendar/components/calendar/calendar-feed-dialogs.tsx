@@ -37,7 +37,7 @@ export function feedErrorMessage(t: T, code: string | null | undefined) {
   return t(`feeds.errors.${known ?? "unknown"}`);
 }
 
-const selectClass = "h-9 rounded-lg border bg-background px-2.5 text-sm";
+const selectClass = "h-9 rounded-lg border bg-popover px-2.5 text-sm";
 
 export function SubscribeCalendarDialog({
   open,

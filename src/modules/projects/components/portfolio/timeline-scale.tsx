@@ -41,9 +41,9 @@ export function TimelineHeader({
   const t = useTranslations("projects");
   const format = useFormatter();
   return (
-    <div className="sticky top-0 z-30 flex h-[54px] border-b bg-card/95 backdrop-blur" style={{ width: totalWidth }}>
+    <div className="sticky top-0 z-30 flex h-[52px] border-b bg-card/95 backdrop-blur" style={{ width: totalWidth }}>
       <div
-        className="sticky left-0 z-40 flex shrink-0 items-center border-r bg-card px-3 text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground"
+        className="sticky left-0 z-40 flex shrink-0 items-center border-r bg-card px-[18px] text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase"
         style={{ width: treeWidth }}
       >
         {t("workBreakdown")}
@@ -52,7 +52,7 @@ export function TimelineHeader({
           aria-label={t("resizeWorkBreakdown")}
           aria-orientation="vertical"
           tabIndex={0}
-          className="absolute inset-y-0 right-0 z-50 w-1.5 cursor-col-resize bg-transparent hover:bg-violet-400/50 focus-visible:bg-violet-500"
+          className="absolute inset-y-0 right-0 z-50 w-1.5 cursor-col-resize bg-transparent hover:bg-brand/40 focus-visible:bg-brand focus-visible:outline-none"
           onPointerDown={(event) => {
             event.preventDefault();
             event.currentTarget.setPointerCapture(event.pointerId);
@@ -91,15 +91,15 @@ export function TimelineHeader({
           const show = zoom === "week" ? true : zoom === "month" ? day === 1 : parsed.getUTCDate() === 1;
           if (!show) return null;
           return (
-            <span key={date} className="absolute top-0 flex h-full flex-col items-start justify-center border-l px-1.5 font-mono text-[10px] leading-tight text-muted-foreground" style={{ left: index * dayWidth, width: zoom === "week" ? dayWidth : zoom === "month" ? dayWidth * 7 : dayWidth * 30 }}>
-              {zoom === "month" && <span className="text-[9px] font-semibold uppercase tracking-[0.08em] text-foreground/70">{t("calendarWeek", { week: calendarWeek(parsed) })}</span>}
+            <span key={date} className="absolute top-0 flex h-full flex-col items-start justify-center gap-px border-l border-line-soft px-2 font-mono text-[10.5px] leading-tight text-muted-foreground" style={{ left: index * dayWidth, width: zoom === "week" ? dayWidth : zoom === "month" ? dayWidth * 7 : dayWidth * 30 }}>
+              {zoom === "month" && <span className="font-semibold text-foreground">{t("calendarWeek", { week: calendarWeek(parsed) })}</span>}
               <span>{format.dateTime(parsed, zoom === "quarter" ? { month: "short", year: "2-digit" } : { day: "2-digit", month: "short" })}</span>
             </span>
           );
         })}
         {today >= range.start && today <= renderedRangeEnd && (
           <span
-            className="pointer-events-none absolute bottom-1 z-20 -translate-x-1/2 rounded-full bg-red-600 px-1.5 py-0.5 font-sans text-[9px] font-semibold text-white shadow-sm"
+            className="pointer-events-none absolute bottom-1 z-20 inline-flex h-4 -translate-x-1/2 items-center rounded-full bg-brand px-1.5 font-sans text-[10px] font-semibold text-brand-on"
             style={{
               left:
                 calendarDistance(range.start, today) * dayWidth +
@@ -140,7 +140,7 @@ export function TimelineGridBackground({
       {Array.from({ length: dayCount }, (_, index) => {
         const date = addCalendarDays(range.start, index);
         const day = parseDate(date).getUTCDay();
-        return day === 0 || day === 6 ? <span key={date} className="absolute inset-y-0 bg-slate-100/45 dark:bg-slate-900/25" style={{ left: index * dayWidth, width: dayWidth }} /> : null;
+        return day === 0 || day === 6 ? <span key={date} className="absolute inset-y-0 bg-muted/45" style={{ left: index * dayWidth, width: dayWidth }} /> : null;
       })}
       {Array.from({ length: dayCount }, (_, index) => {
         const date = addCalendarDays(range.start, index);
@@ -150,12 +150,12 @@ export function TimelineGridBackground({
         return (
           <span
             key={`week-${date}`}
-            className="absolute inset-y-0 w-px bg-border/80"
+            className="absolute inset-y-0 w-px bg-line-soft"
             style={{ left: index * dayWidth }}
           />
         );
       })}
-      {today >= range.start && today <= renderedRangeEnd && <span className="absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-red-500/90" style={{ left: calendarDistance(range.start, today) * dayWidth + dayWidth / 2 }} />}
+      {today >= range.start && today <= renderedRangeEnd && <span className="absolute inset-y-0 z-10 w-0.5 -translate-x-1/2 bg-brand/80" style={{ left: calendarDistance(range.start, today) * dayWidth + dayWidth / 2 }} />}
     </div>
   );
 }

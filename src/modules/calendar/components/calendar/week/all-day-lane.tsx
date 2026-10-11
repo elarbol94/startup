@@ -46,18 +46,18 @@ export function AllDayLane({
   const rows = Math.max(1, visibleLanes + (collapsible ? 1 : 0));
 
   return (
-    <div className={cn("border-b", expanded && "max-h-[40vh] overflow-y-auto overscroll-contain")}>
+    <div className={cn("border-b border-line-soft", expanded && "max-h-[40vh] overflow-y-auto overscroll-contain")}>
       <div
-        className="grid bg-muted/[0.18] py-0.5"
+        className="grid bg-surface-raised/50 py-0.5"
         style={{ gridTemplateColumns, gridTemplateRows: `repeat(${rows}, auto)` }}
       >
-        <div className="border-r px-0.5 py-2 text-[8px] text-muted-foreground" style={{ gridColumn: 1, gridRow: "1 / -1" }}>
+        <div className="border-r border-line-soft px-1 py-2 text-[9px] leading-tight text-text-tertiary" style={{ gridColumn: 1, gridRow: "1 / -1" }}>
           {t("allDay")}
         </div>
         {days.map((day, column) => (
           <div
             key={day}
-            className={cn("min-h-9", column < days.length - 1 && "border-r")}
+            className={cn("min-h-9", column < days.length - 1 && "border-r border-line-soft")}
             style={{ gridColumn: column + 2, gridRow: "1 / -1" }}
             onDragOver={(event) => event.preventDefault()}
             onDrop={(event) => onDropDay(event, day)}
@@ -86,7 +86,7 @@ export function AllDayLane({
                 key={`more-${day}`}
                 aria-expanded={false}
                 onClick={() => setExpanded(true)}
-                className="z-10 mx-1 my-0.5 truncate rounded-md px-1.5 py-0.5 text-left text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+                className="z-10 mx-1 my-0.5 truncate rounded-md px-1.5 py-0.5 text-left text-[11px] font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
                 style={{ gridColumn: column + 2, gridRow: rows }}
               >
                 {t("moreAllDay", { count: hiddenByDay[column] })}
@@ -98,7 +98,7 @@ export function AllDayLane({
             type="button"
             aria-expanded
             onClick={() => setExpanded(false)}
-            className="z-10 mx-1 my-0.5 justify-self-start rounded-md px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+            className="z-10 mx-1 my-0.5 justify-self-start rounded-md px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
             style={{ gridColumn: "2 / -1", gridRow: rows }}
           >
             {t("showLessAllDay")}

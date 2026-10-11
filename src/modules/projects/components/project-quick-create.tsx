@@ -29,7 +29,7 @@ export function ProjectQuickCreate({ projectId, projectName }: { projectId: stri
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button type="button" variant="outline" size="sm" />}>
+      <DropdownMenuTrigger render={<Button type="button" variant="outline" />}>
         <Plus className="size-4" />
         {t("new")}
       </DropdownMenuTrigger>

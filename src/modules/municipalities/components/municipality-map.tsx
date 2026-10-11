@@ -175,7 +175,7 @@ export function MunicipalityMap({
           type="button"
           className={cn(
             "flex min-h-11 items-center justify-center gap-1 border-t px-2 py-2 text-[10px] font-semibold whitespace-nowrap hover:bg-accent lg:min-h-0",
-            overlayToggle.active && "bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
+            overlayToggle.active && "bg-brand-soft text-brand-ink",
           )}
           aria-pressed={overlayToggle.active}
           aria-busy={overlayToggle.loading || undefined}
@@ -212,13 +212,13 @@ export function MunicipalityMap({
 
       {selected ? (
         <div className="absolute inset-x-3 bottom-[4.75rem] z-20 flex justify-center lg:hidden">
-          <div className="flex max-w-full items-center overflow-hidden rounded-full border bg-background/95 shadow-lg backdrop-blur">
+          <div className="flex max-w-full items-center overflow-hidden rounded-full border bg-card/95 shadow-lg backdrop-blur">
             <button
               type="button"
               className="flex min-h-11 min-w-0 items-center gap-2 px-4 text-left"
               onClick={onOpenDetails}
             >
-              <MapPinned className="size-4 shrink-0 text-teal-700" />
+              <MapPinned className="size-4 shrink-0 text-brand-ink" />
               <span className="min-w-0 truncate text-sm font-semibold">{selected.name}</span>
               <span className="shrink-0 text-xs text-muted-foreground">{labels.selected}</span>
             </button>
@@ -235,7 +235,7 @@ export function MunicipalityMap({
       ) : null}
 
       <nav
-        className="absolute inset-x-3 bottom-3 z-20 grid grid-cols-3 overflow-hidden rounded-xl border bg-background/95 shadow-xl backdrop-blur lg:hidden"
+        className="absolute inset-x-3 bottom-3 z-20 grid grid-cols-3 overflow-hidden rounded-xl border bg-card/95 shadow-xl backdrop-blur lg:hidden"
         aria-label={labels.map}
       >
         <button

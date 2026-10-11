@@ -125,8 +125,8 @@ export function MunicipalityMetricChart({
   return (
     <section
       className={embedded
-        ? "relative w-full overflow-hidden rounded-xl border bg-background shadow-sm"
-        : `absolute right-3 bottom-3 z-10 overflow-hidden rounded-xl border bg-background/95 shadow-lg backdrop-blur ${expanded ? "fixed inset-4 z-50 w-auto max-w-none" : minimized ? "w-auto" : "w-[min(20rem,calc(100%-13rem))] min-w-44 sm:w-80"}`}
+        ? "relative w-full overflow-hidden rounded-xl border bg-card shadow-card"
+        : `absolute right-3 bottom-3 z-10 overflow-hidden rounded-xl border bg-card/95 shadow-lg backdrop-blur ${expanded ? "fixed inset-4 z-50 w-auto max-w-none" : minimized ? "w-auto" : "w-[min(20rem,calc(100%-13rem))] min-w-44 sm:w-80"}`}
       data-testid="municipality-metric-chart"
     >
       <div
@@ -172,14 +172,14 @@ export function MunicipalityMetricChart({
               </g>
             ))}
             {zeroLineVisible && <line data-testid="municipality-metric-chart-zero-line" x1={PLOT_LEFT} x2={CHART_WIDTH - PLOT_RIGHT} y1={chart.y(0)} y2={chart.y(0)} stroke="currentColor" strokeOpacity="0.55" strokeWidth="1.2" />}
-            {chart.paths.map((path) => <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-teal-700 dark:text-teal-300" />)}
+            {chart.paths.map((path) => <path key={path} d={path} fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-brand" />)}
             {chart.points.map((point) => (
               <g key={point.year}>
                 <circle
                   cx={point.x}
                   cy={point.y}
                   r={point.year === active.year ? 3.8 : 1.9}
-                  className={point.year === active.year ? "fill-background stroke-teal-700 dark:stroke-teal-300" : "fill-teal-700 dark:fill-teal-300"}
+                  className={point.year === active.year ? "fill-card stroke-brand" : "fill-brand"}
                   strokeWidth="2"
                 />
                 <circle
@@ -194,7 +194,7 @@ export function MunicipalityMetricChart({
                 />
               </g>
             ))}
-            <line x1={active.x} x2={active.x} y1={PLOT_TOP} y2={CHART_HEIGHT - PLOT_BOTTOM} className="pointer-events-none stroke-teal-700/45 dark:stroke-teal-300/45" strokeDasharray="3 3" />
+            <line x1={active.x} x2={active.x} y1={PLOT_TOP} y2={CHART_HEIGHT - PLOT_BOTTOM} className="pointer-events-none stroke-brand/45" strokeDasharray="3 3" />
             <text x={PLOT_LEFT} y={CHART_HEIGHT - 9} className="fill-muted-foreground text-[10px]">{points[0].year}</text>
             <text x={CHART_WIDTH - PLOT_RIGHT} y={CHART_HEIGHT - 9} textAnchor="end" className="fill-muted-foreground text-[10px]">{points.at(-1)!.year}</text>
             <text x={active.x} y={PLOT_TOP + 10} textAnchor="middle" className="pointer-events-none fill-foreground text-[10px] font-semibold">{active.year}</text>

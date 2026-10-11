@@ -40,7 +40,7 @@ export function MapLegend({
 }: MapLegendProps) {
   return (
     <div
-      className="absolute bottom-3 left-3 z-10 hidden w-44 max-w-[calc(100%-1.5rem)] rounded-xl border bg-background/95 p-3 shadow-sm backdrop-blur lg:block"
+      className="absolute bottom-3 left-3 z-10 hidden w-44 max-w-[calc(100%-1.5rem)] rounded-xl border bg-card/95 p-3 shadow-sm backdrop-blur lg:block"
       data-testid="population-legend"
     >
       <p className="text-xs font-semibold">{metricLabel}</p>

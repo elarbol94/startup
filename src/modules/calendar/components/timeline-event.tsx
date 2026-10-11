@@ -85,36 +85,40 @@ export function TimelineEvent({ item, day, timezone, column, columns, selected =
   }
   const handlers = { onPointerMove: move, onPointerUp: end, onPointerCancel: cancel };
   const height = Math.max(24, display.end - display.start);
-  const compact = display.end - display.start <= 30;
+  const compact = display.end - display.start <= 40;
   const titleText = `${!original.startsHere ? "← " : ""}${item.title}${!original.endsHere ? " →" : ""}`;
   const timeText = compact ? clock(display.start) : `${clock(display.start)}–${clock(display.end)}`;
-  const titleLines = height >= 80 ? "line-clamp-3" : height >= 52 ? "line-clamp-2" : "line-clamp-1";
+  const titleLines = height >= 96 ? "line-clamp-3" : height >= 66 ? "line-clamp-2" : "line-clamp-1";
   const attendees = item.attendeeIds.length;
+  // Overlapping events share the column width, so they drop to a smaller type size.
+  const narrow = columns >= 3 && !detailed;
+  const timeClass = cn("font-mono tabular-nums text-muted-foreground", narrow ? "text-[10.5px]" : "text-[11.5px]");
+  const detailClass = "block truncate text-[11.5px] text-muted-foreground";
   return (
-    <div data-calendar-event={item.sourceId} className={cn("group absolute z-10 rounded-md border border-l-[3px] text-foreground shadow-sm focus-within:z-20 hover:z-20", saving && "opacity-60", past && !selected && !preview && !saving && "opacity-60 hover:opacity-100", selected && "z-20 ring-2 ring-primary ring-offset-1 ring-offset-background", preview && "z-40 ring-2 ring-ring")}
-      style={{ top: display.start, height, left: `calc(${column * 100 / columns + (preview?.dayOffset ?? 0) * 100}% + 2px)`, width: `calc(${100 / columns}% - 4px)`, backgroundColor: `color-mix(in srgb, ${item.color} 18%, var(--background))`, borderColor: `color-mix(in srgb, ${item.color} 35%, transparent)`, borderLeftColor: item.color }}>
+    <div data-calendar-event={item.sourceId} className={cn("group absolute z-10 rounded-md border-l-[3px] text-foreground focus-within:z-20 hover:z-20 hover:shadow-sm", saving && "opacity-60", past && !selected && !preview && !saving && "opacity-60 hover:opacity-100", selected && "z-20 ring-2 ring-brand ring-offset-1 ring-offset-card", preview && "z-40 shadow-sm ring-2 ring-ring")}
+      style={{ top: display.start, height, left: `calc(${column * 100 / columns + (preview?.dayOffset ?? 0) * 100}% + 3px)`, width: `calc(${100 / columns}% - 6px)`, backgroundColor: `color-mix(in oklab, ${item.color} 20%, var(--card))`, borderLeftColor: item.color }}>
       {preview && !saving && <output
         data-testid="calendar-drag-time"
         data-edge={preview.mode === "end" ? "bottom" : "top"}
         aria-label={t(preview.mode === "end" ? "dragEndTime" : "dragStartTime", { time: clock(preview.mode === "end" ? display.end : display.start) })}
         className={cn("pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-md bg-foreground px-2 py-1 text-xs font-semibold tabular-nums text-background shadow-md", preview.mode === "end" ? "top-full mt-1" : "bottom-full mb-1")}
       >{clock(preview.mode === "end" ? display.end : display.start)}</output>}
-      <button type="button" className={cn("flex h-full w-full flex-col items-start justify-start overflow-clip text-left text-[10px] leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring", compact ? "px-1 py-0.5" : "px-1 py-1", editable && "touch-none cursor-grab active:cursor-grabbing")}
+      <button type="button" className={cn("flex h-full w-full flex-col items-start justify-start overflow-clip rounded-r-md text-left leading-tight outline-none focus-visible:ring-2 focus-visible:ring-ring", narrow ? "text-[11.5px]" : "text-[13.5px]", compact ? "px-1.5 py-0.5" : "px-1.5 py-1", editable && "touch-none cursor-grab active:cursor-grabbing")}
         aria-label={label} title={`${label}${item.location ? ` · ${item.location}` : ""}${item.assigneeName ? ` · ${item.assigneeName}` : ""}`} disabled={saving}
         onPointerDown={(event) => begin(event, "move")} {...handlers} onKeyDown={(event) => key(event, "move")}
         onClick={() => { if (!suppressClick.current) onSelect(item); suppressClick.current = false; }} onDoubleClick={() => { if (item.editable) onEdit(item); }}>
         {compact ? (
           <span className="flex w-full min-w-0 items-baseline gap-1 whitespace-nowrap">
-            <span className="min-w-0 truncate font-semibold">{titleText}</span>
-            <span className="shrink-0 text-[9px] tabular-nums text-muted-foreground">· {timeText}</span>
+            <span className="min-w-0 truncate font-medium">{titleText}</span>
+            <span className={cn("shrink-0", timeClass)}>{timeText}</span>
           </span>
         ) : (
           <span className="sticky top-36 block w-full">
-            <span className={cn("block break-words font-semibold", titleLines)}>{titleText}</span>
-            <span className="block truncate text-[9px] tabular-nums text-muted-foreground">{timeText}</span>
-            {detailed && item.location && <span className="block truncate text-[9px] text-muted-foreground">{item.location}</span>}
-            {detailed && attendees > 0 && <span className="block truncate text-[9px] text-muted-foreground">{t("weekAttendees", { count: attendees })}</span>}
-            {(columns === 1 || detailed) && item.assigneeName && <span className="block truncate text-[9px] text-muted-foreground">{item.assigneeName}</span>}
+            <span className={cn("block break-words font-medium", titleLines)}>{titleText}</span>
+            <span className={cn("mt-px block truncate", timeClass)}>{timeText}</span>
+            {detailed && item.location && <span className={detailClass}>{item.location}</span>}
+            {detailed && attendees > 0 && <span className={detailClass}>{t("weekAttendees", { count: attendees })}</span>}
+            {(columns === 1 || detailed) && item.assigneeName && <span className={detailClass}>{item.assigneeName}</span>}
           </span>
         )}
       </button>

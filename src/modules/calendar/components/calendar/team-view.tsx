@@ -64,13 +64,13 @@ export function TeamView({
   const gridStyle = {
     gridTemplateColumns: `${NAME_COLUMN} repeat(${days.length}, minmax(${MIN_DAY_COLUMN}, 1fr))`,
   };
-  const nameCell = "sticky left-0 z-10 flex min-w-0 items-center border-r bg-background px-2.5";
+  const nameCell = "sticky left-0 z-10 flex min-w-0 items-center border-r border-line-soft bg-card px-3";
 
   return (
     <div className="overflow-x-auto">
       <div style={{ minWidth: `calc(${NAME_COLUMN} + ${days.length} * ${MIN_DAY_COLUMN})` }}>
-        <div className="grid border-b bg-muted/20" style={gridStyle}>
-          <div className={cn(nameCell, "bg-muted/20 text-xs font-semibold")}>
+        <div className="grid border-b bg-surface-raised" style={gridStyle}>
+          <div className={cn(nameCell, "bg-surface-raised text-[11.5px] font-medium text-muted-foreground")}>
             <span className="truncate">{t("people")}</span>
           </div>
           {days.map((day) => (
@@ -85,8 +85,8 @@ export function TeamView({
           ))}
         </div>
         {rows.map((row) => (
-          <div key={row.member.id} className="grid min-h-14 border-b" style={gridStyle}>
-            <div className={cn(nameCell, "text-xs")}>
+          <div key={row.member.id} className="grid min-h-14 border-b border-line-soft" style={gridStyle}>
+            <div className={cn(nameCell, "text-[13px]")}>
               <UserIdentity userId={row.member.id} name={row.member.name} />
             </div>
             {row.days.map((data, index) => (
@@ -106,10 +106,10 @@ export function TeamView({
           </div>
         ))}
         {members.length === 0 ? (
-          <p className="p-6 text-center text-sm text-muted-foreground">{t("teamNoMembers")}</p>
+          <p className="p-6 text-center text-[13.5px] text-muted-foreground">{t("teamNoMembers")}</p>
         ) : (
-          <div className="grid bg-muted/10" style={gridStyle}>
-            <div className={cn(nameCell, "bg-muted/10 py-2 text-xs font-semibold")} title={t("teamAllFreeHint")}>
+          <div className="grid" style={gridStyle}>
+            <div className={cn(nameCell, "py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary")} title={t("teamAllFreeHint")}>
               <span className="truncate">{t("teamAllFree")}</span>
             </div>
             {days.map((day, index) => {
@@ -117,7 +117,7 @@ export function TeamView({
               return (
                 <div
                   key={day}
-                  className={cn("min-w-0 border-r px-1.5 py-2 last:border-r-0", day === today && "bg-primary/[0.06]")}
+                  className={cn("min-w-0 border-r border-line-soft px-1.5 py-2.5 last:border-r-0", day === today && "bg-brand-soft")}
                   title={windows.length === 0 ? t("teamNoCommonSlot") : undefined}
                 >
                   <TeamTimelineTrack range={range} ticks={ticks} className="h-3">
@@ -130,7 +130,7 @@ export function TeamView({
                           title={label}
                           aria-label={label}
                           role="img"
-                          className="absolute inset-y-0 rounded-[3px] bg-emerald-500/70 dark:bg-emerald-400/60"
+                          className="absolute inset-y-0 rounded-[3px] bg-brand/70"
                           style={{ left: `${left}%`, width: `${width}%` }}
                         />
                       );

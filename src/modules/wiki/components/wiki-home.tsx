@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
-import { ArrowDown, ArrowUp, Clock3, Pin, SlidersHorizontal } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpRight, Clock3, Pin, SlidersHorizontal } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import type { WikiNavigationItem } from "../navigation-queries";
 import { resolveWikiNavigationItems } from "../navigation-actions";
 import { parseWikiList, useWikiLocalSetting, useWikiNavigation, WikiSearchButton, wikiItemIcons } from "./wiki-navigation";
+import { WIKI_PAGE_CLASS } from "./wiki-page-class";
 
 const sections = ["document", "source", "presentation", "pinned", "recent"] as const;
 type Section = typeof sections[number];
@@ -56,40 +57,42 @@ export function WikiHome({ items: latestItems, actions }: { items: WikiNavigatio
   // An empty "Pinned" card only restates how pinning works; it is replaced by a
   // one-line hint under the search until something is pinned.
   const pinnedEmpty = !hidden.includes("pinned") && sectionItems("pinned").length === 0;
-  return <main className="mx-auto w-full max-w-7xl p-5 md:p-8" data-testid="wiki-home">
+  return <main className={WIKI_PAGE_CLASS} data-testid="wiki-home">
     <PageHeader title={t("title")} description={t("subtitle")} actions={<>
       <Button variant="ghost" onClick={() => setCustomizing(true)}><SlidersHorizontal className="size-4" />{t("customize")}</Button>
       {actions}
     </>} />
     <section aria-label={t("search")}><WikiSearchButton /></section>
-    {pinnedEmpty && <p className="mt-2 flex items-center gap-1.5 px-1 text-xs text-muted-foreground"><Pin className="size-3 shrink-0" />{t("pinHint")}</p>}
-    <div className="mt-6 grid items-start gap-6 lg:grid-cols-2 xl:grid-cols-3">
+    {pinnedEmpty && <p className="mx-1 mt-2 flex items-center gap-1.5 text-xs text-muted-foreground"><Pin className="size-3 shrink-0" />{t("pinHint")}</p>}
+    <div className="mt-5 grid items-start gap-4 lg:grid-cols-2 xl:grid-cols-3">
       {order.filter((section) => !hidden.includes(section) && !(section === "pinned" && pinnedEmpty)).map((section) => {
         const entries = sectionItems(section);
         const Icon = section === "pinned" ? Pin : section === "recent" ? Clock3 : wikiItemIcons[section];
-        return <section key={section} data-wiki-section={section} className="min-w-0 rounded-xl border bg-card">
-          <div className="flex items-center justify-between gap-2 px-4 pt-4 pb-3"><h2 className="flex items-center gap-2 text-sm font-semibold"><Icon className="size-4 text-muted-foreground" />{t(section)}</h2>
-            {section !== "pinned" && section !== "recent" && <Link href={libraryPaths[section]} className="text-xs text-muted-foreground hover:text-foreground">{t("viewAll")} <span aria-hidden>↗</span></Link>}
+        return <section key={section} data-wiki-section={section} className="min-w-0 overflow-hidden rounded-xl border bg-card shadow-card">
+          <div className="flex min-h-[52px] items-center gap-2.5 border-b border-line-soft px-[18px] py-2.5">
+            <Icon className="size-4 shrink-0 text-muted-foreground" />
+            <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">{t(section)}</h2>
+            {section !== "pinned" && section !== "recent" && <Link href={libraryPaths[section]} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "-mr-2 shrink-0 text-muted-foreground")}>{t("viewAll")}<ArrowUpRight data-icon="inline-end" className="size-3.5" /></Link>}
           </div>
-          <div className="px-2 pb-2">{entries.length ? entries.map((item) => {
+          {entries.length ? <ul className="divide-y divide-line-soft">{entries.map((item) => {
             const ItemIcon = wikiItemIcons[item.kind]; const pinned = pins.includes(item.href);
-            return <div key={item.href} className="group flex items-center rounded-lg hover:bg-accent">
-              <Link href={item.href} className={cn("flex min-w-0 flex-1 items-center gap-3 px-2", compact ? "py-2" : "py-3")}><ItemIcon className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0"><span className="block truncate text-sm font-medium">{item.title}</span>{!compact && <span className="mt-1 block text-xs text-muted-foreground">{t(item.kind)} · {formatter.format(new Date(item.updatedAt))}</span>}</span></Link>
-              <button type="button" aria-label={t(pinned ? "unpin" : "pin", { title: item.title })} aria-pressed={pinned} onClick={() => togglePin(item.href)} className={cn("mr-1 rounded-md p-2 focus-visible:ring-2 focus-visible:ring-ring", pinned ? "text-indigo-400" : "text-muted-foreground opacity-60 hover:opacity-100")}><Pin className="size-3.5" /></button>
-            </div>;
-          }) : <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-2 pb-2 text-xs text-muted-foreground"><p className="min-w-0 flex-1">{t(section === "pinned" ? "pinnedEmpty" : section === "recent" ? "recentEmpty" : "empty")}</p>{section === "recent" && <Button variant="link" size="xs" className="h-auto px-0" onClick={openSearch}>{t("switcher")}</Button>}</div>}</div>
+            return <li key={item.href} className="group flex items-center text-[13.5px] transition-colors hover:bg-accent">
+              <Link href={item.href} className={cn("flex min-w-0 flex-1 items-center gap-3 pl-[18px] outline-none focus-visible:bg-accent", compact ? "py-2" : "py-[11px]")}><ItemIcon className="size-4 shrink-0 text-muted-foreground" /><span className="min-w-0"><span className="block truncate font-medium" title={item.title}>{item.title}</span>{!compact && <span className="mt-0.5 block text-xs text-muted-foreground">{t(item.kind)} · {formatter.format(new Date(item.updatedAt))}</span>}</span></Link>
+              <button type="button" aria-label={t(pinned ? "unpin" : "pin", { title: item.title })} aria-pressed={pinned} onClick={() => togglePin(item.href)} className={cn("mr-2.5 grid size-7 shrink-0 place-items-center rounded-md transition-colors outline-none hover:bg-background focus-visible:outline-2 focus-visible:outline-ring", pinned ? "text-brand-ink" : "text-muted-foreground opacity-60 hover:opacity-100 focus-visible:opacity-100")}><Pin className={cn("size-3.5", pinned && "fill-current")} /></button>
+            </li>;
+          })}</ul> : <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-[18px] py-[11px] text-[13px] text-muted-foreground"><p className="min-w-0 flex-1">{t(section === "pinned" ? "pinnedEmpty" : section === "recent" ? "recentEmpty" : "empty")}</p>{section === "recent" && <Button variant="link" size="xs" className="h-auto px-0 text-brand-ink" onClick={openSearch}>{t("switcher")}</Button>}</div>}
         </section>;
       })}
     </div>
     <Dialog open={customizing} onOpenChange={setCustomizing}>
       <DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>{t("customize")}</DialogTitle><DialogDescription>{t("customizeHint")}</DialogDescription></DialogHeader>
-        <div className="space-y-2">{order.map((section, index) => <div key={section} className="flex items-center gap-2 rounded-lg border px-3 py-2">
-          <label className="flex min-h-9 flex-1 items-center gap-3 text-sm"><input type="checkbox" className="size-4 accent-foreground" checked={!hidden.includes(section)} onChange={() => saveHidden(hidden.includes(section) ? hidden.filter((item) => item !== section) : [...hidden, section])} />{t(section)}</label>
+        <div className="divide-y divide-line-soft overflow-hidden rounded-xl border">{order.map((section, index) => <div key={section} className="flex items-center gap-2 px-3 py-1.5">
+          <label className="flex min-h-9 flex-1 items-center gap-3 text-sm"><input type="checkbox" className="size-4 accent-brand" checked={!hidden.includes(section)} onChange={() => saveHidden(hidden.includes(section) ? hidden.filter((item) => item !== section) : [...hidden, section])} />{t(section)}</label>
           <Button size="icon-sm" variant="ghost" disabled={index === 0} aria-label={t("moveUp", { section: t(section) })} onClick={() => reorder(section, -1)}><ArrowUp /></Button>
           <Button size="icon-sm" variant="ghost" disabled={index === order.length - 1} aria-label={t("moveDown", { section: t(section) })} onClick={() => reorder(section, 1)}><ArrowDown /></Button>
         </div>)}</div>
-        <label className="flex items-center gap-3 py-2 text-sm"><input type="checkbox" className="size-4 accent-foreground" checked={compact} onChange={(event) => saveCompact(event.target.checked)} />{t("compact")}</label>
-        <div className="flex justify-between border-t pt-4"><Button variant="ghost" onClick={() => { saveOrder(sections); saveHidden([]); saveCompact(false); }}>{t("reset")}</Button><Button onClick={() => setCustomizing(false)}>{t("done")}</Button></div>
+        <label className="flex items-center gap-3 py-2 text-sm"><input type="checkbox" className="size-4 accent-brand" checked={compact} onChange={(event) => saveCompact(event.target.checked)} />{t("compact")}</label>
+        <div className="flex justify-between border-t border-line-soft pt-4"><Button variant="ghost" onClick={() => { saveOrder(sections); saveHidden([]); saveCompact(false); }}>{t("reset")}</Button><Button onClick={() => setCustomizing(false)}>{t("done")}</Button></div>
       </DialogContent>
     </Dialog>
   </main>;

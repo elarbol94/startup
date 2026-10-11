@@ -14,9 +14,9 @@ import type { CalendarResponse } from "../../../types";
 type Reply = Exclude<CalendarResponse, "needs_action">;
 
 const OPTIONS = [
-  { value: "accepted", label: "inspectorRsvpAccept", Icon: Check, active: "bg-emerald-600 text-white" },
-  { value: "tentative", label: "inspectorRsvpTentative", Icon: CircleHelp, active: "bg-amber-500 text-white" },
-  { value: "declined", label: "inspectorRsvpDecline", Icon: X, active: "bg-rose-600 text-white" },
+  { value: "accepted", label: "inspectorRsvpAccept", Icon: Check, active: "bg-brand text-brand-on shadow-sm" },
+  { value: "tentative", label: "inspectorRsvpTentative", Icon: CircleHelp, active: "bg-amber-500 text-white shadow-sm" },
+  { value: "declined", label: "inspectorRsvpDecline", Icon: X, active: "bg-destructive text-white shadow-sm" },
 ] as const satisfies readonly { value: Reply; label: string; Icon: unknown; active: string }[];
 
 export function RsvpControl({
@@ -51,15 +51,15 @@ export function RsvpControl({
   }
 
   return (
-    <div className="space-y-1.5 border-t pt-3">
-      <p id={`rsvp-${eventId}`} className="text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+    <div className="space-y-1.5 border-t border-line-soft pt-3">
+      <p id={`rsvp-${eventId}`} className="text-[11px] font-semibold uppercase tracking-[0.12em] text-text-tertiary">
         {t("inspectorRsvpLabel")}
       </p>
       <div
         role="group"
         aria-labelledby={`rsvp-${eventId}`}
         aria-busy={pending || undefined}
-        className="grid grid-cols-3 gap-0.5 rounded-lg border bg-muted/40 p-0.5"
+        className="grid grid-cols-3 gap-0.5 rounded-[10px] border bg-muted p-[3px]"
       >
         {OPTIONS.map(({ value, label, Icon, active }) => {
           const selected = current === value;
@@ -71,8 +71,8 @@ export function RsvpControl({
               disabled={pending && !selected}
               onClick={() => respond(value)}
               className={cn(
-                "inline-flex h-7 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium outline-none transition-colors focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60",
-                selected ? active : "text-muted-foreground hover:bg-background hover:text-foreground",
+                "inline-flex h-[26px] items-center justify-center gap-1 rounded-[7px] px-2 text-[12.5px] font-medium outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60 max-md:h-9",
+                selected ? active : "text-muted-foreground hover:text-foreground",
               )}
             >
               <Icon className="size-3.5" aria-hidden />

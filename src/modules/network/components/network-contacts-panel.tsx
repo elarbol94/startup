@@ -34,15 +34,15 @@ export function NetworkContactsPanel({
   const available = options.filter((option) => !linked.has(option.id));
 
   return (
-    <section className="space-y-3 rounded-2xl border bg-card p-4" data-testid="network-contacts-panel">
+    <section className="space-y-3 rounded-xl border bg-card px-[18px] py-4 shadow-card" data-testid="network-contacts-panel">
       <h2 className="flex items-center gap-2 text-sm font-semibold">
-        <Handshake className="size-4 text-muted-foreground" />
+        <Handshake className="size-4 text-brand-ink" />
         {t("links.panelTitle")}
       </h2>
       {contacts.length ? (
         <ul className="space-y-1">
           {contacts.map((contact) => (
-            <li key={contact.linkId} className="flex items-center gap-2 text-sm">
+            <li key={contact.linkId} className="flex items-center gap-2 text-[13.5px]">
               <Link href={`/network/${contact.contactId}`} className="min-w-0 flex-1 truncate hover:underline">
                 <span className="font-medium">{contact.name}</span>
                 {contact.visibility === "private" && <Lock className="ml-1 inline size-3 text-muted-foreground" aria-label={t("visibility.private")} />}

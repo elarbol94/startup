@@ -31,8 +31,8 @@ function Chip({
   tone?: "danger" | "success";
 }) {
   const className = cn(
-    "inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border bg-background px-2.5 text-xs font-medium text-muted-foreground",
-    href && "transition-colors hover:border-foreground/25 hover:bg-muted hover:text-foreground",
+    "inline-flex h-7 max-w-full items-center gap-1.5 rounded-full border bg-card px-2.5 text-xs font-medium text-text-secondary",
+    href && "transition-colors hover:border-line-strong hover:bg-accent hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
     tone === "danger" && "border-destructive/30 bg-destructive/5 text-destructive hover:text-destructive",
     tone === "success" && "text-emerald-700 dark:text-emerald-400",
   );

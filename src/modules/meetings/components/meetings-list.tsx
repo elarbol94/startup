@@ -4,16 +4,18 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { Plus, Search, Video } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcuts } from "@/components/use-keyboard-shortcut";
 import { SECTION_PAGE_SHORTCUTS } from "@/lib/app-shortcuts";
+import { cn } from "@/lib/utils";
 import type { MeetingListItem, MeetingSearchHit } from "../queries";
 import { NewMeetingDialog, type MeetingFormOptions } from "./new-meeting-dialog";
 import { matchesFilter, meetingListFilters, type MeetingListFilter } from "./meetings-list/list-filters";
 import { MeetingRow } from "./meetings-list/meeting-row";
+import { MeetingPill } from "./meeting-pill";
 
 export function MeetingsList({ meetings, hits, query, options, viewerId }: {
   meetings: MeetingListItem[];
@@ -47,18 +49,21 @@ export function MeetingsList({ meetings, hits, query, options, viewerId }: {
       </div>
 
       {query && (
-        <section className="space-y-2" aria-label={t("search.results")}>
-          <h2 className="text-sm font-medium text-muted-foreground">{t("search.results")}</h2>
-          {hits.length === 0 ? <p className="text-sm text-muted-foreground">{t("search.empty")}</p> : (
-            <ul className="divide-y rounded-xl border">
+        <section className="overflow-hidden rounded-xl border bg-card shadow-card" aria-label={t("search.results")}>
+          <header className="flex items-center gap-2.5 border-b border-line-soft px-[18px] py-3.5">
+            <h2 className="text-sm font-semibold">{t("search.results")}</h2>
+            <span className="text-xs text-muted-foreground tabular-nums">{hits.length}</span>
+          </header>
+          {hits.length === 0 ? <p className="px-[18px] py-[11px] text-[13.5px] text-muted-foreground">{t("search.empty")}</p> : (
+            <ul className="divide-y divide-line-soft">
               {hits.map((hit) => (
                 <li key={`${hit.meetingId}-${hit.source}`}>
-                  <Link href={`/meetings/${hit.meetingId}`} className="block px-4 py-3 hover:bg-muted/50">
-                    <div className="flex items-center gap-2 text-sm font-medium">
-                      {hit.title}
-                      <Badge variant="outline">{t(`search.source.${hit.source}`)}</Badge>
+                  <Link href={`/meetings/${hit.meetingId}`} className="block px-[18px] py-[11px] text-[13.5px] outline-none hover:bg-accent focus-visible:bg-accent">
+                    <div className="flex items-center gap-2 font-medium">
+                      <span className="truncate">{hit.title}</span>
+                      <MeetingPill tone="line">{t(`search.source.${hit.source}`)}</MeetingPill>
                     </div>
-                    <p className="mt-1 text-sm text-muted-foreground">{hit.snippet}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{hit.snippet}</p>
                   </Link>
                 </li>
               ))}
@@ -68,30 +73,45 @@ export function MeetingsList({ meetings, hits, query, options, viewerId }: {
       )}
 
       {meetings.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-12 text-center">
-          <Video className="size-6 text-muted-foreground" />
-          <p className="font-medium">{t("empty.title")}</p>
-          <p className="max-w-md text-sm text-muted-foreground">{t("empty.description")}</p>
+        <div className="rounded-xl border bg-card shadow-card">
+          <EmptyState
+            icon={<Video />}
+            title={t("empty.title")}
+            description={t("empty.description")}
+            actions={<Button size="sm" onClick={() => setCreating(true)}><Plus />{t("new.button")}</Button>}
+          />
         </div>
       ) : (
-        <>
-          <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("overview.filterLabel")}>
-            {meetingListFilters.map((option) => {
-              const count = meetings.filter((meeting) => matchesFilter(meeting, option)).length;
-              return (
-                <Button key={option} size="sm" variant={filter === option ? "secondary" : "ghost"} aria-pressed={filter === option} onClick={() => setFilter(option)}>
-                  {t(`overview.filters.${option}`)}
-                  <span className="text-muted-foreground tabular-nums">{count}</span>
-                </Button>
-              );
-            })}
-          </div>
-          {visible.length === 0 ? <p className="text-sm text-muted-foreground">{t("overview.filterEmpty")}</p> : (
-            <ul className="divide-y rounded-xl border">
+        <section className="overflow-hidden rounded-xl border bg-card shadow-card" aria-label={t("title")}>
+          <header className="flex flex-wrap items-center gap-2.5 border-b border-line-soft px-[18px] py-3">
+            <div className="flex flex-wrap gap-0.5 rounded-[10px] border bg-muted p-[3px]" role="group" aria-label={t("overview.filterLabel")}>
+              {meetingListFilters.map((option) => {
+                const count = meetings.filter((meeting) => matchesFilter(meeting, option)).length;
+                const active = filter === option;
+                return (
+                  <button
+                    key={option}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => setFilter(option)}
+                    className={cn(
+                      "inline-flex h-[26px] items-center gap-1.5 rounded-[7px] px-2.5 text-[12.5px] font-medium whitespace-nowrap text-muted-foreground transition-colors outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring max-md:h-9",
+                      active && "bg-card text-foreground shadow-sm dark:bg-secondary dark:shadow-none",
+                    )}
+                  >
+                    {t(`overview.filters.${option}`)}
+                    <span className="text-muted-foreground tabular-nums">{count}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </header>
+          {visible.length === 0 ? <p className="px-[18px] py-[11px] text-[13.5px] text-muted-foreground">{t("overview.filterEmpty")}</p> : (
+            <ul className="divide-y divide-line-soft">
               {visible.map((meeting) => <li key={meeting.id}><MeetingRow meeting={meeting} /></li>)}
             </ul>
           )}
-        </>
+        </section>
       )}
       <NewMeetingDialog open={creating} onOpenChange={setCreating} options={options} viewerId={viewerId} />
     </div>
