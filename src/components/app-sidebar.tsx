@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -24,6 +24,8 @@ import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
 import { AppNavigation } from "./app-sidebar/app-navigation";
 import { brandInitials } from "./app-sidebar/sidebar-model";
 import { useSidebarRail } from "./app-sidebar/use-sidebar-rail";
+
+const subscribeNever = () => () => {};
 
 function BrandMark({ name }: { name: string }) {
   return (
@@ -58,10 +60,13 @@ export function AppSidebar({
       handler: () => requestAppNavigation(item.href, () => router.push(item.href)),
     })),
   );
-  const currentSection = moduleNavItemForPath(pathname);
+  // The sidebar streams in late; by the time it hydrates the person may already have
+  // navigated, so the path-dependent title only appears once hydration is done.
+  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
+  const currentSection = hydrated ? moduleNavItemForPath(pathname) : undefined;
   const mobileTitle = currentSection
     ? t(currentSection.key)
-    : isNavItemActive("/settings", pathname) ? t("settings") : productName;
+    : hydrated && isNavItemActive("/settings", pathname) ? t("settings") : productName;
 
   return (
     <>

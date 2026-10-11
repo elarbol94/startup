@@ -77,10 +77,10 @@ test("create, move (via dialog) and complete a task", async ({ page }) => {
   const openColumn = page.locator('[data-column-name="Offen"]');
   await expect(openColumn.getByText("Landingpage bauen")).toBeVisible();
 
-  // Project tasks also appear in the dashboard's all-tasks collection.
+  // Project tasks also appear in the dashboard's task card ("Meine Aufgaben" by default).
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: "Aufgaben", exact: true }),
+    page.getByRole("heading", { name: "Meine Aufgaben", exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Landingpage bauen", exact: true })).toBeVisible();
 
