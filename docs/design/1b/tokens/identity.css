@@ -1,0 +1,19 @@
+/* Personal identity colours (src/lib/user-mark-colors.ts). Solid = avatar fill; highlight = text marks. */
+:root {
+  --identity-amber: #b45309; --identity-amber-highlight: rgb(245 158 11 / 0.30);
+  --identity-orange: #c2410c; --identity-orange-highlight: rgb(249 115 22 / 0.28);
+  --identity-red: #b91c1c; --identity-red-highlight: rgb(239 68 68 / 0.25);
+  --identity-rose: #be123c; --identity-rose-highlight: rgb(244 63 94 / 0.25);
+  --identity-pink: #be185d; --identity-pink-highlight: rgb(236 72 153 / 0.25);
+  --identity-fuchsia: #a21caf; --identity-fuchsia-highlight: rgb(217 70 239 / 0.24);
+  --identity-purple: #7e22ce; --identity-purple-highlight: rgb(168 85 247 / 0.25);
+  --identity-violet: #6d28d9; --identity-violet-highlight: rgb(139 92 246 / 0.25);
+  --identity-indigo: #4338ca; --identity-indigo-highlight: rgb(99 102 241 / 0.25);
+  --identity-blue: #1d4ed8; --identity-blue-highlight: rgb(59 130 246 / 0.25);
+  --identity-sky: #0369a1; --identity-sky-highlight: rgb(14 165 233 / 0.25);
+  --identity-cyan: #0e7490; --identity-cyan-highlight: rgb(6 182 212 / 0.25);
+  --identity-teal: #0f766e; --identity-teal-highlight: rgb(20 184 166 / 0.25);
+  --identity-emerald: #047857; --identity-emerald-highlight: rgb(16 185 129 / 0.25);
+  --identity-green: #15803d; --identity-green-highlight: rgb(34 197 94 / 0.25);
+  --identity-lime: #4d7c0f; --identity-lime-highlight: rgb(132 204 22 / 0.27);
+}

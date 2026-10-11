@@ -316,7 +316,9 @@
     "newEvent": "Neuer Termin",
     "newDeadline": "Neue Deadline",
     "newContact": "Neuer Kontakt",
-    "draft": "Entwurf"
+    "draft": "Entwurf",
+    "groups": { "work": "Arbeit", "finance": "Finanzen", "knowledge": "Wissen" },
+    "toggleTheme": "Farbmodus wechseln"
   },
   "network": {
     "bulk": {"selectHint":"Kontakte auswählen, um mehrere auf einmal zu taggen, zu teilen oder zu löschen","visibility":"Sichtbarkeit","deleteTitle":"{count, plural, one {# Kontakt löschen?} other {# Kontakte löschen?}}","deleteConfirm":"Ihre Möglichkeiten werden mitgelöscht; Möglichkeiten, über die sie vorgestellt wurden, behalten den Namen. Das kann nicht rückgängig gemacht werden.","notManageable":"{count, plural, one {# ausgewählter Kontakt kann} other {# ausgewählte Kontakte können}} nur von der Eigentümerin oder dem Eigentümer gelöscht werden und {count, plural, one {wird} other {werden}} übersprungen.","deleted":"{count, plural, one {# Kontakt gelöscht} other {# Kontakte gelöscht}}","select":"Auswählen","doneSelecting":"Fertig","deleteLeadsTitle":"{count, plural, one {# Möglichkeit löschen?} other {# Möglichkeiten löschen?}}","deleteLeadsConfirm":"Das kann nicht rückgängig gemacht werden."},

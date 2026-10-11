@@ -25,19 +25,26 @@ export type ModuleNavItem = {
   key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings";
   href: string;
   icon: LucideIcon;
+  /** Sidebar group; translation key under `nav.groups` */
+  group: ModuleNavGroup;
 };
 
+export type ModuleNavGroup = "work" | "finance" | "knowledge";
+
+/** Sidebar group order. Settings is not part of a group; it sits in the sidebar footer. */
+export const moduleNavGroups: ModuleNavGroup[] = ["work", "finance", "knowledge"];
+
 export const moduleNav: ModuleNavItem[] = [
-  { key: "dashboard", href: "/", icon: LayoutDashboard },
-  { key: "calendar", href: "/calendar", icon: CalendarDays },
-  { key: "accounting", href: "/accounting", icon: Calculator },
-  { key: "personnel", href: "/personnel", icon: UserRoundCog },
-  { key: "time", href: "/time", icon: Timer },
-  { key: "projects", href: "/projects", icon: KanbanSquare },
-  { key: "meetings", href: "/meetings", icon: Video },
-  { key: "wiki", href: "/wiki", icon: BookOpen },
-  { key: "municipalities", href: "/municipalities/overview", icon: MapPinned },
-  { key: "network", href: "/network", icon: Handshake },
+  { key: "dashboard", href: "/", icon: LayoutDashboard, group: "work" },
+  { key: "calendar", href: "/calendar", icon: CalendarDays, group: "work" },
+  { key: "projects", href: "/projects", icon: KanbanSquare, group: "work" },
+  { key: "time", href: "/time", icon: Timer, group: "work" },
+  { key: "meetings", href: "/meetings", icon: Video, group: "work" },
+  { key: "accounting", href: "/accounting", icon: Calculator, group: "finance" },
+  { key: "personnel", href: "/personnel", icon: UserRoundCog, group: "finance" },
+  { key: "wiki", href: "/wiki", icon: BookOpen, group: "knowledge" },
+  { key: "municipalities", href: "/municipalities/overview", icon: MapPinned, group: "knowledge" },
+  { key: "network", href: "/network", icon: Handshake, group: "knowledge" },
 ];
 
 /** Routes outside a section's own path that should highlight that section. */

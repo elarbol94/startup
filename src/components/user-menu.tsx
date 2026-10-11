@@ -67,11 +67,11 @@ export function UserMenu({
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={compact ? `${name} (${email})` : undefined}
-        className={`flex items-center rounded-md text-left hover:bg-accent/50 ${compact ? "size-10 justify-center p-1" : "w-full gap-3 px-2 py-1.5"}`}
+        className={`flex items-center rounded-md text-left outline-none hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${compact ? "size-10 justify-center p-1" : "w-full gap-2.5 px-1.5 py-1.5"}`}
       >
         <UserIdentity name={name} avatarOnly className="[&>span:first-child]:size-8" />
         <div className={compact ? "hidden" : "min-w-0 flex-1"}>
-          <p className="truncate text-sm font-medium">{name}</p>
+          <p className="truncate text-[13px] font-medium">{name}</p>
           <p className="truncate text-xs text-muted-foreground">{email}</p>
         </div>
       </DropdownMenuTrigger>

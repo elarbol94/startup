@@ -1,0 +1,6 @@
+*, *::before, *::after { box-sizing: border-box; border-color: var(--border); }
+html { font-family: var(--font-sans); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-size: var(--text-sm); line-height: var(--text-sm--lh); }
+a { color: inherit; text-decoration: none; }
+a:hover { text-decoration: underline; text-underline-offset: 4px; }
+button { font: inherit; color: inherit; }

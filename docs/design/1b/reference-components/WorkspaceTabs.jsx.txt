@@ -1,0 +1,19 @@
+import React from "react";
+import { Icon } from "../core/Icon";
+const cx = (...a) => a.filter(Boolean).join(" ");
+
+/** Browser-like workspace tabs above every page. tabs = [{ id, label, icon }]. */
+export function WorkspaceTabs({ tabs = [], activeId, onSelect, onClose, onNew, onSplit, className }) {
+  return (
+    <div role="tablist" className={cx("mp-wtabs", className)}>
+      {tabs.map((t) => (
+        <button key={t.id} type="button" role="tab" aria-selected={t.id === activeId} data-active={t.id === activeId} className="mp-wtab" title={t.label} onClick={() => onSelect && onSelect(t.id)}>
+          {t.icon ? <Icon name={t.icon} size={14} /> : null}<span className="mp-wtab__label">{t.label}</span>
+          {onClose ? <span className="mp-wtab__x" role="button" aria-label={t.label + " schließen"} onClick={(e) => { e.stopPropagation(); onClose(t.id); }}><Icon name="X" size={13} /></span> : null}
+        </button>
+      ))}
+      {onNew ? <button type="button" className="mp-wtab mp-wtab--icon" aria-label="Neuer Tab" onClick={onNew}><Icon name="Plus" size={14} /></button> : null}
+      {onSplit ? <button type="button" className="mp-wtab mp-wtab--icon" style={{ marginLeft: "auto" }} aria-label="Geteilte Ansicht" onClick={onSplit}><Icon name="Columns2" size={14} /></button> : null}
+    </div>
+  );
+}

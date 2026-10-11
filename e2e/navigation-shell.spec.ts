@@ -30,7 +30,7 @@ async function expectWidth(locator: Locator, width: number) {
   await expect.poll(async () => Math.round((await locator.boundingBox())?.width ?? 0)).toBe(width);
 }
 
-test("desktop navigation rails expand on hover, collapse on leave, and survive focus mode", async ({ page }) => {
+test("desktop sidebar collapses to a remembered icon rail and survives focus mode", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/wiki/inbox");
@@ -43,7 +43,12 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
     .filter({ visible: true });
   await expect(appSidebar).toBeVisible();
   await expect(researchSidebar).toBeVisible();
-  await expectWidth(appSidebar, 56);
+  // The app sidebar stays wide (no hover expansion) and shows the module groups.
+  await expectWidth(appSidebar, 248);
+  for (const group of ["Arbeit", "Finanzen", "Wissen"]) {
+    await expect(appSidebar.getByRole("group", { name: group })).toBeVisible();
+  }
+  await expect(appSidebar.getByRole("group", { name: "Wissen" }).getByRole("button", { name: "Wiki" })).toHaveAttribute("aria-current", "page");
   // The research panel starts expanded; collapsing it to the icon rail is remembered.
   await expectWidth(researchSidebar, 208);
   await researchSidebar.getByRole("button", { name: "Navigation einklappen" }).click();
@@ -55,19 +60,22 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expect(researchSidebar.getByRole("link", { name: /Eingang/ })).toBeVisible();
   await expect(appSidebar.getByRole("button", { name: /E2E Admin/ })).toBeVisible();
 
+  await appSidebar.getByRole("button", { name: "Hauptnavigation einklappen" }).click();
+  await expectWidth(appSidebar, 64);
+  await expect(appSidebar.getByRole("button", { name: "Kalender" })).toBeVisible();
+  // Hovering no longer widens the rail; the research rail sits right beside it.
   await appSidebar.hover();
-  await expectWidth(appSidebar, 240);
-  await page.locator("[data-app-main]").hover();
-  await expectWidth(appSidebar, 56);
+  await expectWidth(appSidebar, 64);
+  await expect.poll(async () => Math.round((await researchSidebar.boundingBox())?.x ?? 0)).toBe(64);
+
+  // The collapsed state survives a reload without painting the wide sidebar first.
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => document.documentElement.getAttribute("data-app-rail"))).toBe("collapsed");
+  await expectWidth(appSidebar, 64);
 
   await researchSidebar.hover();
-  await expectWidth(appSidebar, 56);
   await expectWidth(researchSidebar, 208);
-  await page.locator("[data-app-main]").hover();
-  await expectWidth(researchSidebar, 56);
   // The compact rail shows a search icon; hovering reveals the input.
-  await researchSidebar.hover();
-  await expectWidth(researchSidebar, 208);
   const desktopResearchSearch = researchSidebar.getByRole("textbox", {
     name: "Dokumente und Quellen durchsuchen…",
   });
@@ -80,10 +88,8 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expect(page.getByTestId("research-sidebar")).toHaveCount(1);
   await expectWidth(researchSidebar, 208);
 
-  await appSidebar.hover();
-  await expectWidth(appSidebar, 240);
-  await page.locator("[data-app-main]").hover();
-  await expectWidth(appSidebar, 56);
+  await appSidebar.getByRole("button", { name: "Hauptnavigation ausklappen" }).click();
+  await expectWidth(appSidebar, 248);
   await researchSidebar.hover();
   await expectWidth(researchSidebar, 208);
   await researchSidebar.getByRole("button", { name: "Neues Dokument", exact: true }).click();
@@ -94,35 +100,34 @@ test("desktop navigation rails expand on hover, collapse on leave, and survive f
   await expect(researchSidebar).toHaveCount(0);
 
   await page.getByRole("button", { name: "Fokusmodus beenden" }).click();
-  await expectWidth(appSidebar, 56);
+  await expectWidth(appSidebar, 248);
   await expectWidth(researchSidebar, 56);
 });
 
-test("desktop navigation stays expanded and reorders when a drag leaves the rail", async ({ page }) => {
+test("desktop navigation reorders within a group, also when a drag leaves the sidebar", async ({ page }) => {
   await login(page);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/personnel");
 
   const appSidebar = page.getByTestId("app-sidebar").filter({ visible: true });
-  await appSidebar.hover();
-  await expectWidth(appSidebar, 240);
+  await expectWidth(appSidebar, 248);
 
   const navigation = appSidebar.locator("#app-primary-navigation");
-  const wikiItem = navigation.locator('[data-navigation-key="wiki"]');
+  const projectsItem = navigation.locator('[data-navigation-key="projects"]');
   const calendarItem = navigation.locator('[data-navigation-key="calendar"]');
-  const wikiBox = (await wikiItem.boundingBox())!;
+  const projectsBox = (await projectsItem.boundingBox())!;
   const calendarBox = (await calendarItem.boundingBox())!;
   const dragStart = {
-    x: wikiBox.x + wikiBox.width / 2,
-    y: wikiBox.y + wikiBox.height / 2,
+    x: projectsBox.x + projectsBox.width / 2,
+    y: projectsBox.y + projectsBox.height / 2,
   };
 
   await page.mouse.move(dragStart.x, dragStart.y);
   await page.mouse.down();
   await page.mouse.move(dragStart.x + 12, dragStart.y - 12, { steps: 4 });
-  await expect(wikiItem).toHaveClass(/opacity-45/);
-  await page.mouse.move(280, dragStart.y, { steps: 8 });
-  await expectWidth(appSidebar, 240);
+  await expect(projectsItem).toHaveClass(/opacity-45/);
+  await page.mouse.move(320, dragStart.y, { steps: 8 });
+  await expectWidth(appSidebar, 248);
   await page.mouse.move(
     calendarBox.x + calendarBox.width / 2,
     calendarBox.y + calendarBox.height / 2,
@@ -131,12 +136,26 @@ test("desktop navigation stays expanded and reorders when a drag leaves the rail
   await page.mouse.up();
 
   await expect(page).toHaveURL(/\/personnel$/);
+  const order = () => navigation.locator("[data-navigation-key]").evaluateAll((items) =>
+    items.map((item) => item.getAttribute("data-navigation-key")),
+  );
   await expect.poll(async () => {
-    const order = await navigation.locator("[data-navigation-key]").evaluateAll((items) =>
-      items.map((item) => item.getAttribute("data-navigation-key")),
-    );
-    return order.indexOf("wiki") < order.indexOf("calendar");
+    const keys = await order();
+    return keys.indexOf("projects") < keys.indexOf("calendar");
   }).toBe(true);
+
+  // A module cannot leave its group: dropping "Wiki" onto "Kalender" keeps the groups intact.
+  const wikiBox = (await navigation.locator('[data-navigation-key="wiki"]').boundingBox())!;
+  const targetBox = (await calendarItem.boundingBox())!;
+  await page.mouse.move(wikiBox.x + wikiBox.width / 2, wikiBox.y + wikiBox.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(targetBox.x + targetBox.width / 2, targetBox.y + targetBox.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(async () => {
+    const keys = await order();
+    return keys.indexOf("wiki") > keys.indexOf("personnel");
+  }).toBe(true);
+  await expect(page).toHaveURL(/\/personnel$/);
 });
 
 test("mobile navigation uses full-width content with dismissible app and research sheets", async ({ page }) => {
@@ -162,18 +181,18 @@ test("mobile navigation uses full-width content with dismissible app and researc
   await expect(appSheet.getByRole("button", { name: "Projekte" })).toBeVisible();
 
   const navigation = appSheet.locator("#app-mobile-navigation");
-  const wikiItem = navigation.locator('[data-navigation-key="wiki"]');
+  const projectsItem = navigation.locator('[data-navigation-key="projects"]');
   const calendarItem = navigation.locator('[data-navigation-key="calendar"]');
-  const wikiBox = (await wikiItem.boundingBox())!;
+  const projectsBox = (await projectsItem.boundingBox())!;
   const calendarBox = (await calendarItem.boundingBox())!;
   const dragStart = {
-    x: wikiBox.x + wikiBox.width / 2,
-    y: wikiBox.y + wikiBox.height / 2,
+    x: projectsBox.x + projectsBox.width / 2,
+    y: projectsBox.y + projectsBox.height / 2,
   };
   await page.mouse.move(dragStart.x, dragStart.y);
   await page.mouse.down();
   await page.mouse.move(dragStart.x, dragStart.y - 12, { steps: 4 });
-  await expect(wikiItem).toHaveClass(/opacity-45/);
+  await expect(projectsItem).toHaveClass(/opacity-45/);
   await page.mouse.move(
     calendarBox.x + calendarBox.width / 2,
     calendarBox.y + calendarBox.height / 2,
@@ -187,7 +206,7 @@ test("mobile navigation uses full-width content with dismissible app and researc
     const order = await navigation.locator("[data-navigation-key]").evaluateAll((items) =>
       items.map((item) => item.getAttribute("data-navigation-key")),
     );
-    return order.indexOf("wiki") < order.indexOf("calendar");
+    return order.indexOf("projects") < order.indexOf("calendar");
   }).toBe(true);
 
   await page.keyboard.press("Escape");

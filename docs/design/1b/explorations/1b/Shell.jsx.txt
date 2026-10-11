@@ -1,0 +1,133 @@
+// Direction 1b shell — built on DS components: GroupedSidebar, WorkspaceTabs, CommandPalette, DropdownMenu.
+const NS1B = window.ManagementPlattformDesignSystem_2b19db;
+function I({ n, s = 16, style, className }) { return <NS1B.Icon name={n} size={s} style={{ width: s, height: s, ...style }} className={className} />; }
+const PPL = { a: { n: "Aaron", c: "var(--identity-green)" }, f: { n: "Felix", c: "var(--identity-orange)" }, m: { n: "Maria", c: "var(--identity-violet)" } };
+function Av({ p, size = 20 }) { const x = PPL[p]; return <span className="av" title={x.n} style={{ background: x.c, width: size, height: size, fontSize: Math.round(size * 0.42) }}>{x.n[0]}</span>; }
+function Who({ ids }) { return <span className="who">{ids.map((p, i) => <span key={p} style={{ marginLeft: i ? -8 : 0, borderRadius: 999, boxShadow: i ? "0 0 0 2px var(--surf)" : "none", display: "inline-flex" }}><Av p={p} /></span>)}<span className="ell">{ids.length === 1 ? PPL[ids[0]].n : ids.map((p) => PPL[p].n).join(", ")}</span></span>; }
+function Hd({ eb, title, desc, children }) {
+  return <div className="hd"><div>{eb ? <p className="eb">{eb}</p> : null}<h1 className="h1">{title}</h1>{desc ? <p className="desc">{desc}</p> : null}</div>{children ? <div className="row gap8" style={{ flexWrap: "wrap" }}>{children}</div> : null}</div>;
+}
+
+const SECTIONS = [
+  { grp: "Arbeit", items: [
+    { k: "overview", l: "Übersicht", i: "LayoutDashboard", c: 16, tab: "Willkommen, Aaron!" },
+    { k: "calendar", l: "Kalender", i: "CalendarDays", tab: "KW 41 · 5.–11. Okt." },
+    { k: "projects", l: "Projekte", i: "SquareKanban", c: 6 },
+    { k: "time", l: "Zeiterfassung", i: "Timer" },
+    { k: "meetings", l: "Besprechungen", i: "Video", c: 1 } ] },
+  { grp: "Finanzen", items: [
+    { k: "accounting", l: "Buchhaltung", i: "Calculator", tab: "Übersicht 2026" },
+    { k: "personnel", l: "Personal", i: "UserRoundCog", tab: "Personalkosten" } ] },
+  { grp: "Wissen", items: [
+    { k: "wiki", l: "Wiki", i: "BookOpen", c: 9, tab: "Dein Wiki" },
+    { k: "municipalities", l: "Gemeinden", i: "MapPinned" },
+    { k: "network", l: "Netzwerk", i: "Handshake", c: 3 } ] },
+];
+const ALL = Object.fromEntries([...SECTIONS.flatMap((g) => g.items), { k: "settings", l: "Einstellungen", i: "Settings" }].map((x) => [x.k, x]));
+const GROUPS = SECTIONS.map((g) => ({ label: g.grp, items: g.items.map((x) => ({ key: x.k, label: x.l, icon: x.i, count: x.c })) }));
+
+const DataCtx = React.createContext({ mode: "Daten", setMode: () => {} });
+const useEmpty = () => React.useContext(DataCtx).mode === "Leer";
+function Empty(p) {
+  if (NS1B.EmptyState) return <NS1B.EmptyState {...p} />;
+  return <div className={"mp-empty" + (p.compact ? " mp-empty--compact" : "")}><span className="mp-empty__icon"><I n={p.icon || "Inbox"} s={18} /></span><div className="mp-empty__title">{p.title}</div>{p.description ? <p className="mp-empty__desc">{p.description}</p> : null}{p.actions ? <div className="mp-empty__actions">{p.actions}</div> : null}</div>;
+}
+function SkeletonPage() {
+  const S = (w, h, r) => <NS1B.Skeleton width={w} height={h} radius={r} />;
+  return <div className="skel-wrap" aria-busy="true" aria-label="Wird geladen">
+    <div className="row" style={{ justifyContent: "space-between" }}><div style={{ display: "grid", gap: 10 }}>{S(120, 10)}{S(280, 26)}</div>{S(150, 32, 10)}</div>
+    <div className="kpis">{[0, 1, 2, 3].map((i) => <div key={i} style={{ display: "grid", gap: 10 }}>{S("50%", 10)}{S(70, 22)}</div>)}</div>
+    <div className="card"><div className="ch">{S(140, 14)}</div>{[0, 1, 2, 3, 4].map((i) => <div key={i} className="li">{S(16, 16, 5)}{S((60 - i * 7) + "%", 12)}<span className="grow"></span>{S(64, 18, 999)}</div>)}</div>
+  </div>;
+}
+const ThemeCtx = React.createContext({ mode: "Dunkel", setMode: () => {} });
+const isDark = (mode) => mode === "Dunkel" || (mode === "System" && matchMedia("(prefers-color-scheme: dark)").matches);
+function ThemeToggle() {
+  const { mode, setMode } = React.useContext(ThemeCtx);
+  const dark = isDark(mode);
+  return <button className="btn btn-g btn-ic btn-sm" title={dark ? "Hell" : "Dunkel"} aria-label="Farbmodus wechseln" onClick={() => setMode(dark ? "Hell" : "Dunkel")}><I n={dark ? "Sun" : "Moon"} /></button>;
+}
+
+function QuickCreate({ compact, toast }) {
+  const trigger = <button className="btn btn-p" style={{ flex: 1, justifyContent: "center" }} aria-label="Neu erstellen"><I n="Plus" />{compact ? null : "Neu"}</button>;
+  const say = (t) => () => toast(t + " – Formular würde sich öffnen.");
+  return (
+    <NS1B.DropdownMenu trigger={trigger} width={240}>
+      <NS1B.DropdownMenuLabel>Neu erstellen</NS1B.DropdownMenuLabel>
+      <NS1B.DropdownMenuItem icon="ClipboardPlus" shortcut="N" onClick={say("Neue Aufgabe")}>Neue Aufgabe</NS1B.DropdownMenuItem>
+      <NS1B.DropdownMenuItem icon="CalendarPlus" onClick={say("Neuer Termin")}>Neuer Termin</NS1B.DropdownMenuItem>
+      <NS1B.DropdownMenuItem icon="CalendarClock" shortcut="D" onClick={say("Neue Deadline")}>Neue Deadline</NS1B.DropdownMenuItem>
+      <NS1B.DropdownMenuItem icon="UserPlus" onClick={say("Neuer Kontakt")}>Neuer Kontakt</NS1B.DropdownMenuItem>
+    </NS1B.DropdownMenu>
+  );
+}
+
+function Nav({ cur, go, collapsed, onToggle, onSearch, toast, style }) {
+  return <NS1B.GroupedSidebar groups={GROUPS} footerItems={[{ key: "settings", label: "Einstellungen", icon: "Settings" }]} activeKey={cur} onSelect={go}
+    collapsed={collapsed} onToggleCollapsed={onToggle} style={style}
+    actions={<><QuickCreate compact={collapsed} toast={toast} /><NS1B.Tooltip content={<>Suchen <span className="mp-kbd">Strg K</span></>} side="right"><button className="btn btn-o btn-ic" aria-label="Suchen" onClick={onSearch}><I n="Search" /></button></NS1B.Tooltip></>}
+    footer={<><Av p="a" size={30} />{collapsed ? null : <div className="grow"><div style={{ fontSize: 13, fontWeight: 500 }}>Aaron</div><div className="muted ell" style={{ fontSize: 12 }}>aaron@elarbol.me</div></div>}<ThemeToggle /></>} />;
+}
+
+const SCREENS = () => ({ overview: OverviewScreen, calendar: CalendarScreen, projects: ProjectsScreen, time: TimeScreen, meetings: MeetingsScreen, accounting: AccountingScreen1b, personnel: PersonnelScreen, wiki: WikiScreen, municipalities: MunicipalitiesScreen, network: NetworkScreen, settings: SettingsScreen });
+const load = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch (e) { return d; } };
+
+function App1b() {
+  if (!NS1B || !NS1B.GroupedSidebar || !NS1B.WorkspaceTabs || !NS1B.CommandPalette) return <div style={{ padding: 40, fontFamily: "var(--font-sans)", color: "var(--foreground)" }}>Die Komponentenbibliothek ist noch nicht aktuell. Bitte Seite neu laden.</div>;
+  return <App1bInner />;
+}
+function App1bInner() {
+  const qp = new URLSearchParams(location.search), embed = qp.has("screen") && ALL[qp.get("screen")];
+  const saved = embed ? { tabs: ["overview", qp.get("screen")].filter((v, i, a) => a.indexOf(v) === i), cur: qp.get("screen") } : load("mp-1b-tabs", {});
+  const [tabs, setTabs] = React.useState(saved.tabs && saved.tabs.length ? saved.tabs : ["overview", "projects"]);
+  const [cur, setCur] = React.useState(saved.cur || "overview");
+  const [mode, setModeRaw] = React.useState(() => qp.get("mode") || localStorage.getItem("mp-1b-theme") || "Dunkel");
+  const [collapsed, setCollapsed] = React.useState(() => load("mp-1b-collapsed", false));
+  const [search, setSearch] = React.useState(false);
+  const [drawer, setDrawer] = React.useState(qp.get("drawer") === "1");
+  const setMode = (m) => { setModeRaw(m); if (!embed) localStorage.setItem("mp-1b-theme", m); };
+  const [dataMode, setDataModeRaw] = React.useState(() => embed ? (qp.get("data") || "Daten") : (localStorage.getItem("mp-1b-data") || "Daten"));
+  const setDataMode = (m) => { setDataModeRaw(m); if (!embed) localStorage.setItem("mp-1b-data", m); };
+  React.useEffect(() => { document.documentElement.classList.toggle("dark", isDark(mode)); }, [mode]);
+  React.useEffect(() => { if (!embed) localStorage.setItem("mp-1b-tabs", JSON.stringify({ tabs, cur })); }, [tabs, cur]);
+  React.useEffect(() => { localStorage.setItem("mp-1b-collapsed", JSON.stringify(collapsed)); }, [collapsed]);
+  React.useEffect(() => {
+    const k = (e) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); setSearch(true); } };
+    document.addEventListener("keydown", k); return () => document.removeEventListener("keydown", k);
+  }, []);
+  const toast = (t) => NS1B.Toaster.toast.info(t);
+  const go = (k) => { setTabs((ts) => ts.includes(k) ? ts : [...ts, k]); setCur(k); setDrawer(false); };
+  const close = (k) => { const next = tabs.filter((t) => t !== k); const list = next.length ? next : ["overview"]; setTabs(list); if (cur === k) setCur(list[Math.max(0, tabs.indexOf(k) - 1)] || list[0]); };
+  const cmdItems = [
+    ...["Neue Aufgabe", "Neuer Termin", "Neue Deadline", "Neuer Kontakt"].map((l, i) => ({ group: "Erstellen", label: l, icon: ["ClipboardPlus", "CalendarPlus", "CalendarClock", "UserPlus"][i], hint: ["N", "", "D", ""][i], onSelect: () => toast(l + " – Formular würde sich öffnen.") })),
+    ...Object.values(ALL).map((x) => ({ group: "Navigation", label: x.l, icon: x.i, onSelect: () => go(x.k) })),
+    ...["Projektbeschreibung_V1", "Digitalisierung in österreichischen Gemeinden", "Mail-Hosting"].map((l) => ({ group: "Wiki", label: l, icon: "FileText", hint: "Dokument", onSelect: () => go("wiki") })),
+    ...["BANOND Wireframe", "Elevator-Pitch Einreichung", "Portainer einrichten"].map((l) => ({ group: "Aufgaben", label: l, icon: "ClipboardCheck", onSelect: () => go("overview") })),
+    ...["Daten", "Leer", "Laden"].map((m) => ({ group: "Demo-Zustand", label: "Zustand: " + m, icon: { Daten: "Database", Leer: "Inbox", Laden: "Loader" }[m], keywords: "empty loading leer laden", onSelect: () => setDataMode(m) })),
+    { group: "Einstellungen", label: "Farbmodus wechseln", icon: "SunMoon", keywords: "hell dunkel theme", onSelect: () => setMode(isDark(mode) ? "Hell" : "Dunkel") },
+  ];
+  const Screen = SCREENS()[cur];
+  return (
+    <ThemeCtx.Provider value={{ mode, setMode }}><DataCtx.Provider value={{ mode: dataMode, setMode: setDataMode }}>
+      <div className="app">
+        <Nav cur={cur} go={go} collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} onSearch={() => setSearch(true)} toast={toast} style={{ height: "100vh" }} />
+        <div className="main">
+          <header className="mhdr">
+            <button className="btn btn-g btn-ic" aria-label="Navigation öffnen" onClick={() => setDrawer(true)}><I n="Menu" s={20} /></button>
+            <b className="ell grow" style={{ fontSize: 14 }}>{ALL[cur].tab || ALL[cur].l}</b>
+            <button className="btn btn-g btn-ic" aria-label="Suchen" onClick={() => setSearch(true)}><I n="Search" s={20} /></button>
+            <Av p="a" size={30} />
+          </header>
+          <NS1B.WorkspaceTabs tabs={tabs.map((k) => ({ id: k, label: ALL[k].tab || ALL[k].l, icon: ALL[k].i }))} activeId={cur} onSelect={setCur} onClose={close} onNew={() => setSearch(true)} onSplit={() => toast("Geteilte Ansicht – nicht nachgebaut.")} />
+          <div className="page" key={cur + dataMode} data-screen-label={ALL[cur].l}>{dataMode === "Laden" && cur !== "settings" ? <SkeletonPage /> : <Screen go={go} />}</div>
+        </div>
+        {drawer ? <div className="drawer" onMouseDown={(e) => { if (e.target === e.currentTarget) setDrawer(false); }}><Nav cur={cur} go={go} collapsed={false} onSearch={() => { setDrawer(false); setSearch(true); }} toast={toast} style={{ width: "min(288px, 86vw)", height: "100%" }} /></div> : null}
+        <NS1B.CommandPalette open={search} onOpenChange={setSearch} items={cmdItems} placeholder="Module, Dokumente, Aufgaben oder Befehle suchen…" />
+        {dataMode !== "Daten" ? <div style={{ position: "fixed", right: 16, bottom: 16, zIndex: 40, display: "flex", alignItems: "center", gap: 8, padding: "6px 6px 6px 12px", borderRadius: 999, background: "var(--popover)", border: "1px solid var(--border)", boxShadow: "var(--shadow-lg)", fontSize: 12.5 }}><I n={dataMode === "Leer" ? "Inbox" : "Loader"} s={14} />Demo-Zustand: {dataMode}<button className="btn btn-sm btn-o" onClick={() => setDataMode("Daten")}>Mit Daten</button></div> : null}
+        <NS1B.Toaster />
+      </div>
+    </DataCtx.Provider></ThemeCtx.Provider>
+  );
+}
+
+Object.assign(window, { I, Av, Who, Hd, PPL, App1b, ThemeCtx, DataCtx, useEmpty, Empty });

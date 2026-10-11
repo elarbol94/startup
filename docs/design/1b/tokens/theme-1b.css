@@ -1,0 +1,54 @@
+/* Direction 1b ("Gruppierte Navigation") as an opt-in theme. Put data-theme="1b" on <html>; add .dark for dark.
+   Overrides the base shadcn tokens so existing components (Button, Tabs, Card, Input…) pick up the teal brand. */
+[data-theme="1b"] {
+  --brand: oklch(0.52 0.09 185);
+  --brand-ink: oklch(0.42 0.08 185);
+  --brand-on: #ffffff;
+  --brand-soft: color-mix(in oklab, var(--brand) 10%, transparent);
+  --background: #f5f7f6;
+  --card: #ffffff;
+  --popover: #ffffff;
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-on);
+  --secondary: #eef1f0;
+  --muted: #eef1f0;
+  --muted-foreground: #5f6a66;
+  --accent: #eef2f0;
+  --border: #e2e7e5;
+  --input: #dfe4e2;
+  --ring: var(--brand);
+  --sidebar: #fbfcfb;
+  --sidebar-border: #e6eae8;
+  --surface-raised: #f4f6f5;
+  --line-soft: #edf1ef;
+  --line-strong: #c9d0cd;
+  --text-secondary: #4b5552;
+  --text-tertiary: #636e6a;
+  --late: #dc2626;
+  --money-positive: var(--foreground);
+  --elev-card: 0 1px 2px rgb(16 24 22 / 0.05);
+}
+.dark[data-theme="1b"] {
+  --brand: oklch(0.74 0.11 182);
+  --brand-ink: oklch(0.84 0.09 182);
+  --brand-on: #06201d;
+  --brand-soft: color-mix(in oklab, var(--brand) 12%, transparent);
+  --background: #0e0f0f;
+  --card: #141616;
+  --popover: #171919;
+  --secondary: #22262a;
+  --muted: #1b1e1e;
+  --muted-foreground: #8f9896;
+  --accent: #1b1e1e;
+  --border: #222626;
+  --input: #262a2a;
+  --sidebar: #121313;
+  --sidebar-border: #1f2222;
+  --surface-raised: #191b1b;
+  --line-soft: #1b1e1e;
+  --line-strong: #2f3535;
+  --text-secondary: #a3aba9;
+  --text-tertiary: #7c8583;
+  --late: #f87171;
+  --elev-card: none;
+}

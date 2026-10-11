@@ -1,0 +1,26 @@
+import React from "react";
+import { Icon } from "../core/Icon";
+const cx = (...a) => a.filter(Boolean).join(" ");
+
+/** Persistent sidebar with grouped modules, counts, and a collapse-to-rail mode (60px). */
+export function GroupedSidebar({ brand = "Management-Plattform", mark = "MP", groups = [], footerItems = [], activeKey, onSelect, collapsed = false, onToggleCollapsed, actions, footer, className, style }) {
+  const item = (it) => (
+    <button key={it.key} type="button" className="mp-gsb__item" data-active={it.key === activeKey} title={it.label} aria-current={it.key === activeKey ? "page" : undefined} onClick={() => onSelect && onSelect(it.key)}>
+      <Icon name={it.icon} size={16} /><span className="mp-gsb__label">{it.label}</span>{it.count ? <span className="mp-gsb__count">{it.count}</span> : null}
+    </button>
+  );
+  return (
+    <aside className={cx("mp-gsb", className)} data-collapsed={collapsed} style={style}>
+      <div className="mp-gsb__brand">
+        <span className="mp-gsb__mark">{mark}</span><span className="mp-gsb__name">{brand}</span>
+        {onToggleCollapsed ? <button type="button" className="mp-btn mp-btn--ghost mp-btn--icon-xs mp-gsb__hide" style={{ marginLeft: "auto" }} aria-label="Navigation einklappen" onClick={onToggleCollapsed}><Icon name="PanelLeftClose" /></button> : null}
+      </div>
+      <nav className="mp-gsb__nav">
+        {actions ? <div className="mp-gsb__actions">{actions}</div> : null}
+        {groups.map((g) => <React.Fragment key={g.label}><div className="mp-gsb__group">{g.label}</div>{g.items.map(item)}</React.Fragment>)}
+        {footerItems.length ? <div style={{ marginTop: "auto", display: "flex", flexDirection: "column", gap: 2 }}>{footerItems.map(item)}{collapsed && onToggleCollapsed ? <button type="button" className="mp-gsb__item" title="Navigation ausklappen" onClick={onToggleCollapsed}><Icon name="PanelLeftOpen" size={16} /></button> : null}</div> : null}
+      </nav>
+      {footer ? <div className="mp-gsb__footer">{footer}</div> : null}
+    </aside>
+  );
+}

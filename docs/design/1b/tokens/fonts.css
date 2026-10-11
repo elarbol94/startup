@@ -1,0 +1,23 @@
+/* Cascadia Code v2407.24 — SIL OFL (assets/fonts/OFL-CascadiaCode.txt). Variable fonts, weights 200–700. */
+@font-face {
+  font-family: "Cascadia Code";
+  src: url("../assets/fonts/CascadiaCode.woff2") format("woff2");
+  font-weight: 200 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Cascadia Code";
+  src: url("../assets/fonts/CascadiaCodeItalic.woff2") format("woff2");
+  font-weight: 200 700;
+  font-style: italic;
+  font-display: swap;
+}
+/* Segoe UI Variable is proprietary (Windows) and is not redistributed. This rule only maps the
+   family name to the copy installed on the machine; elsewhere the system-ui fallback renders. */
+@font-face {
+  font-family: "Segoe UI Variable";
+  src: local("Segoe UI Variable Text"), local("Segoe UI Variable"), local("SegoeUIVariable"), local("Segoe UI");
+  font-weight: 100 900;
+  font-display: swap;
+}

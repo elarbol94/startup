@@ -15,6 +15,7 @@ import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-crea
 import { ContactCaptureProvider } from "@/modules/network/components/contact-capture-provider";
 import { FocusModeProvider } from "@/components/focus-mode";
 import { FocusBootstrapScript } from "@/components/focus/focus-bootstrap-script";
+import { RailBootstrapScript } from "@/components/app-sidebar/rail-bootstrap-script";
 
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
@@ -36,7 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function AuthenticatedSidebar() {
   const user = await requireUser();
-  return <AppSidebar userName={user.name} userEmail={user.email} companyName={companyDisplayName()} />;
+  return <AppSidebar userId={user.id} userName={user.name} userEmail={user.email} companyName={companyDisplayName()} />;
 }
 
 function SidebarFallback() {
@@ -46,10 +47,10 @@ function SidebarFallback() {
         <Skeleton className="size-8" />
         <Skeleton className="h-4 w-36" />
       </header>
-      <aside className="hidden w-14 shrink-0 border-r md:block">
-        <div className="space-y-3 p-2 pt-16">
-          {Array.from({ length: 6 }, (_, index) => (
-            <Skeleton key={index} className="size-10 rounded-md" />
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[var(--app-rail-width)] border-r bg-sidebar md:block">
+        <div className="space-y-2 p-3 pt-[4.25rem]">
+          {Array.from({ length: 8 }, (_, index) => (
+            <Skeleton key={index} className="h-9 w-full rounded-md" />
           ))}
         </div>
       </aside>
@@ -69,6 +70,7 @@ export default async function AppLayout({
   return (
     <UserIdentityProvider currentUserId={currentUser.id} identities={listUserIdentities()}>
     <FocusBootstrapScript userId={currentUser.id} />
+    <RailBootstrapScript userId={currentUser.id} />
     <FocusModeProvider userId={currentUser.id}>
     <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>

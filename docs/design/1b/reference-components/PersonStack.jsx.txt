@@ -1,0 +1,17 @@
+import React from "react";
+import { UserIdentity } from "../core/UserIdentity";
+const cx = (...a) => a.filter(Boolean).join(" ");
+
+/** Overlapping identity discs with optional names. people = [{ name, color }]. */
+export function PersonStack({ people = [], max = 3, showNames = true, className }) {
+  const shown = people.slice(0, max);
+  const rest = people.length - shown.length;
+  const names = people.map((p) => p.name).join(", ");
+  return (
+    <span className={cx("mp-stack", className)} title={names}>
+      <span className="mp-stack__dots">{shown.map((p) => <UserIdentity key={p.name} name={p.name} color={p.color} avatarOnly compact />)}</span>
+      {rest > 0 ? <span className="mp-stack__more">+{rest}</span> : null}
+      {showNames ? <span className="mp-identity__name">{people.length === 1 ? people[0].name : names}</span> : null}
+    </span>
+  );
+}

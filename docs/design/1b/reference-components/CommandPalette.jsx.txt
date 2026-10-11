@@ -1,0 +1,36 @@
+import React from "react";
+import { Icon } from "../core/Icon";
+
+/** Strg K search & command window. items = [{ group, label, icon, hint, keywords, onSelect }]. Arrow keys + Enter; Escape closes. */
+export function CommandPalette({ open, onOpenChange, items = [], placeholder = "Suchen oder Befehl eingeben…", emptyLabel = "Keine Treffer.", contained = false }) {
+  const [q, setQ] = React.useState("");
+  const [idx, setIdx] = React.useState(0);
+  React.useEffect(() => { if (open) { setQ(""); setIdx(0); } }, [open]);
+  if (!open) return null;
+  const needle = q.trim().toLowerCase();
+  const list = items.filter((it) => !needle || (it.label + " " + (it.keywords || "") + " " + (it.group || "")).toLowerCase().includes(needle));
+  const close = () => onOpenChange && onOpenChange(false);
+  const run = (it) => { close(); it && it.onSelect && it.onSelect(); };
+  const key = (e) => {
+    if (e.key === "ArrowDown") { e.preventDefault(); setIdx((i) => Math.min(list.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setIdx((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") { e.preventDefault(); run(list[idx]); }
+    else if (e.key === "Escape") close();
+  };
+  let last = null;
+  return (
+    <div className="mp-cmd-overlay" style={contained ? { position: "absolute" } : undefined} onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
+      <div className="mp-cmd" role="dialog" aria-label="Suche">
+        <div className="mp-cmd__search"><Icon name="Search" size={18} /><input autoFocus value={q} placeholder={placeholder} onChange={(e) => { setQ(e.target.value); setIdx(0); }} onKeyDown={key} /><kbd className="mp-kbd">Esc</kbd></div>
+        <div className="mp-cmd__list">
+          {list.length ? list.map((it, i) => {
+            const head = it.group && it.group !== last ? <div className="mp-cmd__group">{it.group}</div> : null;
+            last = it.group;
+            return <React.Fragment key={(it.group || "") + it.label}>{head}<button type="button" className="mp-cmd__item" data-active={i === idx} onMouseEnter={() => setIdx(i)} onClick={() => run(it)}>{it.icon ? <Icon name={it.icon} /> : null}{it.label}{it.hint ? <span className="mp-cmd__hint">{it.hint}</span> : null}</button></React.Fragment>;
+          }) : <div className="mp-cmd__empty">{emptyLabel}</div>}
+        </div>
+        <div className="mp-cmd__foot"><span>↑↓ auswählen</span><span>↵ öffnen</span><span>Esc schließen</span></div>
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,18 @@
+import React from "react";
+import { Icon } from "../core/Icon";
+const cx = (...a) => a.filter(Boolean).join(" ");
+
+/** One bordered strip of key figures with hairline dividers. tone: default | negative | brand. */
+export function KpiStrip({ items = [], columns, className, style }) {
+  return (
+    <div className={cx("mp-kpis", className)} style={{ "--kpi-cols": columns || items.length, ...style }}>
+      {items.map((it) => (
+        <div key={it.label} className="mp-kpi">
+          <div className="mp-kpi__label">{it.label}{it.icon ? <Icon name={it.icon} size={14} /> : null}</div>
+          <div className="mp-kpi__value" data-tone={it.tone || "default"}>{it.value}</div>
+          {it.sub ? <div className="mp-kpi__sub">{it.sub}</div> : null}
+        </div>
+      ))}
+    </div>
+  );
+}

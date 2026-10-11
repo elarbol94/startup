@@ -1,0 +1,130 @@
+// Direction 1b — Finanzen, Wissen, Einstellungen.
+function AccountingScreen1b() {
+  const empty = useEmpty();
+  const [tab, setTab] = React.useState("overview");
+  const T = [["overview", "Übersicht", "LayoutDashboard"], ["bookings", "Buchungen", "BookOpenText"], ["invoices", "Rechnungen & Belege", "FileText"], ["planning", "Planung", "CalendarRange"], ["funding", "Förderprojekte", "HandCoins"]];
+  const pts = empty ? [0, 0, 0, 0, 0, 0, 0, 0, 0, 0] : [0, 1800, 2400, 5200, 6100, 7400, 8800, 9900, 11200, 12480];
+  const max = 14000, w = 1000, h = 170;
+  const xy = pts.map((v, i) => [40 + i * ((w - 80) / 11), h - (v / max) * (h - 20)]);
+  return <>
+    <Hd eb="Finanzbereich" title="Buchhaltung" desc="Ergebnis, Saldo und Umsatzsteuer des Geschäftsjahres."><span className="sel">2026<I n="ChevronDown" s={14} /></span><button className="btn btn-p"><I n="Plus" />Neuer Eintrag</button></Hd>
+    <div className="utabs">{T.map(([k, l, i]) => <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}><I n={i} />{l}</button>)}</div>
+    <div className="kpis">
+      {[["Betriebsergebnis", "Scale", "€ 12.480,00", "Einnahmen abzüglich Ausgaben", true], ["Einnahmen", "ArrowUpRight", "€ 18.900,00", "Gebuchte Bruttoeinnahmen", true], ["Ausgaben", "ReceiptText", "€ 6.420,00", "Gebuchte Bruttoausgaben"], ["USt-Position", "Landmark", "€ 2.076,00", "Umsatzsteuer abzüglich Vorsteuer"]].map(([k, i, v, s, pos]) => <div key={k}><div className="row label" style={{ justifyContent: "space-between" }}>{k}<I n={i} s={14} /></div><div className="v">{empty ? "€ 0,00" : v}</div><div className="k">{s}</div></div>)}
+    </div>
+    <div className="split" style={{ "--side": "minmax(0,0.65fr)" }}>
+      <div className="card"><div className="ch"><h2>Saldoentwicklung</h2><span className="c">Kumulierter Saldo</span><div className="r muted" style={{ fontSize: 12 }}><span style={{ width: 8, height: 8, borderRadius: 9, background: "var(--acc)" }}></span>Laufender Saldo (€)</div></div>
+        <div className="cb"><svg viewBox={"0 0 " + w + " " + (h + 26)} style={{ width: "100%", display: "block" }}>
+          {[0, .5, 1].map((f) => <line key={f} x1="40" x2={w - 10} y1={h - f * (h - 20)} y2={h - f * (h - 20)} stroke="var(--seg-on)" strokeDasharray={f ? "2 6" : "0"} />)}
+          <polygon points={xy.map((p) => p.join(",")).join(" ") + " " + xy[9][0] + "," + h + " 40," + h} fill="var(--acc)" opacity=".12" />
+          <polyline points={xy.map((p) => p.join(",")).join(" ")} fill="none" stroke="var(--acc)" strokeWidth="2" />
+          {xy.map(([x, y], i) => <circle key={i} cx={x} cy={y} r="3.5" fill="var(--surf)" stroke="var(--acc)" strokeWidth="1.5" />)}
+          {["J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D"].map((m, i) => <text key={i} x={40 + i * ((w - 80) / 11)} y={h + 20} fontSize="11" textAnchor="middle" fill="#7c8583" fontWeight="600" opacity={i > 9 ? .5 : 1}>{m}</text>)}
+        </svg></div></div>
+      <div className="card"><div className="ch"><h2>Letzte Buchungen</h2><div className="r"><button className="btn btn-sm btn-o">Journal öffnen<I n="ArrowRight" s={14} /></button></div></div>
+        {empty ? <Empty compact icon="BookOpenText" title="Noch keine Buchungen" description="Erfasse Einnahmen und Ausgaben für 2026." actions={<button className="btn btn-p btn-sm"><I n="Plus" s={14} />Neuer Eintrag</button>} /> : <table className="tbl"><tbody>{[["09.10.", "RE-2026-014 · Gemeinde Hallein", "+ 2.400,00", "p-sent", "Gesendet"], ["07.10.", "Hosting Oktober", "− 38,90", null], ["02.10.", "RE-2026-013 · AWS PreSeed", "+ 6.000,00", "p-ok", "Bezahlt"], ["30.09.", "Steuerberater Q3", "− 480,00", null]].map(([d, t, v, cl, st]) => <tr key={t}><td className="muted num" style={{ width: 56 }}>{d}</td><td className="ell" style={{ maxWidth: 220 }}>{t}</td><td>{cl ? <span className={"pill " + cl}>{st}</span> : null}</td><td className="num" style={{ textAlign: "right", paddingRight: 18, fontWeight: 600 }}>{v}</td></tr>)}</tbody></table>}
+      </div>
+    </div>
+  </>;
+}
+
+function PersonnelScreen() {
+  const [tab, setTab] = React.useState("Übersicht");
+  return <>
+    <Hd eb="Finanzbereich" title="Personalkosten" desc="Von der Vergütung bis zum belastbaren Projektstundensatz."><span className="pill p-line"><I n="Info" s={12} />Planungshilfe – keine zertifizierte Lohnverrechnung</span><span className="pill p-acc"><I n="ShieldCheck" s={12} />AT 2025–2027</span></Hd>
+    <div className="utabs">{["Übersicht", "Personen", "Rechner", "Projekte", "Förderung", "Szenarien", "Regelstände"].map((t) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
+    <div className="kpis">{[["Arbeitgeberkosten p. a.", "0,00 €"], ["Ø Arbeitgeberkosten / Monat", "0,00 €"], ["Produktive Stunden", "0 h"], ["Direkter Stundensatz", "—"]].map(([k, v]) => <div key={k}><div className="label">{k}</div><div className="v">{v}</div></div>)}</div>
+    <div className="split" style={{ "--side": "360px" }}>
+      <div className="card"><div className="cb" style={{ minHeight: 220 }}><div className="label">Kostenfluss</div><p style={{ margin: "6px 0 16px", fontSize: 18, fontWeight: 600 }}>Noch keine vollständige Personalplanung.</p><p className="muted" style={{ margin: "0 0 16px" }}>Lege unter „Personen“ einen Vertragsstand an, um den Kostenfluss bis zum Stundensatz zu sehen.</p><button className="btn btn-o"><I n="UserPlus" />Person anlegen</button></div></div>
+      <div className="card" style={{ borderColor: "color-mix(in oklab,var(--acc) 30%,var(--ln))" }}><div className="cb" style={{ display: "flex", flexDirection: "column", gap: 12 }}><div className="label">Monatsabschluss</div><div style={{ fontSize: 20, fontWeight: 600 }}>2026</div><span className="muted" style={{ fontSize: 13 }}>Planungshilfe · keine zertifizierte Lohnverrechnung</span><label className="field"><span>Monat</span><span className="sel">Juli 2026<I n="ChevronDown" s={14} /></span></label><button className="btn btn-p" style={{ justifyContent: "center" }}><I n="FileStack" />Monat als Sammelentwurf übergeben</button></div></div>
+    </div>
+  </>;
+}
+
+function WikiScreen() {
+  const empty = useEmpty();
+  const nav = [["Start", "House", 0, true], ["Dokumente", "FileText"], ["Quellen", "LibraryBig", 4], ["Präsentationen", "Presentation"], ["Argumentation", "ListTree"]];
+  const me = [["Eingang", "Inbox", 9], ["Favoriten", "Star"], ["Benachrichtigungen", "Bell", 1], ["Papierkorb", "Trash2", 26]];
+  const col = (title, icon, items) => <div className="card"><div className="ch"><I n={icon} className="muted" /><h3>{title}</h3><div className="r"><button className="btn btn-sm btn-g">Alle ansehen<I n="ArrowUpRight" s={13} /></button></div></div><div className="lst">{empty ? <div className="li muted" style={{ fontSize: 13 }}>Keine passenden Inhalte.</div> : null}{(empty ? [] : items).map(([t, s]) => <div key={t} className="li"><I n={icon} className="muted" /><div className="grow"><div className="ell" title={t} style={{ fontWeight: 500 }}>{t}</div><div className="muted" style={{ fontSize: 12 }}>{s}</div></div><I n="Pin" s={14} className="muted" /></div>)}</div></div>;
+  const it = ([l, i, c, on]) => <div key={l} className={"sb-it" + (on ? " on" : "")}><I n={i} />{l}{c ? <span className="c num">{c}</span> : null}</div>;
+  return <div className="split lead" style={{ "--side": "200px", gap: 28 }}>
+    <div className="wiki-nav" style={{ display: "flex", flexDirection: "column", gap: 2, position: "sticky", top: 0 }}>
+      <div className="row gap8" style={{ marginBottom: 10 }}><span className="sb-mk" style={{ background: "color-mix(in oklab,var(--identity-violet) 30%,transparent)", color: "var(--wiki-ink)" }}><I n="BookOpen" s={15} /></span><div className="grow"><b style={{ fontSize: 13.5 }}>Wissensraum</b><div className="muted ell" style={{ fontSize: 11.5 }}>Gemeinsame Notizen</div></div></div>
+      <div className="sb-grp" style={{ marginLeft: 10 }}>Wiki-Bibliotheken</div>{nav.map(it)}
+      <div className="sb-grp" style={{ marginLeft: 10 }}>Für dich</div>{me.map(it)}
+    </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+      <Hd title="Dein Wiki" desc="Wiederfinden, öffnen, weiterarbeiten."><button className="btn btn-g"><I n="SlidersHorizontal" />Startseite anpassen</button><button className="btn btn-o"><I n="Plus" />Quelle hinzufügen</button><button className="btn btn-p"><I n="FilePlus2" />Neues Dokument<I n="ChevronDown" s={14} /></button></Hd>
+      <div><div className="search" style={{ height: 46, fontSize: 14.5 }}><I n="Search" s={18} /><input placeholder="Dokumente, Quellen, Präsentationen suchen…" /><span className="pill p-line">Strg K</span></div><p className="muted row gap6" style={{ margin: "8px 4px 0", fontSize: 12 }}><I n="Pin" s={12} />Tipp: Über das Stecknadel-Symbol sammelst du Inhalte unter „Angeheftet“.</p></div>
+      <div className="cols3">
+        {col("Dokumente", "FileText", [["Projektbeschreibung_V1", "10. Okt."], ["Digitalisierung in österreichischen Gemeinden", "29. Sept."], ["Gemeinde-Statistiken", "29. Sept."]])}
+        {col("Quellen", "LibraryBig", [["Programmdokument Preseed Seedfinancing", "16. Sept."], ["Pitch und Präsentationen", "15. Sept."], ["Materieller Wohlstand in Österreich", "30. Juli"]])}
+        {col("Präsentationen", "Presentation", [["Struktur", "26. Sept."]])}
+      </div>
+      <div style={{ maxWidth: 420 }}>{col("Zuletzt geöffnet", "Clock", [["Digitalisierung in österreichischen Gemeinden", "Dokumente · 29. Sept."], ["Mail-Hosting", "Dokumente · 29. Sept."]])}</div>
+    </div>
+  </div>;
+}
+
+function MunicipalitiesScreen() {
+  const rows = [["Hallein", "Salzburg", "Stadtgemeinde"], ["Bischofshofen", "Salzburg", "Stadtgemeinde"], ["Kufstein", "Tirol", "Stadtgemeinde"], ["Leoben", "Steiermark", "Stadtgemeinde"], ["Wolfsberg", "Kärnten", "Stadtgemeinde"]];
+  return <>
+    <Hd eb="Wissen" title="Gemeinden" desc="Österreichische Gemeinden auf der Karte, mit Kennzahlen vergleichen."><span className="concept"><I n="Sparkles" s={12} />Konzept – kein Screenshot</span><button className="btn btn-o"><I n="Download" />Export</button><button className="btn btn-p"><I n="Plus" />Eigene Kennzahl</button></Hd>
+    <div className="utabs"><button className="on"><I n="Map" />Karte</button><button><I n="ChartColumn" />Analyse</button><button><I n="Filter" />Filter</button></div>
+    <div className="split lead" style={{ "--side": "260px" }}>
+      <div className="card"><div className="cb" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="search"><I n="Search" /><input placeholder="Gemeinde suchen" /></div>
+        <label className="field"><span>Bundesland</span><span className="sel">Alle Bundesländer<I n="ChevronDown" s={14} /></span></label>
+        <label className="field"><span>Kennzahl</span><span className="sel">Bevölkerung 2025<I n="ChevronDown" s={14} /></span></label>
+        <label className="field"><span>Datenart</span><div className="seg"><button className="on">Ausgangsdaten</button><button>Kennzahlen</button></div></label>
+      </div></div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="ph" style={{ height: 300 }}>Karte (MapLibre) – Choroplethen nach gewählter Kennzahl</div>
+        <div className="card"><table className="tbl"><thead><tr><th>Gemeinde</th><th>Bundesland</th><th>Typ</th><th></th></tr></thead><tbody>{rows.map(([g, b, t]) => <tr key={g}><td style={{ fontWeight: 500 }}>{g}</td><td className="muted">{b}</td><td className="muted">{t}</td><td style={{ textAlign: "right", paddingRight: 18 }}><button className="btn btn-sm btn-g">Analyse<I n="ArrowUpRight" s={13} /></button></td></tr>)}</tbody></table></div>
+      </div>
+    </div>
+  </>;
+}
+
+function NetworkScreen() {
+  const empty = useEmpty();
+  const [tab, setTab] = React.useState("Kontakte");
+  const C = [["Julia Brandstätter", "Gemeinde Hallein", "Bürgermeisterbüro", "vor 3 Wochen", true], ["Martin Gruber", "aws Austria Wirtschaftsservice", "PreSeed", "vor 12 Tagen", false], ["Sandra Huber", "FFG", "Basisprogramm", "vor 2 Monaten", true], ["Thomas Leitner", "Impact Hub Vienna", "Social Business", "vor 5 Tagen", false]];
+  return <>
+    <Hd eb="Wissen" title="Netzwerk" desc="Kontakte, Organisationen und Chancen."><span className="concept"><I n="Sparkles" s={12} />Konzept – kein Screenshot</span><button className="btn btn-p"><I n="UserPlus" />Kontakt erfassen</button></Hd>
+    <div className="utabs">{["Kontakte", "Organisationen", "Chancen"].map((t) => <button key={t} className={tab === t ? "on" : ""} onClick={() => setTab(t)}>{t}</button>)}</div>
+    <div className="split" style={{ "--side": "300px" }}>
+      <div className="card"><div className="ch"><div className="search grow" style={{ maxWidth: 320 }}><I n="Search" /><input placeholder="Kontakte suchen" /></div><div className="r"><button className="btn btn-sm btn-o"><I n="SlidersHorizontal" s={14} />Filter</button></div></div>
+        <table className="tbl"><thead><tr><th>Name</th><th>Organisation</th><th>Kontext</th><th>Letzter Kontakt</th><th></th></tr></thead><tbody>{(empty ? [] : C).map(([n, o, k, l, due]) => <tr key={n}><td><span className="row gap8"><span className="av" style={{ background: "var(--ln-strong)", width: 26, height: 26, fontSize: 10 }}>{n.split(" ").map((x) => x[0]).join("")}</span><b style={{ fontWeight: 500 }}>{n}</b></span></td><td>{o}</td><td className="muted">{k}</td><td className={due ? "late" : "muted"}>{l}</td><td>{due ? <span className="pill p-acc">Wieder melden</span> : null}</td></tr>)}</tbody></table>
+        {empty ? <Empty icon="Handshake" title="Noch keine Kontakte" description="Erfasse Kontakte aus Gesprächen, Visitenkarten oder E-Mails – die Plattform erinnert dich ans Wiedermelden." actions={<button className="btn btn-p btn-sm"><I n="UserPlus" s={14} />Kontakt erfassen</button>} /> : null}
+      </div>
+      <div className="card"><div className="ch"><I n="BellRing" style={{ color: "var(--acc-ink)" }} /><h3>Wieder melden</h3><span className="c">2</span></div><div className="lst">{empty ? <div className="li muted" style={{ fontSize: 13 }}>Niemand wartet auf eine Rückmeldung.</div> : null}{(empty ? [] : C).filter((x) => x[4]).map(([n, o, , l]) => <div key={n} className="li"><div className="grow"><div style={{ fontWeight: 500 }}>{n}</div><div className="muted" style={{ fontSize: 12 }}>{o} · {l}</div></div><button className="btn btn-sm btn-o">Erledigt</button></div>)}</div></div>
+    </div>
+  </>;
+}
+
+function SettingsScreen() {
+  const data = React.useContext(window.DataCtx);
+  const { mode, setMode } = React.useContext(window.ThemeCtx);
+  const [id, setId] = React.useState("green");
+  const ids = ["amber", "orange", "red", "rose", "pink", "fuchsia", "purple", "violet", "indigo", "blue", "sky", "cyan", "teal", "emerald", "green", "lime"];
+  const radio = (v, cur, set) => <button key={v} onClick={() => set(v)} className="btn" style={{ height: 42, padding: "0 16px", border: "1px solid " + (cur === v ? "var(--acc)" : "var(--ln)"), background: cur === v ? "var(--acc-soft)" : "transparent" }}><span style={{ width: 14, height: 14, borderRadius: 9, border: "1.5px solid " + (cur === v ? "var(--acc)" : "var(--txt-3)"), display: "grid", placeItems: "center" }}>{cur === v ? <span style={{ width: 6, height: 6, borderRadius: 9, background: "var(--acc)" }}></span> : null}</span>{v}</button>;
+  return <>
+    <Hd title="Einstellungen" />
+    <div className="utabs"><span className="grp">Persönlich</span><button className="on">Profil</button><span className="grp" style={{ borderLeft: "1px solid var(--ln)", marginLeft: 6 }}>Administration</span>{["Unternehmen", "Kategorien", "Betriebsstätten", "Benutzer", "Versionskontrolle", "Word-Umstellung"].map((t) => <button key={t}>{t}</button>)}</div>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000 }}>
+      <div className="card"><div className="ch"><h2>Konto</h2><span className="c">Name, Sprache und Passwort deines Kontos.</span></div><div className="cb" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="grid2"><label className="field"><span>Anzeigename</span><div className="row gap8"><input className="inp grow" defaultValue="Aaron" /><button className="btn btn-o">Namen speichern</button></div></label><label className="field"><span>E-Mail</span><input className="inp" defaultValue="aaron@elarbol.me" disabled style={{ opacity: .6 }} /></label></div>
+        <label className="field"><span>Sprache</span><div className="row gap8">{radio("Deutsch", "Deutsch", () => {})}{radio("Englisch", "Deutsch", () => {})}</div></label>
+      </div></div>
+      <div className="card"><div className="ch"><h2>Darstellung</h2><span className="c">System übernimmt die Einstellung deines Betriebssystems.</span></div><div className="cb"><label className="field"><span>Farbmodus</span><div className="row gap8">{["System", "Hell", "Dunkel"].map((v) => radio(v, mode, setMode))}</div></label></div></div>
+      <div className="card"><div className="ch"><h2>Demo-Zustand</h2><span className="c">Nur in diesem Entwurf: zeigt Leer- und Ladezustände in allen Bereichen.</span></div><div className="cb"><div className="row gap8" style={{ flexWrap: "wrap" }}>{["Daten", "Leer", "Laden"].map((v) => radio(v, data.mode, data.setMode))}</div></div></div>
+      <div className="card"><div className="ch"><h2>Deine Identität</h2><span className="c">Die Farbe, an der dich alle erkennen: Avatar, Zuweisungen, Kalender, Kommentare.</span></div><div className="cb row gap12" style={{ flexWrap: "wrap" }}>
+        <span className="av" style={{ width: 44, height: 44, fontSize: 16, background: "var(--identity-" + id + ")" }}>A</span>
+        <div className="row gap6" style={{ flexWrap: "wrap" }}>{ids.map((k) => <button key={k} title={k} onClick={() => setId(k)} style={{ width: 28, height: 28, borderRadius: 999, border: 0, cursor: "pointer", background: "var(--identity-" + k + ")", boxShadow: k === id ? "0 0 0 2px var(--surf), 0 0 0 4px var(--acc)" : "none" }}></button>)}</div>
+      </div></div>
+    </div>
+  </>;
+}
+
+Object.assign(window, { AccountingScreen1b, PersonnelScreen, WikiScreen, MunicipalitiesScreen, NetworkScreen, SettingsScreen });

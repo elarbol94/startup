@@ -1,0 +1,186 @@
+// Direction 1b — Arbeit: Übersicht, Kalender, Projekte, Zeiterfassung, Besprechungen.
+const TASKS0 = [
+  { id: 1, t: "Suche Software DesignerIn", o: "Banond - App Layout", w: ["a"], due: "seit 9 Tagen", b: "late", pr: "hi" },
+  { id: 2, t: "Netzwerkpflege – Kontakte eintragen", o: "Netzwerk", w: ["a", "f"], due: "seit 2 Tagen", b: "late", pr: "md" },
+  { id: 3, t: "BANOND Wireframe", o: "Banond - App Layout", w: ["a", "f"], due: "Fr, 23. Okt.", b: "week", pr: "hi" },
+  { id: 4, t: "Elevator-Pitch Einreichung", o: "Elevator-Pitch", w: ["a", "f"], due: "Fr, 23. Okt.", b: "week", pr: "hi" },
+  { id: 5, t: "Portainer einrichten", o: "Infrastruktur", w: ["f"], due: "Fr, 30. Okt.", b: "week", pr: "md" },
+  { id: 6, t: "Gantt Chart Zeitänderung", o: "Bugs", w: ["a"], due: "Mi, 4. Nov.", b: "later", pr: "md" },
+  { id: 7, t: "Domain anfragen", o: "Infrastruktur", w: ["f"], due: "Do, 5. Nov.", b: "later", pr: "md" },
+];
+const PRL = { hi: "Hoch", md: "Mittel" };
+
+function OverviewScreen() {
+  const empty = useEmpty();
+  const [tasks, setTasks] = React.useState(TASKS0);
+  const [mine, setMine] = React.useState(true);
+  const toggle = (id) => setTasks(tasks.map((x) => x.id === id ? { ...x, done: !x.done } : x));
+  const shown = tasks.filter((x) => !mine || x.w.includes("a"));
+  const groups = [["late", "Überfällig", true], ["week", "Diese & nächste Woche"], ["later", "Später"]];
+  const open = empty ? 0 : tasks.filter((x) => !x.done).length;
+  return <>
+    <Hd eb="Sonntag, 11. Oktober" title="Willkommen, Aaron!"><button className="btn btn-p"><I n="ClipboardPlus" />Aufgabe erstellen</button><button className="btn btn-o"><I n="CalendarClock" />Deadline</button></Hd>
+    <div className="split" style={{ "--side": "320px" }}>
+      <div className="card">
+        <div className="ch"><h2>Meine Aufgaben</h2><span className="c num">{open} offen</span><div className="r"><div className="seg"><button className={mine ? "on" : ""} onClick={() => setMine(true)}>Meine</button><button className={mine ? "" : "on"} onClick={() => setMine(false)}>Alle</button></div><button className="btn btn-sm btn-o"><I n="SlidersHorizontal" s={14} />Filter</button><button className="btn btn-sm btn-g"><I n="Columns3" s={14} />Board</button></div></div>
+        {empty ? <Empty icon="ClipboardCheck" title="Keine offenen Aufgaben" description="Neue Aufgaben erscheinen hier, sobald sie dir zugewiesen werden." actions={<><button className="btn btn-p btn-sm"><I n="ClipboardPlus" s={14} />Aufgabe erstellen</button><button className="btn btn-o btn-sm" onClick={() => setMine(false)}>Alle Nutzer anzeigen</button></>} /> : groups.map(([b, l, late]) => { const list = shown.filter((x) => x.b === b); return <div key={b}>
+          <div className={"bucket" + (late ? " l" : "")}>{late ? <I n="TriangleAlert" s={13} /> : null}{l} · {list.length}</div>
+          <div className="lst">{list.map((x) => <div key={x.id} className="li trow">
+            <button className={"ck" + (x.done ? " on" : "")} onClick={() => toggle(x.id)}>{x.done ? <I n="Check" s={11} /> : null}</button>
+            <span className="ell tt" title={x.t} style={{ fontWeight: 500, color: x.done ? "var(--muted-foreground)" : undefined, textDecoration: x.done ? "line-through" : undefined }}>{x.t}</span>
+            <span className="ell muted o-col" style={{ fontSize: 12.5 }}>{x.o}</span><span className="w-col ell"><Who ids={x.w} /></span>
+            <span className={"d-col " + (b === "late" ? "late" : "muted")} style={{ fontSize: 12.5, whiteSpace: "nowrap" }}>{x.due}</span><span className={"pill p-" + x.pr}>{PRL[x.pr]}</span>
+          </div>)}</div></div>; })}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="kpis two">
+          <div><div className="k">Offene Aufgaben</div><div className="v">{open}</div></div><div><div className="k">Überfällig</div><div className={"v" + (empty ? "" : " late")}>{empty ? 0 : 2}</div></div>
+          <div><div className="k">Deadlines · 7 Tage</div><div className="v">0</div></div><div><div className="k">Termine heute</div><div className="v">0</div></div>
+        </div>
+        <div className="card"><div className="ch"><h3>Als Nächstes</h3></div><div className="lst">
+          <div className="li"><span className="num muted" style={{ width: 44, fontSize: 12 }}>26.11.</span><span style={{ width: 3, alignSelf: "stretch", borderRadius: 3, background: "var(--acc)" }}></span><div><div style={{ fontWeight: 500 }}>Elevator-Pitch</div><div className="muted" style={{ fontSize: 12 }}>Deadline · in 46 Tagen</div></div></div>
+          <div className="li"><span className="muted" style={{ width: 44, fontSize: 12 }}>Heute</span><span style={{ width: 3, alignSelf: "stretch", borderRadius: 3, background: "var(--ln-strong)" }}></span><span className="muted">Keine Termine</span></div>
+        </div></div>
+        <div className="card"><div className="ch"><h3>Neuigkeiten</h3><span className="pill p-acc">3 neu</span><div className="r"><button className="btn btn-sm btn-g">Alle</button></div></div><div className="lst">
+          {[["f", "Projektbeschreibung_V1", "hat dich erwähnt · 14:12"], ["f", "Digitalisierung in Gemeinden", "hat geantwortet · gestern"], ["a", "Struktur", "Präsentation aktualisiert · 26. Sept."]].map(([p, t, s]) => <div key={t} className="li"><Av p={p} size={24} /><div className="grow"><div className="ell" style={{ fontWeight: 500 }}>{t}</div><div className="muted" style={{ fontSize: 12 }}>{PPL[p].n} {s}</div></div></div>)}
+        </div></div>
+      </div>
+    </div>
+  </>;
+}
+
+function CalendarScreen() {
+  const [view, setView] = React.useState("Woche");
+  const days = [["Mo", 5], ["Di", 6], ["Mi", 7], ["Do", 8], ["Fr", 9], ["Sa", 10], ["So", 11]];
+  const hours = [9, 10, 11, 12, 13, 14, 15, 16, 17];
+  const ev = [{ d: 0, s: 9, e: 10, t: "Teamrunde", c: "var(--identity-violet)" }, { d: 1, s: 13, e: 14.5, t: "Gemeinde Hallein", c: "var(--identity-violet)" }, { d: 2, s: 10, e: 12, t: "Fokus: Wireframe", c: "var(--acc)" }, { d: 3, s: 15, e: 16, t: "Steuerberater", c: "var(--identity-orange)" }, { d: 4, s: 9.5, e: 11, t: "Pitch-Probe", c: "var(--identity-violet)" }];
+  const H = 46;
+  const fmtT = (h) => String(Math.floor(h)).padStart(2, "0") + ":" + (h % 1 ? "30" : "00");
+  return <>
+    <Hd title="KW 41 · 5.–11. Okt. 2026">
+      <div className="seg"><button><I n="ArrowLeft" s={14} /></button><button>Heute</button><button><I n="ArrowRight" s={14} /></button></div>
+      <div className="seg">{["Tag", "5 Tage", "Woche", "Monat", "Agenda", "Team"].map((v) => <button key={v} className={v === view ? "on" : ""} onClick={() => setView(v)}>{v}</button>)}</div>
+      <button className="btn btn-o"><I n="SlidersHorizontal" />Filter</button><button className="btn btn-p"><I n="Plus" />Neuer Termin</button>
+    </Hd>
+    <div className="split3">
+      <div className="card"><div className="cb" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="row" style={{ justifyContent: "space-between" }}><b style={{ fontSize: 13.5 }}>Oktober 2026</b><span className="row gap6 muted"><I n="ChevronLeft" s={14} /><I n="ChevronRight" s={14} /></span></div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, textAlign: "center", fontSize: 11.5 }}>
+          {["M", "D", "M", "D", "F", "S", "S"].map((d, i) => <span key={i} className="muted" style={{ fontSize: 10 }}>{d}</span>)}
+          {[28, 29, 30, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 1].map((d, i) => <span key={i} className="num" style={{ height: 24, display: "grid", placeItems: "center", borderRadius: 6, color: i < 3 || i > 33 ? "var(--txt-3)" : undefined, background: i === 13 ? "var(--acc)" : i >= 7 && i < 14 ? "var(--hov-2)" : "transparent", fontWeight: i === 13 ? 700 : 400 }}>{d}</span>)}
+        </div>
+        <div className="label">Meine Kalender</div>
+        {[["Arbeit", "var(--identity-violet)"], ["Privat", "var(--identity-orange)"]].map(([l, c]) => <div key={l} className="row gap8" style={{ fontSize: 13 }}><span className="ck on" style={{ background: c, borderColor: c }}><I n="Check" s={11} /></span>{l}</div>)}
+        <button className="btn btn-sm btn-g" style={{ justifyContent: "flex-start" }}><I n="Plus" s={14} />Kalender hinzufügen</button>
+        <div className="label">Gespeicherte Ansichten</div><span className="muted" style={{ fontSize: 12.5 }}>Noch keine gespeicherten Ansichten.</span>
+      </div></div>
+      <div className="card cal-agenda" style={{ display: "none" }}>{days.map(([d, n], i) => { const xs = ev.filter((x) => x.d === i); return <div key={i} style={{ display: "grid", gridTemplateColumns: "44px minmax(0,1fr)", gap: 12, padding: "12px 16px", borderTop: i ? "1px solid var(--ln-2)" : 0, background: i === 6 ? "var(--acc-soft)" : undefined }}><div><div className="label" style={{ fontSize: 10 }}>{d}</div><div className="num" style={{ fontSize: 18, fontWeight: 600, color: i === 6 ? "var(--acc-ink)" : undefined }}>{n}</div></div><div style={{ display: "flex", flexDirection: "column", gap: 6, justifyContent: "center" }}>{xs.length ? xs.map((x) => <div key={x.t} style={{ borderRadius: 8, background: "color-mix(in oklab," + x.c + " 18%, var(--surf))", borderLeft: "3px solid " + x.c, padding: "8px 10px" }}><div style={{ fontSize: 13.5, fontWeight: 500 }}>{x.t}</div><div className="muted mono num" style={{ fontSize: 11.5 }}>{fmtT(x.s)}–{fmtT(x.e)}</div></div>) : <span className="muted" style={{ fontSize: 13 }}>{i > 4 ? "Wochenende" : "Keine Termine"}</span>}{i < 5 ? <span className="muted" style={{ fontSize: 12 }}>{[6, 6, 8, 8, 9][i]} Aufgaben fällig</span> : null}</div></div>; })}</div>
+      <div className="card cal-week" style={{ overflowX: "auto" }}><div style={{ minWidth: 620 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7,1fr)", borderBottom: "1px solid var(--ln)" }}>
+          <span></span>{days.map(([d, n], i) => <div key={i} style={{ padding: "10px 10px 8px", borderLeft: "1px solid var(--ln-2)", background: i === 6 ? "var(--acc-soft)" : undefined }}><div className="label" style={{ fontSize: 10 }}>{d}</div><div className="num" style={{ fontSize: 18, fontWeight: 600, color: i === 6 ? "var(--acc-ink)" : undefined }}>{n}</div></div>)}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "52px repeat(7,1fr)", borderBottom: "1px solid var(--ln)", fontSize: 11 }}>
+          <span className="muted" style={{ padding: "8px 6px", fontSize: 10 }}>Aufgaben</span>{days.map((_, i) => <div key={i} style={{ padding: 6, borderLeft: "1px solid var(--ln-2)" }}>{i < 5 ? <span className="pill p-line" style={{ fontSize: 10.5 }}>{[6, 6, 8, 8, 9][i]} Aufgaben</span> : null}</div>)}
+        </div>
+        <div style={{ position: "relative", display: "grid", gridTemplateColumns: "52px repeat(7,1fr)" }}>
+          <div>{hours.map((h) => <div key={h} className="muted mono num" style={{ height: H, fontSize: 10.5, padding: "2px 8px" }}>{String(h).padStart(2, "0")}:00</div>)}</div>
+          {days.map((_, i) => <div key={i} style={{ position: "relative", borderLeft: "1px solid var(--ln-2)", background: i > 4 ? "repeating-linear-gradient(135deg,transparent 0 6px,var(--hatch) 6px 7px)" : undefined }}>
+            {hours.map((h) => <div key={h} style={{ height: H, borderTop: "1px solid var(--ln-2)" }}></div>)}
+            {ev.filter((x) => x.d === i).map((x) => <div key={x.t} style={{ position: "absolute", left: 4, right: 4, top: (x.s - 9) * H + 2, height: (x.e - x.s) * H - 4, borderRadius: 6, background: "color-mix(in oklab," + x.c + " 22%, var(--surf))", borderLeft: "3px solid " + x.c, padding: "4px 6px", fontSize: 11.5, fontWeight: 500, overflow: "hidden" }}>{x.t}<div className="muted" style={{ fontSize: 10.5, fontWeight: 400 }}>{x.s}:00</div></div>)}
+          </div>)}
+          <div style={{ position: "absolute", left: 52, right: 0, top: 3.6 * H, height: 0, borderTop: "1.5px solid var(--late)" }}></div>
+        </div>
+      </div></div>
+      <div className="card"><div className="ch"><I n="ScanLine" style={{ color: "var(--acc-ink)" }} /><h3>Ungeplante Arbeit</h3></div>
+        <p className="muted" style={{ margin: 0, padding: "10px 18px 4px", fontSize: 12.5 }}>Ziehe eine Aufgabe in die Woche, um Fokuszeit zu reservieren.</p>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 14px 14px" }}>{[["Domain anfragen", "f"], ["Portainer einrichten", "f"], ["task dashboard", null], ["Gantt Chart", null], ["Project shortcuts", null]].map(([t, p]) => <div key={t} className="row gap8" style={{ border: "1px solid var(--ln)", borderRadius: 8, padding: "8px 10px", background: "var(--surf-2)", cursor: "grab" }}><I n="GripVertical" s={14} className="muted" /><div className="grow"><div className="ell" style={{ fontSize: 13, fontWeight: 500 }}>{t}</div><div className="muted" style={{ fontSize: 11.5 }}>{p ? PPL[p].n : "Bugs"}</div></div></div>)}</div>
+      </div>
+    </div>
+  </>;
+}
+
+function ProjectsScreen() {
+  const empty = useEmpty();
+  const [tab, setTab] = React.useState("plan");
+  const weeks = [39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];
+  const dates = ["21. Sept.", "28. Sept.", "05. Okt.", "12. Okt.", "19. Okt.", "26. Okt.", "02. Nov.", "09. Nov.", "16. Nov.", "23. Nov.", "30. Nov.", "07. Dez."];
+  const P = [["Banond - App Layout", 1.2, 12, "var(--identity-orange)", 34], ["Elevator-Pitch", 2.6, 9.9, "var(--identity-amber)", 0], ["AWS - PreSeed", 1.1, 12, "var(--identity-blue)", 12], ["Social Business Hub", 7.2, 12, "var(--identity-green)", 0], ["Infrastruktur", 1.2, 7.8, "#737373", 58], ["Management-Plattform", 1.2, 7.8, "#737373", 71]];
+  const W = 84;
+  return <>
+    <Hd title="Projekte" desc={empty ? "0 aktive Projekte · Kein Projekt gefährdet" : "6 aktive Projekte · Kein Projekt gefährdet"}><button className="btn btn-p"><I n="Plus" />Neues Projekt</button></Hd>
+    <div className="utabs"><button className={tab === "plan" ? "on" : ""} onClick={() => setTab("plan")}><I n="CalendarClock" />Zeitplan</button><button className={tab === "list" ? "on" : ""} onClick={() => setTab("list")}><I n="FolderKanban" />Projektübersicht</button></div>
+    <div className="row gap8" style={{ flexWrap: "wrap" }}><div className="search m-full" style={{ width: 280 }}><I n="Search" /><input placeholder="Projekte und Aufgaben suchen…" /></div><span className="sel">Alle Zuständigen<I n="ChevronDown" s={14} /></span><span className="sel">Alle Zustände<I n="ChevronDown" s={14} /></span><div className="row gap8" style={{ marginLeft: "auto" }}><div className="seg"><button>Woche</button><button className="on">Monat</button><button>Quartal</button></div><button className="btn btn-o"><I n="Locate" />Heute</button></div></div>
+    {tab === "list" ? <div className="card"><table className="tbl"><thead><tr><th>Projekt</th><th>Fortschritt</th><th>Zuständig</th><th>Zieldatum</th><th>Status</th></tr></thead><tbody>
+      {P.map(([n, , , c, pct]) => <tr key={n}><td><span className="row gap8"><span style={{ width: 8, height: 8, borderRadius: 3, background: c }}></span><b style={{ fontWeight: 500 }}>{n}</b></span></td><td><span className="row gap8"><span style={{ width: 120, height: 6, borderRadius: 6, background: "var(--seg-on)", overflow: "hidden" }}><span style={{ display: "block", width: pct + "%", height: "100%", background: "var(--acc)" }}></span></span><span className="muted num" style={{ fontSize: 12 }}>{pct} %</span></span></td><td><Who ids={["a"]} /></td><td className="muted num">31.12.2026</td><td><span className="pill p-acc">Aktiv</span></td></tr>)}
+    </tbody></table></div> :
+    <div className="card" style={{ overflowX: "auto" }}>
+      <div className="gantt" style={{ display: "grid", gridTemplateColumns: "300px " + weeks.length * W + "px" }}>
+        <div className="label" style={{ height: 52, display: "flex", alignItems: "center", padding: "0 18px", borderBottom: "1px solid var(--ln)", borderRight: "1px solid var(--ln)" }}>Projektstruktur</div>
+        <div style={{ display: "flex", borderBottom: "1px solid var(--ln)", position: "relative" }}>{weeks.map((w, i) => <div key={w} className="mono" style={{ width: W, padding: "10px 8px", fontSize: 10.5, borderLeft: "1px solid var(--ln-2)" }}><b>KW {w}</b><div className="muted">{dates[i]}</div></div>)}<span className="pill" style={{ position: "absolute", left: 2.95 * W - 22, bottom: -10, background: "var(--late)", color: "#fff", fontSize: 10, zIndex: 2 }}>Heute</span></div>
+        <div className="row gap8" style={{ height: 40, padding: "0 18px", borderBottom: "1px solid var(--ln-2)", borderRight: "1px solid var(--ln)", boxShadow: "inset 3px 0 0 var(--identity-amber)" }}><I n="ChevronRight" s={14} className="muted" /><I n="CalendarClock" s={14} style={{ color: "var(--identity-amber)" }} /><b style={{ fontSize: 13, fontWeight: 600 }}>Deadlines</b><span className="muted" style={{ marginLeft: "auto", fontSize: 12 }}>5</span></div>
+        <div style={{ position: "relative", height: 40, borderBottom: "1px solid var(--ln-2)" }}>{[5.6, 10.1].map((x) => <span key={x} style={{ position: "absolute", left: x * W, top: 13, width: 12, height: 12, transform: "rotate(45deg)", border: "2px solid var(--identity-amber)", borderRadius: 2 }}></span>)}</div>
+        {empty ? <div style={{ gridColumn: "1 / -1" }}><Empty icon="SquareKanban" title="Noch keine Projekte" description="Lege ein Projekt an, um Aufgaben, Deadlines und den Zeitplan zu bündeln." actions={<button className="btn btn-p btn-sm"><I n="Plus" s={14} />Neues Projekt</button>} /></div> : null}
+        {(empty ? [] : P).map(([n, s, e, c]) => <React.Fragment key={n}>
+          <div className="row gap8" style={{ height: 40, padding: "0 18px", borderBottom: "1px solid var(--ln-2)", borderRight: "1px solid var(--ln)" }}><I n="GripVertical" s={13} className="muted" /><I n="ChevronRight" s={14} className="muted" /><b className="ell grow" style={{ fontSize: 13.5, fontWeight: 600 }}>{n}</b><I n="ArrowUpRight" s={14} className="muted" /><I n="Ellipsis" s={14} className="muted" /></div>
+          <div style={{ position: "relative", height: 40, borderBottom: "1px solid var(--ln-2)", backgroundImage: "repeating-linear-gradient(90deg,transparent 0 " + (W - 1) + "px,var(--hov-2) " + (W - 1) + "px " + W + "px)" }}>
+            <div className="ell" style={{ position: "absolute", left: s * W, width: (e - s) * W, top: 8, height: 24, borderRadius: 6, border: "1.5px solid " + c, background: "color-mix(in oklab," + c + " 35%, var(--ph-b))", fontSize: 11, fontWeight: 600, padding: "4px 8px" }}>{n}</div>
+          </div>
+        </React.Fragment>)}
+      </div>
+    </div>}
+  </>;
+}
+
+function TimeScreen() {
+  const empty = useEmpty();
+  const [run, setRun] = React.useState(false);
+  const [sec, setSec] = React.useState(0);
+  React.useEffect(() => { if (!run) return; const t = setInterval(() => setSec((s) => s + 1), 1000); return () => clearInterval(t); }, [run]);
+  const fmt = (s) => Math.floor(s / 3600) + ":" + String(Math.floor(s / 60) % 60).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+  return <>
+    <Hd title="Zeiterfassung" desc="Arbeitszeit live mit dem Timer erfassen oder nachträglich eintragen." />
+    <div className="split" style={{ "--side": "340px" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="card"><div className="cb" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div className="row" style={{ justifyContent: "space-between" }}><div><div className="label">Timer</div><div className="mono num" style={{ fontSize: 34, fontWeight: 600, marginTop: 4, color: run ? "var(--acc-ink)" : undefined }}>{fmt(sec)}</div><div className="muted" style={{ fontSize: 13 }}>{run ? "Läuft · Banond - App Layout" : "Kein Timer aktiv"}</div></div>
+            <button className="btn btn-p" onClick={() => setRun(!run)}><I n={run ? "Square" : "Play"} />{run ? "Timer stoppen" : "Timer starten"}</button></div>
+          <div className="grid2" style={{ borderTop: "1px solid var(--ln-2)", paddingTop: 16 }}>
+            <label className="field"><span>Projekt</span><span className="sel">Banond - App Layout<I n="ChevronDown" s={14} /></span></label>
+            <label className="field"><span>Aufgabe</span><span className="sel muted">Keine Aufgabe<I n="ChevronDown" s={14} /></span></label>
+            <label className="field"><span>Art</span><span className="sel">Arbeit<I n="ChevronDown" s={14} /></span></label>
+            <label className="field"><span>Notiz</span><input className="inp" /></label>
+          </div>
+        </div></div>
+        <div className="card"><div className="ch"><h2>Woche ab Mo., 5. Okt.</h2><div className="r"><button className="btn btn-sm btn-o btn-ic"><I n="ChevronLeft" s={14} /></button><button className="btn btn-sm btn-o">Diese Woche</button><button className="btn btn-sm btn-o btn-ic"><I n="ChevronRight" s={14} /></button><button className="btn btn-sm btn-p"><I n="Plus" s={14} />Zeit eintragen</button></div></div>
+          <div className="lst">{(empty ? ["Mo., 5. Okt.", "Di., 6. Okt.", "Mi., 7. Okt.", "Do., 8. Okt.", "Fr., 9. Okt."].map((d) => [d, "Keine Zeit erfasst", "0:00"]) : [["Mo., 5. Okt.", "Banond - App Layout · 09:00–12:30", "3:30"], ["Di., 6. Okt.", "Elevator-Pitch · 13:00–17:15", "4:15"], ["Mi., 7. Okt.", "Infrastruktur · 08:30–12:00", "3:30"], ["Do., 8. Okt.", "Keine Zeit erfasst", "0:00"], ["Fr., 9. Okt.", "Keine Zeit erfasst", "0:00"]]).map(([d, s, h]) => <div key={d} className="li"><span style={{ width: 120, fontWeight: 500 }}>{d}</span><span className="grow muted">{s}</span><b className="num">{h}</b></div>)}</div>
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <div className="kpis two"><div><div className="k">Diese Woche</div><div className="v">11:15</div></div><div><div className="k">Saldo bis heute</div><div className="v">—</div></div><div><div className="k">Oktober</div><div className="v">11:15</div></div><div><div className="k">Soll</div><div className="v">—</div></div></div>
+        <div className="alert"><I n="Info" s={15} style={{ marginTop: 1 }} />Diesem Benutzer ist kein Vertragsstand zugeordnet, daher wird keine Sollzeit berechnet. Verknüpfe den Benutzer unter Personal mit einer Person.</div>
+      </div>
+    </div>
+  </>;
+}
+
+function MeetingsScreen() {
+  const empty = useEmpty();
+  const [sel, setSel] = React.useState(0);
+  const M = [["Teamrunde KW 41", "5. Okt. 2026 · 42 min", "Entwurf", "p-draft"], ["Gemeinde Hallein – Erstgespräch", "29. Sept. 2026 · 58 min", "Freigegeben", "p-ok"], ["Pitch-Feedback", "22. Sept. 2026 · 31 min", "Freigegeben", "p-ok"]];
+  return <>
+    <Hd title="Besprechungen" desc="Aufnahmen hochladen, KI-Protokoll prüfen und Aufgaben übernehmen."><span className="concept"><I n="Sparkles" s={12} />Konzept – kein Screenshot</span><button className="btn btn-p"><I n="Upload" />Aufnahme hochladen</button></Hd>
+    {empty ? <div className="card"><Empty icon="Video" title="Noch keine Besprechungen" description="Lade eine Aufnahme hoch. Das KI-Protokoll mit Beschlüssen und Aufgaben wird automatisch entworfen." actions={<button className="btn btn-p btn-sm"><I n="Upload" s={14} />Aufnahme hochladen</button>} /></div> : <div className="split lead" style={{ "--side": "320px" }}>
+      <div className="card"><div className="ch"><h3>Aufnahmen</h3><span className="c">3</span></div><div className="lst">{M.map(([t, s, st, cl], i) => <div key={t} className="li" onClick={() => setSel(i)} style={{ cursor: "pointer", background: i === sel ? "var(--acc-soft)" : undefined }}><I n="Video" className="muted" /><div className="grow"><div className="ell" style={{ fontWeight: 500 }}>{t}</div><div className="muted" style={{ fontSize: 12 }}>{s}</div></div><span className={"pill " + cl}>{st}</span></div>)}</div></div>
+      <div className="card">
+        <div className="ch"><h2>{M[sel][0]}</h2><span className={"pill " + M[sel][3]}>{M[sel][2]}</span><div className="r"><button className="btn btn-sm btn-o">Bearbeiten</button>{sel === 0 ? <button className="btn btn-sm btn-p"><I n="Check" s={14} />Freigeben</button> : null}</div></div>
+        <div className="cb" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+          <div><div className="label" style={{ marginBottom: 8 }}>Zusammenfassung</div><p style={{ margin: 0, lineHeight: 1.6, color: "var(--txt-2)" }}>Stand Wireframes und Pitch-Einreichung besprochen. Infrastruktur-Aufgaben werden bis Monatsende abgeschlossen.</p></div>
+          <div><div className="label" style={{ marginBottom: 8 }}>Beschlüsse</div>{["Elevator-Pitch wird am 23. Okt. eingereicht.", "Portainer ersetzt die manuelle Container-Verwaltung."].map((b) => <div key={b} className="row gap8" style={{ padding: "6px 0" }}><I n="CircleCheck" s={15} style={{ color: "var(--acc-ink)" }} />{b}</div>)}</div>
+          <div><div className="label" style={{ marginBottom: 8 }}>Aufgaben</div><div className="card" style={{ background: "var(--surf-2)" }}><div className="lst">{[["BANOND Wireframe fertigstellen", ["a", "f"], "23. Okt."], ["Portainer einrichten", ["f"], "30. Okt."]].map(([t, w, d]) => <div key={t} className="li"><span className="ck"></span><span className="grow">{t}</span><Who ids={w} /><span className="muted" style={{ fontSize: 12.5 }}>{d}</span><button className="btn btn-sm btn-o">Als Aufgabe</button></div>)}</div></div></div>
+        </div>
+      </div>
+    </div>}
+  </>;
+}
+
+Object.assign(window, { OverviewScreen, CalendarScreen, ProjectsScreen, TimeScreen, MeetingsScreen });

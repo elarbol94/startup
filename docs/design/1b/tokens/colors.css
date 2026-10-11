@@ -1,0 +1,111 @@
+/* Source: src/app/globals.css (shadcn base-nova, neutral base). Light on :root, dark on .dark */
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+
+  /* Status accents used in modules (Tailwind palette values) */
+  --status-draft-bg: #f1f5f9; --status-draft-fg: #334155;
+  --status-sent-bg: #dbeafe; --status-sent-fg: #1e40af;
+  --status-paid-bg: #dcfce7; --status-paid-fg: #166534;
+  --status-canceled-bg: #fee2e2; --status-canceled-fg: #991b1b;
+  --overdue-bg: #fef2f2; --overdue-fg: #dc2626;
+  --unread-fg: #4f46e5;           /* indigo-600: unread news titles */
+  --search-hover-border: #a5b4fc; /* indigo-300: dashed search button hover */
+  --search-hover-bg: rgb(238 242 255 / 0.6);
+  --layout-guide: #a78bfa;        /* violet-400: overview alignment guides */
+
+  /* Accounting sub-navigation (hard-coded in accounting-nav.tsx) */
+  --accounting-ink: #173c32;
+  --accounting-muted: #61706b;
+  --accounting-icon: #87938f;
+  --accounting-accent: #315c73;
+  /* Observed in reference screenshots (assets/reference/accounting-*), not in read source */
+  --accounting-surface: #f4f6f4;
+  --accounting-positive: #2f6b57;
+  --accounting-chart: #315c73;
+
+  /* Semantic aliases */
+  --surface-page: var(--background);
+  --surface-card: var(--card);
+  --surface-popover: var(--popover);
+  --surface-muted: var(--muted);
+  --surface-sidebar: var(--sidebar);
+  --text-body: var(--foreground);
+  --text-muted: var(--muted-foreground);
+  --text-on-primary: var(--primary-foreground);
+  --border-default: var(--border);
+  --ring-card: color-mix(in oklab, var(--foreground) 10%, transparent);
+  --ring-focus: color-mix(in oklab, var(--ring) 50%, transparent);
+  --overlay-scrim: rgb(0 0 0 / 0.1);
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+  --status-draft-bg: #1e293b; --status-draft-fg: #cbd5e1;
+  --status-sent-bg: #172554; --status-sent-fg: #93c5fd;
+  --status-paid-bg: #052e16; --status-paid-fg: #86efac;
+  --status-canceled-bg: #450a0a; --status-canceled-fg: #fca5a5;
+  --overdue-bg: rgb(69 10 10 / 0.4); --overdue-fg: #fca5a5;
+  --unread-fg: #a5b4fc;
+  --accounting-ink: var(--foreground);
+  --accounting-muted: var(--muted-foreground);
+  --accounting-icon: var(--muted-foreground);
+  --accounting-accent: var(--foreground);
+  --accounting-surface: #232323;
+  --accounting-positive: #10c88a;
+  --accounting-chart: #0ea5e9;
+}

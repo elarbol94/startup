@@ -28,6 +28,7 @@ export default function RootLayout({
   return (
     <html
       lang="de"
+      data-theme="1b"
       className="h-full antialiased"
       suppressHydrationWarning
     >
