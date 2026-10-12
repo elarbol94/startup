@@ -6,12 +6,14 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/db";
 import { attachments, attachmentEntityTypes } from "@/db/schema";
 import { isSafeInlineSvg } from "@/lib/svg-upload";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
 
 export const UPLOADS_PATH =
   process.env.UPLOADS_PATH ??
   path.join(/* turbopackIgnore: true */ process.cwd(), "data", "uploads");
 
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50 MB
+export { MAX_UPLOAD_BYTES };
+
 // Caps gunzip's output so a small, highly-compressed .svgz cannot force an unbounded allocation (decompression bomb).
 const MAX_SVG_DECOMPRESSED_BYTES = 10 * 1024 * 1024; // 10 MB
 

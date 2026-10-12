@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import Database from "better-sqlite3";
-import { createHmac } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import http from "node:http";
 import path from "node:path";
 import { strToU8, zipSync } from "fflate";
@@ -220,6 +220,26 @@ test.describe("office documents (simulated document server)", () => {
     await expect(page.getByText(/Gespeichert: Version 1/)).toBeVisible();
     const legacy = await page.request.get(`/api/wiki/pages/${id}/export?format=html&disposition=inline`);
     expect(await legacy.text()).toContain("Mondrakete");
+  });
+
+  test("uploads a DOCX larger than 1 MB", async ({ page }) => {
+    test.setTimeout(120_000);
+    await loginAsAnyUser(page);
+    // Random bytes do not compress: the archive stays above the 1 MB server-action body limit.
+    const content = Buffer.from(zipSync({
+      "[Content_Types].xml": strToU8('<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>'),
+      "word/document.xml": strToU8('<?xml version="1.0"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Großes Dokument</w:t></w:r></w:p></w:body></w:document>'),
+      "word/media/padding.bin": randomBytes(1_100_000),
+    }));
+    expect(content.byteLength).toBeGreaterThan(1024 * 1024);
+    await page.goto("/wiki/pages");
+    await page.getByRole("button", { name: "Neues Dokument", exact: true }).last().click();
+    const chooser = page.waitForEvent("filechooser");
+    await page.getByRole("menuitem", { name: "DOCX hochladen" }).click();
+    await (await chooser).setFiles({ name: "Office e2e large.docx", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buffer: content });
+    await expect(page.getByRole("button", { name: "Umbenennen: Office e2e large" })).toBeVisible({ timeout: 60_000 });
+    const [row] = query<{ id: string }>("SELECT id FROM wiki_pages WHERE title = 'Office e2e large'");
+    expect(query("SELECT kind FROM wiki_office_versions WHERE page_id = ?", row.id)).toEqual([{ kind: "import" }]);
   });
 
   test("keeps office documents out of the removed live-editing and presentation-source paths", async ({ page }) => {

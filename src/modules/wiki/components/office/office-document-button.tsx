@@ -8,7 +8,9 @@ import { ChevronDown, FilePlus2, FileUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
-import { createOfficeDocument, importOfficeDocument } from "../../office/office-actions";
+import { MAX_UPLOAD_BYTES } from "@/lib/upload-limits";
+import { createOfficeDocument } from "../../office/office-actions";
+import type { OfficeImportError } from "../../office/import";
 
 /** The one way to create a document: a blank Word (ONLYOFFICE) document or an uploaded DOCX. */
 export function OfficeDocumentButton({ parentId = null }: { parentId?: string | null }) {
@@ -35,14 +37,22 @@ export function OfficeDocumentButton({ parentId = null }: { parentId?: string | 
   }
 
   async function upload(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error(t("importFailed.tooLarge"));
+      if (fileInput.current) fileInput.current.value = "";
+      return;
+    }
     setBusy(true);
     try {
       const form = new FormData();
       form.set("file", file);
       form.set("locale", locale);
       if (parentId) form.set("parentId", parentId);
-      const result = await importOfficeDocument(form);
-      if ("error" in result) { toast.error(t(`importFailed.${result.error}`)); return; }
+      // A route handler: server actions keep Next.js's 1 MB body limit.
+      const response = await fetch("/api/wiki/office/import", { method: "POST", body: form });
+      const result = await response.json().catch(() => null) as { slug: string } | { error: OfficeImportError | string } | null;
+      if (result && "error" in result && ["tooLarge", "notDocx", "invalidDocx"].includes(result.error)) { toast.error(t(`importFailed.${result.error as OfficeImportError}`)); return; }
+      if (!response.ok || !result || !("slug" in result)) throw new Error("Import failed");
       router.push(`/wiki/pages/${result.slug}`);
     } catch {
       toast.error(t("createFailed"));

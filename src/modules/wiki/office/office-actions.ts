@@ -6,16 +6,15 @@ import { z } from "zod";
 import { db } from "@/db";
 import { user, wikiNotifications } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
-import { MAX_UPLOAD_BYTES, saveAttachmentBuffer } from "@/lib/files";
+import { saveAttachmentBuffer } from "@/lib/files";
 import { blankDocx } from "./blank-docx";
 import { requireOfficeConfig, type OfficeConfig } from "./config";
 import { convertVersionToPdf } from "./convert-pdf";
 import { createOfficePage } from "./create";
-import { DocxLimitError } from "./docx-safety";
 import { defaultOperationDeps, startCheckpoint, startRestore } from "./operations";
 import { getOfficePage, getOfficeVersion } from "./queries";
 import { OfficeConflictError } from "./sessions";
-import { DOCX_MIME, prepareDocx } from "./store";
+import { prepareDocx } from "./store";
 import { mentionEmail, mentionEmailUserId } from "./users";
 
 const createSchema = z.object({
@@ -29,30 +28,6 @@ export async function createOfficeDocument(input: z.input<typeof createSchema>) 
   const data = createSchema.parse(input);
   const prepared = prepareDocx(await blankDocx(data.title, data.locale));
   const page = await createOfficePage({ ...data, prepared, kind: "create", userId: currentUser.id });
-  revalidatePath("/wiki", "layout");
-  return { slug: page.slug };
-}
-
-/** Uploads a DOCX as a new office document (lossless, unlike the TipTap import). */
-export async function importOfficeDocument(formData: FormData) {
-  const currentUser = await requireUserOrThrow();
-  const file = formData.get("file");
-  if (!(file instanceof File)) throw new Error("File missing");
-  if (file.size > MAX_UPLOAD_BYTES) return { error: "tooLarge" as const };
-  if (file.type && file.type !== DOCX_MIME) return { error: "notDocx" as const };
-  const data = createSchema.parse({
-    title: String(formData.get("title") ?? "").trim() || file.name.replace(/\.docx$/i, "").slice(0, 200) || "Dokument",
-    parentId: formData.get("parentId") || null,
-    locale: formData.get("locale") ?? "de",
-  });
-  let prepared;
-  try {
-    prepared = prepareDocx(Buffer.from(await file.arrayBuffer()));
-  } catch (error) {
-    if (error instanceof DocxLimitError) return { error: "invalidDocx" as const };
-    throw error;
-  }
-  const page = await createOfficePage({ ...data, prepared, kind: "import", userId: currentUser.id });
   revalidatePath("/wiki", "layout");
   return { slug: page.slug };
 }
