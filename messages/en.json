@@ -271,6 +271,8 @@
     "more": "More actions for {name}",
     "close": "Close",
     "appName": "Management Platform",
+    "appShortName": "Management",
+    "appDescription": "Wiki, accounting and project coordination in one app",
     "save": "Save",
     "cancel": "Cancel",
     "delete": "Delete",
@@ -4169,6 +4171,25 @@
         "failed": "Unexpected error."
       }
     },
+    "push": {
+      "title": "Push notifications",
+      "description": "Get notifications on this device, even when the app is closed. On a phone, install the app to the home screen first.",
+      "enable": "Enable on this device",
+      "disable": "Disable on this device",
+      "test": "Send test",
+      "enabled": "Active on this device.",
+      "disabledState": "Not active on this device.",
+      "unsupported": "This browser does not support push notifications. On iPhone, add the app to the home screen from Safari first.",
+      "denied": "Notifications are blocked for this site. Allow them in the browser or app settings, then reload.",
+      "notConfigured": "Push notifications are not set up on the server yet (VAPID keys missing).",
+      "categories": "Notify me about",
+      "activity": "Task assignments, mentions and replies",
+      "calendar": "Calendar reminders",
+      "tasksDue": "Tasks and deadlines due today (in the morning)",
+      "testSent": "Test notification sent.",
+      "testFailed": "No device accepted the test notification.",
+      "failed": "Could not change push notifications."
+    },
     "appearance": {
       "title": "Appearance",
       "description": "Choose the appearance for the whole platform. System follows your operating system automatically. Your choice is saved in this browser.",
@@ -5365,5 +5386,11 @@
       "unknownItem": "This action item is not in the approved protocol.",
       "aiDisabled": "AI processing is off for this meeting."
     }
+  },
+  "push": {
+    "tasksDueTitle": "{count, plural, one {# task due today} other {# tasks due today}}",
+    "tasksDueMore": "{titles} and {count} more",
+    "testTitle": "Notifications are working",
+    "testBody": "This device will now receive notifications."
   }
 }

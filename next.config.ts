@@ -27,6 +27,10 @@ const nextConfig: NextConfig = {
   // served no-store and every page load re-fetches ~10 MB of national statistics.
   async headers() {
     return [{
+      // Browsers must re-check the service worker on every visit to pick up updates.
+      source: "/sw.js",
+      headers: [{ key: "Cache-Control", value: "no-cache" }],
+    }, {
       source: "/data/:path*",
       headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
     }, {

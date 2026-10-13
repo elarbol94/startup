@@ -16,6 +16,8 @@ import { ContactCaptureProvider } from "@/modules/network/components/contact-cap
 import { FocusModeProvider } from "@/components/focus-mode";
 import { FocusBootstrapScript } from "@/components/focus/focus-bootstrap-script";
 import { RailBootstrapScript } from "@/components/app-sidebar/rail-bootstrap-script";
+import { PushRegistrar } from "@/modules/push/components/push-registrar";
+import { vapidConfig } from "@/modules/push/config";
 
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
@@ -71,6 +73,7 @@ export default async function AppLayout({
     <UserIdentityProvider currentUserId={currentUser.id} identities={listUserIdentities()}>
     <FocusBootstrapScript userId={currentUser.id} />
     <RailBootstrapScript userId={currentUser.id} />
+    <PushRegistrar publicKey={vapidConfig()?.publicKey ?? null} />
     <FocusModeProvider userId={currentUser.id}>
     <WikiNavigation userId={currentUser.id}>
     <TaskCreateProvider>

@@ -18,6 +18,8 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Management-Plattform",
   description: "Wiki, Buchhaltung und Projektkoordination in einer App",
+  icons: { apple: "/app-icon/apple" },
+  appleWebApp: { capable: true, statusBarStyle: "default" },
 };
 
 export default function RootLayout({
@@ -32,6 +34,11 @@ export default function RootLayout({
       className="h-full antialiased"
       suppressHydrationWarning
     >
+      <head>
+        {/* Not metadata.manifest: the manifest must be fetched with cookies to pass
+            Cloudflare Access (see src/app/app.webmanifest/route.ts). */}
+        <link rel="manifest" href="/app.webmanifest" crossOrigin="use-credentials" />
+      </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <NextIntlClientProvider>

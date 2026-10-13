@@ -50,6 +50,9 @@ export default defineConfig({
             ONLYOFFICE_OUTBOX_SECRET: "e2e-office-outbox-secret-0123456789abcdef",
             ONLYOFFICE_INTERNAL_URL: `http://127.0.0.1:${port + 5}`,
             APP_INTERNAL_URL: baseURL,
+            // e2e-only Web Push key pair (e2e/push-notifications.spec.ts); never used elsewhere.
+            VAPID_PUBLIC_KEY: "BKCY9si_MQumsTclN94dxe9JD5EB7wkGeMLbbATeBJW9CoYlD8DOT-AqmQBz4JGA1khNcqPOe0duMRgaAmd_c1M",
+            VAPID_PRIVATE_KEY: "3hmSpe1JDebrm4s4Fw91sw6F4YPK4lDscgGS1ASL4R8",
           },
         },
 });

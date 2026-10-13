@@ -20,6 +20,10 @@ services:
       SMTP_FROM: ${SMTP_FROM:-}
       # Extra trusted browser origins, for example a local development proxy.
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
+      # Web Push for the installed app (docs/push-notifications.md); empty keys switch push off.
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
+      VAPID_SUBJECT: ${VAPID_SUBJECT:-}
       # Internal-only endpoint; never expose LanguageTool on a host port.
       LANGUAGETOOL_URL: ${LANGUAGETOOL_URL:-http://languagetool:8010}
       # Optional AI-assisted calendar import; deterministic parsing remains the fallback.

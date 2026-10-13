@@ -70,6 +70,7 @@ SQLite database. Stop the normal development server before running it.
   versions/restore, workspace plugin, local development).
 - `docs/calendar-sync.md`: Google Calendar/iCal subscriptions and `.ics` imports.
 - `docs/meetings.md`: meeting recordings, AI protocols, consent, retention.
+- `docs/push-notifications.md`: installable app, Web Push (VAPID keys), what is pushed.
 
 ## Development and deployment workflow
 

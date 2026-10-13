@@ -6,8 +6,8 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { useFormatter, useTranslations } from "next-intl";
 import { ItemDetails } from "@/modules/tasks/components/item-details";
-import { withWorkItemFocus } from "@/modules/context/routes";
 import type { listNotifications } from "../research-queries";
+import { notificationHref } from "../notification-href";
 import { useMarkNotificationRead } from "./use-mark-notification-read";
 
 export function NotificationList({ items }: { items: ReturnType<typeof listNotifications> }) {
@@ -19,9 +19,7 @@ export function NotificationList({ items }: { items: ReturnType<typeof listNotif
   return <div className="divide-y divide-line-soft">{items.map((item) => {
     const title = item.taskTitle || item.pageTitle || t("notifications");
     const message = `${item.actorName} ${t(`notificationTypes.${item.type}`)} ${title}`;
-    const href = item.taskTitle && item.taskId
-      ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task")
-      : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}${item.officeActionLink ? `?officeAction=${encodeURIComponent(item.officeActionLink)}` : ""}` : null;
+    const href = notificationHref(item);
     const when = format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" });
     return <ItemDetails key={item.id} title={title} description={[message, item.taskDescription, item.anchorQuote].filter(Boolean).join("\n\n")} origin={item.taskOrigin || item.pageTitle || item.taskRoute || details("unavailable")} href={href}
       fields={[{ label: details("actor"), value: <UserIdentity userId={item.actorId} name={item.actorName} /> }, { label: details("date"), value: when }]}

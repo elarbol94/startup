@@ -13,6 +13,7 @@ import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { useBugReporter } from "@/modules/projects/bugs/report-provider";
+import { unbindPushDevice } from "@/modules/push/components/push-client";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +55,9 @@ export function UserMenu({
     if (loggingOut) return;
     setLoggingOut(true);
     try {
+      // This device stops receiving the signed-out user's notifications; the next
+      // user to sign in here gets it bound to them (push-registrar.tsx).
+      await unbindPushDevice();
       const result = await authClient.signOut();
       if (result.error) throw new Error("Sign out failed");
       window.location.replace("/login");

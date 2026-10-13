@@ -6,6 +6,9 @@ import {
 import { AccountForm } from "./account-form";
 import { AppearanceForm } from "./appearance-form";
 import { MarkColorForm } from "./mark-color-form";
+import { PushForm } from "./push-form";
+import { vapidConfig } from "@/modules/push/config";
+import { getPushPreferences } from "@/modules/push/queries";
 
 export default async function ProfileSettingsPage() {
   const currentUser = await requireUser();
@@ -16,6 +19,7 @@ export default async function ProfileSettingsPage() {
     <div className="flex flex-col gap-4">
       <AccountForm userId={currentUser.id} name={currentUser.name} email={currentUser.email} />
       <AppearanceForm />
+      <PushForm publicKey={vapidConfig()?.publicKey ?? null} preferences={getPushPreferences(currentUser.id)} />
       <MarkColorForm
         userId={currentUser.id}
         name={currentUser.name}

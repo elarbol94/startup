@@ -271,6 +271,8 @@
     "more": "Weitere Aktionen für {name}",
     "close": "Schließen",
     "appName": "Management-Plattform",
+    "appShortName": "Management",
+    "appDescription": "Wiki, Buchhaltung und Projektkoordination in einer App",
     "save": "Speichern",
     "cancel": "Abbrechen",
     "delete": "Löschen",
@@ -4169,6 +4171,25 @@
         "failed": "Unerwarteter Fehler."
       }
     },
+    "push": {
+      "title": "Push-Benachrichtigungen",
+      "description": "Erhalte Benachrichtigungen auf diesem Gerät, auch wenn die App geschlossen ist. Am Handy installiere die App dafür zuerst auf dem Startbildschirm.",
+      "enable": "Auf diesem Gerät aktivieren",
+      "disable": "Auf diesem Gerät deaktivieren",
+      "test": "Test senden",
+      "enabled": "Auf diesem Gerät aktiv.",
+      "disabledState": "Auf diesem Gerät nicht aktiv.",
+      "unsupported": "Dieser Browser unterstützt keine Push-Benachrichtigungen. Auf dem iPhone füge die App zuerst über Safari zum Home-Bildschirm hinzu.",
+      "denied": "Benachrichtigungen sind für diese Seite blockiert. Erlaube sie in den Browser- bzw. App-Einstellungen und lade die Seite neu.",
+      "notConfigured": "Push-Benachrichtigungen sind am Server noch nicht eingerichtet (VAPID-Schlüssel fehlen).",
+      "categories": "Benachrichtige mich über",
+      "activity": "Aufgabenzuweisungen, Erwähnungen und Antworten",
+      "calendar": "Kalender-Erinnerungen",
+      "tasksDue": "Heute fällige Aufgaben und Fristen (am Morgen)",
+      "testSent": "Testbenachrichtigung gesendet.",
+      "testFailed": "Kein Gerät hat die Testbenachrichtigung angenommen.",
+      "failed": "Push-Benachrichtigungen konnten nicht geändert werden."
+    },
     "appearance": {
       "title": "Darstellung",
       "description": "Wähle die Darstellung für die gesamte Plattform. System übernimmt automatisch die Einstellung deines Betriebssystems. Deine Auswahl wird in diesem Browser gespeichert.",
@@ -5365,5 +5386,11 @@
       "unknownItem": "Diese Aufgabe gibt es im freigegebenen Protokoll nicht.",
       "aiDisabled": "Die KI-Verarbeitung ist für diese Besprechung aus."
     }
+  },
+  "push": {
+    "tasksDueTitle": "{count, plural, one {# Aufgabe heute fällig} other {# Aufgaben heute fällig}}",
+    "tasksDueMore": "{titles} und {count} weitere",
+    "testTitle": "Benachrichtigungen funktionieren",
+    "testBody": "Dieses Gerät erhält ab jetzt Benachrichtigungen."
   }
 }
