@@ -4,12 +4,13 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { PhoneOff, Video } from "lucide-react";
+import { Maximize2, PhoneOff, Video } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { endCall, startCall } from "../call-actions";
 import type { MeetingDetail } from "../queries";
+import { useActiveCall } from "./active-call/active-call-provider";
 import { useMeetingAction } from "./meeting-ui";
 
 /** Start, join or end the meeting's online call. */
@@ -19,6 +20,7 @@ export function CallControls({ detail, viewerId }: { detail: MeetingDetail; view
   const { pending, run } = useMeetingAction();
   const [starting, setStarting] = useState(false);
   const [record, setRecord] = useState(true);
+  const { call } = useActiveCall();
   if (!detail.calls.enabled || detail.meeting.status === "cancelled") return null;
   const callUrl = `/meetings/${detail.meeting.id}/call`;
   const open = detail.calls.open;
@@ -27,7 +29,10 @@ export function CallControls({ detail, viewerId }: { detail: MeetingDetail; view
     const canEnd = detail.role === "host" || open.startedBy === viewerId;
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <Link href={callUrl} className={buttonVariants({ size: "sm" })}><Video />{t("call.join")}</Link>
+        {/* Already in this call (shown in the dock): the link only brings the full view back. */}
+        {call?.meetingId === detail.meeting.id
+          ? <Link href={callUrl} className={buttonVariants({ size: "sm" })}><Maximize2 />{t("call.dock.open")}</Link>
+          : <Link href={callUrl} className={buttonVariants({ size: "sm" })}><Video />{t("call.join")}</Link>}
         {canEnd && <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => endCall(detail.meeting.id))}><PhoneOff />{t("call.end")}</Button>}
       </div>
     );

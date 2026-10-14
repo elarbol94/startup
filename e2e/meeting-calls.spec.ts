@@ -80,6 +80,9 @@ test("keeps the call running in a dock while moving around the platform", async 
   await expect(dock).toBeVisible();
   await expect(dock.getByText(title)).toBeVisible();
   await expect(page.locator(".lk-control-bar")).toHaveCount(0);
+  // The meeting page knows this tab is already in the call.
+  await expect(page.getByRole("link", { name: "Call beitreten" })).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("link", { name: "Zum Call" })).toBeVisible();
   await page.screenshot({ path: "test-results/meeting-call-dock.png" });
 
   // Back to the full view, still connected without joining again.
