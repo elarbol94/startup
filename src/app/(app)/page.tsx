@@ -3,6 +3,7 @@ import { OverviewNews } from "@/modules/tasks/components/overview-news";
 import { OverviewKpis } from "@/modules/tasks/components/overview-kpis";
 import { OverviewUpNext } from "@/modules/tasks/components/overview-up-next";
 import { OverviewUserProvider } from "@/modules/tasks/components/overview-preferences";
+import { OverviewLayoutGrid } from "@/modules/tasks/components/overview-layout-grid";
 import { getOverviewKpis, getOverviewUpNext } from "@/modules/tasks/overview-metric-records";
 import { getOverviewCalendar } from "@/modules/tasks/overview-queries";
 import { requireUser } from "@/lib/auth";
@@ -62,33 +63,36 @@ export default async function DashboardPage({
   const calendar = getOverviewCalendar(user);
 
   // Design 1b: tasks (and deadlines) on the left, key figures, "Als Nächstes" and news on the
-  // right; one column once the page is narrower than 1000 px.
+  // right; one column once the page is narrower than 1000 px. "Layout anpassen" lets each user
+  // hide cards and reorder them within and across the two columns.
   return (
     <OverviewUserProvider userId={user.id}>
       <div className="@container/overview mx-auto flex w-full max-w-[90rem] flex-col gap-5">
         <WorkCockpitHeader userName={user.name} />
-        <div className="grid items-start gap-5 @min-[1000px]/overview:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="flex min-w-0 flex-col gap-5">
-            <TaskOverview
-              tasks={tasks}
-              projects={listProjects({ includeArchived: true }).map(project => ({ id: project.id, name: project.name }))}
-              members={members}
-              defaultAssignee={user.id}
-              filters={{ assignee, priority, status }}
-            />
-            <DeadlineOverview
-              deadlines={deadlines}
-              members={members}
-              defaultAssignee={user.id}
-              filters={{ assignee: deadlineAssignee, from: deadlineFrom, to: deadlineTo, status: deadlineStatus }}
-            />
-          </div>
-          <aside className="flex min-w-0 flex-col gap-4">
-            <OverviewKpis kpis={getOverviewKpis(user.id, summary, calendar)} />
-            <OverviewUpNext upNext={getOverviewUpNext(summary, calendar)} />
-            <OverviewNews items={notifications} />
-          </aside>
-        </div>
+        <OverviewLayoutGrid
+          cards={{
+            tasks: (
+              <TaskOverview
+                tasks={tasks}
+                projects={listProjects({ includeArchived: true }).map(project => ({ id: project.id, name: project.name }))}
+                members={members}
+                defaultAssignee={user.id}
+                filters={{ assignee, priority, status }}
+              />
+            ),
+            deadlines: (
+              <DeadlineOverview
+                deadlines={deadlines}
+                members={members}
+                defaultAssignee={user.id}
+                filters={{ assignee: deadlineAssignee, from: deadlineFrom, to: deadlineTo, status: deadlineStatus }}
+              />
+            ),
+            kpis: <OverviewKpis kpis={getOverviewKpis(user.id, summary, calendar)} />,
+            upNext: <OverviewUpNext upNext={getOverviewUpNext(summary, calendar)} />,
+            news: <OverviewNews items={notifications} />,
+          }}
+        />
       </div>
     </OverviewUserProvider>
   );

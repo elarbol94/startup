@@ -79,6 +79,8 @@ test("dashboard list groups tasks by due date and checks them off in place", asy
   await page.goto("/");
   const panel = page.locator('[data-overview-section="tasks"]');
   await panel.getByRole("radio", { name: "Alle", exact: true }).click();
+  // The filter is a URL navigation; opening the creator before it lands would drop ?assignee=all.
+  await expect(page).toHaveURL(/assignee=all/);
   const title = `Overdue list task ${Date.now()}`;
   await page.getByRole("button", { name: "Aufgabe erstellen", exact: true }).first().click();
   await page.locator("#context-task-title").fill(title);

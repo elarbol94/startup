@@ -1,10 +1,21 @@
 "use client";
 import { createContext, useCallback, useContext, useState, useSyncExternalStore, type ReactNode } from "react";
 const OverviewUserContext = createContext("");
-/** Scopes the dashboard preferences (task view, table columns) to the signed-in user. */
+const OverviewEditingContext = createContext<{ editing: boolean; setEditing: (editing: boolean) => void }>({
+  editing: false,
+  setEditing: () => {},
+});
+/** Scopes the dashboard preferences (task view, table columns, layout) to the signed-in user. */
 export function OverviewUserProvider({ userId, children }: { userId: string; children: ReactNode }) {
-  return <OverviewUserContext.Provider value={userId}>{children}</OverviewUserContext.Provider>;
+  const [editing, setEditing] = useState(false);
+  return (
+    <OverviewUserContext.Provider value={userId}>
+      <OverviewEditingContext.Provider value={{ editing, setEditing }}>{children}</OverviewEditingContext.Provider>
+    </OverviewUserContext.Provider>
+  );
 }
+/** Whether the dashboard is in "Layout anpassen" mode; shared by the header button and the card grid. */
+export const useOverviewEditing = () => useContext(OverviewEditingContext);
 const memory = new Map<string, string>();
 const eventName = "overview-preferences-change";
 function subscribe(callback: () => void) {
