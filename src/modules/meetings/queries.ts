@@ -195,11 +195,12 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     .map((call) => [call.id, call.endedAt ? call.endedAt.getTime() - call.startedAt.getTime() : null]));
   const recordings = recordingRows.map((recording) => ({
     ...recording,
-    warnings: recording.kind === "derived_audio" ? [] : recordingWarnings({
+    // Warnings judge speech tracks; a screen share's length says nothing about them.
+    warnings: recording.kind === "derived_audio" || recording.speakerScope === "none" ? [] : recordingWarnings({
       durationMs: recording.durationMs,
       callMs: recording.callSessionId ? callLengths.get(recording.callSessionId) ?? null : null,
       otherTrackMs: recording.callSessionId
-        ? recordingRows.filter((other) => other.callSessionId === recording.callSessionId && other.kind !== "derived_audio" && other.id !== recording.id)
+        ? recordingRows.filter((other) => other.callSessionId === recording.callSessionId && other.kind !== "derived_audio" && other.speakerScope !== "none" && other.id !== recording.id)
           .map((other) => other.durationMs ?? 0)
         : [],
       texts: textsByRecording.get(recording.id) ?? [],

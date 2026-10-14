@@ -3,7 +3,7 @@ import "server-only";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { and, asc, desc, eq, inArray, max, ne, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, max, ne, or, sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { attachments, user } from "@/db/schema";
 import { moveStagedFileIntoStore, newStoredName, purgeMediaAttachment, registerStagedAttachment } from "@/lib/files";
@@ -62,7 +62,9 @@ async function ingest(job: MeetingJob, context: StageContext) {
   const file = recordingFilePath(recording.id);
   if (!file) throw new PermanentJobError("Recording file is missing");
   const probe = await probeMedia(file, context.signal);
-  if (!probe.hasAudio) throw new PermanentJobError("The recording has no audio track");
+  // A recorded screen share is kept to watch, never transcribed.
+  const screen = recording.speakerScope === "none";
+  if (!probe.hasAudio && !screen) throw new PermanentJobError("The recording has no audio track");
   const meeting = loadMeeting(job.meetingId);
   const kind = probe.hasVideo ? "video" as const : "audio" as const;
   completeJob(job, (tx) => {
@@ -71,6 +73,7 @@ async function ingest(job: MeetingJob, context: StageContext) {
       durationMs: probe.durationMs,
       expiresAt: retentionExpiry(recording.createdAt, kind === "video" ? meeting.videoRetentionDays : meeting.audioRetentionDays),
     }).where(eq(meetingRecordings.id, recording.id)).run();
+    if (screen) return;
     enqueueJob(tx, {
       meetingId: job.meetingId, stage: "extract_audio", recordingId: recording.id, policyRevision: meeting.policyRevision,
       executionKey: `extract:${recording.id}`, inputs: [recording.id],
@@ -176,20 +179,27 @@ const ACTIVE_PIPELINE_STAGES = ["ingest", "extract_audio", "transcribe"] as cons
 async function merge(job: MeetingJob) {
   const meeting = loadMeeting(job.meetingId);
   completeJob(job, (tx) => {
-    const busy = tx.select({ id: meetingJobs.id }).from(meetingJobs).where(and(
-      eq(meetingJobs.meetingId, job.meetingId),
-      inArray(meetingJobs.stage, [...ACTIVE_PIPELINE_STAGES]),
-      inArray(meetingJobs.status, ["queued", "running"]),
-    )).get();
+    // Screen shares never reach a transcript, so they never trigger a merge and must not hold one up.
+    const busy = tx.select({ id: meetingJobs.id }).from(meetingJobs)
+      .leftJoin(meetingRecordings, eq(meetingRecordings.id, meetingJobs.recordingId))
+      .where(and(
+        eq(meetingJobs.meetingId, job.meetingId),
+        inArray(meetingJobs.stage, [...ACTIVE_PIPELINE_STAGES]),
+        inArray(meetingJobs.status, ["queued", "running"]),
+        or(isNull(meetingRecordings.speakerScope), ne(meetingRecordings.speakerScope, "none")),
+      )).get();
     // A running call, or call recordings not yet in the store, will trigger their own merge.
     const callPending = tx.select({ id: meetingCallSessions.id }).from(meetingCallSessions)
       .where(and(eq(meetingCallSessions.meetingId, job.meetingId), eq(meetingCallSessions.status, "open"))).get()
       ?? tx.select({ id: meetingEgressAttempts.id }).from(meetingEgressAttempts)
         .innerJoin(meetingCallSessions, eq(meetingCallSessions.id, meetingEgressAttempts.sessionId))
-        .where(and(eq(meetingCallSessions.meetingId, job.meetingId), inArray(meetingEgressAttempts.state, ["calling", "started", "unknown", "complete"]))).get();
+        .where(and(
+          eq(meetingCallSessions.meetingId, job.meetingId), eq(meetingEgressAttempts.trackSource, "microphone"),
+          inArray(meetingEgressAttempts.state, ["calling", "started", "unknown", "complete"]),
+        )).get();
     if (busy || callPending) return;
     const originals = tx.select().from(meetingRecordings).where(and(
-      eq(meetingRecordings.meetingId, job.meetingId), ne(meetingRecordings.kind, "derived_audio"),
+      eq(meetingRecordings.meetingId, job.meetingId), ne(meetingRecordings.kind, "derived_audio"), ne(meetingRecordings.speakerScope, "none"),
     )).orderBy(asc(meetingRecordings.createdAt)).all();
     const manifest: Array<{ transcriptId: string; recordingId: string; offsetMs: number }> = [];
     const missing: Array<{ recordingId: string; reason: string }> = [];

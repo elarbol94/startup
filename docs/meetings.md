@@ -31,8 +31,26 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   (LiveKit Egress, no transcoding, ~0.15 CPU core per person), listed as
   *Call-Aufnahme · Name · start time*. Speakers are
   therefore known exactly; the transcript interleaves the tracks by time. A
-  combined video recording is deliberately not offered: on this server one
-  720p composite needs about four CPU cores.
+  shared tab's sound (*Tab-Audio teilen*) is not recorded – it is no one's
+  voice and would be attributed to the person sharing.
+- **Screen recording**: in a recorded call each screen share is recorded as
+  its own video (VP8 in WebM, copied without transcoding, so it costs about
+  as little CPU as a microphone), listed as *Bildschirm · Name · start time*
+  and playable in the *Aufnahmen* tab. One file per share: stopping and
+  starting again makes a new one. Screen recordings are only stored – never
+  transcribed, never sent to OpenAI – and follow the meeting's video
+  retention (30 days by default). Cameras are not recorded, and a combined
+  video of the whole call is deliberately not offered: on this server one
+  720p composite needs about four CPU cores. The consent text (version 2)
+  names shared screens.
+- **Moving around while in a call**: the connection lives in the app layout
+  (`ActiveCallProvider`), not in the call page. Opening another page of the
+  platform moves the call into a dock in the bottom-right corner (microphone,
+  screen share, back to the call, leave); the dock also says when a call
+  ended meanwhile. To show work in the platform, share *Dieser Tab* in the
+  browser's screen dialog and keep clicking around – the recording follows.
+  A full page load, closing the tab or signing out leaves the call. Pages
+  opened as workspace tabs are separate frames and do not touch the call.
 - **Room microphone (hybrid / in-person)**: when several people speak into
   one device – a group in the office joining remote colleagues, or two
   people at one laptop – whoever joins ticks *Raummikrofon* before joining

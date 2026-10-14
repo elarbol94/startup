@@ -12,8 +12,8 @@ import { endCallSession } from "./calls/recording";
 import { audit } from "./processing/store";
 import { meetingCallConsents, meetingCallEndpoints, meetingCallSessions } from "./schema";
 
-/** Version of the consent text shown before joining a recorded call. */
-const CALL_CONSENT_VERSION = 1;
+/** Version of the consent text shown before joining a recorded call (2: shared screens are recorded too). */
+const CALL_CONSENT_VERSION = 2;
 
 function openSession(meetingId: string) {
   return db.select().from(meetingCallSessions)

@@ -22,8 +22,8 @@ const SWEEP_INTERVAL_MS = 24 * HOUR;
 export const CALL_STAGING = path.join(STAGING_PATH, "meeting-calls");
 /** Attempts whose recorder output is no longer needed. */
 const SETTLED_ATTEMPTS = ["ingested", "failed", "abandoned", "duplicate_stopped"] as const;
-/** Recorder output is named `<attempt id>.ogg`; nothing else in that directory is ours. */
-const EGRESS_FILE = /^[a-z0-9_-]{1,64}\.ogg$/i;
+/** Recorder output is named `<attempt id>.ogg` (or `.webm` for a screen); nothing else in that directory is ours. */
+const EGRESS_FILE = /^[a-z0-9_-]{1,64}\.(ogg|webm)$/i;
 
 export type SweepTotals = { files: number; bytes: number };
 export type SweepResult = { store: SweepTotals; egress: SweepTotals; staging: SweepTotals };

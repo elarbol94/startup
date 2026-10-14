@@ -53,3 +53,44 @@ test("joins an unrecorded call with the camera off and leaves it after silence",
   await expect(page.getByText("Du hast den Call nach 15 Minuten Stille automatisch verlassen.")).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test("keeps the call running in a dock while moving around the platform", async ({ page }) => {
+  test.setTimeout(120_000);
+  await loginAsAnyUser(page);
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  const title = `Dock ${Date.now()}`;
+
+  await page.goto("/meetings");
+  await page.getByRole("button", { name: "Neue Besprechung" }).first().click();
+  const dialog = page.getByRole("dialog", { name: "Neue Besprechung" });
+  await dialog.getByLabel("Titel").fill(title);
+  await dialog.getByRole("button", { name: "Anlegen" }).click();
+  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await page.getByRole("button", { name: "Call starten" }).click();
+  const start = page.getByRole("dialog", { name: "Online-Call starten" });
+  await start.getByText("Call aufnehmen").click();
+  await start.getByRole("button", { name: "Starten" }).click();
+  await page.getByRole("button", { name: "Beitreten" }).click();
+  await expect(page.locator(".lk-control-bar")).toBeVisible({ timeout: 30_000 });
+
+  // A client-side navigation elsewhere: the call moves into the dock instead of ending.
+  await page.getByRole("link", { name: title }).click();
+  const dock = page.getByRole("region", { name: "Laufender Call" });
+  await expect(dock).toBeVisible();
+  await expect(dock.getByText(title)).toBeVisible();
+  await expect(page.locator(".lk-control-bar")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/meeting-call-dock.png" });
+
+  // Back to the full view, still connected without joining again.
+  await dock.getByRole("link", { name: "Zum Call" }).click();
+  await expect(page.locator(".lk-control-bar")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Beitreten" })).toHaveCount(0);
+
+  // Leaving from the dock ends this person's call.
+  await page.getByRole("link", { name: title }).click();
+  await dock.getByRole("button", { name: "Call verlassen" }).click();
+  await expect(dock).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "Du hast den Call verlassen." })).toBeVisible();
+  expect(errors).toEqual([]);
+});

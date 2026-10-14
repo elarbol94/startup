@@ -160,7 +160,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="min-w-0 text-[13.5px]">
                       <p className="truncate font-medium" title={recording.fileName}>
-                        {recording.source === "livekit" ? t(recording.speakerScope === "room" ? "recordings.roomMicTrack" : "recordings.callTrack", {
+                        {recording.source === "livekit" ? t(recording.speakerScope === "none" ? "recordings.screenTrack" : recording.speakerScope === "room" ? "recordings.roomMicTrack" : "recordings.callTrack", {
                           name: recording.speakerName ?? t("recordings.unknownSpeaker"),
                           time: format.dateTime(new Date(recording.mediaStartedAt ?? recording.createdAt), { dateStyle: "medium", timeStyle: "short" }),
                         }) : recording.fileName}

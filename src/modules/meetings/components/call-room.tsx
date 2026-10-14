@@ -1,29 +1,15 @@
 "use client";
 
-import "@livekit/components-styles";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { LiveKitRoom } from "@livekit/components-react";
-import { ConnectionError, DisconnectReason } from "livekit-client";
 import { ArrowLeft, CircleDot, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
-import { CALL_CHECK_HOURS, CALL_SILENCE_MINUTES, CallIdleGuard, type IdleReason } from "./call-idle-guard";
-import { CallStage } from "./call-room/call-stage";
+import { useActiveCall } from "./active-call/active-call-provider";
+import { CALL_CHECK_HOURS, CALL_SILENCE_MINUTES } from "./call-idle-utils";
 import { RecordingIndicator } from "./call-room/recording-indicator";
-
-type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean; roomMic: boolean };
-/**
- * One explicit lifecycle. Once a connection ends, the page never reconnects
- * on its own: Next.js keeps visited pages alive in the background, and an
- * auto-reconnect with an old token would loop against a closed room.
- */
-type Phase =
-  | { kind: "prejoin" }
-  | { kind: "call"; joined: Joined; attempt: number }
-  | { kind: "ended"; reason: "left" | "closed" | "failed" | "idle"; detail?: string; idleReason?: IdleReason };
 
 /** A relative signaling path ("/livekit") becomes a WebSocket URL on this origin. */
 function socketUrl(serverUrl: string) {
@@ -31,31 +17,34 @@ function socketUrl(serverUrl: string) {
   return `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${serverUrl}`;
 }
 
+/**
+ * The call page: joining, the full call view, or how it ended. The connection
+ * itself belongs to ActiveCallProvider, so leaving this page for another one
+ * in the platform keeps the call running in a dock.
+ */
 export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: string; title: string; record: boolean; usesAi: boolean }) {
   const t = useTranslations("meetings");
+  const { call, ended, deviceWarning, enter, setStage } = useActiveCall();
   const [consentRecording, setConsentRecording] = useState(false);
   const [consentAi, setConsentAi] = useState(false);
   const [roomMic, setRoomMic] = useState(false);
   const [consentRoom, setConsentRoom] = useState(false);
-  const [phase, setPhase] = useState<Phase>({ kind: "prejoin" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
-  const [deviceWarning, setDeviceWarning] = useState(false);
   const back = `/meetings/${meetingId}`;
+  const inThisCall = call?.meetingId === meetingId ? call : null;
+  const endedHere = !call && ended?.meetingId === meetingId ? ended : null;
 
   async function join() {
     setPending(true);
     setError(null);
-    setDeviceWarning(false);
     try {
       // Always a fresh token: they are short-lived and bound to one call.
       const result = await joinCall({ meetingId, consentRecording, consentAi, roomMic, consentRoom });
       if (!result.ok) setError(t(`errors.${result.error}`));
-      else setPhase((current) => ({
-        kind: "call",
-        joined: { token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record, canPublish: result.canPublish, roomMic: result.roomMic },
-        attempt: current.kind === "call" ? current.attempt + 1 : 0,
-      }));
+      else enter(meetingId, title, {
+        token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record, canPublish: result.canPublish, roomMic: result.roomMic,
+      });
     } catch {
       setError(t("call.joinFailed"));
     } finally {
@@ -63,71 +52,40 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
     }
   }
 
-  function disconnected(reason?: DisconnectReason) {
-    setPhase((current) => current.kind !== "call" ? current : {
-      kind: "ended",
-      reason: reason === DisconnectReason.ROOM_DELETED || reason === DisconnectReason.ROOM_CLOSED ? "closed"
-        : reason === DisconnectReason.CLIENT_INITIATED || reason === undefined ? "left" : "failed",
-    });
-  }
-
-  // Unmounting the room disconnects it; the "left" from that disconnect is ignored.
-  const leaveIdle = useCallback((idleReason: IdleReason) => setPhase({ kind: "ended", reason: "idle", idleReason }), []);
-
   const header = (
     <div className="flex items-center justify-between gap-2 text-sm">
       <Link href={back} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{title}</Link>
       <div className="flex items-center gap-3">
-        {phase.kind === "call" && phase.joined.roomMic && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Users className="size-3.5" />{t("call.roomMicActive")}</span>}
-        {phase.kind === "call" && phase.joined.record && <RecordingIndicator />}
+        {inThisCall?.joined.roomMic && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Users className="size-3.5" />{t("call.roomMicActive")}</span>}
+        {inThisCall?.joined.record && <RecordingIndicator />}
       </div>
     </div>
   );
 
-  if (phase.kind === "call") {
+  if (inThisCall) {
     return (
       <div className="flex h-[calc(100dvh-8rem)] min-h-[28rem] flex-col gap-2">
         {header}
         {deviceWarning && <p className="text-sm text-amber-700 dark:text-amber-400" role="status">{t("call.deviceFailed")}</p>}
-        <LiveKitRoom
-          key={phase.attempt}
-          data-lk-theme="default"
-          className="relative min-h-0 flex-1 overflow-hidden rounded-xl"
-          serverUrl={phase.joined.serverUrl}
-          token={phase.joined.token}
-          connect
-          // Viewers join without publishing rights; asking for their devices would only fail.
-          // The camera starts off: people turn it on in the control bar when they want to.
-          video={false}
-          audio={phase.joined.canPublish}
-          options={{ adaptiveStream: true, dynacast: true, disconnectOnPageLeave: true }}
-          // Only a failed connection ends the call. A missing or blocked camera or
-          // microphone also lands here; the person stays in the call.
-          onError={(cause) => cause instanceof ConnectionError
-            ? setPhase({ kind: "ended", reason: "failed", detail: cause.message })
-            : setDeviceWarning(true)}
-          onMediaDeviceFailure={() => setDeviceWarning(true)}
-          onDisconnected={disconnected}
-        >
-          <CallStage record={phase.joined.record} />
-          <CallIdleGuard onIdle={leaveIdle} />
-        </LiveKitRoom>
+        <p className="text-xs text-muted-foreground">{t("call.keepsRunning")}</p>
+        {/* ActiveCallProvider renders the call into this element. */}
+        <div ref={setStage} data-lk-theme="default" className="lk-room-container relative min-h-0 flex-1 overflow-hidden rounded-xl" />
       </div>
     );
   }
 
-  if (phase.kind === "ended") {
-    const message = phase.reason === "closed" ? t("call.closed") : phase.reason === "failed" ? t("call.connectionFailed")
-      : phase.reason === "idle" ? (phase.idleReason === "duration" ? t("call.durationLeft", { hours: CALL_CHECK_HOURS }) : t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }))
+  if (endedHere) {
+    const message = endedHere.reason === "closed" ? t("call.closed") : endedHere.reason === "failed" ? t("call.connectionFailed")
+      : endedHere.reason === "idle" ? (endedHere.idleReason === "duration" ? t("call.durationLeft", { hours: CALL_CHECK_HOURS }) : t("call.idleLeft", { minutes: CALL_SILENCE_MINUTES }))
         : t("call.left");
     return (
       <div className="mx-auto max-w-lg space-y-4 rounded-xl border bg-card p-5 shadow-card">
         {header}
         <p className="text-sm">{message}</p>
-        {phase.detail && <p className="text-xs text-muted-foreground">{phase.detail}</p>}
+        {endedHere.detail && <p className="text-xs text-muted-foreground">{endedHere.detail}</p>}
         {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
         <div className="flex flex-wrap gap-2">
-          {phase.reason !== "closed" && <Button disabled={pending} onClick={() => void join()}>{t("call.rejoin")}</Button>}
+          {endedHere.reason !== "closed" && <Button disabled={pending} onClick={() => void join()}>{t("call.rejoin")}</Button>}
           <Link href={back} className="inline-flex h-8 items-center rounded-lg border px-3 text-sm outline-none hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring">{t("call.backToMeeting")}</Link>
         </div>
       </div>
@@ -140,6 +98,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
       {header}
       <h2 className="text-lg font-semibold">{t("call.joinTitle")}</h2>
       <p className="text-sm text-muted-foreground">{t("call.tailscaleHint")}</p>
+      {call && <p className="text-sm text-amber-700 dark:text-amber-400" role="status">{t("call.otherCall", { title: call.title })}</p>}
       {record && (
         <div className="space-y-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
           <p className="flex items-center gap-2 font-medium"><CircleDot className="size-4 text-destructive" />{t("call.recordedNotice")}</p>

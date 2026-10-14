@@ -7,6 +7,9 @@ const createdAt = () => integer("created_at", { mode: "timestamp_ms" }).notNull(
 export const meetingSessionStatuses = ["open", "ended"] as const;
 export const egressAttemptStates = ["calling", "started", "unknown", "complete", "failed", "abandoned", "duplicate_stopped", "ingested"] as const;
 export type EgressAttemptState = (typeof egressAttemptStates)[number];
+/** What a recorder captures: a person's microphone (Opus, `.ogg`) or a shared screen (VP8 video, `.webm`). */
+export const egressTrackSources = ["microphone", "screen"] as const;
+export type EgressTrackSource = (typeof egressTrackSources)[number];
 
 /**
  * One online call of a meeting, in its own LiveKit room. Whether it is
@@ -76,6 +79,7 @@ export const meetingEgressAttempts = sqliteTable(
     id: text("id").primaryKey().$defaultFn(() => createId()),
     sessionId: text("session_id").notNull().references(() => meetingCallSessions.id, { onDelete: "cascade" }),
     trackSid: text("track_sid").notNull(),
+    trackSource: text("track_source", { enum: egressTrackSources }).notNull().default("microphone"),
     identity: text("identity").notNull(),
     userId: text("user_id").notNull(),
     fileName: text("file_name").notNull(),

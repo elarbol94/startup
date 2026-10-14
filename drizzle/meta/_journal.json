@@ -589,6 +589,13 @@
       "when": 1791985386464,
       "tag": "0083_meeting_room_mic",
       "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "6",
+      "when": 1791986830110,
+      "tag": "0084_meeting_screen_recording",
+      "breakpoints": true
     }
   ]
 }

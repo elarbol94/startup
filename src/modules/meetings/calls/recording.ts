@@ -6,11 +6,12 @@ import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
 import { and, count, eq, inArray, isNotNull, isNull, lt, or } from "drizzle-orm";
-import { EgressStatus, TrackType, type EgressInfo } from "livekit-server-sdk";
+import { EgressStatus, TrackSource, TrackType, type EgressInfo } from "livekit-server-sdk";
 import { db } from "@/db";
 import { user } from "@/db/schema";
 import { timeZone } from "@/i18n/config";
 import { getAttachmentAbsolutePath, moveStagedFileIntoStore, newStoredName, registerStagedAttachment, STAGING_PATH } from "@/lib/files";
+import type { EgressTrackSource } from "../call-schema";
 import {
   meetingCallConsents,
   meetingCallEndpoints,
@@ -52,12 +53,26 @@ export const DEAD_ROOM_CHECKS = 2;
 const nsToMs = (value: bigint) => Number(value / BigInt(1_000_000));
 
 /**
- * Starts recording an audio track of an admitted device, unless an attempt for
+ * Which tracks a recorded call keeps: each person's microphone and each shared
+ * screen. A shared tab's sound is not recorded: it is no one's voice and would
+ * be attributed to the person sharing. Cameras are not recorded either.
+ */
+export function recordedTrackSource(track: { type: TrackType; source: TrackSource }): EgressTrackSource | null {
+  if (track.type === TrackType.AUDIO && (track.source === TrackSource.MICROPHONE || track.source === TrackSource.UNKNOWN)) return "microphone";
+  if (track.type === TrackType.VIDEO && track.source === TrackSource.SCREEN_SHARE) return "screen";
+  return null;
+}
+
+/** Recorder files: Opus audio in Ogg, a screen share's VP8 video in WebM (track egress does not transcode). */
+const recorderExtension = (source: EgressTrackSource) => source === "screen" ? ".webm" : ".ogg";
+
+/**
+ * Starts recording a microphone or screen-share track of an admitted device, unless an attempt for
  * that track is already live. The attempt row (with its own file name) is
  * written before LiveKit is called, in a transaction that serialises
  * concurrent callers (webhook and reconciler).
  */
-export async function ensureTrackRecording(session: Session, identity: string, trackSid: string) {
+export async function ensureTrackRecording(session: Session, identity: string, trackSid: string, trackSource: EgressTrackSource = "microphone") {
   if (!session.record || session.status !== "open") return;
   const attempt = db.transaction((tx) => {
     // A track whose recorder keeps failing is not restarted every reconcile forever.
@@ -72,7 +87,9 @@ export async function ensureTrackRecording(session: Session, identity: string, t
     )).get();
     if (live) return null;
     const id = crypto.randomUUID();
-    return tx.insert(meetingEgressAttempts).values({ id, sessionId: session.id, trackSid, identity, userId: endpoint.userId, fileName: `${id}.ogg` }).returning().get();
+    return tx.insert(meetingEgressAttempts).values({
+      id, sessionId: session.id, trackSid, trackSource, identity, userId: endpoint.userId, fileName: `${id}${recorderExtension(trackSource)}`,
+    }).returning().get();
   }, { behavior: "immediate" });
   if (!attempt) return;
   try {
@@ -254,7 +271,8 @@ async function reconcileSession(session: Session, now: number) {
   for (const participant of participants) {
     // Recorders and other non-admitted identities have no endpoint row and are skipped there.
     for (const track of participant.tracks) {
-      if (track.type === TrackType.AUDIO) await ensureTrackRecording(session, participant.identity, track.sid);
+      const source = recordedTrackSource(track);
+      if (source) await ensureTrackRecording(session, participant.identity, track.sid, source);
     }
   }
 }
@@ -283,35 +301,37 @@ async function ingestAttempt(attempt: Attempt) {
     const handle = fs.openSync(staged, "r+");
     try { fs.fsyncSync(handle); } finally { fs.closeSync(handle); }
     const sha256 = hash.digest("hex");
-    current = db.update(meetingEgressAttempts).set({ storedName: newStoredName(sha256, ".ogg"), sha256, updatedAt: new Date() })
+    current = db.update(meetingEgressAttempts).set({ storedName: newStoredName(sha256, recorderExtension(attempt.trackSource)), sha256, updatedAt: new Date() })
       .where(eq(meetingEgressAttempts.id, attempt.id)).returning().get();
   }
   if (fs.existsSync(staged)) moveStagedFileIntoStore(staged, current.storedName!);
   const consent = db.select().from(meetingCallConsents).where(and(eq(meetingCallConsents.sessionId, session.id), eq(meetingCallConsents.userId, attempt.userId))).get();
+  const screen = attempt.trackSource === "screen";
   // A room microphone carries several voices: diarized like an upload instead of named after the device's person.
-  const roomMic = db.select({ roomMic: meetingCallEndpoints.roomMic }).from(meetingCallEndpoints).where(eq(meetingCallEndpoints.identity, attempt.identity)).get()?.roomMic ?? false;
+  const roomMic = !screen && (db.select({ roomMic: meetingCallEndpoints.roomMic }).from(meetingCallEndpoints).where(eq(meetingCallEndpoints.identity, attempt.identity)).get()?.roomMic ?? false);
   const sizeBytes = fs.statSync(getAttachmentAbsolutePath(current.storedName!)).size;
   db.transaction((tx) => {
     const fresh = tx.select().from(meetingEgressAttempts).where(eq(meetingEgressAttempts.id, attempt.id)).get();
     if (fresh?.state !== "complete") return;
     const attachment = registerStagedAttachment(
-      { storedName: current.storedName!, fileName: callTrackFileName(tx, attempt), mimeType: "audio/ogg", sizeBytes, sha256: current.sha256! },
+      { storedName: current.storedName!, fileName: callTrackFileName(tx, attempt), mimeType: screen ? "video/webm" : "audio/ogg", sizeBytes, sha256: current.sha256! },
       { entityType: "meetingRecording", entityId: meeting.id, userId: attempt.userId },
     );
     const createdAt = new Date();
     const recording = tx.insert(meetingRecordings).values({
-      meetingId: meeting.id, attachmentId: attachment.id, kind: "audio", speakerScope: roomMic ? "room" : "single", source: "livekit",
+      meetingId: meeting.id, attachmentId: attachment.id, kind: screen ? "video" : "audio", speakerScope: screen ? "none" : roomMic ? "room" : "single", source: "livekit",
       fileName: attachment.fileName, sizeBytes, sha256: current.sha256!, callSessionId: session.id, speakerUserId: attempt.userId,
       mediaStartedAt: attempt.mediaStartedAt, createdBy: attempt.userId, createdAt,
-      consentEvidence: JSON.stringify({ type: "callConsent", sessionId: session.id, userId: attempt.userId, givenAt: consent?.givenAt.toISOString() ?? null, textVersion: consent?.textVersion ?? null, aiProcessing: consent?.aiProcessing ?? false, roomMic }),
-      expiresAt: retentionExpiry(createdAt, meeting.audioRetentionDays),
+      consentEvidence: JSON.stringify({ type: "callConsent", sessionId: session.id, userId: attempt.userId, givenAt: consent?.givenAt.toISOString() ?? null, textVersion: consent?.textVersion ?? null, aiProcessing: consent?.aiProcessing ?? false, roomMic, screen }),
+      expiresAt: retentionExpiry(createdAt, screen ? meeting.videoRetentionDays : meeting.audioRetentionDays),
     }).returning().get();
     enqueueJob(tx, {
       meetingId: meeting.id, stage: "ingest", recordingId: recording.id, policyRevision: meeting.policyRevision,
       executionKey: `ingest:${recording.id}`, inputs: [recording.id],
     });
     tx.update(meetingEgressAttempts).set({ state: "ingested", updatedAt: new Date() }).where(eq(meetingEgressAttempts.id, attempt.id)).run();
-    if (meeting.status !== "processing" && meeting.status !== "cancelled") {
+    // A screen share is only stored, never transcribed: it starts no protocol work.
+    if (!screen && meeting.status !== "processing" && meeting.status !== "cancelled") {
       tx.update(meetings).set({ status: "processing", updatedAt: new Date() }).where(eq(meetings.id, meeting.id)).run();
     }
     audit(tx, meeting.id, null, "call.recordingStored", { sessionId: session.id, recordingId: recording.id, userId: attempt.userId });
@@ -319,14 +339,15 @@ async function ingestAttempt(attempt: Attempt) {
   fs.rmSync(source, { force: true });
 }
 
-/** A download name that says whose microphone it is and when it started, e.g. `call-felix-2026-10-07-1803.ogg`. */
+/** A download name that says whose microphone or screen it is and when it started, e.g. `call-felix-2026-10-07-1803.ogg`. */
 function callTrackFileName(tx: Pick<typeof db, "select">, attempt: typeof meetingEgressAttempts.$inferSelect) {
   const name = tx.select({ name: user.name }).from(user).where(eq(user.id, attempt.userId)).get()?.name ?? "";
   const slug = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || "person";
   const parts = Object.fromEntries(new Intl.DateTimeFormat("en-GB", {
     timeZone, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
   }).formatToParts(new Date(attempt.mediaStartedAt ?? attempt.calledAt.getTime())).map((part) => [part.type, part.value]));
-  return `call-${slug}-${parts.year}-${parts.month}-${parts.day}-${parts.hour}${parts.minute}.ogg`;
+  const prefix = attempt.trackSource === "screen" ? "screen" : "call";
+  return `${prefix}-${slug}-${parts.year}-${parts.month}-${parts.day}-${parts.hour}${parts.minute}${recorderExtension(attempt.trackSource)}`;
 }
 
 let lastFullReconcile = 0;

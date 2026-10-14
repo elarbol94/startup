@@ -1,0 +1,1 @@
+ALTER TABLE `meeting_egress_attempts` ADD `track_source` text DEFAULT 'microphone' NOT NULL;

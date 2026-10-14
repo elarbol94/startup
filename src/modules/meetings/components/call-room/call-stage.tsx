@@ -11,7 +11,6 @@ import {
   isTrackReference,
   LayoutContextProvider,
   ParticipantTile,
-  RoomAudioRenderer,
   useCreateLayoutContext,
   usePinnedTracks,
   useTracks,
@@ -26,6 +25,9 @@ const sameTrack = (a: TrackReferenceOrPlaceholder, b: TrackReferenceOrPlaceholde
   a.participant.identity === b.participant.identity && a.source === b.source;
 
 /**
+ * The room's audio is rendered by ActiveCallProvider, so it keeps playing on
+ * pages without the stage.
+ *
  * LiveKit's VideoConference, trimmed to what we need and with one change: a
  * shared screen (or a pinned tile) takes the main area while every person
  * stays visible in a column beside it (a row below on narrow screens). The
@@ -72,7 +74,6 @@ export function CallStage({ record }: { record: boolean }) {
         </div>
         <Chat style={{ display: widget.showChat ? "grid" : "none" }} />
       </LayoutContextProvider>
-      <RoomAudioRenderer />
       <ConnectionStateToast />
     </div>
   );

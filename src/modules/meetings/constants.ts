@@ -15,8 +15,11 @@ export const meetingAccessRoles = ["host", "participant", "viewer"] as const;
 export type MeetingAccessRole = (typeof meetingAccessRoles)[number];
 
 export const meetingRecordingKinds = ["video", "audio", "derived_audio"] as const;
-/** `single`: one speaker per track; `room`/`mixed`: several voices, diarized. */
-export const meetingSpeakerScopes = ["single", "room", "mixed"] as const;
+/**
+ * `single`: one speaker per track; `room`/`mixed`: several voices, diarized;
+ * `none`: nothing to transcribe (a recorded screen share).
+ */
+export const meetingSpeakerScopes = ["single", "room", "mixed", "none"] as const;
 export const meetingRecordingSources = ["upload", "livekit"] as const;
 export const meetingPurgeStates = ["active", "purging", "purged", "purge_failed"] as const;
 export type MeetingPurgeState = (typeof meetingPurgeStates)[number];

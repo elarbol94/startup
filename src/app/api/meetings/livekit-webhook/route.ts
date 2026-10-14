@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { TrackType } from "livekit-server-sdk";
 import { db } from "@/db";
 import { livekitConfig, webhookReceiver } from "@/modules/meetings/calls/livekit";
-import { endCallSession, ensureTrackRecording, syncEgress } from "@/modules/meetings/calls/recording";
+import { endCallSession, ensureTrackRecording, recordedTrackSource, syncEgress } from "@/modules/meetings/calls/recording";
 import { meetingCallSessions, meetingWebhookEvents } from "@/modules/meetings/schema";
 
 /**
@@ -29,8 +28,9 @@ export async function POST(request: Request) {
     ? db.select().from(meetingCallSessions).where(eq(meetingCallSessions.roomName, event.room.name)).get()
     : undefined;
   try {
-    if (event.event === "track_published" && session && event.participant && event.track?.type === TrackType.AUDIO) {
-      await ensureTrackRecording(session, event.participant.identity, event.track.sid);
+    const trackSource = event.event === "track_published" && event.track ? recordedTrackSource(event.track) : null;
+    if (trackSource && session && event.participant && event.track) {
+      await ensureTrackRecording(session, event.participant.identity, event.track.sid, trackSource);
     } else if (event.event.startsWith("egress_") && event.egressInfo) {
       await syncEgress(event.egressInfo);
     } else if (event.event === "room_finished" && session?.status === "open") {

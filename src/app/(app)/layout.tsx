@@ -18,6 +18,7 @@ import { FocusBootstrapScript } from "@/components/focus/focus-bootstrap-script"
 import { RailBootstrapScript } from "@/components/app-sidebar/rail-bootstrap-script";
 import { PushRegistrar } from "@/modules/push/components/push-registrar";
 import { vapidConfig } from "@/modules/push/config";
+import { ActiveCallProvider } from "@/modules/meetings/components/active-call/active-call-provider";
 
 // This authenticated dashboard reads mutable, user-specific better-sqlite3
 // data throughout its route tree. It cannot safely serve a prefetched static
@@ -80,6 +81,7 @@ export default async function AppLayout({
       <DeadlineCreateProvider>
       <ContactCaptureProvider userId={currentUser.id}>
       <BugReportProvider>
+      <ActiveCallProvider>
       <style>{`
         /* Focus mode (see src/lib/focus-mode.ts). The attributes on <html> are set before
            the first paint, so these rules hide the chrome without a flash. */
@@ -125,6 +127,7 @@ export default async function AppLayout({
           <AuthenticatedSidebar />
         </Suspense>
       }>{children}</AppWorkspace>
+      </ActiveCallProvider>
       </BugReportProvider>
       </ContactCaptureProvider>
       </DeadlineCreateProvider>

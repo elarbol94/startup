@@ -51,7 +51,7 @@ export function CallIdleGuard({ onIdle }: { onIdle: (reason: IdleReason) => void
   if (!prompt) return null;
   const seconds = Math.ceil(prompt.remainingMs / 1000);
   return (
-    <div role="alertdialog" aria-labelledby="call-idle-title" className="absolute inset-x-0 top-3 z-50 mx-auto w-[min(28rem,calc(100%-2rem))] space-y-3 rounded-xl border bg-background p-4 text-foreground shadow-lg">
+    <div role="alertdialog" aria-labelledby="call-idle-title" className="fixed inset-x-0 top-3 z-[60] mx-auto w-[min(28rem,calc(100%-2rem))] space-y-3 rounded-xl border bg-background p-4 text-foreground shadow-lg">
       <p id="call-idle-title" className="font-medium">{t("call.idleTitle")}</p>
       <p className="text-sm text-muted-foreground">
         {prompt.reason === "silence"

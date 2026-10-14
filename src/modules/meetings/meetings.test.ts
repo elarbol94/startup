@@ -48,6 +48,7 @@ import {
   meetingRecordings,
   meetings,
   meetingSessionSegments,
+  meetingSessionTranscripts,
 } from "./schema";
 import { host, member, outsider, resetDatabase, seedMeeting } from "./test-helpers";
 
@@ -126,6 +127,20 @@ describe("processing pipeline", () => {
     expect(detail.transcript!.fixedSpeakerKeys).toEqual([]);
     expect(new Set(detail.transcript!.segments.map((segment) => segment.speakerKey)).size).toBeGreaterThan(1);
     expect(detail.transcript!.speakerMap).toEqual({});
+  });
+
+  it("neither waits for nor lists a recorded screen share when merging the transcript", async () => {
+    const screen = db.insert(meetingRecordings).values({
+      meetingId, kind: "video", speakerScope: "none", source: "livekit", fileName: "screen.webm", durationMs: 600_000, mediaStartedAt: Date.now(), createdBy: host.id,
+    }).returning().get();
+    // Its ingest is still running while the speech is transcribed and merged.
+    enqueueJob(db, { meetingId, stage: "ingest", recordingId: screen.id, policyRevision: meetingRow(meetingId).policyRevision, executionKey: `ingest:${screen.id}`, inputs: [screen.id] });
+    db.update(meetingJobs).set({ status: "running", leaseUntil: new Date(Date.now() + 3_600_000) }).where(eq(meetingJobs.recordingId, screen.id)).run();
+    await processMeeting(meetingId);
+    const detail = getMeetingDetail(host, meetingId)!;
+    expect(detail.transcript!.segments.length).toBeGreaterThan(0);
+    expect(JSON.parse(db.select().from(meetingSessionTranscripts).get()!.missingInputs)).toEqual([]);
+    expect(detail.recordings.find((recording) => recording.id === screen.id)!.warnings).toEqual([]);
   });
 
   it("does nothing with AI when the meeting's policy is off", async () => {

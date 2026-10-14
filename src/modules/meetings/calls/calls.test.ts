@@ -48,13 +48,13 @@ vi.mock("@/db", async () => {
   return { db, sqlite };
 });
 
-import { EgressInfo, EgressStatus } from "livekit-server-sdk";
+import { EgressInfo, EgressStatus, TrackSource, TrackType } from "livekit-server-sdk";
 import { db, sqlite } from "@/db";
 import { endCall, joinCall, startCall } from "../call-actions";
 import { setMeetingAccess } from "../meeting-actions";
 import { meetingCallSessions, meetingEgressAttempts, meetingJobs, meetingRecordings } from "../schema";
 import { host, member, outsider, resetDatabase, seedMeeting } from "../test-helpers";
-import { DEAD_ROOM_CHECKS, EMPTY_CALL_MS, MAX_ROOM_CLOSE_ATTEMPTS, MAX_TRACK_ATTEMPTS, ensureTrackRecording, reconcileCalls, syncEgress } from "./recording";
+import { DEAD_ROOM_CHECKS, EMPTY_CALL_MS, MAX_ROOM_CLOSE_ATTEMPTS, MAX_TRACK_ATTEMPTS, ensureTrackRecording, reconcileCalls, recordedTrackSource, syncEgress } from "./recording";
 
 /** What LiveKit answers for a room whose node is gone. */
 const unavailable = () => Object.assign(new Error("no response from servers"), { code: "unavailable", status: 503 });
@@ -228,6 +228,32 @@ describe("room microphone", () => {
     const recording = db.select().from(meetingRecordings).get()!;
     expect(recording).toMatchObject({ source: "livekit", speakerScope: "room", speakerUserId: member.id });
     expect(JSON.parse(recording.consentEvidence)).toMatchObject({ type: "callConsent", userId: member.id, roomMic: true });
+  });
+});
+
+describe("screen recording", () => {
+  it("records microphones and shared screens, but not a shared tab's sound or cameras", () => {
+    expect(recordedTrackSource({ type: TrackType.AUDIO, source: TrackSource.MICROPHONE })).toBe("microphone");
+    expect(recordedTrackSource({ type: TrackType.VIDEO, source: TrackSource.SCREEN_SHARE })).toBe("screen");
+    expect(recordedTrackSource({ type: TrackType.AUDIO, source: TrackSource.SCREEN_SHARE_AUDIO })).toBeNull();
+    expect(recordedTrackSource({ type: TrackType.VIDEO, source: TrackSource.CAMERA })).toBeNull();
+  });
+
+  it("stores a shared screen as a video to watch, without starting protocol work", async () => {
+    const { identity } = await recordedCallWithMember();
+    await ensureTrackRecording(session(), identity, "TR_screen", "screen");
+    const attempt = attempts()[0];
+    expect(attempt).toMatchObject({ trackSource: "screen" });
+    expect(attempt.fileName).toMatch(/\.webm$/);
+    fs.writeFileSync(path.join(process.env.LIVEKIT_EGRESS_DIR!, attempt.fileName), Buffer.concat([Buffer.from([0x1a, 0x45, 0xdf, 0xa3]), Buffer.alloc(100, 7)]));
+    await syncEgress(new EgressInfo({ egressId: attempt.egressId!, status: EgressStatus.EGRESS_COMPLETE, startedAt: BigInt(1_800_000_000_000) * BigInt(1_000_000) }));
+    await reconcileCalls();
+    const recording = db.select().from(meetingRecordings).get()!;
+    expect(recording).toMatchObject({ kind: "video", speakerScope: "none", source: "livekit", speakerUserId: member.id });
+    expect(recording.fileName).toBe("screen-member-2027-01-15-0900.webm");
+    expect(JSON.parse(recording.consentEvidence)).toMatchObject({ screen: true });
+    expect(db.select().from(meetingJobs).all()).toMatchObject([{ stage: "ingest", recordingId: recording.id }]);
+    expect(db.select().from((await import("../schema")).meetings).get()!.status).not.toBe("processing");
   });
 });
 
