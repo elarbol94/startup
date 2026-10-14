@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { LiveKitRoom } from "@livekit/components-react";
 import { ConnectionError, DisconnectReason } from "livekit-client";
-import { ArrowLeft, CircleDot } from "lucide-react";
+import { ArrowLeft, CircleDot, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { joinCall } from "../call-actions";
@@ -14,7 +14,7 @@ import { CALL_CHECK_HOURS, CALL_SILENCE_MINUTES, CallIdleGuard, type IdleReason 
 import { CallStage } from "./call-room/call-stage";
 import { RecordingIndicator } from "./call-room/recording-indicator";
 
-type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean };
+type Joined = { token: string; serverUrl: string; record: boolean; canPublish: boolean; roomMic: boolean };
 /**
  * One explicit lifecycle. Once a connection ends, the page never reconnects
  * on its own: Next.js keeps visited pages alive in the background, and an
@@ -35,6 +35,8 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
   const t = useTranslations("meetings");
   const [consentRecording, setConsentRecording] = useState(false);
   const [consentAi, setConsentAi] = useState(false);
+  const [roomMic, setRoomMic] = useState(false);
+  const [consentRoom, setConsentRoom] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "prejoin" });
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -47,11 +49,11 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
     setDeviceWarning(false);
     try {
       // Always a fresh token: they are short-lived and bound to one call.
-      const result = await joinCall({ meetingId, consentRecording, consentAi });
+      const result = await joinCall({ meetingId, consentRecording, consentAi, roomMic, consentRoom });
       if (!result.ok) setError(t(`errors.${result.error}`));
       else setPhase((current) => ({
         kind: "call",
-        joined: { token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record, canPublish: result.canPublish },
+        joined: { token: result.token, serverUrl: socketUrl(result.serverUrl), record: result.record, canPublish: result.canPublish, roomMic: result.roomMic },
         attempt: current.kind === "call" ? current.attempt + 1 : 0,
       }));
     } catch {
@@ -75,7 +77,10 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
   const header = (
     <div className="flex items-center justify-between gap-2 text-sm">
       <Link href={back} className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground"><ArrowLeft className="size-4" />{title}</Link>
-      {phase.kind === "call" && phase.joined.record && <RecordingIndicator />}
+      <div className="flex items-center gap-3">
+        {phase.kind === "call" && phase.joined.roomMic && <span className="inline-flex items-center gap-1 text-xs text-muted-foreground"><Users className="size-3.5" />{t("call.roomMicActive")}</span>}
+        {phase.kind === "call" && phase.joined.record && <RecordingIndicator />}
+      </div>
     </div>
   );
 
@@ -129,7 +134,7 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
     );
   }
 
-  const ready = !record || (consentRecording && (!usesAi || consentAi));
+  const ready = !record || (consentRecording && (!usesAi || consentAi) && (!roomMic || consentRoom));
   return (
     <div className="mx-auto max-w-lg space-y-4 rounded-xl border bg-card p-5 shadow-card">
       {header}
@@ -149,6 +154,23 @@ export function CallRoom({ meetingId, title, record, usesAi }: { meetingId: stri
             </label>
           )}
           <p className="text-xs text-muted-foreground">{t("call.noConsentHint")}</p>
+        </div>
+      )}
+      {record && (
+        <div className="space-y-3 rounded-lg border p-3 text-sm">
+          <label className="flex items-start gap-2">
+            <Checkbox className="mt-0.5" checked={roomMic} onCheckedChange={(checked) => setRoomMic(checked === true)} />
+            <span>
+              <span className="font-medium">{t("call.roomMic")}</span>
+              <span className="block text-xs text-muted-foreground">{t("call.roomMicHint")}</span>
+            </span>
+          </label>
+          {roomMic && (
+            <label className="flex items-start gap-2">
+              <Checkbox className="mt-0.5" checked={consentRoom} onCheckedChange={(checked) => setConsentRoom(checked === true)} />
+              <span>{usesAi ? t("call.consentRoomAi") : t("call.consentRoom")}</span>
+            </label>
+          )}
         </div>
       )}
       {error && <p className="text-sm text-destructive" role="alert">{error}</p>}

@@ -5211,6 +5211,7 @@
     },
     "recordings": {
       "callTrack": "Call recording · {name} · {time}",
+      "roomMicTrack": "Room microphone · {name} · {time}",
       "check": "Please check",
       "warnings": {
         "longerThanCall": "This track is much longer than the call – the microphone may have kept running.",
@@ -5291,7 +5292,7 @@
       "labelPlaceholder": "Name",
       "saveSpeakers": "Save assignment",
       "regenerateHint": "After assigning names you can have the draft protocol recreated.",
-      "callSpeakersHint": "People from call recordings are assigned automatically – each track holds only one person's microphone."
+      "callSpeakersHint": "People from call recordings are assigned automatically. Assign the voices of room microphones and uploads here."
     },
     "protocol": {
       "draft": "Draft",
@@ -5367,6 +5368,11 @@
       "consentRecording": "I agree that my voice is recorded in this call.",
       "consentAi": "I agree that the recording is transcribed and summarised into a protocol with OpenAI.",
       "noConsentHint": "Without consent you cannot join this call. If you do not want to be recorded, ask the host to restart the call without recording.",
+      "roomMic": "Room microphone: several people speak into this device",
+      "roomMicHint": "For hybrid or in-person meetings at one laptop. The voices are separated automatically afterwards and can be assigned to people in the transcript. Use headphones or a conference microphone with echo cancellation where possible so voices from the call are not recorded twice.",
+      "consentRoom": "I confirm that everyone present in the room was informed about the recording and agreed.",
+      "consentRoomAi": "I confirm that everyone present in the room was informed about the recording and the processing with OpenAI and agreed.",
+      "roomMicActive": "Room microphone",
       "joinButton": "Join",
       "joinFailed": "Joining failed.",
       "connectionFailed": "Connection failed – is Tailscale switched on?",

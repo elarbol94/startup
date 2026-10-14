@@ -82,10 +82,10 @@ afterAll(() => {
   fs.rmSync(process.env.LIVEKIT_EGRESS_DIR!, { recursive: true, force: true });
 });
 
-async function recordedCallWithMember() {
+async function recordedCallWithMember(room: { roomMic?: boolean; consentRoom?: boolean } = {}) {
   expect(await startCall({ meetingId, record: true })).toEqual({ ok: true });
   as(member);
-  const joined = await joinCall({ meetingId, consentRecording: true, consentAi: true });
+  const joined = await joinCall({ meetingId, consentRecording: true, consentAi: true, ...room });
   expect(joined.ok).toBe(true);
   const identity = db.select().from((await import("../schema")).meetingCallEndpoints).get()!.identity;
   return { identity };
@@ -99,6 +99,26 @@ describe("admission", () => {
     expect(await joinCall({ meetingId, consentRecording: true })).toEqual({ ok: false, error: "declaration" });
     const joined = await joinCall({ meetingId, consentRecording: true, consentAi: true });
     expect(joined).toMatchObject({ ok: true, record: true, canPublish: true, serverUrl: "/livekit" });
+  });
+
+  it("admits a room microphone only with a declaration for everyone in the room", async () => {
+    const { meetingCallEndpoints } = await import("../schema");
+    await startCall({ meetingId, record: true });
+    as(member);
+    expect(await joinCall({ meetingId, consentRecording: true, consentAi: true, roomMic: true })).toEqual({ ok: false, error: "declaration" });
+    expect(await joinCall({ meetingId, consentRecording: true, consentAi: true, roomMic: true, consentRoom: true })).toMatchObject({ ok: true, roomMic: true });
+    expect(db.select().from(meetingCallEndpoints).all()).toMatchObject([{ userId: member.id, roomMic: true }]);
+  });
+
+  it("ignores the room microphone where nothing is recorded or nothing is published", async () => {
+    await startCall({ meetingId, record: false });
+    as(member);
+    expect(await joinCall({ meetingId, roomMic: true })).toMatchObject({ ok: true, roomMic: false });
+    await endCall(meetingId);
+    as(host);
+    await startCall({ meetingId, record: true });
+    as(outsider);
+    expect(await joinCall({ meetingId, consentRecording: true, consentAi: true, roomMic: true })).toMatchObject({ ok: true, canPublish: false, roomMic: false });
   });
 
   it("lets viewers listen without publishing, and nobody outside the access list in", async () => {
@@ -194,6 +214,20 @@ describe("recording", () => {
     expect(JSON.parse(recording.consentEvidence)).toMatchObject({ type: "callConsent", userId: member.id, aiProcessing: true });
     expect(db.select().from(meetingJobs).all()).toMatchObject([{ stage: "ingest", recordingId: recording.id }]);
     expect(fs.existsSync(path.join(process.env.LIVEKIT_EGRESS_DIR!, attempt.fileName))).toBe(false);
+  });
+});
+
+describe("room microphone", () => {
+  it("stores a room microphone's track for diarization instead of naming it after the device's person", async () => {
+    const { identity } = await recordedCallWithMember({ roomMic: true, consentRoom: true });
+    await ensureTrackRecording(session(), identity, "TR_1");
+    const attempt = attempts()[0];
+    fs.writeFileSync(path.join(process.env.LIVEKIT_EGRESS_DIR!, attempt.fileName), Buffer.concat([Buffer.from("OggS"), Buffer.alloc(100, 7)]));
+    await syncEgress(new EgressInfo({ egressId: attempt.egressId!, status: EgressStatus.EGRESS_COMPLETE, startedAt: BigInt(1_800_000_000_000) * BigInt(1_000_000) }));
+    await reconcileCalls();
+    const recording = db.select().from(meetingRecordings).get()!;
+    expect(recording).toMatchObject({ source: "livekit", speakerScope: "room", speakerUserId: member.id });
+    expect(JSON.parse(recording.consentEvidence)).toMatchObject({ type: "callConsent", userId: member.id, roomMic: true });
   });
 });
 

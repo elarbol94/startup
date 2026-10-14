@@ -115,6 +115,19 @@ describe("processing pipeline", () => {
     expect(detail.recordings.find((recording) => recording.id === original.id)!.warnings).toEqual([]);
   });
 
+  it("keeps the separate voices of a room microphone for naming by hand", async () => {
+    const { derived, original } = seedAudio(meetingId);
+    const roomTrack = { speakerScope: "room" as const, source: "livekit" as const, speakerUserId: member.id, mediaStartedAt: Date.now() };
+    db.update(meetingRecordings).set(roomTrack).where(eq(meetingRecordings.id, original.id)).run();
+    db.update(meetingRecordings).set(roomTrack).where(eq(meetingRecordings.id, derived.id)).run();
+    enqueueJob(db, { meetingId, stage: "transcribe", recordingId: derived.id, policyRevision: meetingRow(meetingId).policyRevision, executionKey: `t:${derived.id}`, inputs: [derived.id] });
+    await runMeetingWorkerTick();
+    const detail = getMeetingDetail(host, meetingId)!;
+    expect(detail.transcript!.fixedSpeakerKeys).toEqual([]);
+    expect(new Set(detail.transcript!.segments.map((segment) => segment.speakerKey)).size).toBeGreaterThan(1);
+    expect(detail.transcript!.speakerMap).toEqual({});
+  });
+
   it("does nothing with AI when the meeting's policy is off", async () => {
     db.update(meetings).set({ aiPolicy: "none" }).where(eq(meetings.id, meetingId)).run();
     await processMeeting(meetingId);

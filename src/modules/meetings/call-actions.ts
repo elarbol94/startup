@@ -59,14 +59,19 @@ const joinSchema = z.object({
   meetingId: z.string().min(1),
   consentRecording: z.boolean().default(false),
   consentAi: z.boolean().default(false),
+  /** Several people speak into this device; only meaningful for a recorded call. */
+  roomMic: z.boolean().default(false),
+  /** The joiner declares that everyone in the room was informed and agreed. */
+  consentRoom: z.boolean().default(false),
 });
 
 /**
  * Admission to the call: a person on the access list gets a 10-minute token
  * for a fresh device identity. For a recorded call the consent is stored
- * first, and without it there is no token.
+ * first, and without it there is no token. A room microphone (several people
+ * at one device) additionally needs the joiner's declaration for the room.
  */
-export async function joinCall(input: z.input<typeof joinSchema>): Promise<MeetingActionResult<{ token: string; serverUrl: string; record: boolean; canPublish: boolean }>> {
+export async function joinCall(input: z.input<typeof joinSchema>): Promise<MeetingActionResult<{ token: string; serverUrl: string; record: boolean; canPublish: boolean; roomMic: boolean }>> {
   const viewer = await requireUserOrThrow();
   const parsed = joinSchema.safeParse(input);
   if (!parsed.success) return fail("invalid");
@@ -79,17 +84,20 @@ export async function joinCall(input: z.input<typeof joinSchema>): Promise<Meeti
   const usesAi = session.aiPolicy === "openai";
   if (session.record && (!parsed.data.consentRecording || (usesAi && !parsed.data.consentAi))) return fail("declaration");
   const canPublish = canContributeToMeeting(access.role);
+  // People in the room have no account to consent with: the joiner declares it for them.
+  const roomMic = session.record && canPublish && parsed.data.roomMic;
+  if (roomMic && !parsed.data.consentRoom) return fail("declaration");
   const identity = `u-${crypto.randomUUID()}`;
   db.transaction((tx) => {
     if (session.record) {
       tx.insert(meetingCallConsents).values({ sessionId: session.id, userId: viewer.id, textVersion: CALL_CONSENT_VERSION, aiProcessing: usesAi })
         .onConflictDoNothing().run();
     }
-    tx.insert(meetingCallEndpoints).values({ identity, sessionId: session.id, userId: viewer.id }).run();
-    audit(tx, access.meeting.id, viewer.id, "call.joined", { sessionId: session.id, consent: session.record });
+    tx.insert(meetingCallEndpoints).values({ identity, sessionId: session.id, userId: viewer.id, roomMic }).run();
+    audit(tx, access.meeting.id, viewer.id, "call.joined", { sessionId: session.id, consent: session.record, roomMic });
   });
   const token = await createJoinToken({ roomName: session.roomName, identity, name: viewer.name, canPublish });
-  return { ok: true, token, serverUrl: config.publicUrl, record: session.record, canPublish };
+  return { ok: true, token, serverUrl: config.publicUrl, record: session.record, canPublish, roomMic };
 }
 
 /** Ends the call for everyone. Hosts, and whoever started the call, may do this. */

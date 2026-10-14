@@ -280,7 +280,7 @@ async function ingestAttempt(attempt: Attempt) {
     fs.mkdirSync(path.dirname(staged), { recursive: true });
     const hash = crypto.createHash("sha256");
     await pipeline(fs.createReadStream(source), new Transform({ transform(chunk: Buffer, _encoding, callback) { hash.update(chunk); callback(null, chunk); } }), fs.createWriteStream(staged));
-    const handle = fs.openSync(staged, "r");
+    const handle = fs.openSync(staged, "r+");
     try { fs.fsyncSync(handle); } finally { fs.closeSync(handle); }
     const sha256 = hash.digest("hex");
     current = db.update(meetingEgressAttempts).set({ storedName: newStoredName(sha256, ".ogg"), sha256, updatedAt: new Date() })
@@ -288,6 +288,8 @@ async function ingestAttempt(attempt: Attempt) {
   }
   if (fs.existsSync(staged)) moveStagedFileIntoStore(staged, current.storedName!);
   const consent = db.select().from(meetingCallConsents).where(and(eq(meetingCallConsents.sessionId, session.id), eq(meetingCallConsents.userId, attempt.userId))).get();
+  // A room microphone carries several voices: diarized like an upload instead of named after the device's person.
+  const roomMic = db.select({ roomMic: meetingCallEndpoints.roomMic }).from(meetingCallEndpoints).where(eq(meetingCallEndpoints.identity, attempt.identity)).get()?.roomMic ?? false;
   const sizeBytes = fs.statSync(getAttachmentAbsolutePath(current.storedName!)).size;
   db.transaction((tx) => {
     const fresh = tx.select().from(meetingEgressAttempts).where(eq(meetingEgressAttempts.id, attempt.id)).get();
@@ -298,10 +300,10 @@ async function ingestAttempt(attempt: Attempt) {
     );
     const createdAt = new Date();
     const recording = tx.insert(meetingRecordings).values({
-      meetingId: meeting.id, attachmentId: attachment.id, kind: "audio", speakerScope: "single", source: "livekit",
+      meetingId: meeting.id, attachmentId: attachment.id, kind: "audio", speakerScope: roomMic ? "room" : "single", source: "livekit",
       fileName: attachment.fileName, sizeBytes, sha256: current.sha256!, callSessionId: session.id, speakerUserId: attempt.userId,
       mediaStartedAt: attempt.mediaStartedAt, createdBy: attempt.userId, createdAt,
-      consentEvidence: JSON.stringify({ type: "callConsent", sessionId: session.id, userId: attempt.userId, givenAt: consent?.givenAt.toISOString() ?? null, textVersion: consent?.textVersion ?? null, aiProcessing: consent?.aiProcessing ?? false }),
+      consentEvidence: JSON.stringify({ type: "callConsent", sessionId: session.id, userId: attempt.userId, givenAt: consent?.givenAt.toISOString() ?? null, textVersion: consent?.textVersion ?? null, aiProcessing: consent?.aiProcessing ?? false, roomMic }),
       expiresAt: retentionExpiry(createdAt, meeting.audioRetentionDays),
     }).returning().get();
     enqueueJob(tx, {

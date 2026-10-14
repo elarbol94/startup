@@ -207,7 +207,8 @@ async function merge(job: MeetingJob) {
       const onCall = original.mediaStartedAt !== null;
       if (transcript) {
         manifest.push({ transcriptId: transcript.id, recordingId: original.id, offsetMs: onCall ? original.mediaStartedAt! - callBase : offset });
-        if (original.speakerUserId) speakers.set(manifest.length, original.speakerUserId);
+        // A room microphone's voices are named by hand like an upload's.
+        if (original.speakerUserId && original.speakerScope === "single") speakers.set(manifest.length, original.speakerUserId);
       } else missing.push({ recordingId: original.id, reason: "noTranscript" });
       if (!onCall) offset += original.durationMs ?? 0;
     }

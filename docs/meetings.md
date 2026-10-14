@@ -33,6 +33,19 @@ platform (LiveKit). Background: `docs/plans/meetings-ai-protocols.md`.
   therefore known exactly; the transcript interleaves the tracks by time. A
   combined video recording is deliberately not offered: on this server one
   720p composite needs about four CPU cores.
+- **Room microphone (hybrid / in-person)**: when several people speak into
+  one device – a group in the office joining remote colleagues, or two
+  people at one laptop – whoever joins ticks *Raummikrofon* before joining
+  a recorded call and declares that everyone in the room was informed and
+  agreed (and to OpenAI processing when the meeting uses AI); without the
+  declaration there is no token. That device's track is stored as
+  *Raummikrofon · Name · start time* with `speakerScope = room`: it is
+  diarized like an upload, and its voices are named by hand in the
+  transcript instead of being attributed to the person who joined. For an
+  in-person meeting alone, start a recorded call and join it from the one
+  laptop with *Raummikrofon*. Headphones or a conference microphone with echo
+  cancellation keep remote voices from being recorded a second time by the
+  room microphone.
 - **Ending**: hosts or whoever started the call press *Call beenden*. A call
   nobody from the meeting is in any more ends after ten minutes (recorders
   do not count). When nobody has spoken for 15 minutes, each browser asks
@@ -98,7 +111,8 @@ local `livekit-server --dev` and set `LIVEKIT_API_KEY=devkey`,
    lines; uncited ones are dropped.
 5. Participants review the draft, name the speakers and edit the protocol.
    Speakers of call tracks are named from the recording automatically and are
-   not offered for naming; only voices of uploads need a person.
+   not offered for naming; only voices of uploads and room microphones need
+   a person.
    Each edit is a new version. A host approves exactly the version they saw.
 6. Action items of the approved protocol are accepted one by one; each
    creates exactly one task linked back to the meeting.

@@ -5211,6 +5211,7 @@
     },
     "recordings": {
       "callTrack": "Call-Aufnahme · {name} · {time}",
+      "roomMicTrack": "Raummikrofon · {name} · {time}",
       "check": "Bitte prüfen",
       "warnings": {
         "longerThanCall": "Diese Spur ist deutlich länger als der Call – evtl. lief das Mikrofon weiter.",
@@ -5291,7 +5292,7 @@
       "labelPlaceholder": "Name",
       "saveSpeakers": "Zuordnung speichern",
       "regenerateHint": "Nach dem Zuordnen kannst du den Protokollentwurf neu erstellen lassen.",
-      "callSpeakersHint": "Personen aus Call-Aufnahmen sind automatisch zugeordnet – jede Spur enthält nur das Mikrofon einer Person."
+      "callSpeakersHint": "Personen aus Call-Aufnahmen sind automatisch zugeordnet. Stimmen von Raummikrofonen und Uploads ordnest du hier zu."
     },
     "protocol": {
       "draft": "Entwurf",
@@ -5367,6 +5368,11 @@
       "consentRecording": "Ich bin einverstanden, dass meine Stimme in diesem Call aufgezeichnet wird.",
       "consentAi": "Ich bin einverstanden, dass die Aufnahme mit OpenAI transkribiert und zu einem Protokoll zusammengefasst wird.",
       "noConsentHint": "Ohne Einwilligung kannst du diesem Call nicht beitreten. Wer nicht aufgenommen werden möchte, bittet den Host, den Call ohne Aufnahme neu zu starten.",
+      "roomMic": "Raummikrofon: mehrere Personen sprechen in dieses Gerät",
+      "roomMicHint": "Für hybride oder Vor-Ort-Besprechungen an einem Laptop. Die Stimmen werden danach automatisch getrennt und können im Transkript Personen zugeordnet werden. Nutze möglichst Kopfhörer oder ein Konferenzmikrofon mit Echounterdrückung, damit Stimmen aus dem Call nicht doppelt aufgenommen werden.",
+      "consentRoom": "Ich bestätige, dass alle Anwesenden im Raum über die Aufnahme informiert wurden und einverstanden sind.",
+      "consentRoomAi": "Ich bestätige, dass alle Anwesenden im Raum über die Aufnahme und die Verarbeitung mit OpenAI informiert wurden und einverstanden sind.",
+      "roomMicActive": "Raummikrofon",
       "joinButton": "Beitreten",
       "joinFailed": "Beitritt fehlgeschlagen.",
       "connectionFailed": "Verbindung fehlgeschlagen – ist Tailscale eingeschaltet?",

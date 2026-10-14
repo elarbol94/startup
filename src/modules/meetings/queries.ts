@@ -146,6 +146,8 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     /** The person whose microphone a call track holds. */
     speakerUserId: meetingRecordings.speakerUserId,
     speakerName: user.name,
+    /** `room`: a call track from a room microphone, with several voices. */
+    speakerScope: meetingRecordings.speakerScope,
   }).from(meetingRecordings).leftJoin(attachments, eq(attachments.id, meetingRecordings.attachmentId))
     .leftJoin(user, eq(user.id, meetingRecordings.speakerUserId))
     .where(eq(meetingRecordings.meetingId, meeting.id)).orderBy(asc(meetingRecordings.createdAt)).all();
@@ -181,7 +183,7 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
   const fixedSpeakers: SpeakerMap = {};
   manifest.forEach((input, index) => {
     const original = recordingRows.find((recording) => recording.id === input.recordingId);
-    if (original?.speakerUserId && original.speakerName) fixedSpeakers[`r${index + 1}:speaker`] = { userId: original.speakerUserId, label: original.speakerName };
+    if (original?.speakerUserId && original.speakerName && original.speakerScope === "single") fixedSpeakers[`r${index + 1}:speaker`] = { userId: original.speakerUserId, label: original.speakerName };
   });
   const textsByRecording = new Map<string, string[]>();
   for (const segment of segments) {

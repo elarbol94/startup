@@ -54,6 +54,12 @@ export const meetingCallEndpoints = sqliteTable(
     identity: text("identity").primaryKey(),
     sessionId: text("session_id").notNull().references(() => meetingCallSessions.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull().references(() => user.id),
+    /**
+     * A room microphone: several people speak into this device (hybrid or
+     * in-person meeting). Its recording is diarized like an upload; the person
+     * who joined declared that everyone in the room was informed and agreed.
+     */
+    roomMic: integer("room_mic", { mode: "boolean" }).notNull().default(false),
     createdAt: createdAt(),
   },
   (table) => [index("meeting_call_endpoints_session_idx").on(table.sessionId)],

@@ -1,0 +1,1 @@
+ALTER TABLE `meeting_call_endpoints` ADD `room_mic` integer DEFAULT false NOT NULL;
