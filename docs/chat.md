@@ -20,8 +20,8 @@ Browser ── startup.elarbol.me/chat      → app (page with an <iframe>)
   is what allows the page to frame it; the proxy sends
   `frame-ancestors 'self'`, so no other site can.
 - The homeserver is **not** part of this stack. It is Synapse on
-  `https://chat.banond.com` with server name `tapappar.org` (user IDs look like
-  `@name:tapappar.org`). Its client API allows cross-origin requests.
+  `https://chat.banond.com` with server name `banond.com` (user IDs look like
+  `@name:banond.com`). Its client API allows cross-origin requests.
 - Cloudflare Access still guards `/element/` like the rest of the app. Phones
   use the Element app directly with the homeserver `chat.banond.com`.
 
