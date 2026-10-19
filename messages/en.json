@@ -304,6 +304,7 @@
     "network": "Network",
     "meetings": "Meetings",
     "chat": "Chat",
+    "cloud": "Cloud",
     "settings": "Settings",
     "logout": "Sign out",
     "navigationLabel": "Main navigation",
@@ -322,6 +323,12 @@
     "draft": "Draft",
     "groups": { "work": "Work", "finance": "Finance", "knowledge": "Knowledge" },
     "toggleTheme": "Switch colour mode"
+  },
+  "cloud": {
+    "title": "Cloud",
+    "description": "Files, calendar and Talk in Nextcloud.",
+    "openInNewTab": "Open in new tab",
+    "frameTitle": "Nextcloud"
   },
   "network": {
     "bulk": {"selectHint":"Select contacts to tag, share or delete several at once","visibility":"Visibility","deleteTitle":"{count, plural, one {Delete # contact?} other {Delete # contacts?}}","deleteConfirm":"Their opportunities are deleted too; opportunities that introduced them keep the name. This cannot be undone.","notManageable":"{count, plural, one {# selected contact} other {# selected contacts}} can only be deleted by the owner and will be skipped.","deleted":"{count, plural, one {# contact deleted} other {# contacts deleted}}","select":"Select","doneSelecting":"Done","deleteLeadsTitle":"{count, plural, one {Delete # opportunity?} other {Delete # opportunities?}}","deleteLeadsConfirm":"This cannot be undone."},

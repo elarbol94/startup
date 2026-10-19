@@ -24,6 +24,8 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:-}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:-}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-}
+      # Nextcloud embedded in the Cloud tab; empty uses https://cloud.banond.com.
+      NEXTCLOUD_URL: ${NEXTCLOUD_URL:-}
       # Internal-only endpoint; never expose LanguageTool on a host port.
       LANGUAGETOOL_URL: ${LANGUAGETOOL_URL:-http://languagetool:8010}
       # Optional AI-assisted calendar import; deterministic parsing remains the fallback.

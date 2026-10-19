@@ -16,7 +16,7 @@ describe("sidebar navigation model", () => {
     expect(keysOf(groupedNavigationItems(parseNavigationOrder(null)))).toEqual([
       ["work", ["dashboard", "calendar", "projects", "time", "meetings", "chat"]],
       ["finance", ["accounting", "personnel"]],
-      ["knowledge", ["wiki", "municipalities", "network"]],
+      ["knowledge", ["wiki", "municipalities", "network", "cloud"]],
     ]);
   });
 
@@ -26,7 +26,7 @@ describe("sidebar navigation model", () => {
     expect(keysOf(groupedNavigationItems(order))).toEqual([
       ["work", ["calendar", "dashboard", "projects", "time", "meetings", "chat"]],
       ["finance", ["personnel", "accounting"]],
-      ["knowledge", ["wiki", "municipalities", "network"]],
+      ["knowledge", ["wiki", "municipalities", "network", "cloud"]],
     ]);
   });
 
