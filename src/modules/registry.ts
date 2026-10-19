@@ -2,6 +2,7 @@ import {
   BookOpen,
   Calculator,
   CalendarDays,
+  Cloud,
   Handshake,
   KanbanSquare,
   LayoutDashboard,
@@ -22,7 +23,7 @@ import {
 // `navSectionAliases`).
 export type ModuleNavItem = {
   /** Translation key under the `nav` namespace */
-  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings";
+  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings" | "cloud";
   href: string;
   icon: LucideIcon;
   /** Sidebar group; translation key under `nav.groups` */
@@ -45,6 +46,7 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "wiki", href: "/wiki", icon: BookOpen, group: "knowledge" },
   { key: "municipalities", href: "/municipalities/overview", icon: MapPinned, group: "knowledge" },
   { key: "network", href: "/network", icon: Handshake, group: "knowledge" },
+  { key: "cloud", href: "/cloud", icon: Cloud, group: "knowledge" },
 ];
 
 /** Routes outside a section's own path that should highlight that section. */

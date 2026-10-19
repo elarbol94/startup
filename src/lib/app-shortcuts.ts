@@ -42,6 +42,7 @@ export const NAVIGATION_SHORTCUTS: Record<ModuleNavItem["key"] | "settings", str
   municipalities: "G G", // Gemeinden
   network: "G N", // Netzwerk
   meetings: "G S", // Besprechungen → Sitzungen ("G B" is Buchhaltung)
+  cloud: "G C", // Cloud
   settings: "G E", // Einstellungen
 };
 
