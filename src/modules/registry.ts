@@ -43,12 +43,12 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "time", href: "/time", icon: Timer, group: "work" },
   { key: "meetings", href: "/meetings", icon: Video, group: "work" },
   { key: "chat", href: "/chat", icon: MessagesSquare, group: "work" },
+  { key: "cloud", href: "/cloud", icon: Cloud, group: "work" },
   { key: "accounting", href: "/accounting", icon: Calculator, group: "finance" },
   { key: "personnel", href: "/personnel", icon: UserRoundCog, group: "finance" },
   { key: "wiki", href: "/wiki", icon: BookOpen, group: "knowledge" },
   { key: "municipalities", href: "/municipalities/overview", icon: MapPinned, group: "knowledge" },
   { key: "network", href: "/network", icon: Handshake, group: "knowledge" },
-  { key: "cloud", href: "/cloud", icon: Cloud, group: "knowledge" },
 ];
 
 /** Routes outside a section's own path that should highlight that section. */
