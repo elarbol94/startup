@@ -303,6 +303,7 @@
     "municipalities": "Municipalities",
     "network": "Network",
     "meetings": "Meetings",
+    "chat": "Chat",
     "settings": "Settings",
     "logout": "Sign out",
     "navigationLabel": "Main navigation",
@@ -5092,6 +5093,10 @@
       "learned": "Added “{word}” to the dictionary.",
       "learnFailed": "The word could not be saved."
     }
+  },
+  "chat": {
+    "title": "Chat",
+    "frameTitle": "Chat (Element)"
   },
   "meetings": {
     "title": "Meetings",

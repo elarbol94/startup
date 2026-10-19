@@ -53,7 +53,8 @@ services:
       - egress_staging:/egress-staging
     restart: unless-stopped
 
-  # Single origin: / → app, /collab → live collaboration, /office/ → ONLYOFFICE.
+  # Single origin: / → app, /collab → live collaboration, /office/ → ONLYOFFICE,
+  # /element/ → Element Web.
   # Loopback-only by default prevents bypassing Cloudflare Access through the
   # host's public IP. The Cloudflare Tunnel route is http://localhost:3007.
   proxy:
@@ -65,6 +66,7 @@ services:
     depends_on:
       - app
       - onlyoffice
+      - element
     restart: unless-stopped
 
   # ONLYOFFICE Docs Community (AGPL, unmodified image; mobile editing is view-only).
@@ -92,6 +94,15 @@ services:
       - onlyoffice_redis:/var/lib/redis
       - onlyoffice_logs:/var/log/onlyoffice
     stop_grace_period: 60s
+    restart: unless-stopped
+
+  # Element Web for the Chat section (docs/chat.md), served by the proxy on
+  # /element/ of the app origin. It signs in to the Matrix homeserver set in
+  # deploy/element-config.json; pin the tag and upgrade deliberately.
+  element:
+    image: vectorim/element-web:v1.12.30
+    volumes:
+      - ./deploy/element-config.json:/app/config.json:ro
     restart: unless-stopped
 
   languagetool:

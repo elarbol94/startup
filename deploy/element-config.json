@@ -1,0 +1,24 @@
+{
+  "default_server_config": {
+    "m.homeserver": {
+      "base_url": "https://chat.banond.com",
+      "server_name": "tapappar.org"
+    }
+  },
+  "disable_custom_urls": true,
+  "disable_guests": true,
+  "disable_3pid_login": true,
+  "brand": "Chat",
+  "default_country_code": "AT",
+  "default_theme": "light",
+  "show_labs_settings": false,
+  "mobile_guide_toast": false,
+  "room_directory": {
+    "servers": ["tapappar.org"]
+  },
+  "setting_defaults": {
+    "UIFeature.registration": false,
+    "UIFeature.passwordReset": false,
+    "UIFeature.thirdPartyId": false
+  }
+}

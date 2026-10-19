@@ -121,6 +121,9 @@ export default async function AppLayout({
         [data-app-shell]:has([data-project-focus-root="true"]) [data-workspace-toolbar] { display: none; }
         [data-app-shell]:has([data-project-focus-root="true"]) [data-workspace-content] { height: 100dvh; }
         #workspace-panel-primary:has([data-project-focus-root="true"]) { padding: 0; }
+        /* The chat page frames Element Web edge to edge. */
+        #workspace-panel-primary:has([data-chat-root]) { padding: 0; overflow: hidden; }
+        [data-workspace-embedded] [data-chat-root] { height: 100dvh; }
       `}</style>
       <AppWorkspace userId={currentUser.id} navigation={
         <Suspense fallback={<SidebarFallback />}>

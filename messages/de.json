@@ -303,6 +303,7 @@
     "municipalities": "Gemeinden",
     "network": "Netzwerk",
     "meetings": "Besprechungen",
+    "chat": "Chat",
     "settings": "Einstellungen",
     "logout": "Abmelden",
     "navigationLabel": "Hauptnavigation",
@@ -5092,6 +5093,10 @@
       "learned": "„{word}“ ins Wörterbuch aufgenommen.",
       "learnFailed": "Das Wort konnte nicht gespeichert werden."
     }
+  },
+  "chat": {
+    "title": "Chat",
+    "frameTitle": "Chat (Element)"
   },
   "meetings": {
     "title": "Besprechungen",
