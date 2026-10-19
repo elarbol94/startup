@@ -21,3 +21,4 @@ export * from "@/modules/time/schema";
 export * from "@/modules/network/schema";
 export * from "@/modules/meetings/schema";
 export * from "@/modules/push/schema";
+export * from "@/modules/mail/schema";

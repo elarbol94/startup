@@ -43,6 +43,7 @@ export const NAVIGATION_SHORTCUTS: Record<ModuleNavItem["key"] | "settings", str
   network: "G N", // Netzwerk
   meetings: "G S", // Besprechungen → Sitzungen ("G B" is Buchhaltung)
   chat: "G M", // Chat → Messenger ("G C" is Cloud)
+  mail: "G A", // E-Mail → mAil ("G E" is Einstellungen, "G M" is Chat)
   cloud: "G C", // Cloud
   settings: "G E", // Einstellungen
 };
@@ -121,6 +122,20 @@ export const PROJECT_PAGE_SHORTCUTS = {
  * meetings, municipalities and settings pages. They only reuse PAGE_SHORTCUTS: "N" triggers the
  * page's primary "Neu…" button (per tab where a section has several), "/" focuses its search field.
  */
+/** Mail: Gmail's J/K for next/previous are kept because many people know them already. */
+export const MAIL_PAGE_SHORTCUTS = {
+  compose: PAGE_SHORTCUTS.create,
+  search: PAGE_SHORTCUTS.search,
+  reply: "A", // Antworten
+  replyAll: "Shift+A", // Allen antworten
+  forward: "W", // Weiterleiten
+  delete: "Delete",
+  toggleRead: "U", // Ungelesen
+  toggleFlag: "M", // Markieren
+  next: "J",
+  previous: "K",
+} as const;
+
 export const SECTION_PAGE_SHORTCUTS = {
   /** Network pages: quick capture (header button) and the contact search. */
   network: { capture: PAGE_SHORTCUTS.create, search: PAGE_SHORTCUTS.search },

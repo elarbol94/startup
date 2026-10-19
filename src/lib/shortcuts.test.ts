@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CALENDAR_PAGE_SHORTCUTS,
   GLOBAL_SHORTCUTS,
+  MAIL_PAGE_SHORTCUTS,
   NAVIGATION_SHORTCUTS,
   PAGE_SHORTCUTS,
   PROJECT_PAGE_SHORTCUTS,
@@ -139,6 +140,7 @@ describe("app shortcut map", () => {
     projects: { ...PROJECTS_PAGE_SHORTCUTS, ...TIMELINE_KEY_HINTS },
     project: PROJECT_PAGE_SHORTCUTS,
     calendar: CALENDAR_PAGE_SHORTCUTS,
+    mail: MAIL_PAGE_SHORTCUTS,
   };
 
   it.each(Object.entries(pages))("has no duplicate bindings across global, navigation and %s page shortcuts", (_, page) => {

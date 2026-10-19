@@ -72,6 +72,7 @@ SQLite database. Stop the normal development server before running it.
 - `docs/meetings.md`: meeting recordings, AI protocols, consent, retention.
 - `docs/push-notifications.md`: installable app, Web Push (VAPID keys), what is pushed.
 - `docs/chat.md`: Chat section, Element Web on `/element/`, Matrix homeserver.
+- `docs/mail.md`: Mail section, per-user IMAP/SMTP accounts, encryption, limits.
 
 ## Development and deployment workflow
 

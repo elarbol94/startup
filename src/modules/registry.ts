@@ -6,6 +6,7 @@ import {
   Handshake,
   KanbanSquare,
   LayoutDashboard,
+  Mail,
   MapPinned,
   MessagesSquare,
   Timer,
@@ -24,7 +25,7 @@ import {
 // `navSectionAliases`).
 export type ModuleNavItem = {
   /** Translation key under the `nav` namespace */
-  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings" | "chat" | "cloud";
+  key: "dashboard" | "calendar" | "accounting" | "personnel" | "time" | "projects" | "wiki" | "municipalities" | "network" | "meetings" | "chat" | "mail" | "cloud";
   href: string;
   icon: LucideIcon;
   /** Sidebar group; translation key under `nav.groups` */
@@ -43,6 +44,7 @@ export const moduleNav: ModuleNavItem[] = [
   { key: "time", href: "/time", icon: Timer, group: "work" },
   { key: "meetings", href: "/meetings", icon: Video, group: "work" },
   { key: "chat", href: "/chat", icon: MessagesSquare, group: "work" },
+  { key: "mail", href: "/mail", icon: Mail, group: "work" },
   { key: "cloud", href: "/cloud", icon: Cloud, group: "work" },
   { key: "accounting", href: "/accounting", icon: Calculator, group: "finance" },
   { key: "personnel", href: "/personnel", icon: UserRoundCog, group: "finance" },

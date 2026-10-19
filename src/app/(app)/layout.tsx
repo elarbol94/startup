@@ -124,6 +124,9 @@ export default async function AppLayout({
         /* The chat page frames Element Web edge to edge. */
         #workspace-panel-primary:has([data-chat-root]) { padding: 0; overflow: hidden; }
         [data-workspace-embedded] [data-chat-root] { height: 100dvh; }
+        /* The mail client manages its own panes and scrolling. */
+        #workspace-panel-primary:has([data-mail-root]) { padding: 0; overflow: hidden; }
+        [data-workspace-embedded] [data-mail-root] { height: 100dvh; }
       `}</style>
       <AppWorkspace userId={currentUser.id} navigation={
         <Suspense fallback={<SidebarFallback />}>
