@@ -139,7 +139,7 @@ test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+]/["
   await node(page, "a").click({ button: "right" });
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: /Format kopieren/ })).toContainText("Strg+Alt+C");
-  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+↑");
+  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+]");
 });
 
 test("file pickers are styled and labelled in German", async ({ page }) => {

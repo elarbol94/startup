@@ -19,7 +19,7 @@ async function saved(page: Page, id: string): Promise<{ elements: Element[] }> {
 }
 const textOf = (deck: { elements: Element[] }, id: string) => deck.elements.find((element) => element.id === id)!.content.text;
 
-test("a click on a selected text box puts the caret there; typing on a selected box replaces its text", async ({ page }) => {
+test("a click on a selected text box puts the caret there; typing on a selected box adds to its text", async ({ page }) => {
   const id = await seed(page, false, false, [text], { steps: [], waitFor: "a" });
   await node(page, "a").click(); await expect(node(page, "a")).toHaveClass(/selected/);
   await expect(node(page, "a").locator(".ProseMirror")).toHaveCount(0);
@@ -33,11 +33,11 @@ test("a click on a selected text box puts the caret there; typing on a selected 
   await page.keyboard.press("Escape"); await expect(node(page, "a")).toHaveClass(/selected/);
   expect(textOf(await saved(page, id), "a")).toBe("First ideas");
 
-  // Selected but not editing: typing starts editing and replaces the text, like PowerPoint.
+  // Selected but not editing: typing starts editing at the end of the text, like PowerPoint.
   await expect(node(page, "a").locator(".ProseMirror")).toHaveCount(0);
   await canvas(page).focus(); await page.keyboard.type("Fresh");
   await page.keyboard.press("Escape");
-  expect(textOf(await saved(page, id), "a")).toBe("Fresh");
+  expect(textOf(await saved(page, id), "a")).toBe("First ideasFresh");
 });
 
 test("shapes take text: type on a selected shape, double-click to edit, Escape steps out", async ({ page }) => {
