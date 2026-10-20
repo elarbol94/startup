@@ -120,7 +120,8 @@
       "serif": "Serif",
       "mono": "Monospace",
       "arial": "Arial",
-      "georgia": "Georgia"
+      "georgia": "Georgia",
+      "aptos": "Aptos"
     },
     "listStyle": "List style",
     "none": "None",

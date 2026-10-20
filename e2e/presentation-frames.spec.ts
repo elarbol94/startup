@@ -21,11 +21,15 @@ async function viewport(page: Page) {
   return page.locator(".react-flow__viewport").first().evaluate((el) => { const m = new DOMMatrix(getComputedStyle(el).transform); return { zoom: m.a, x: m.e, y: m.f }; });
 }
 async function box(page: Page, id: string) { return (await node(page, id).boundingBox())!; }
-/** Frames are grabbed by their outline (a thin hit area when zoomed out); their interior belongs to the canvas. */
+/**
+ * Frames are grabbed by their outline (a thin hit area when zoomed out); their interior belongs to the canvas.
+ * Grab the top edge at its centre: a frame fitted to the canvas has its side edges inside React Flow's
+ * auto-pan zone near the pane border, where any drag legitimately scrolls the view.
+ */
 async function dragFrameBy(page: Page, id: string, dx: number, dy: number) {
   const b = await box(page, id);
-  await page.mouse.move(b.x + 1, b.y + b.height / 2); await page.mouse.down();
-  await page.mouse.move(b.x + 1 + dx, b.y + b.height / 2 + dy, { steps: 12 }); await page.mouse.up();
+  await page.mouse.move(b.x + b.width / 2, b.y + 1); await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2 + dx, b.y + 1 + dy, { steps: 12 }); await page.mouse.up();
 }
 async function addFrameAtCenter(page: Page) {
   await page.getByRole("button", { name: "Rahmen", exact: true }).click();
