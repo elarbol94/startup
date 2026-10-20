@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { placeAtCenter, seedPresentation as seed } from "./helpers/presentation-fixture";
+import { drawShape, seedPresentation as seed } from "./helpers/presentation-fixture";
 
 /** PowerPoint-style shapes and connectors: the larger gallery, adjustment handles, glued and routed lines. */
 test.use({ viewport: { width: 1440, height: 1000 } });
@@ -24,23 +24,21 @@ async function drag(page: Page, from: { x: number; y: number }, to: { x: number;
   await page.mouse.move(from.x, from.y); await page.mouse.down(); await page.mouse.move(to.x, to.y, { steps: 12 }); await page.mouse.up();
 }
 
-test("the gallery offers the new shapes, and the yellow handle adjusts one", async ({ page }) => {
+test("the gallery's preset star has PowerPoint's yellow handle, which adjusts its inner radius", async ({ page }) => {
   const id = await seed(page, false, false, [rect("a", 0, 0)], { steps: [], waitFor: "a" });
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Form", exact: true }).click();
-  await page.getByRole("menuitem", { name: /Stern/ }).click();
-  await placeAtCenter(page);
+  await drawShape(page, "Stern: 5 Zacken");
   const star = page.locator(".react-flow__node-shape:not([data-id=\"a\"])");
-  await expect(star).toHaveCount(1); await expect(star.locator("svg path")).toHaveCount(1);
+  await expect(star).toHaveCount(1);
   const starId = (await star.getAttribute("data-id"))!;
-  await node(page, starId).click();
+  await expect(page.getByTestId("presentation-adjust-handle")).toHaveCount(1);
   const handle = page.getByTestId("presentation-adjust-handle");
-  await expect(handle).toBeVisible();
   const before = centre((await handle.boundingBox())!);
-  const shape = (await node(page, starId).boundingBox())!;
-  await drag(page, before, { x: before.x, y: shape.y + shape.height * 0.45 });
+  const shape = centre((await node(page, starId).boundingBox())!);
+  // Towards the centre: a thinner star (DrawingML adj below the default 19098).
+  await drag(page, before, { x: before.x, y: before.y + (shape.y - before.y) * 0.6 });
   await save(page);
-  await expect.poll(async () => find((await deck(page, id)).elements, starId).content.adjust ?? 0.45).toBeLessThan(0.3);
+  await expect.poll(async () => (find((await deck(page, id)).elements, starId).content as { preset?: string; adjustments?: { adj?: number } })).toMatchObject({ preset: "star5" });
+  await expect.poll(async () => (find((await deck(page, id)).elements, starId).content as { adjustments?: { adj?: number } }).adjustments?.adj ?? 19098).toBeLessThan(12000);
 });
 
 test("line ends glue to connection sites, follow their shapes, route as elbows and come loose on empty canvas", async ({ page }) => {

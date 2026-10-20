@@ -148,10 +148,10 @@ test("the wheel pans, Ctrl+wheel zooms", async ({ page }) => {
 
 test("placing from the insert menu takes focus to the canvas: Enter places, Escape cancels", async ({ page }) => {
   await seed(page);
-  const shapes = page.locator(".react-flow__node-shape");
+  const shapes = page.locator(".react-flow__node-frame");
   const insert = async () => {
-    await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-    await page.getByRole("menuitem", { name: "Rechteck", exact: true }).click();
+    await page.getByRole("button", { name: "Einfügen", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
     await expect(page.getByTestId("presentation-placement-preview")).toBeAttached();
     await expect(canvas(page)).toBeFocused();
   };

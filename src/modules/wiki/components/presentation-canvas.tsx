@@ -111,7 +111,10 @@ function TextEditSurface({ element, content, data, setEditing, className, style 
       const active = document.activeElement;
       if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search]")) setEditing(false);
     });
-  }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
+  }} onKeyDown={event => {
+    // Escape, and F2 as in PowerPoint, leave text editing with the object still selected.
+    if (event.key === "Escape" || event.key === "F2") { event.preventDefault(); event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); }
+  }}>
     <PresentationRichText inline elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
   </div>;
 }

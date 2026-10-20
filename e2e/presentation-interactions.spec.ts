@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation as seed, placeAtCenter } from "./helpers/presentation-fixture";
+import { seedPresentation as seed, drawShape } from "./helpers/presentation-fixture";
 
 test.use({ viewport: { width: 1440, height: 1000 }, permissions: ["clipboard-read", "clipboard-write"] });
 test.setTimeout(180_000);
@@ -45,9 +45,7 @@ test("Ctrl-drag copies once, preserves originals, supports cancellation and undo
 
 test("shape choices, endpoint handles, adaptive grid, and clipboard round trip", async ({ page }) => {
   const id = await seed(page);
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await expect(page.getByRole("menuitem", { name: "Doppelpfeil", exact: true })).toBeVisible();
-  await page.getByRole("menuitem", { name: "Doppelpfeil", exact: true }).click(); await placeAtCenter(page); await expect(page.locator(".react-flow__node-shape")).toHaveCount(2);
+  await drawShape(page, "Linienpfeil: Doppelpfeil"); await expect(page.locator(".react-flow__node-shape")).toHaveCount(2);
   await node(page, "line").click(); await expect(page.getByRole("button", { name: "Startpunkt" })).toBeVisible();
   await expect(node(page, "line").locator(".react-flow__resize-control")).toHaveCount(0);
   const end = (await page.getByRole("button", { name: "Endpunkt" }).boundingBox())!;
@@ -93,13 +91,13 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
 test("new shapes sync to a second editor and render in print and offline HTML", async ({ page, context }) => {
   const id = await seed(page); const other = await context.newPage(); await other.goto(`/wiki/presentations/${id}`);
   await expect(other.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover(); await page.getByRole("menuitem", { name: "Raute", exact: true }).click(); await placeAtCenter(page);
+  await drawShape(page, "Raute");
   await expect(other.locator(".react-flow__node-shape")).toHaveCount(2);
   await save(page);
   const print = await context.newPage(); await print.goto(`/print/presentations/${id}`);
-  await expect(print.locator("svg polygon").first()).toBeAttached();
+  await expect(print.locator(".react-flow__node-shape svg path, svg path").first()).toBeAttached();
   const offline = await page.request.get(`/api/wiki/presentations/${id}/offline`);
-  expect(offline.ok(), await offline.text()).toBe(true); expect(await offline.text()).toContain("<polygon");
+  expect(offline.ok(), await offline.text()).toBe(true); expect(await offline.text()).toMatch(/<path d="M/);
   await other.close(); await print.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click();

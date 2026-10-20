@@ -28,8 +28,7 @@ test("insertion follows the cursor, commits only on click, and cancels with Esca
   await canvas(page).focus(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
   await page.keyboard.press("Control+z"); await expect(page.locator(".react-flow__node")).toHaveCount(4);
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await page.getByRole("menuitem", { name: "Raute", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
   await expect(canvas(page)).toBeFocused(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
 });
 
