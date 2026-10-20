@@ -1,5 +1,6 @@
 "use server";
 
+import { presentationMedia } from "./lib/presentation-media";
 import { roomExists, mutateRoom, wireRoom } from "./collaboration/store";
 import { patchPresentation, presentationJSON, patchMap, LOCAL } from "./collaboration/codec";
 import { z } from "zod";
@@ -236,14 +237,13 @@ export async function savePresentation(input: {
   // New media must belong to this deck or an explicitly shared wiki/library source.
   // Do not let a guessed attachment id publish another presentation's private files.
   // Preserve legacy references (including missing uploads) so they can still be edited.
-  const previousMedia = new Set(parsePresentationCanvas(current.elementsJson).elements.flatMap((element) =>
-    "attachmentId" in element.content ? [`${element.type}:${element.content.attachmentId}`] : []));
-  for (const element of data.elements) {
-    if (!("attachmentId" in element.content) || previousMedia.has(`${element.type}:${element.content.attachmentId}`)) continue;
-    const attachment = getAttachment(element.content.attachmentId);
+  const previousMedia = new Set(presentationMedia(parsePresentationCanvas(current.elementsJson).elements).map((ref) => `${ref.kind}:${ref.attachmentId}`));
+  for (const ref of presentationMedia(data.elements)) {
+    if (previousMedia.has(`${ref.kind}:${ref.attachmentId}`)) continue;
+    const attachment = getAttachment(ref.attachmentId);
     const allowedSource = attachment && (attachment.entityType === "wikiPage" || attachment.entityType === "wikiPresentationLibrary" ||
       (attachment.entityType === "wikiPresentation" && attachment.entityId === data.id));
-    if (!allowedSource || !attachment.mimeType.startsWith(`${element.type}/`)) throw new Error("Presentation media unavailable");
+    if (!allowedSource || !attachment.mimeType.startsWith(`${ref.kind}/`)) throw new Error("Presentation media unavailable");
   }
 
   db.transaction(() => {

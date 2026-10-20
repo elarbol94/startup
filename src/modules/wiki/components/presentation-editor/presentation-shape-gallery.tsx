@@ -57,8 +57,10 @@ export function ShapeGalleryIcon({ entry, size = 22 }: { entry: PresetGalleryEnt
 }
 
 /** The gallery itself: categories of icon buttons, labelled like PowerPoint's tooltips. */
-export function PresentationShapeGallery({ onPick, includeTools = true }: { onPick: (entry: PresetGalleryEntry) => void; includeTools?: boolean }) {
+export function PresentationShapeGallery({ onPick, includeTools = true, allowLock = false }: { onPick: (entry: PresetGalleryEntry, options?: { lock?: boolean }) => void; includeTools?: boolean; allowLock?: boolean }) {
   const t = useTranslations("wiki.presentations.shapeGallery");
+  // Right-click on an entry offers PowerPoint's "Lock Drawing Mode": the tool stays armed until Escape.
+  const [menu, setMenu] = useState<{ entry: PresetGalleryEntry; x: number; y: number } | null>(null);
   // Read once when the gallery opens; picking updates it for the next opening.
   const [recent] = useState(readRecent);
   const groups = [
@@ -66,7 +68,11 @@ export function PresentationShapeGallery({ onPick, includeTools = true }: { onPi
     ...presetGallery,
   ].map((group) => ({ ...group, entries: group.entries.filter((entry) => includeTools || !entry.tool) })).filter((group) => group.entries.length);
   return (
-    <div className="max-h-[min(70vh,34rem)] w-[19rem] overflow-y-auto pr-1" data-testid="presentation-shape-gallery">
+    <div className="relative max-h-[min(70vh,34rem)] w-[19rem] overflow-y-auto pr-1" data-testid="presentation-shape-gallery" onClick={() => setMenu(null)}>
+      {menu && <div role="menu" className="absolute z-10 rounded-md border bg-popover p-1 text-xs shadow-md" style={{ left: menu.x, top: menu.y }}>
+        <button type="button" role="menuitem" data-testid="lock-drawing-mode" className="block w-full rounded px-2 py-1 text-left hover:bg-accent"
+          onClick={(event) => { event.stopPropagation(); rememberShape(menu.entry.id); onPick(menu.entry, { lock: true }); setMenu(null); }}>{t("lockDrawingMode")}</button>
+      </div>}
       {groups.map((group) => (
         <section key={group.category} aria-label={t(group.category)} className="mb-2 last:mb-0">
           <h3 className="mb-1 px-0.5 text-xs font-semibold">{t(group.category)}</h3>
@@ -76,7 +82,13 @@ export function PresentationShapeGallery({ onPick, includeTools = true }: { onPi
               return (
                 <button key={`${group.category}-${entry.id}`} type="button" title={label} aria-label={label} data-shape-entry={entry.id}
                   className="grid size-7 place-items-center rounded-sm text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none"
-                  onClick={() => { rememberShape(entry.id); onPick(entry); }}>
+                  onClick={() => { rememberShape(entry.id); onPick(entry); }}
+                  onContextMenu={(event) => {
+                    if (!allowLock) return;
+                    event.preventDefault();
+                    const box = event.currentTarget.closest("[data-testid=presentation-shape-gallery]")!.getBoundingClientRect();
+                    setMenu({ entry, x: event.clientX - box.left, y: event.clientY - box.top + (event.currentTarget.closest("[data-testid=presentation-shape-gallery]") as HTMLElement).scrollTop });
+                  }}>
                   <ShapeGalleryIcon entry={entry} />
                 </button>
               );

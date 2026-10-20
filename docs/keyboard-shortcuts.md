@@ -70,7 +70,9 @@ Größe um 10 % (Strg+Umschalt+Pfeil 1 %) · Alt+←/→ um 15° drehen · Strg+
 für den ganzen Text · Strg+]/[ oder Strg+Umschalt+>/< Schriftgrad · F2 Text bearbeiten ·
 Strg+D duplizieren · Strg+G gruppieren · Strg+Umschalt+G Gruppierung aufheben ·
 Strg+Umschalt+]/[ ganz nach vorne/hinten · Strg+Umschalt+C/V Format kopieren/einfügen ·
-⇧ ⇧ Befehle.
+Umschalt+F9 Raster · Alt+F9 Führungslinien · beim Bearbeiten: Tab/Umschalt+Tab oder
+Alt+Umschalt+→/← Listenebene · Strg+Umschalt+= hochgestellt · Strg+= tiefgestellt ·
+Alt beim Ziehen ignoriert das Einrasten · ⇧ ⇧ Befehle.
 
 ## PDF reader
 

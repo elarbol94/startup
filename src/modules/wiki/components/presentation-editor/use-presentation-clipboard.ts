@@ -4,6 +4,7 @@
 // through the copy/cut/paste events of the keyboard shortcuts, which need no permission.
 // navigator.clipboard is only used by menu commands and never delays an internal paste.
 // Used by presentation-editor.tsx.
+import { mapElementMedia, presentationMedia } from "../../lib/presentation-media";
 import { useEffect, useEffectEvent, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { useTranslations } from "next-intl";
 import type { useReactFlow } from "@xyflow/react";
@@ -109,15 +110,14 @@ export function usePresentationClipboard({
     const point = contextPosition ? reactFlow.screenToFlowPosition(contextPosition) : contentCenter(copied);
     const record = planPaste(copied, { source, target: `${Math.round(point.x)},${Math.round(point.y)}`, point }, lastPaste.current);
     lastPaste.current = record;
-    const present = new Set(elements.flatMap(e => "attachmentId" in e.content ? [e.content.attachmentId] : []));
-    const foreign = fromDeck === presentation.id ? [] : [...new Set(copied.flatMap(e => "attachmentId" in e.content && !present.has(e.content.attachmentId) ? [e.content.attachmentId] : []))];
+    const present = new Set(presentationMedia(elements).map(ref => ref.attachmentId));
+    const foreign = fromDeck === presentation.id ? [] : [...new Set(presentationMedia(copied).map(ref => ref.attachmentId).filter(id => !present.has(id)))];
     if (!foreign.length) {
       try { insert(copied, record.center); } catch { failed(); }
       return;
     }
     void copyAttachments(foreign, presentation.id).then(replacements => {
-      const next = copied.map(element => "attachmentId" in element.content && replacements.has(element.content.attachmentId)
-        ? { ...element, content: { ...element.content, attachmentId: replacements.get(element.content.attachmentId)! } } as PresentationElement : element);
+      const next = copied.map(element => mapElementMedia(element, id => replacements.get(id) ?? id));
       insert(next, record.center);
     }).catch(failed);
   };

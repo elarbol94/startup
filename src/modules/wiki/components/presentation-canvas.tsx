@@ -11,7 +11,8 @@ import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
 import { PresentationContent, presentationTextStyle } from "./presentation-content";
-import { SHAPE_TEXT_INSET, isTextHost, shapeTextBox, shapeTextContent } from "../lib/presentation-text-host";
+import { isTextHost, shapeShrinkScale, shapeTextBox, shapeTextContent, textBodyDefaults } from "../lib/presentation-text-host";
+import { textBoxCss } from "../lib/presentation-text-style";
 
 /**
  * The node types are shared by the editor and the player: what a reader sees while
@@ -103,9 +104,11 @@ type TextContent = Extract<PresentationElement, { type: "text" }>["content"];
  * rendered text, so the text does not move on entering edit mode.
  */
 function TextEditSurface({ element, content, data, setEditing, className, style }: {
-  element: PresentationElement; content: TextContent; data: PresentationNodeData; setEditing: (editing: boolean) => void; className?: string; style?: CSSProperties;
+  element: Extract<PresentationElement, { type: "text" | "shape" }>; content: TextContent; data: PresentationNodeData; setEditing: (editing: boolean) => void; className?: string; style?: CSSProperties;
 }) {
-  return <div className={cn("nodrag nopan nowheel cursor-text", className)} style={{ ...presentationTextStyle(content), ...style }} onBlur={event => {
+  const box = textBoxCss(content.body, textBodyDefaults(element));
+  const scale = element.type === "shape" ? shapeShrinkScale(element) : 1;
+  return <div className={cn("nodrag nopan nowheel cursor-text", className)} style={{ ...presentationTextStyle(content, scale), ...box.outer, ...style }} onBlur={event => {
     // Decided a frame later: remounting the editor (React's development double mount)
     // drops focus for a moment and gives it back.
     const surface = event.currentTarget;
@@ -117,7 +120,9 @@ function TextEditSurface({ element, content, data, setEditing, className, style 
     // Escape, and F2 as in PowerPoint, leave text editing with the object still selected.
     if (event.key === "Escape" || event.key === "F2") { event.preventDefault(); event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); }
   }}>
-    <PresentationRichText inline autoFocus={!data.editingDeferred} elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
+    <div style={box.inner} className="min-h-0 [&>div]:h-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-[1.15em]">
+      <PresentationRichText inline autoFocus={!data.editingDeferred} elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
+    </div>
   </div>;
 }
 
@@ -240,13 +245,12 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
     {data.editing && data.editable ? (
       // The drawing stays put; the text editor sits over it, centred like the rendered text.
       <div className="relative h-full w-full">
-        <div className="pointer-events-none absolute inset-0"><PresentationShape element={element} /></div>
+        <div className="pointer-events-none absolute inset-0"><PresentationShape element={element} mediaUrl={data.mediaUrl} /></div>
         <div className="absolute" style={shapeTextBox(element)}>
-          <TextEditSurface element={element} content={element.content.preset ? { ...shapeTextContent(element.content), padding: undefined } : shapeTextContent(element.content)} data={data} setEditing={setEditing}
-            className="absolute inset-0 flex flex-col justify-center [&>div]:h-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-0" style={element.content.preset ? { padding: `${SHAPE_TEXT_INSET.y}px ${SHAPE_TEXT_INSET.x}px` } : undefined} />
+          <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0" />
         </div>
       </div>
-    ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} /></div>}
+    ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} mediaUrl={data.mediaUrl} /></div>}
     {selected && data.editable && data.resizable !== false && isLinearShape(element) && data.lookupElement && data.onLineEndDrop &&
       <LineEndHandles element={element} lookup={data.lookupElement} onDrop={(end, drop) => data.onLineEndDrop?.(element.id, end, drop)} />}
     {selected && data.editable && data.resizable !== false && !isLinearShape(element) && data.onAdjust &&

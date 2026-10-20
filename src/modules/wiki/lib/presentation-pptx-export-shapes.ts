@@ -4,11 +4,14 @@
 import type { PresentationElement, PresentationShapeElement, PresentationTextElement } from "./presentation";
 import { imagePlacement, imageSize } from "./presentation-pptx-image";
 import { xmlEscape } from "./presentation-pptx-export-parts";
+import { effectsXml, emu, hexColor, lineXml, shapeFillXml, solidFill, threeDXml, type LineEnds } from "./presentation-pptx-export-format";
+import { textBodyXml } from "./presentation-pptx-export-paragraphs";
 import { SHAPE_TEXT_PADDING, shapeTextContent } from "./presentation-text-host";
 
 export const pptxExportWarningCodes = ["chart", "icon", "video", "audio", "missingMedia", "unsupportedImage"] as const;
 export type PptxExportWarningCode = (typeof pptxExportWarningCodes)[number];
 export type PptxExportMedia = Record<string, { bytes: Uint8Array; mime: string }>;
+export { hexColor, textBodyXml };
 
 export type SlideContext = {
   /** EMU per canvas px and the canvas point that lands on the slide origin. */
@@ -21,25 +24,6 @@ export type SlideContext = {
 };
 type Box = { x: number; y: number; width: number; height: number; rotation: number };
 
-const DEFAULT_TEXT = "172033";
-const fonts = { sans: "Calibri", serif: "Times New Roman", mono: "Courier New", arial: "Arial", georgia: "Georgia", aptos: "Aptos" } as const;
-
-/** `#rgb`, `#rrggbb` or `#rrggbbaa` to `RRGGBB` plus alpha; anything else (themes, CSS variables) is null. */
-export function hexColor(value: string | undefined): { hex: string; alpha: number } | null {
-  const match = /^#([\da-f]{3}|[\da-f]{6}|[\da-f]{8})$/i.exec(value?.trim() ?? "");
-  if (!match) return null;
-  const digits = match[1].length === 3 ? [...match[1]].map((digit) => digit + digit).join("") : match[1];
-  return { hex: digits.slice(0, 6).toUpperCase(), alpha: digits.length === 8 ? parseInt(digits.slice(6), 16) / 255 : 1 };
-}
-const colorXml = (value: string | undefined, opacity = 1, fallback?: string) => {
-  const color = hexColor(value) ?? (fallback ? { hex: fallback, alpha: 1 } : null);
-  if (!color) return null;
-  const alpha = Math.round(Math.max(0, Math.min(1, color.alpha * opacity)) * 100000);
-  return alpha < 100000 ? `<a:srgbClr val="${color.hex}"><a:alpha val="${alpha}"/></a:srgbClr>` : `<a:srgbClr val="${color.hex}"/>`;
-};
-const solidFill = (value: string | undefined, opacity = 1, fallback?: string) => { const color = colorXml(value, opacity, fallback); return color ? `<a:solidFill>${color}</a:solidFill>` : "<a:noFill/>"; };
-
-const emu = (px: number, ctx: SlideContext) => Math.round(px * ctx.scale);
 const rotationAttr = (degrees: number) => { const rot = Math.round((((degrees % 360) + 360) % 360) * 60000); return rot ? ` rot="${rot}"` : ""; };
 export const xfrm = (box: Box, ctx: SlideContext, extra = "") => `<a:xfrm${rotationAttr(box.rotation)}><a:off x="${emu(box.x - ctx.originX, ctx)}" y="${emu(box.y - ctx.originY, ctx)}"/><a:ext cx="${Math.max(0, emu(box.width, ctx))}" cy="${Math.max(0, emu(box.height, ctx))}"/>${extra}</a:xfrm>`;
 const nv = (tag: "Sp" | "Pic" | "CxnSp" | "GrpSp", ctx: SlideContext, name: string, inner = "", descr = "") => {
@@ -47,30 +31,6 @@ const nv = (tag: "Sp" | "Pic" | "CxnSp" | "GrpSp", ctx: SlideContext, name: stri
   return `<p:nv${tag}Pr><p:cNvPr id="${id}" name="${xmlEscape(`${name} ${id}`)}"${descr ? ` descr="${xmlEscape(descr.slice(0, 500))}"` : ""}/><p:cNv${tag}Pr${inner ? `>${inner}</p:cNv${tag}Pr>` : "/>"}<p:nvPr/></p:nv${tag}Pr>`;
 };
 const geometry = (preset: string, adjust?: number) => `<a:prstGeom prst="${preset}">${adjust !== undefined ? `<a:avLst><a:gd name="adj" fmla="val ${Math.round(adjust)}"/></a:avLst>` : "<a:avLst/>"}</a:prstGeom>`;
-
-type Run = NonNullable<PresentationTextElement["content"]["runs"]>[number];
-/** Paragraphs of styled runs: element-level bold/italic/underline/colour apply where a run sets nothing. */
-export function textBodyXml(content: PresentationTextElement["content"], ctx: SlideContext, options: { anchor?: "t" | "ctr"; inset?: number } = {}) {
-  const runs: Run[] = content.runs?.length ? content.runs : [{ text: content.text }];
-  const paragraphs: Run[][] = [[]];
-  for (const run of runs) run.text.split("\n").forEach((part, index) => {
-    if (index) paragraphs.push([]);
-    if (part) paragraphs.at(-1)!.push({ ...run, text: part });
-  });
-  const size = Math.round(Math.max(1, Math.min(4000, content.fontSize * ctx.scale / 12700)) * 100);
-  const typeface = fonts[content.font ?? "sans"];
-  const align = content.align === "center" ? "ctr" : content.align === "right" ? "r" : "l";
-  const bullet = content.list === "bullet" ? '<a:buFont typeface="Arial"/><a:buChar char="•"/>' : content.list === "number" ? '<a:buFont typeface="+mj-lt"/><a:buAutoNum type="arabicPeriod"/>' : "<a:buNone/>";
-  const indent = content.list && content.list !== "none" ? ` marL="${emu(content.fontSize * 1.2, ctx)}" indent="-${emu(content.fontSize * 1.2, ctx)}"` : ' marL="0" indent="0"';
-  const runXml = (run: Run) => {
-    const bold = run.bold ?? content.bold, italic = run.italic ?? content.italic, underline = run.underline ?? content.underline;
-    const link = run.href && /^(https?:\/\/|mailto:)/i.test(run.href) ? `<a:hlinkClick r:id="${ctx.hyperlink(run.href)}"/>` : "";
-    return `<a:r><a:rPr lang="de-AT" sz="${size}"${bold ? ' b="1"' : ""}${italic ? ' i="1"' : ""}${underline ? ' u="sng"' : ""} dirty="0">${solidFill(run.color || content.color, 1, DEFAULT_TEXT)}<a:latin typeface="${typeface}"/>${link}</a:rPr><a:t>${xmlEscape(run.text)}</a:t></a:r>`;
-  };
-  const inset = emu(options.inset ?? content.padding ?? 0, ctx);
-  const body = paragraphs.map((paragraph) => `<a:p><a:pPr algn="${align}"${indent}>${paragraph.length ? bullet : "<a:buNone/>"}</a:pPr>${paragraph.map(runXml).join("")}<a:endParaRPr lang="de-AT" sz="${size}" dirty="0"/></a:p>`).join("");
-  return `<p:txBody><a:bodyPr wrap="square" lIns="${inset}" tIns="${inset}" rIns="${inset}" bIns="${inset}" rtlCol="0" anchor="${options.anchor ?? "t"}"><a:noAutofit/></a:bodyPr><a:lstStyle/>${body}</p:txBody>`;
-}
 
 function textXml(element: PresentationTextElement, ctx: SlideContext) {
   return `<p:sp>${nv("Sp", ctx, "TextBox", "", "").replace("<p:cNvSpPr/>", '<p:cNvSpPr txBox="1"/>')}<p:spPr>${xfrm(element, ctx)}${geometry("rect")}${solidFill(element.background)}</p:spPr>${textBodyXml(element.content, ctx)}</p:sp>`;
@@ -83,17 +43,9 @@ const presets: Record<string, string> = {
   pentagon: "pentagon", hexagon: "hexagon", star: "star5", parallelogram: "parallelogram", trapezoid: "trapezoid",
   chevron: "chevron", callout: "wedgeRectCallout", plus: "plus",
 };
-const heads = { triangle: "triangle", open: "arrow" } as const;
 export const isLinearKind = (kind: PresentationShapeElement["content"]["shape"]) => kind === "line" || kind === "arrow" || kind === "doubleArrow";
-
-function lineXml(content: PresentationShapeElement["content"], ctx: SlideContext, endpoints?: { start: string; end: string }) {
-  if (!content.strokeWidth) return "<a:ln><a:noFill/></a:ln>";
-  const dash = content.dash === "dash" ? "dash" : content.dash === "dot" ? "sysDot" : "solid";
-  const ratio = (content.headSize ?? Math.max(content.strokeWidth * 3, 10)) / content.strokeWidth;
-  const headSize = ratio < 2.5 ? "sm" : ratio < 4 ? "med" : "lg";
-  const end = (tag: string, style: string) => style === "none" ? "" : `<a:${tag} type="${heads[style as keyof typeof heads]}" w="${headSize}" len="${headSize}"/>`;
-  return `<a:ln w="${Math.max(0, emu(content.strokeWidth, ctx))}">${solidFill(content.stroke, content.opacity, DEFAULT_TEXT)}<a:prstDash val="${dash}"/><a:round/>${endpoints ? end("headEnd", endpoints.start) + end("tailEnd", endpoints.end) : ""}</a:ln>`;
-}
+/** Effects and 3-D after the line, in `p:spPr` schema order. */
+const decorationXml = (content: PresentationShapeElement["content"], ctx: SlideContext) => effectsXml(content.effects, ctx) + threeDXml(content.effects, ctx);
 
 function shapeXml(element: PresentationShapeElement, ctx: SlideContext) {
   const c = element.content;
@@ -104,16 +56,18 @@ function shapeXml(element: PresentationShapeElement, ctx: SlideContext) {
     const end = c.endHead ?? (c.shape === "arrow" || c.shape === "doubleArrow" ? "triangle" : "none");
     if (c.points && c.route && c.route !== "straight") return routedLineXml(element, ctx, { start, end });
     const box = { ...element, y: element.y + element.height / 2, height: 0 };
-    return `<p:cxnSp>${nv("CxnSp", ctx, "Connector")}<p:spPr>${xfrm(box, ctx)}${geometry("line")}${lineXml(c, ctx, { start, end })}</p:spPr></p:cxnSp>`;
+    return `<p:cxnSp>${nv("CxnSp", ctx, "Connector")}<p:spPr>${xfrm(box, ctx)}${geometry("line")}${lineXml(c, ctx, { start, end })}${decorationXml(c, ctx)}</p:spPr></p:cxnSp>`;
   }
   const radius = c.shape === "roundedRect" ? Math.min(50000, (Math.min(c.cornerRadius ?? 20, element.width / 2, element.height / 2) / Math.min(element.width, element.height)) * 100000) : undefined;
-  const fill = c.freeform && !c.freeform.closed ? "<a:noFill/>" : c.fill ? solidFill(c.fill, c.opacity) : solidFill(element.background, c.opacity);
-  const text = c.text ? textBodyXml(shapeTextContent(c), ctx, { anchor: "ctr", inset: SHAPE_TEXT_PADDING }) : "";
+  const fill = shapeFillXml(c, element.background, ctx);
+  const text = c.text ? textBodyXml({ ...shapeTextContent(c), body: c.body, paragraphs: c.paragraphs, textStyle: c.textStyle }, ctx, { anchor: "ctr", inset: SHAPE_TEXT_PADDING }) : "";
+  // An open freeform carries arrowheads like a line.
+  const ends = c.freeform && !c.freeform.closed && (c.startHead || c.endHead) ? { start: c.startHead ?? "none", end: c.endHead ?? "none" } : undefined;
   // A PowerPoint preset goes back as itself, with its adjustment values: a lossless round trip.
   const shapeGeometry = c.freeform ? freeformGeometry(c.freeform, element, ctx)
     : c.preset ? `<a:prstGeom prst="${c.preset}">${c.adjustments && Object.keys(c.adjustments).length ? `<a:avLst>${Object.entries(c.adjustments).map(([name, value]) => `<a:gd name="${xmlEscape(name)}" fmla="val ${Math.round(value)}"/>`).join("")}</a:avLst>` : "<a:avLst/>"}</a:prstGeom>`
     : geometry(presets[c.shape] ?? "rect", radius);
-  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${shapeGeometry}${fill}${lineXml(c, ctx)}</p:spPr>${text}</p:sp>`;
+  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${shapeGeometry}${fill}${lineXml(c, ctx, ends)}${decorationXml(c, ctx)}</p:spPr>${text}</p:sp>`;
 }
 
 /** A freeform, curve or scribble as custom geometry: its path in its own w × h space. */
@@ -133,7 +87,7 @@ function freeformGeometry(freeform: NonNullable<PresentationShapeElement["conten
 }
 
 /** An elbow or curved connector: its path as custom geometry inside its box, with the same line ends. */
-function routedLineXml(element: PresentationShapeElement, ctx: SlideContext, ends: { start: string; end: string }) {
+function routedLineXml(element: PresentationShapeElement, ctx: SlideContext, ends: LineEnds) {
   const points = element.content.points!;
   const w = Math.max(1, emu(element.width, ctx)), h = Math.max(1, emu(element.height, ctx));
   const pt = (p: { x: number; y: number }) => `<a:pt x="${emu(p.x, ctx)}" y="${emu(p.y, ctx)}"/>`;
@@ -141,7 +95,7 @@ function routedLineXml(element: PresentationShapeElement, ctx: SlideContext, end
     ? `<a:cubicBezTo>${pt(points[1])}${pt(points[2])}${pt(points[3])}</a:cubicBezTo>`
     : points.slice(1).map((p) => `<a:lnTo>${pt(p)}</a:lnTo>`).join("");
   const geometryXml = `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${w}" h="${h}" fill="none"><a:moveTo>${pt(points[0])}</a:moveTo>${segments}</a:path></a:pathLst></a:custGeom>`;
-  return `<p:sp>${nv("Sp", ctx, "Connector")}<p:spPr>${xfrm({ ...element, rotation: 0 }, ctx)}${geometryXml}<a:noFill/>${lineXml(element.content, ctx, ends)}</p:spPr></p:sp>`;
+  return `<p:sp>${nv("Sp", ctx, "Connector")}<p:spPr>${xfrm({ ...element, rotation: 0 }, ctx)}${geometryXml}<a:noFill/>${lineXml(element.content, ctx, ends)}${decorationXml(element.content, ctx)}</p:spPr></p:sp>`;
 }
 
 const masks = { circle: "ellipse", rounded: "roundRect", diamond: "diamond" } as const;

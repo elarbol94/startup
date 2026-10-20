@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { presetShapeNameList } from "./preset-shapes/preset-shape-names";
 import { isSourcePassageHref } from "./source-passage";
+import { arrowHeads, lineDashes, presentationViewSettingsFields, runFormatFields, shapeFormatFields, textFormatFields } from "./presentation-format-model";
 
 export const presentationFrameShapes = ["rect", "circle", "none"] as const;
 export type PresentationFrameShape = (typeof presentationFrameShapes)[number];
@@ -33,6 +34,7 @@ export const presentationLinkSchema = z.string().max(2000).refine((value) => !va
 export const presentationTextRunSchema = z.object({
   text: z.string().max(5000), bold: z.boolean().optional(), italic: z.boolean().optional(),
   underline: z.boolean().optional(), color: z.string().max(32).optional(), href: presentationLinkSchema.optional(),
+  ...runFormatFields,
 });
 
 const textElementSchema = z.object({
@@ -51,6 +53,7 @@ const textElementSchema = z.object({
     underline: z.boolean().optional(),
     list: z.enum(["none", "bullet", "number"]).optional(),
     runs: presentationTextRunSchema.array().max(200).optional(),
+    ...textFormatFields,
   }),
 });
 
@@ -106,9 +109,10 @@ const shapeElementSchema = z.object({
     strokeWidth: z.number().finite().min(0).max(200).default(2),
     opacity: z.number().finite().min(0).max(1).default(1),
     cornerRadius: z.number().finite().min(0).max(1000).optional(),
-    dash: z.enum(["solid", "dash", "dot"]).optional(),
-    startHead: z.enum(["none", "triangle", "open"]).optional(),
-    endHead: z.enum(["none", "triangle", "open"]).optional(),
+    dash: z.enum(lineDashes).optional(),
+    startHead: z.enum(arrowHeads).optional(),
+    endHead: z.enum(arrowHeads).optional(),
+    ...shapeFormatFields,
     headSize: z.number().finite().min(1).max(1000).optional(),
     /** 0..1 setting of the yellow adjustment handle (slant, notch, inner radius...); see presentation-shape-geometry. */
     adjust: z.number().finite().min(0).max(1).optional(),
@@ -144,8 +148,13 @@ const shapeElementSchema = z.object({
     italic: z.boolean().optional(),
     underline: z.boolean().optional(),
     font: z.enum(presentationFonts).optional(),
+    ...textFormatFields,
   }),
 });
+
+/** What "Set as Default Shape" keeps: a shape's formatting without its geometry, text or glue. */
+export const presentationShapeDefaultsSchema = shapeElementSchema.shape.content.omit({ shape: true, preset: true, adjustments: true, adjust: true, freeform: true, connection: true, route: true, points: true, text: true, runs: true, paragraphs: true }).partial();
+export type PresentationShapeDefaults = z.infer<typeof presentationShapeDefaultsSchema>;
 
 export const presentationElementSchema = z.discriminatedUnion("type", [
   textElementSchema,
@@ -202,6 +211,9 @@ export const presentationSettingsSchema = z.object({
   loop: z.boolean().default(false),
   cameraTransitionMs: z.number().int().min(100).max(5_000).default(700),
   cameraEasing: z.enum(presentationCameraEasings).default("ease-in-out"),
+  ...presentationViewSettingsFields,
+  /** Set as Default Shape / Line / Text Box: the format new objects of that kind start with. */
+  defaults: z.object({ shape: presentationShapeDefaultsSchema.optional(), line: presentationShapeDefaultsSchema.optional(), textBox: presentationShapeDefaultsSchema.optional() }).default({}),
 });
 export type PresentationSettings = z.infer<typeof presentationSettingsSchema>;
 export const defaultPresentationSettings: PresentationSettings = presentationSettingsSchema.parse({});

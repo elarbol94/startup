@@ -79,9 +79,9 @@ function patchCollection(doc: Y.Doc, name: string, before: { id: string }[], aft
     if (name === "elements" && "type" in item && (item.type === "text" || item.type === "shape")) {
       const next = item as unknown as { content: Partial<Content> };
       const previous = old.get(item.id) as unknown as { content: Partial<Content> } | undefined;
-      if (!same(previous?.content.text, next.content.text) || !same(previous?.content.runs, next.content.runs)) {
+      if (!same(previous?.content.text, next.content.text) || !same(previous?.content.runs, next.content.runs) || !same(previous?.content.paragraphs, next.content.paragraphs)) {
         const fragment = doc.getXmlFragment(`rich:${item.id}`);
-        const json = toDoc({ text: next.content.text ?? "", runs: next.content.runs });
+        const json = toDoc({ text: next.content.text ?? "", runs: next.content.runs, paragraphs: next.content.paragraphs });
         if (!same(yXmlFragmentToProsemirrorJSON(fragment), json)) updateYFragment(doc, fragment, richSchema.nodeFromJSON(json), { mapping: new Map(), isOMark: new Map() });
       }
     }
@@ -111,8 +111,8 @@ export function presentationJSON(doc: Y.Doc): PresentationSnapshot {
     if (element.type === "shape") {
       // A shape without text has no fragment content; an emptied one drops its text fields.
       if (element.content.text === undefined && !fragment.length) return element;
-      const { text, runs } = fromDoc(yXmlFragmentToProsemirrorJSON(fragment));
-      return { ...element, content: { ...element.content, text: text || undefined, runs: text ? runs : undefined } };
+      const { text, runs, paragraphs } = fromDoc(yXmlFragmentToProsemirrorJSON(fragment));
+      return { ...element, content: { ...element.content, text: text || undefined, runs: text ? runs : undefined, paragraphs: text ? paragraphs : undefined } };
     }
     return { ...element, content: { ...element.content, ...fromDoc(yXmlFragmentToProsemirrorJSON(fragment)) } };
   });

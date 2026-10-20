@@ -5,6 +5,7 @@ import { maintainPresentationLayout } from "./presentation-layout";
 import { mergePresentation, presentationValuesEqual } from "./presentation-merge";
 import { defaultPresentationSettings, presentationElementsSchema, presentationSettingsSchema, presentationStepsSchema, type PresentationElement, type PresentationSettings, type PresentationStep } from "./presentation-model";
 import { applyGeometryChanges, type PresentationGeometryChange, type SnapGuide } from "./presentation-transform";
+import type { PresentationSnapOptions } from "./presentation-grid";
 import { assignFrameMembership } from "./presentation-hierarchy";
 
 /**
@@ -50,6 +51,8 @@ export type PresentationCanvasAction =
   }
   | {
     type: "geometry"; at: number; changes: PresentationGeometryChange[]; tolerance: number; gesture: boolean;
+    /** Grid/guide/smart snapping from the view settings; absent keeps element snapping only. */
+    snap?: PresentationSnapOptions;
     /** Roots dropped by this change (a gesture's last update, a nudge): they join or leave
      * frames in the same step as the move. */
     membership?: string[];
@@ -160,7 +163,7 @@ export function presentationCanvasReducer(
         action.separate,
       );
     case "geometry": {
-      const result = applyGeometryChanges(state.elements, action.changes, action.tolerance, state.guides);
+      const result = applyGeometryChanges(state.elements, action.changes, action.tolerance, state.guides, undefined, action.snap);
       const elements = action.membership ? assignFrameMembership(result.elements, action.membership) : result.elements;
       const next = commitCanvas(state, elements, state.steps, action.at);
       // The canvas library can deliver late drag updates after cancellation.

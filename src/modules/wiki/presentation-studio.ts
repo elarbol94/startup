@@ -1,3 +1,4 @@
+import { mapElementMedia, presentationMedia } from "./lib/presentation-media";
 import { roomExists, mutateRoom } from "./collaboration/store";
 import { patchPresentation, presentationJSON } from "./collaboration/codec";
 import { withoutPresentationSources } from "./lib/presentation-source";
@@ -44,8 +45,8 @@ async function copyAsset(id: string, targetId: string, viewer: { id: string; rol
 }
 async function copyDocumentAssets(snapshot: PresentationSnapshot, targetId: string, viewer: { id: string; role?: string | null }, library = false) {
   const mapped = new Map<string, string>();
-  for (const element of snapshot.elements) if ("attachmentId" in element.content && !mapped.has(element.content.attachmentId)) mapped.set(element.content.attachmentId, (await copyAsset(element.content.attachmentId, targetId, viewer, library)).id);
-  return { ...snapshot, elements: snapshot.elements.map((element) => "attachmentId" in element.content ? { ...element, content: { ...element.content, attachmentId: mapped.get(element.content.attachmentId)! } } : element) } as PresentationSnapshot;
+  for (const ref of presentationMedia(snapshot.elements)) if (!mapped.has(ref.attachmentId)) mapped.set(ref.attachmentId, (await copyAsset(ref.attachmentId, targetId, viewer, library)).id);
+  return { ...snapshot, elements: snapshot.elements.map((element) => mapElementMedia(element, (id) => mapped.get(id) ?? id)) } as PresentationSnapshot;
 }
 
 export async function getPresentationStudio(id: string) {

@@ -8,6 +8,7 @@ import type { PresentationElement, PresentationShapeKind, PresentationTextElemen
 import { pptxImageMime, type PptxFiles, type PptxImportMedia, type PptxImportWarning } from "./presentation-pptx-archive";
 import { srcRectToImageCrop, type PptxSrcRect } from "./presentation-pptx-image";
 import { parsePptxHtml, pptxColor, pptxHtmlToText, type PptxHtmlParagraph, type PptxHtmlRun } from "./presentation-pptx-text";
+import { pptxHead, pptxShapeFormat, pptxTextBody } from "./presentation-pptx-map-format";
 
 export type PptxMapContext = {
   files: PptxFiles; factor: number; media: PptxImportMedia[];
@@ -31,16 +32,19 @@ const shapeKinds: Record<string, PresentationShapeKind> = {
 };
 const fonts: Array<[RegExp, NonNullable<TextContent["font"]>]> = [[/georgia/i, "georgia"], [/courier|consolas|mono|menlo/i, "mono"], [/times|cambria|garamond|serif|palatino|book antiqua/i, "serif"], [/arial|helvetica/i, "arial"]];
 
-function fillColor(fill: Fill | null | undefined, ctx: PptxMapContext) {
+/** The solid colour of a fill; `styled` fills (kept as a fill style by the caller) are not reported as simplified. */
+function fillColor(fill: Fill | null | undefined, ctx: PptxMapContext, styled = false) {
   if (!fill) return "";
   if (fill.type === "color") return pptxColor(fill.value) ?? "";
-  ctx.warn("fillSimplified");
+  if (!styled) ctx.warn("fillSimplified");
   if (fill.type === "gradient") return pptxColor(fill.value.colors[0]?.color) ?? "";
   if (fill.type === "pattern") return pptxColor(fill.value.foregroundColor) ?? "";
   return "";
 }
 
-const sameStyle = (a: TextRun, b: TextRun) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.color === b.color && a.href === b.href;
+const sameStyle = (a: TextRun, b: TextRun) => a.bold === b.bold && a.italic === b.italic && a.underline === b.underline && a.color === b.color && a.href === b.href
+  && a.strike === b.strike && a.baseline === b.baseline && a.spacing === b.spacing;
+const round2 = (value: number) => Math.round(value * 100) / 100;
 
 /** One text box per shape: paragraphs become lines, bullets stay separate lines, nesting is indented. */
 export function pptxTextContent(html: string, ctx: PptxMapContext, options: { fontScale?: number; inset?: number } = {}): TextContent | null {
@@ -72,7 +76,9 @@ export function pptxTextContent(html: string, ctx: PptxMapContext, options: { fo
       const text = runIndex === paragraph.runs.length - 1 ? run.text.replace(/\s+$/, "") : run.text;
       if (!text) return;
       const href = run.href && /^(https?:\/\/|mailto:)/i.test(run.href) ? run.href.slice(0, 2000) : undefined;
-      push({ text, ...(run.bold ? { bold: true } : {}), ...(run.italic ? { italic: true } : {}), ...(run.underline ? { underline: true } : {}), ...(run.color && run.color !== color ? { color: run.color } : {}), ...(href ? { href } : {}) });
+      const spacing = run.letterSpacingPt ? round2(Math.max(-100, Math.min(1584, run.letterSpacingPt * ctx.factor))) : 0;
+      push({ text, ...(run.bold ? { bold: true } : {}), ...(run.italic ? { italic: true } : {}), ...(run.underline ? { underline: true } : {}), ...(run.color && run.color !== color ? { color: run.color } : {}), ...(href ? { href } : {}),
+        ...(run.strike ? { strike: "single" as const } : {}), ...(run.script ? { baseline: run.script === "super" ? 30 : -25 } : {}), ...(spacing ? { spacing } : {}) });
     });
   });
   let text = runs.map((run) => run.text).join("");
@@ -86,14 +92,30 @@ export function pptxTextContent(html: string, ctx: PptxMapContext, options: { fo
   const sizes = new Set(paragraphs.flatMap((paragraph) => paragraph.runs).filter((run) => run.text.trim()).map((run) => run.sizePt ?? 0));
   if (sizes.size > 1) ctx.warn("fontSizes");
   const fontSize = Math.round(Math.max(8, Math.min(400, (first.sizePt ?? 18) * (options.fontScale ?? 1) * ctx.factor)));
-  return { text, runs, fontSize, bold: false, color, align: paragraphs[0].align, font: fonts.find(([pattern]) => pattern.test(first.family ?? ""))?.[1] ?? "sans",
+  const formats = paragraphFormats(paragraphs, ctx.factor, text.split("\n").length);
+  return { text, runs, fontSize, ...(formats ? { paragraphs: formats } : {}), bold: false, color, align: paragraphs[0].align, font: fonts.find(([pattern]) => pattern.test(first.family ?? ""))?.[1] ?? "sans",
     ...(plainList ? { list: plainList } : {}), ...(options.inset ? { padding: Math.min(100, Math.round(options.inset * ctx.factor)) } : {}) };
+}
+
+/** Spacing and justification per line, or null when no paragraph has any. */
+function paragraphFormats(paragraphs: PptxHtmlParagraph[], factor: number, lines: number): NonNullable<TextContent["paragraphs"]> | null {
+  const pt = (value: number) => round2(Math.max(0, Math.min(1584, value * factor)));
+  const formats = paragraphs.slice(0, lines).map((paragraph) => {
+    const format: NonNullable<TextContent["paragraphs"]>[number] = {};
+    if (paragraph.justify) format.align = "justify";
+    if (paragraph.lineHeight) format.lineSpacing = "factor" in paragraph.lineHeight ? { rule: "multiple", value: round2(Math.min(1584, paragraph.lineHeight.factor)) } : { rule: "exactly", value: pt(paragraph.lineHeight.points) };
+    if (paragraph.spaceBeforePt) format.spaceBefore = pt(paragraph.spaceBeforePt);
+    if (paragraph.spaceAfterPt) format.spaceAfter = pt(paragraph.spaceAfterPt);
+    return format;
+  });
+  return formats.some((format) => Object.keys(format).length) ? formats.slice(0, 1000) : null;
 }
 
 function addText(ctx: PptxMapContext, parentId: string, box: Box, html: string, element?: Text | Shape, background?: string) {
   const fontScale = element?.autoFit?.type === "text" && element.autoFit.fontScale ? element.autoFit.fontScale / 100 : 1;
   const content = pptxTextContent(html, ctx, { fontScale, inset: element?.textInset ? Math.min(element.textInset.l, element.textInset.t) : 0 });
-  if (content) ctx.add({ id: ctx.id(), parentId, type: "text", ...box, ...(background ? { background } : {}), content });
+  const body = pptxTextBody(element, ctx.factor);
+  if (content) ctx.add({ id: ctx.id(), parentId, type: "text", ...box, ...(background ? { background } : {}), content: { ...content, ...(body ? { body } : {}) } });
 }
 
 function addTable(table: Table, ctx: PptxMapContext, parentId: string, box: Box) {
@@ -171,7 +193,9 @@ function transformGroupMembers(members: PresentationElement[], group: Box, flip:
     if (flip.flipH && !flip.flipV && member.type === "shape" && linear) {
       // A horizontally mirrored stroke points the other way: its ends swap.
       const c = member.content, start = c.startHead ?? (c.shape === "doubleArrow" ? "triangle" : "none"), end = c.endHead ?? (c.shape === "line" ? "none" : "triangle");
-      member.content = { ...c, startHead: end, endHead: start, shape: start !== "none" && end !== "none" ? "doubleArrow" : start !== "none" ? "arrow" : "line" };
+      member.content = { ...c, startHead: end, endHead: start, startSize: c.endSize, endSize: c.startSize, shape: start !== "none" && end !== "none" ? "doubleArrow" : start !== "none" ? "arrow" : "line" };
+      if (!member.content.startSize) delete member.content.startSize;
+      if (!member.content.endSize) delete member.content.endSize;
     }
     if ((flip.flipH || flip.flipV) && member.type === "image") ctx.warn("transform");
     member.x = centreX + x * cos - y * sin - member.width / 2;
@@ -197,8 +221,7 @@ export function addPptxElement(element: PptxElement, ctx: PptxMapContext, parent
       const adjustments = preset && element.keypoints ? Object.fromEntries(Object.entries(element.keypoints).map(([name, value]) => [name, Math.round(value * 50000)])) : undefined;
       if (!known && !preset) ctx.warn("customShape");
       const stroke = element.borderWidth > 0 ? pptxColor(element.borderColor) ?? "" : "";
-      const head = (end?: { type: string }) => end && end.type !== "none" ? (end.type === "arrow" ? "open" as const : "triangle" as const) : undefined;
-      const startHead = head(element.headEnd), endHead = head(element.tailEnd);
+      const startHead = pptxHead(element.headEnd), endHead = pptxHead(element.tailEnd);
       let shapeBox = box;
       if (known === "line") {
         // A connector runs corner to corner of its box (mirrored by flips); the canvas draws a
@@ -209,8 +232,9 @@ export function addPptxElement(element: PptxElement, ctx: PptxMapContext, parent
         shapeBox = { x: box.x + width / 2 - length / 2, y: box.y + height / 2 - 10, width: length, height: 20, rotation: normalizeDegrees((rotate || 0) + angle) };
         known = startHead && endHead ? "doubleArrow" : endHead ? "arrow" : "line";
       }
-      ctx.add({ id: ctx.id(), parentId, type: "shape", ...shapeBox, content: { shape: known ?? "rect", ...(preset ? { preset, ...(adjustments && Object.keys(adjustments).length ? { adjustments } : {}) } : {}), ...(route ? { route } : {}), fill: isLinear(known) ? "" : fillColor(element.fill, ctx), stroke, strokeWidth: Math.min(200, element.borderWidth * ctx.factor), opacity: 1,
-        ...(element.borderType !== "solid" ? { dash: element.borderType === "dotted" ? "dot" : "dash" } : {}), ...(startHead ? { startHead } : {}), ...(endHead ? { endHead } : {}) } });
+      const format = pptxShapeFormat(element, ctx, isLinear(known));
+      ctx.add({ id: ctx.id(), parentId, type: "shape", ...shapeBox, content: { shape: known ?? "rect", ...(preset ? { preset, ...(adjustments && Object.keys(adjustments).length ? { adjustments } : {}) } : {}), ...(route ? { route } : {}), fill: isLinear(known) ? "" : fillColor(element.fill, ctx, Boolean(format.fillStyle)), stroke, strokeWidth: Math.min(200, element.borderWidth * ctx.factor), opacity: 1,
+        ...(element.borderType !== "solid" ? { dash: element.borderType === "dotted" ? "dot" : "dash" } : {}), ...(startHead ? { startHead } : {}), ...(endHead ? { endHead } : {}), ...format } });
       if (element.content) addText(ctx, parentId, { ...box }, element.content, element);
       return;
     }

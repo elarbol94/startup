@@ -412,6 +412,32 @@ no database migration is needed. The shared SVG renderer serves editing, playbac
 PDF print, and offline HTML. New focused coverage lives in `e2e/presentation-interactions.spec.ts`
 and the presentation interaction, rendering, and collaboration bridge unit tests.
 
+## Format pane, text formatting, grid and guides
+
+Evidence and approximations: `plans/presentation-powerpoint-formatting.md`.
+
+- **Format ribbon.** While shapes or text are selected, a ribbon row below the toolbar holds:
+  - shape tools: Quick Styles (all 77 of PowerPoint's shape styles), Shape Fill, Shape Outline, Change Shape, Edit Points and Merge Shapes (Union, Combine, Fragment, Intersect, Subtract);
+  - text tools: WordArt (the 20 styles), bullets and numbering (PowerPoint's galleries), list level, line spacing, Align Text, text direction, columns, strikethrough, superscript/subscript, character spacing, highlight and font colour.
+
+  While a text is being edited these tools act on the selected paragraphs and characters; otherwise they act on all of its text.
+- **Format Shape pane.** Open it with the ribbon's "Formatbereich" button, "Form formatieren" in the context menu, or the command search. It sits in the properties panel and follows PowerPoint's pane:
+  - **Fill & Line:** no, solid, gradient (stops, angle, linear/radial), picture (uploaded to this deck, stretched or tiled) and the 48 pattern fills; line colour, transparency, width, compound type, dash type, cap, join and arrowheads.
+  - **Effects:** shadow (outer, inner and perspective presets), reflection, glow, soft edges, 3-D bevel and 3-D rotation.
+  - **Text Options:** Text Fill & Outline and Text Effects (the WordArt layer); the Text Box section (vertical alignment, text direction, autofit, margins, wrap, columns); and the Paragraph and Font dialogs as sections.
+- **Colours.** The colour menu is PowerPoint's: Office theme colours with their tints and shades, Standard Colors, Recent Colors, More Colors… and the Eyedropper. Chromium browsers use the browser's eyedropper; elsewhere the next click on an object takes its colour.
+- **Grid, rulers and guides** (View menu, "Raster und Führungslinien"):
+  - Shift+F9 shows the grid and Alt+F9 the drawing guides; showing guides for the first time adds two through the centre of the frame in view.
+  - The grid and guides are global to the canvas and anchored at its origin; the ruler measures in cm from the centre of the frame in view.
+  - Drag from a ruler to add a guide. Ctrl+drag a guide to copy it, and drag it off the canvas to remove it.
+  - The grid dialog sets snapping and spacing (default 1 cm) and turns smart guides on or off. Hold Alt while dragging to ignore every snap.
+- **Shape tools:**
+  - **Lock Drawing Mode:** right-click a gallery shape; the tool stays armed until Escape.
+  - **Set as Default Shape / Line / Text Box:** in the context menu; new objects of that kind start with that format, stored with the presentation.
+  - **Edit Points:** turns the shape into a freeform with editable vertices and handles.
+  - **Merge Shapes:** keeps the first selected shape's format.
+- **Files and export.** Picture fills are files of the deck: they are checked on save, copied with the deck and exported to `.pptx`. The `.pptx` export writes the fills, lines, effects, text body, paragraphs and run formats as DrawingML; the import reads back what `pptxtojson` exposes.
+
 ## Placement, spacing, navigation, and text sizing
 
 Insertion tools prepare a translucent preview under the cursor. Click the canvas to place

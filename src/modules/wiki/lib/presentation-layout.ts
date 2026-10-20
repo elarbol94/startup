@@ -93,7 +93,8 @@ export function maintainPresentationLayout(elements: PresentationElement[]): Pre
 
 /** Grow on content/format edits, retaining manual sizes and the rotated top-left anchor. */
 export function growPresentationText(element: PresentationTextElement): PresentationTextElement {
-  if (element.content.autoFit) return element;
+  // "Do not Autofit" keeps the box as drawn; "Shrink text on overflow" fits the font instead.
+  if (element.content.autoFit || element.content.body?.autofit === "none") return element;
   const width = element.width;
   let low = Math.ceil(element.height), high = 20_000;
   while (low < high) {
