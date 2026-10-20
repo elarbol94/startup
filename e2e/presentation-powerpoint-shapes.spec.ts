@@ -77,5 +77,5 @@ test("line ends glue to connection sites, follow their shapes, route as elbows a
   const box = (await canvas(page).boundingBox())!;
   await drag(page, centre((await start.boundingBox())!), { x: box.x + 60, y: box.y + box.height - 120 });
   await save(page);
-  await expect.poll(async () => find((await deck(page, id)).elements, "line").content.connection).toMatchObject({ fromId: undefined, toId: "b" });
+  await expect.poll(async () => { const connection = find((await deck(page, id)).elements, "line").content.connection; return [connection?.fromId ?? null, connection?.toId]; }).toEqual([null, "b"]);
 });
