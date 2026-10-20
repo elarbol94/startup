@@ -7,6 +7,7 @@ import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
 import { PresentationActionMenu, PresentationShortcutHelp } from "./presentation-action-menu";
+import { downloadPresentationPptx } from "./presentation-pptx-download";
 import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection, reorderSelection } from "../lib/presentation-interactions";
 import { PresentationShape } from "./presentation-shape";
 import { presentationIconNames, type PresentationShapeKind } from "../lib/presentation";
@@ -678,6 +679,7 @@ function Editor({
           <Button size="sm" variant="ghost" aria-label={t("workspace.share")} onClick={() => setWorkspaceDialog("sharing")}><Share2 className="size-4" /><span className="hidden sm:inline">{t("workspace.share")}</span></Button>
           <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.actions")} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem disabled={!steps.length || restoring !== null || uploading} onClick={() => flushThen(printHref, true)}><FileDown />{t("presentations.exportPdf")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={restoring !== null || uploading} onClick={() => void downloadPresentationPptx(presentation.id, flush, { saveFailed: t("presentations.leaveSaveFailed"), failed: t("presentations.exportPptxFailed"), placeholders: t("presentations.exportPptxPlaceholders") })}><FileDown />{t("presentations.exportPptx")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => executeCommand("history")}><History />{t("presentations.history")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setWorkspaceDialog("playback")}><Settings />{t("presentations.playbackSettings")}</DropdownMenuItem>
             <DropdownMenuSeparator />
