@@ -230,3 +230,17 @@ describe("PowerPoint round trip", () => {
     expect(line).toMatchObject({ x: 100, rotation: 0, content: { shape: "line", startHead: "triangle", endHead: "none" } });
   });
 });
+
+describe("PowerPoint presets round trip", () => {
+  it("brings a preset back as itself with its adjustments, and writes freeforms as custom geometry", async () => {
+    const star = { id: "star", type: "shape", parentId: "f", x: 100, y: 100, width: 200, height: 200, rotation: 0, content: { shape: "rect", preset: "star5", adjustments: { adj: 30000, hf: 105146, vf: 110557 }, fill: "#156082", stroke: "#042433", strokeWidth: 1.5, opacity: 1 } } as PresentationElement;
+    const scribble = { id: "scribble", type: "shape", parentId: "f", x: 400, y: 100, width: 100, height: 50, rotation: 0, content: { shape: "rect", fill: "", stroke: "#156082", strokeWidth: 1.5, opacity: 1, freeform: { d: "M0 0 C10 40 60 40 100 50", w: 100, h: 50, closed: false } } } as PresentationElement;
+    const snapshot: PresentationSnapshot = { title: "Presets", background: "", settings: defaultPresentationSettings, steps: [{ id: "s", elementId: "f" }], elements: [frame("f", 0, "Presets"), star, scribble] };
+    const bytes = exportPresentationPptx(snapshot, {}, { now: new Date("2026-10-20T10:00:00Z") }).bytes;
+    const slide = strFromU8(unzipSync(bytes)["ppt/slides/slide1.xml"]);
+    expect(slide).toContain('<a:prstGeom prst="star5"><a:avLst><a:gd name="adj" fmla="val 30000"/>');
+    expect(slide).toMatch(/<a:custGeom>.*<a:cubicBezTo>.*<\/a:custGeom><a:noFill\/>/);
+    const { snapshot: back } = await importPresentationPptx(bytes, "Presets");
+    expect(back.elements.find((element) => element.type === "shape" && element.content.preset === "star5")).toMatchObject({ content: { adjustments: { adj: 30000 } } });
+  });
+});

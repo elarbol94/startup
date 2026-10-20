@@ -23,7 +23,7 @@ export function usePresentationShapeEdits(dispatch: (action: PresentationCanvasA
       return current.map(e => e.id === id && e.type === "shape" && !isPresentationElementLocked(current, e.id) ? setLineRoute(e, route, byId) : e);
     } });
   }, [dispatch]);
-  const onAdjust = useCallback((id: string, patch: { adjust?: number; cornerRadius?: number }) => {
+  const onAdjust = useCallback((id: string, patch: { adjust?: number; cornerRadius?: number; adjustments?: Record<string, number> }) => {
     dispatch({ type: "edit", at: Date.now(), elements: current => current.map(e => e.id === id && e.type === "shape" && !isPresentationElementLocked(current, e.id) ? { ...e, content: { ...e.content, ...patch } } : e) });
   }, [dispatch]);
   return { onLineEndDrop, onRouteChange, onAdjust };

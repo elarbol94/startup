@@ -28,10 +28,11 @@ keyboard shortcuts. Follows `presentation-powerpoint-canvas.md`.
   **Text box:** no fill, no outline, black Aptos 18 pt, top-left, grows with its text.
 - **Arrow keys:** move 0.72 pt (0.01 in) without snap to grid. With snap to grid,
   Arrow moves a grid step and Ctrl+Arrow 0.5 pt.
-- **Shift+Arrow:** resizes by 12 pt around the centre (6 pt per side).
-  **Ctrl+Shift+Arrow:** by 1.32 pt. **Alt+Left/Right:** rotate by 15°.
+- **Shift+Arrow:** resizes by 10 % of that side around the centre (Right/Up grow,
+  Left/Down shrink: 120 → 132 wide, 80 → 88 tall). **Ctrl+Shift+Arrow:** by 1 %
+  (132 → 133.32). **Alt+Left/Right:** rotate by 15°.
 - **Ctrl+B / I / U / L / E / R** on a selected shape format all of its text.
-  **Ctrl+Shift+> / <** steps the font size (18 → 20).
+  **Ctrl+Shift+> / <** steps the font size along PowerPoint's list (18 → 20, 18 → 16).
 - **Tab:** next object. **F2:** toggles text editing (enters with all text selected).
   **Enter:** edits text with all text selected. **Escape:** text → object → nothing.
 - **Typing on a selected shape appends to its text** (caret at the end), not replace.

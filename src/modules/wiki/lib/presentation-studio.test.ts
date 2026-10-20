@@ -56,7 +56,7 @@ describe("nested presentation objects", () => {
   });
   it("duplicates a subtree with independent IDs and parents", () => {
     const result = duplicatePresentationTree([frame, text], new Set(["frame"]), new Map([["frame", "copy-frame"], ["text", "copy-text"]]));
-    expect(result[3]).toMatchObject({ id: "copy-text", parentId: "copy-frame", x: 74 });
+    expect(result[3]).toMatchObject({ id: "copy-text", parentId: "copy-frame", x: 62 });
     expect(presentationElementsSchema.safeParse(result).success).toBe(true);
   });
   it("rejects cycles, missing parents, duplicate IDs and unsafe rich-text links", () => {

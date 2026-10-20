@@ -1,6 +1,8 @@
 // Maps pptxtojson slide output (points, resolved through layout/master) onto presentation
 // elements inside one slide frame. Geometry and font sizes share one scale factor, so a
 // slide keeps its proportions; everything the model cannot express is reported per slide.
+import { presetShapeNameList } from "./preset-shapes/preset-shape-names";
+type PresetShapeName = (typeof presetShapeNameList)[number];
 import type { Chart, CommonChart, Element as PptxElement, Fill, Shape, Table, Text } from "pptxtojson";
 import type { PresentationElement, PresentationShapeKind, PresentationTextElement } from "./presentation";
 import { pptxImageMime, type PptxFiles, type PptxImportMedia, type PptxImportWarning } from "./presentation-pptx-archive";
@@ -187,7 +189,13 @@ export function addPptxElement(element: PptxElement, ctx: PptxMapContext, parent
       addText(ctx, parentId, box, element.content, element, fillColor(element.fill, ctx) || undefined); return;
     case "shape": {
       let known = shapeKinds[element.shapType];
-      if (!known) ctx.warn("customShape");
+      // Elbow and curved connectors keep their route; any other PowerPoint preset is kept as
+      // that very preset, with its adjustment values (pptxtojson reports them divided by 50 000).
+      const route = /^bentConnector/.test(element.shapType) ? "elbow" as const : /^curvedConnector/.test(element.shapType) ? "curve" as const : undefined;
+      if (route) known = "line";
+      const preset = !isLinear(known) && (presetShapeNameList as readonly string[]).includes(element.shapType) ? element.shapType as PresetShapeName : undefined;
+      const adjustments = preset && element.keypoints ? Object.fromEntries(Object.entries(element.keypoints).map(([name, value]) => [name, Math.round(value * 50000)])) : undefined;
+      if (!known && !preset) ctx.warn("customShape");
       const stroke = element.borderWidth > 0 ? pptxColor(element.borderColor) ?? "" : "";
       const head = (end?: { type: string }) => end && end.type !== "none" ? (end.type === "arrow" ? "open" as const : "triangle" as const) : undefined;
       const startHead = head(element.headEnd), endHead = head(element.tailEnd);
@@ -201,7 +209,7 @@ export function addPptxElement(element: PptxElement, ctx: PptxMapContext, parent
         shapeBox = { x: box.x + width / 2 - length / 2, y: box.y + height / 2 - 10, width: length, height: 20, rotation: normalizeDegrees((rotate || 0) + angle) };
         known = startHead && endHead ? "doubleArrow" : endHead ? "arrow" : "line";
       }
-      ctx.add({ id: ctx.id(), parentId, type: "shape", ...shapeBox, content: { shape: known ?? "rect", fill: isLinear(known) ? "" : fillColor(element.fill, ctx), stroke, strokeWidth: Math.min(200, element.borderWidth * ctx.factor), opacity: 1,
+      ctx.add({ id: ctx.id(), parentId, type: "shape", ...shapeBox, content: { shape: known ?? "rect", ...(preset ? { preset, ...(adjustments && Object.keys(adjustments).length ? { adjustments } : {}) } : {}), ...(route ? { route } : {}), fill: isLinear(known) ? "" : fillColor(element.fill, ctx), stroke, strokeWidth: Math.min(200, element.borderWidth * ctx.factor), opacity: 1,
         ...(element.borderType !== "solid" ? { dash: element.borderType === "dotted" ? "dot" : "dash" } : {}), ...(startHead ? { startHead } : {}), ...(endHead ? { endHead } : {}) } });
       if (element.content) addText(ctx, parentId, { ...box }, element.content, element);
       return;

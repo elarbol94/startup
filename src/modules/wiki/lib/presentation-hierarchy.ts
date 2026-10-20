@@ -21,7 +21,8 @@ export function reorderElement(
 }
 
 /** Offset so the copy is visibly its own element rather than hiding under the original. */
-export const PRESENTATION_DUPLICATE_OFFSET = 24;
+/** Where Ctrl+D puts a copy: 12 pt right and down, as in PowerPoint. */
+export const PRESENTATION_DUPLICATE_OFFSET = 12;
 
 export function duplicateElement(
   elements: PresentationElement[],

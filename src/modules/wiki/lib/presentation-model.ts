@@ -1,6 +1,7 @@
 // Zod schemas, types and defaults for presentation elements, steps, playback settings and
 // the stored canvas envelope. Re-exported by presentation.ts.
 import { z } from "zod";
+import { presetShapeNameList } from "./preset-shapes/preset-shape-names";
 import { isSourcePassageHref } from "./source-passage";
 
 export const presentationFrameShapes = ["rect", "circle", "none"] as const;
@@ -26,8 +27,8 @@ const geometrySchema = {
   source: z.object({ pageId: z.string().min(1).max(64), sectionId: z.string().max(200), reviewedFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(), syncHeading: z.boolean().optional(), syncSubsections: z.boolean().optional(), knownSectionIds: z.array(z.string().min(1).max(200)).max(5000).optional(), approvedStructure: z.object({ level: z.number().int().min(1).max(6), parentSectionId: z.string().min(1).max(200).nullable() }).optional() }).nullable().optional(),
 };
 
-export const presentationFonts = ["sans", "serif", "mono", "arial", "georgia"] as const;
-export const presentationFontFamilies = { sans: "system-ui, sans-serif", serif: "Georgia, serif", mono: "ui-monospace, monospace", arial: "Arial, sans-serif", georgia: "Georgia, serif" };
+export const presentationFonts = ["sans", "serif", "mono", "arial", "georgia", "aptos"] as const;
+export const presentationFontFamilies = { sans: "system-ui, sans-serif", serif: "Georgia, serif", mono: "ui-monospace, monospace", arial: "Arial, sans-serif", georgia: "Georgia, serif", aptos: "Aptos, 'Segoe UI', system-ui, sans-serif" };
 export const presentationLinkSchema = z.string().max(2000).refine((value) => !value || isSourcePassageHref(value) || /^(https?:\/\/|mailto:)/i.test(value), "Use an http, https or mailto link");
 export const presentationTextRunSchema = z.object({
   text: z.string().max(5000), bold: z.boolean().optional(), italic: z.boolean().optional(),
@@ -91,6 +92,8 @@ const iconElementSchema = z.object({ ...geometrySchema, type: z.literal("icon"),
 
 const pointSchema = z.object({ x: z.number().finite().min(-1_000_000).max(1_000_000), y: z.number().finite().min(-1_000_000).max(1_000_000) });
 const connectionSiteNames = ["top", "right", "bottom", "left"] as const;
+/** A side of the box, or the index of one of a preset shape's own connection sites. */
+const connectionSiteSchema = z.union([z.enum(connectionSiteNames), z.number().int().min(0).max(64)]);
 
 /** Empty `fill`/`stroke` mean "no fill" and "follow the theme", so shapes read on both. */
 const shapeElementSchema = z.object({
@@ -110,12 +113,21 @@ const shapeElementSchema = z.object({
     /** 0..1 setting of the yellow adjustment handle (slant, notch, inner radius...); see presentation-shape-geometry. */
     adjust: z.number().finite().min(0).max(1).optional(),
     /**
+     * A PowerPoint (DrawingML) preset this shape draws instead of `shape`, with its
+     * adjustment values in DrawingML units; see lib/preset-shapes. `shape` stays a legacy
+     * kind for older readers.
+     */
+    preset: z.enum(presetShapeNameList).optional(),
+    adjustments: z.record(z.string().max(16), z.number().finite().min(-100_000_000).max(100_000_000)).optional(),
+    /** A freeform, curve or scribble: its path drawn in a `w` × `h` box, scaled to the shape. */
+    freeform: z.object({ d: z.string().max(60_000), w: z.number().positive().max(20_000), h: z.number().positive().max(20_000), closed: z.boolean() }).optional(),
+    /**
      * A connector: each end is glued to an element (at a connection site, or where the line
      * meets its outline) or free at a canvas point. At least one end is glued.
      */
     connection: z.object({
       fromId: z.string().min(1).max(64).optional(), toId: z.string().min(1).max(64).optional(),
-      fromSite: z.enum(connectionSiteNames).optional(), toSite: z.enum(connectionSiteNames).optional(),
+      fromSite: connectionSiteSchema.optional(), toSite: connectionSiteSchema.optional(),
       from: pointSchema.optional(), to: pointSchema.optional(),
     }).refine((connection) => Boolean(connection.fromId || connection.toId)).optional(),
     /** How a line runs between its ends. Elbow and curved lines keep their computed path in `points`. */

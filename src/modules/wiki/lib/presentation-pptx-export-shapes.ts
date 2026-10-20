@@ -22,7 +22,7 @@ export type SlideContext = {
 type Box = { x: number; y: number; width: number; height: number; rotation: number };
 
 const DEFAULT_TEXT = "172033";
-const fonts = { sans: "Calibri", serif: "Times New Roman", mono: "Courier New", arial: "Arial", georgia: "Georgia" } as const;
+const fonts = { sans: "Calibri", serif: "Times New Roman", mono: "Courier New", arial: "Arial", georgia: "Georgia", aptos: "Aptos" } as const;
 
 /** `#rgb`, `#rrggbb` or `#rrggbbaa` to `RRGGBB` plus alpha; anything else (themes, CSS variables) is null. */
 export function hexColor(value: string | undefined): { hex: string; alpha: number } | null {
@@ -107,9 +107,29 @@ function shapeXml(element: PresentationShapeElement, ctx: SlideContext) {
     return `<p:cxnSp>${nv("CxnSp", ctx, "Connector")}<p:spPr>${xfrm(box, ctx)}${geometry("line")}${lineXml(c, ctx, { start, end })}</p:spPr></p:cxnSp>`;
   }
   const radius = c.shape === "roundedRect" ? Math.min(50000, (Math.min(c.cornerRadius ?? 20, element.width / 2, element.height / 2) / Math.min(element.width, element.height)) * 100000) : undefined;
-  const fill = c.fill ? solidFill(c.fill, c.opacity) : solidFill(element.background, c.opacity);
+  const fill = c.freeform && !c.freeform.closed ? "<a:noFill/>" : c.fill ? solidFill(c.fill, c.opacity) : solidFill(element.background, c.opacity);
   const text = c.text ? textBodyXml(shapeTextContent(c), ctx, { anchor: "ctr", inset: SHAPE_TEXT_PADDING }) : "";
-  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${geometry(presets[c.shape] ?? "rect", radius)}${fill}${lineXml(c, ctx)}</p:spPr>${text}</p:sp>`;
+  // A PowerPoint preset goes back as itself, with its adjustment values: a lossless round trip.
+  const shapeGeometry = c.freeform ? freeformGeometry(c.freeform, element, ctx)
+    : c.preset ? `<a:prstGeom prst="${c.preset}">${c.adjustments && Object.keys(c.adjustments).length ? `<a:avLst>${Object.entries(c.adjustments).map(([name, value]) => `<a:gd name="${xmlEscape(name)}" fmla="val ${Math.round(value)}"/>`).join("")}</a:avLst>` : "<a:avLst/>"}</a:prstGeom>`
+    : geometry(presets[c.shape] ?? "rect", radius);
+  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${shapeGeometry}${fill}${lineXml(c, ctx)}</p:spPr>${text}</p:sp>`;
+}
+
+/** A freeform, curve or scribble as custom geometry: its path in its own w × h space. */
+function freeformGeometry(freeform: NonNullable<PresentationShapeElement["content"]["freeform"]>, element: PresentationShapeElement, ctx: SlideContext) {
+  const tokens = freeform.d.match(/[MLCZ]|-?\d*\.?\d+(?:e-?\d+)?/gi) ?? [];
+  const sx = element.width / freeform.w, sy = element.height / freeform.h;
+  const pt = (x: string, y: string) => `<a:pt x="${emu(Number(x) * sx, ctx)}" y="${emu(Number(y) * sy, ctx)}"/>`;
+  let xml = "";
+  for (let i = 0; i < tokens.length;) {
+    const command = tokens[i++];
+    if (command === "M") { xml += `<a:moveTo>${pt(tokens[i], tokens[i + 1])}</a:moveTo>`; i += 2; }
+    else if (command === "L") { xml += `<a:lnTo>${pt(tokens[i], tokens[i + 1])}</a:lnTo>`; i += 2; }
+    else if (command === "C") { xml += `<a:cubicBezTo>${pt(tokens[i], tokens[i + 1])}${pt(tokens[i + 2], tokens[i + 3])}${pt(tokens[i + 4], tokens[i + 5])}</a:cubicBezTo>`; i += 6; }
+    else if (command === "Z") xml += "<a:close/>";
+  }
+  return `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${Math.max(1, emu(element.width, ctx))}" h="${Math.max(1, emu(element.height, ctx))}">${xml}</a:path></a:pathLst></a:custGeom>`;
 }
 
 /** An elbow or curved connector: its path as custom geometry inside its box, with the same line ends. */

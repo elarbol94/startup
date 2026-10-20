@@ -1,7 +1,7 @@
 import { PresentationShape } from "./presentation-shape";
 import type { CSSProperties, SVGProps, ReactElement } from "react";
 import { presentationFontFamilies, presentationIconNames, type PresentationElement } from "../lib/presentation";
-import { shapeTextContent } from "../lib/presentation-text-host";
+import { SHAPE_TEXT_INSET, shapeTextBox, shapeTextContent } from "../lib/presentation-text-host";
 
 // Pure vectors, with no client-component or hook dependency: authored icons must
 // also render in downloadable HTML outside Next.js's client-component protocol.
@@ -114,8 +114,8 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
   // Text in a shape is centred vertically over the drawing, like PowerPoint's default anchor.
   return <div style={{ position: "relative", width: "100%", height: "100%" }}>
     <PresentationShape element={element} />
-    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
-      <PresentationTextBody content={shapeTextContent(element.content)} interactive={interactive} style={{ height: "auto", maxHeight: "100%" }} />
+    <div style={{ position: "absolute", ...shapeTextBox(element), display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <PresentationTextBody content={shapeTextContent(element.content)} interactive={interactive} style={{ height: "auto", maxHeight: "100%", padding: element.content.preset ? `${SHAPE_TEXT_INSET.y}px ${SHAPE_TEXT_INSET.x}px` : undefined }} />
     </div>
   </div>;
 }

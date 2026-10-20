@@ -35,7 +35,7 @@ export function usePresentationTextEditing() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = useRef<string | null>(null);
   /** Keys typed after entering edit mode and before the inline editor reported ready. */
-  const pending = useRef<{ id: string; keys: string[]; timer: ReturnType<typeof setTimeout>; caret?: { x: number; y: number } } | null>(null);
+  const pending = useRef<{ id: string; keys: string[]; timer: ReturnType<typeof setTimeout>; caret?: { x: number; y: number } | "end" } | null>(null);
   const clearPending = useCallback(() => {
     if (pending.current) clearTimeout(pending.current.timer);
     pending.current = null;
@@ -46,14 +46,14 @@ export function usePresentationTextEditing() {
 
   /**
    * Enters edit mode within the current event, so the editor mounts and focuses before the next
-   * key. With `caret` (a screen point) the caret goes there; otherwise all text is selected.
+   * key. With `caret` (a screen point, or "end") the caret goes there; otherwise all text is selected.
    */
-  const startEditing = useCallback((id: string, caret?: { x: number; y: number }) => {
+  const startEditing = useCallback((id: string, caret?: { x: number; y: number } | "end") => {
     if (editing.current === id) return;
     clearPending();
     editing.current = id;
     pending.current = { id, keys: [], timer: setTimeout(clearPending, READY_TIMEOUT), caret };
-    clickEntry.current = caret ? { id, at: Date.now() } : null;
+    clickEntry.current = caret && caret !== "end" ? { id, at: Date.now() } : null;
     flushSync(() => setEditingId(id));
   }, [clearPending]);
 
@@ -80,7 +80,7 @@ export function usePresentationTextEditing() {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (editor.isDestroyed) return;
       if (clickEntry.current?.id === id && clickEntry.current.selectAll) { editor.commands.selectAll(); replayKeys(editor, buffer.keys); return; }
-      const position = editor.view.posAtCoords({ left: caret.x, top: caret.y });
+      const position = caret === "end" ? null : editor.view.posAtCoords({ left: caret.x, top: caret.y });
       editor.commands.setTextSelection(position?.pos ?? editor.state.doc.content.size);
       replayKeys(editor, buffer.keys);
     }));

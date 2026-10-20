@@ -97,13 +97,13 @@ describe("presentation select changes", () => {
 
 describe("presentation paste placement", () => {
   const copied = [text("a", 100, 100)];
-  it("pastes at the target, and moves on 24/24 for each repeat of the same copy", () => {
+  it("pastes at the target, and moves on 12/12 (PowerPoint) for each repeat of the same copy", () => {
     const first = planPaste(copied, { source: "copy-1", target: "centre", point: { x: 500, y: 400 } }, null);
     expect(first.center).toEqual({ x: 500, y: 400 });
     const second = planPaste(copied, { source: "copy-1", target: "centre", point: { x: 500, y: 400 } }, first);
     const third = planPaste(copied, { source: "copy-1", target: "centre", point: { x: 500, y: 400 } }, second);
-    expect(second.center).toEqual({ x: 524, y: 424 });
-    expect(third.center).toEqual({ x: 548, y: 448 });
+    expect(second.center).toEqual({ x: 512, y: 412 });
+    expect(third.center).toEqual({ x: 524, y: 424 });
   });
   it("starts over for a new copy or a new target", () => {
     const first = planPaste(copied, { source: "copy-1", target: "centre", point: { x: 500, y: 400 } }, null);
@@ -111,6 +111,6 @@ describe("presentation paste placement", () => {
     expect(planPaste(copied, { source: "copy-1", target: "10,10", point: { x: 10, y: 10 } }, first).center).toEqual({ x: 10, y: 10 });
   });
   it("never lands exactly on the copied original", () => {
-    expect(planPaste(copied, { source: "copy-1", target: "10,10", point: { x: 150, y: 120 } }, null).center).toEqual({ x: 174, y: 144 });
+    expect(planPaste(copied, { source: "copy-1", target: "10,10", point: { x: 150, y: 120 } }, null).center).toEqual({ x: 162, y: 132 });
   });
 });

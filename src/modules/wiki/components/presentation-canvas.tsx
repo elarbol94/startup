@@ -11,7 +11,7 @@ import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
 import { PresentationContent, presentationTextStyle } from "./presentation-content";
-import { isTextHost, shapeTextContent } from "../lib/presentation-text-host";
+import { SHAPE_TEXT_INSET, isTextHost, shapeTextBox, shapeTextContent } from "../lib/presentation-text-host";
 
 /**
  * The node types are shared by the editor and the player: what a reader sees while
@@ -30,7 +30,7 @@ export type PresentationNodeData = {
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
   /** A line end dropped on an object (glue) or on empty canvas (free end). */
   onLineEndDrop?: (id: string, end: 0 | 1, drop: LineEndDrop) => void;
-  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number }) => void;
+  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number; adjustments?: Record<string, number> }) => void;
   lookupElement?: (id: string) => PresentationElement | undefined;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
@@ -100,10 +100,10 @@ type TextContent = Extract<PresentationElement, { type: "text" }>["content"];
  * The inline rich-text editor of a text box or a shape. Same box and typography as the
  * rendered text, so the text does not move on entering edit mode.
  */
-function TextEditSurface({ element, content, data, setEditing, className }: {
-  element: PresentationElement; content: TextContent; data: PresentationNodeData; setEditing: (editing: boolean) => void; className?: string;
+function TextEditSurface({ element, content, data, setEditing, className, style }: {
+  element: PresentationElement; content: TextContent; data: PresentationNodeData; setEditing: (editing: boolean) => void; className?: string; style?: CSSProperties;
 }) {
-  return <div className={cn("nodrag nopan nowheel cursor-text", className)} style={presentationTextStyle(content)} onBlur={event => {
+  return <div className={cn("nodrag nopan nowheel cursor-text", className)} style={{ ...presentationTextStyle(content), ...style }} onBlur={event => {
     // Decided a frame later: remounting the editor (React's development double mount)
     // drops focus for a moment and gives it back.
     const surface = event.currentTarget;
@@ -236,7 +236,10 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
       // The drawing stays put; the text editor sits over it, centred like the rendered text.
       <div className="relative h-full w-full">
         <div className="pointer-events-none absolute inset-0"><PresentationShape element={element} /></div>
-        <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0 flex flex-col justify-center [&>div]:h-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-0" />
+        <div className="absolute" style={shapeTextBox(element)}>
+          <TextEditSurface element={element} content={element.content.preset ? { ...shapeTextContent(element.content), padding: undefined } : shapeTextContent(element.content)} data={data} setEditing={setEditing}
+            className="absolute inset-0 flex flex-col justify-center [&>div]:h-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-0" style={element.content.preset ? { padding: `${SHAPE_TEXT_INSET.y}px ${SHAPE_TEXT_INSET.x}px` } : undefined} />
+        </div>
       </div>
     ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} /></div>}
     {selected && data.editable && data.resizable !== false && isLinearShape(element) && data.lookupElement && data.onLineEndDrop &&
@@ -282,7 +285,7 @@ export function elementsToNodes(
   onRichTextChange?: (id: string, content: TextContent) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onLineEndDrop?: (id: string, end: 0 | 1, drop: LineEndDrop) => void;
-  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number }) => void;
+  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number; adjustments?: Record<string, number> }) => void;
     /** Ids currently hidden so they can fade in — the player's step-arrival entrance. */
     enteringIds?: Set<string>;
     hiddenIds?: Set<string>;

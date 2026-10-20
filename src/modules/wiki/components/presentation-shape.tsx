@@ -1,6 +1,7 @@
 import type { PresentationElement } from "../lib/presentation";
 import { isLinearShape } from "../lib/presentation-interactions";
 import { shapeOutlinePath } from "../lib/presentation-shape-geometry";
+import { isPresetShape, presetPaths } from "../lib/preset-shapes/preset-geometry";
 
 type Point = { x: number; y: number };
 type Head = "none" | "triangle" | "open";
@@ -15,8 +16,44 @@ function ArrowHead({ tip, from, style, size, stroke, strokeWidth }: { tip: Point
   return style === "open" ? <polyline points={points} fill="none" stroke={stroke} strokeWidth={strokeWidth} /> : <polygon points={points} fill={stroke} />;
 }
 
+/**
+ * DrawingML shades parts of some presets (a can's lid, a cube's sides) relative to the fill;
+ * "darken" and "lighten" are drawn as a translucent black or white layer over the fill.
+ */
+const SHADES: Record<string, { color: string; opacity: number } | undefined> = {
+  darken: { color: "#000", opacity: 0.4 }, darkenLess: { color: "#000", opacity: 0.2 },
+  lighten: { color: "#fff", opacity: 0.4 }, lightenLess: { color: "#fff", opacity: 0.2 },
+};
+
+/** A PowerPoint preset shape or a freeform: its DrawingML paths at the element's size. */
+function PresetDrawing({ element }: { element: Extract<PresentationElement, { type: "shape" }> }) {
+  const c = element.content, w = element.width, h = element.height;
+  const stroke = c.stroke || "currentColor";
+  const dash = c.dash === "dash" ? `${c.strokeWidth * 4} ${c.strokeWidth * 3}` : c.dash === "dot" ? `${c.strokeWidth} ${c.strokeWidth * 2}` : undefined;
+  const line = { stroke: c.strokeWidth ? stroke : "none", strokeWidth: c.strokeWidth, strokeDasharray: dash, strokeLinejoin: "round" as const, vectorEffect: "non-scaling-stroke" as const };
+  if (c.freeform) {
+    const f = c.freeform;
+    return <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" style={{ opacity: c.opacity, overflow: "visible" }} aria-hidden>
+      <path d={f.d} transform={`scale(${w / f.w} ${h / f.h})`} fill={f.closed && c.fill ? c.fill : "none"} strokeLinecap="round" {...line} />
+    </svg>;
+  }
+  const paths = presetPaths(c.preset!, w, h, c.adjustments);
+  return <svg viewBox={`0 0 ${w} ${h}`} width="100%" height="100%" style={{ opacity: c.opacity, overflow: "visible" }} aria-hidden>
+    {paths.map((path, index) => {
+      const shade = SHADES[path.fill];
+      const filled = path.fill !== "none" && Boolean(c.fill);
+      return <g key={index}>
+        {filled && <path d={path.d} fill={c.fill} stroke="none" />}
+        {filled && shade && <path d={path.d} fill={shade.color} fillOpacity={shade.opacity} stroke="none" />}
+        {path.stroke && <path d={path.d} fill="none" {...line} />}
+      </g>;
+    })}
+  </svg>;
+}
+
 /** One drawing implementation for the editor, player, print, and offline HTML. */
 export function PresentationShape({ element }: { element: Extract<PresentationElement, { type: "shape" }> }) {
+  if ((element.content.preset && isPresetShape(element.content.preset)) || element.content.freeform) return <PresetDrawing element={element} />;
   const c = element.content, w = element.width, h = element.height, inset = c.strokeWidth / 2;
   const head = Math.min(c.headSize ?? Math.max(c.strokeWidth * 3, 10), Math.max(w, h) / 2);
   const start: Head = c.startHead ?? (c.shape === "doubleArrow" ? "triangle" : "none");

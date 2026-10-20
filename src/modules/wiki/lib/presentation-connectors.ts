@@ -4,13 +4,27 @@
  * at a point. The route between the ends is straight, elbow (orthogonal) or curved.
  */
 import type { PresentationElement } from "./presentation-model";
+import { presetConnectionSites } from "./preset-shapes/preset-geometry";
 
 type Point = { x: number; y: number };
-export type ConnectionSite = "top" | "right" | "bottom" | "left";
+type Side = "top" | "right" | "bottom" | "left";
+/** A side of the box, or the index of one of a preset shape's own connection sites. */
+export type ConnectionSite = Side | number;
 export type ConnectorRoute = "straight" | "elbow" | "curve";
-export const connectionSites: ConnectionSite[] = ["top", "right", "bottom", "left"];
+const sides: Side[] = ["top", "right", "bottom", "left"];
 
-const SITE_DIRECTION: Record<ConnectionSite, Point> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } };
+/** A preset shape's own connection sites in its unrotated box, as PowerPoint offers them. */
+function presetSites(element: PresentationElement) {
+  return element.type === "shape" && element.content.preset ? presetConnectionSites(element.content.preset, element.width, element.height, element.content.adjustments) : [];
+}
+
+/** The sites a line end can glue to on `element`: a preset's own, or the four sides. */
+export function connectionSites(element: PresentationElement): ConnectionSite[] {
+  const own = presetSites(element);
+  return own.length ? own.map((_, index) => index) : sides;
+}
+
+const SITE_DIRECTION: Record<Side, Point> = { top: { x: 0, y: -1 }, right: { x: 1, y: 0 }, bottom: { x: 0, y: 1 }, left: { x: -1, y: 0 } };
 /** Room around a routed connector's path for its stroke and arrowheads. */
 export const CONNECTOR_PADDING = 24;
 
@@ -22,19 +36,31 @@ const rotate = (point: Point, degrees: number): Point => {
 
 /** A connection site on the element's rotated box, in canvas coordinates. */
 export function sitePoint(element: PresentationElement, site: ConnectionSite): Point {
-  const direction = SITE_DIRECTION[site], c = centre(element);
+  const c = centre(element);
+  if (typeof site === "number") {
+    const own = presetSites(element)[site];
+    if (!own) return c;
+    const local = rotate({ x: own.x - element.width / 2, y: own.y - element.height / 2 }, element.rotation);
+    return { x: c.x + local.x, y: c.y + local.y };
+  }
+  const direction = SITE_DIRECTION[site];
   const local = rotate({ x: direction.x * element.width / 2, y: direction.y * element.height / 2 }, element.rotation);
   return { x: c.x + local.x, y: c.y + local.y };
 }
 
 /** The direction a site faces, rotated with its element. */
 export function siteDirection(element: PresentationElement, site: ConnectionSite): Point {
+  if (typeof site === "number") {
+    // DrawingML gives each site the angle a connector leaves it at.
+    const angle = (presetSites(element)[site]?.angle ?? 0) * Math.PI / 180;
+    return rotate({ x: Math.cos(angle), y: Math.sin(angle) }, element.rotation);
+  }
   return rotate(SITE_DIRECTION[site], element.rotation);
 }
 
 /** The site closest to a canvas point -- where a dropped line end glues. */
 export function nearestSite(element: PresentationElement, point: Point): ConnectionSite {
-  return connectionSites.reduce((best, site) => {
+  return connectionSites(element).reduce((best, site) => {
     const p = sitePoint(element, site), q = sitePoint(element, best);
     return Math.hypot(p.x - point.x, p.y - point.y) < Math.hypot(q.x - point.x, q.y - point.y) ? site : best;
   });

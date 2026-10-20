@@ -1,13 +1,14 @@
 // Keyboard helpers for presentation-editor.tsx: the format copy/paste chord, the
 // single-letter insertion tools and the labels the menus and "Tastenkürzel" list show.
 import type { EditorSearchCommand } from "../editor-command-search";
-import type { PresentationShapeKind } from "../../lib/presentation";
+import { rotateElements, type PresentationElement, type PresentationShapeKind } from "../../lib/presentation";
+import type { TextFormatKey } from "../../lib/presentation-keyboard-edits";
 
 /**
- * Single keys that start placing a new element, like the toolbar buttons do. German
- * mnemonics: T Text, V Viereck (R is taken by Rahmen), E Ellipse, L Linie, R Rahmen.
+ * Single keys that start placing a new element. PowerPoint has none -- typing on a selected
+ * shape types into it -- so, following PowerPoint, there are none here either.
  */
-export const presentationToolKeys: Record<string, string> = { t: "addText", v: "addRect", e: "addEllipse", l: "addLine", r: "addFrame" };
+export const presentationToolKeys: Record<string, string> = {};
 
 /**
  * Ctrl/Cmd+Shift+C and +V copy and paste an object's format, as in PowerPoint; Ctrl/Cmd+Alt+C
@@ -35,7 +36,8 @@ export function presentationShortcutLabels(isMac: boolean, keys: PresentationKey
     copy: `${modifier}+C`, cut: `${modifier}+X`, paste: `${modifier}+V`, duplicateSelection: `${modifier}+D`, selectAll: `${modifier}+A`,
     group: `${modifier}+G`, ungroup: `${modifier}+${shift}+G`, undo: `${modifier}+Z`, redo: `${modifier}+${shift}+Z / ${modifier}+Y`, save: `${modifier}+S`,
     deleteSelection: isMac ? "⌫" : keys.delete, editText: keys.enter,
-    front: `${modifier}+${shift}+] / ${modifier}+${shift}+↑`, back: `${modifier}+${shift}+[ / ${modifier}+${shift}+↓`, forward: `${modifier}+]`, backward: `${modifier}+[`,
+    // Ctrl+]/[ change the font size, as in PowerPoint; layers keep the Shift variants.
+    front: `${modifier}+${shift}+]`, back: `${modifier}+${shift}+[`,
     copyFormat: `${modifier}+${shift}+C / ${modifier}+${alt}+C`, pasteFormat: `${modifier}+${shift}+V / ${modifier}+${alt}+V`,
     ...Object.fromEntries(Object.entries(presentationToolKeys).map(([key, id]) => [id, key.toUpperCase()])),
   };
@@ -56,5 +58,30 @@ export function withToolKey(label: string, id: string, labels: Record<string, st
 
 /** The key shown next to a shape in the "Einfügen" menu. */
 export function shapeToolKey(shape: PresentationShapeKind) {
-  return ({ rect: "V", ellipse: "E", line: "L" } as Partial<Record<PresentationShapeKind, string>>)[shape];
+  const id = ({ rect: "addRect", ellipse: "addEllipse", line: "addLine" } as Partial<Record<PresentationShapeKind, string>>)[shape];
+  const key = Object.entries(presentationToolKeys).find(([, tool]) => tool === id)?.[0];
+  return key?.toUpperCase();
+}
+
+/**
+ * PowerPoint's text keys on a selected box or shape: Ctrl+B/I/U, Ctrl+L/E/R alignment, and
+ * font size with Ctrl+]/[ or Ctrl+Shift+>/<. Matched on the physical key so they also work on
+ * German keyboards, where ">" is Shift on the "<" key next to the left Shift.
+ */
+export function textFormatKey(event: KeyboardEvent): TextFormatKey | undefined {
+  if (!event.shiftKey) {
+    const plain: Record<string, TextFormatKey> = { KeyB: "bold", KeyI: "italic", KeyU: "underline", KeyL: "alignLeft", KeyE: "alignCenter", KeyR: "alignRight", BracketRight: "fontBigger", BracketLeft: "fontSmaller" };
+    return plain[event.code];
+  }
+  if (event.key === ">" || event.code === "Period") return "fontBigger";
+  if (event.key === "<" || event.code === "Comma") return "fontSmaller";
+  return undefined;
+}
+
+/** Alt+Left/Right: each selected object turns around its own centre, as in PowerPoint. */
+export function rotateElementsIndividually(elements: PresentationElement[], ids: string[], degrees: number): PresentationElement[] {
+  return ids.reduce((current, id) => {
+    const element = current.find((candidate) => candidate.id === id);
+    return element ? rotateElements(current, new Set([id]), degrees, { x: element.x + element.width / 2, y: element.y + element.height / 2 }) : current;
+  }, elements);
 }
