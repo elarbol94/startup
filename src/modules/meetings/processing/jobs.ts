@@ -5,6 +5,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
 import { mediaUploadSessions, meetingJobInputs, meetingJobs, meetings } from "../schema";
 import type { MeetingJobStage } from "../constants";
+import type { JobProgress } from "../job-progress";
 
 /**
  * Lease protocol of the meeting work queue:
@@ -62,7 +63,7 @@ export function enqueueJob(tx: Executor, input: {
 const claimStatement = () => sqlite.prepare(`
   UPDATE meeting_jobs
   SET status = 'running', claim_token = @token, lease_until = @leaseUntil,
-      heartbeat_at = @now, attempts = attempts + 1, updated_at = @now
+      heartbeat_at = @now, attempts = attempts + 1, progress = NULL, updated_at = @now
   WHERE id = (
     SELECT id FROM meeting_jobs
     WHERE (status = 'queued' AND next_attempt_at <= @now)
@@ -103,6 +104,11 @@ export function heartbeat(job: MeetingJob, now = Date.now()) {
   return result.changes === 1;
 }
 
+/** Records progress under the job's own lease; a worker that lost it writes nothing. */
+export function setJobProgress(job: MeetingJob, progress: JobProgress, now = Date.now()) {
+  db.update(meetingJobs).set({ progress: JSON.stringify(progress) }).where(holdsLease(db, job, now)).run();
+}
+
 /**
  * Commits a stage: the guarded status change, the policy check and the
  * caller's writes share one transaction, so output from a lost lease or an
@@ -111,7 +117,7 @@ export function heartbeat(job: MeetingJob, now = Date.now()) {
 export function completeJob<T>(job: MeetingJob, write: (tx: Transaction) => T, options: { checkPolicy?: boolean } = {}, now = Date.now()): T {
   return db.transaction((tx) => {
     const done = tx.update(meetingJobs)
-      .set({ status: "done", claimToken: null, leaseUntil: null, lastError: "", updatedAt: new Date(now) })
+      .set({ status: "done", claimToken: null, leaseUntil: null, lastError: "", progress: null, updatedAt: new Date(now) })
       .where(holdsLease(tx, job, now)).run();
     if (done.changes !== 1) throw new LeaseLostError();
     if (options.checkPolicy) {
@@ -122,9 +128,17 @@ export function completeJob<T>(job: MeetingJob, write: (tx: Transaction) => T, o
   });
 }
 
+/** The error message, with the reason fetch keeps in `cause` ("fetch failed" alone says nothing). */
+export function jobErrorText(error: unknown) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause as (Error & { code?: string }) | undefined;
+  const reason = cause instanceof Error ? cause.code ?? cause.message : null;
+  return reason && !error.message.includes(reason) ? `${error.message} (${reason})` : error.message;
+}
+
 /** Records a failure under the job's own lease: retry with backoff, block or fail. */
 export function failJob(job: MeetingJob, error: unknown, now = Date.now()) {
-  const message = (error instanceof Error ? error.message : String(error)).slice(0, 2000);
+  const message = jobErrorText(error).slice(0, 2000);
   const permanent = error instanceof PermanentJobError;
   const blocked = error instanceof BlockedJobError;
   const retry = !permanent && !blocked && job.attempts < job.maxAttempts;
@@ -135,6 +149,7 @@ export function failJob(job: MeetingJob, error: unknown, now = Date.now()) {
     claimToken: null,
     leaseUntil: null,
     lastError: message,
+    progress: null,
     updatedAt: new Date(now),
   }).where(and(eq(meetingJobs.id, job.id), eq(meetingJobs.claimToken, job.claimToken!), eq(meetingJobs.status, "running"))).run();
 }

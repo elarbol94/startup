@@ -4,9 +4,11 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { BlockedJobError } from "./jobs";
+import { slowFetch } from "./slow-fetch";
 import { cutAudio, cutWavClip, detectSilences, keepAudioRanges } from "./media-tools";
 import { keySegments, planChunks, referenceClips, type KeyedSegment, type RawSegment } from "./chunks";
 import { planTranscription, segmentsToOriginal } from "./silence";
+import type { JobProgress } from "../job-progress";
 
 export type TranscriptionResult = {
   engine: string;
@@ -42,7 +44,7 @@ async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<ChunkRe
     form.append("known_speaker_names[]", speaker.name);
     form.append("known_speaker_references[]", speaker.dataUrl);
   }
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+  const response = await slowFetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,
@@ -90,8 +92,10 @@ export async function transcribeAudio(input: {
   language: string;
   signal: AbortSignal;
   beforeRequest: () => void;
+  onProgress?: (progress: JobProgress) => void;
 }): Promise<TranscriptionResult> {
   const fake = fakeAiEnabled();
+  if (!fake) input.onProgress?.({ step: "preparing", at: Date.now() });
   const plan = fake
     ? { ranges: null, chunks: planChunks(input.durationMs, [], MAX_CHUNK_MS), skippedMs: 0 }
     : planTranscription(input.durationMs, await detectSilences(input.file, 700, input.durationMs, input.signal), MAX_CHUNK_MS);
@@ -108,8 +112,15 @@ export async function transcribeAudio(input: {
     const knownSpeakers: KnownSpeaker[] = [];
     const languages = new Map<string, number>();
     let model = "";
+    const totalMs = chunks.reduce((sum, chunk) => sum + chunk.durationMs, 0);
+    const startedAt = Date.now();
+    let doneMs = 0;
     for (const [index, chunk] of chunks.entries()) {
       input.beforeRequest();
+      input.onProgress?.({
+        step: "transcribing", part: index + 1, parts: chunks.length, doneMs, partMs: chunk.durationMs, totalMs,
+        startedAt, partStartedAt: Date.now(),
+      });
       let result: ChunkResult;
       if (fake) result = fakeChunk(index);
       else {
@@ -133,6 +144,7 @@ export async function transcribeAudio(input: {
           await fs.rm(clipFile, { force: true });
         }
       }
+      doneMs += chunk.durationMs;
     }
     const detectedLanguage = [...languages.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     return {

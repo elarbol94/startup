@@ -11,6 +11,7 @@ import type { MeetingFormOptions } from "../new-meeting-dialog";
 import { formatClock, useMeetingAction } from "../meeting-ui";
 import { MeetingPill } from "../meeting-pill";
 import { ActionItems } from "./action-items";
+import { PipelineProgress } from "./job-progress";
 import { ProtocolEditor } from "./protocol-editor";
 import { speakerName, speakerOrder } from "./transcript-panel";
 
@@ -103,6 +104,7 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
     return (
       <div className="space-y-3 text-[13.5px]">
         <p className="text-muted-foreground">{generating ? t("protocol.generating") : t("protocol.empty")}</p>
+        <PipelineProgress jobs={detail.jobs} />
         {canContribute && <Button variant="outline" onClick={() => setEditing(true)}><Pencil />{t("protocol.writeManually")}</Button>}
       </div>
     );
@@ -111,6 +113,7 @@ export function ProtocolPanel({ detail, options }: { detail: MeetingDetail; opti
   const isApproved = approved?.id === current.id;
   return (
     <div className="space-y-[18px]">
+      <PipelineProgress jobs={detail.jobs} />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 text-[13px]">
           <MeetingPill tone={isApproved ? "ok" : "draft"}>{isApproved ? t("protocol.approved") : t("protocol.draft")}</MeetingPill>

@@ -1,8 +1,10 @@
 import "server-only";
 
 import { BlockedJobError } from "./jobs";
+import { slowFetch } from "./slow-fetch";
 import { fakeAiEnabled } from "./transcription";
 import { keepKnownEvidence, protocolContentSchema, protocolKeysAreUnique, type ProtocolContent } from "../protocol-content";
+import { protocolSectionReached, protocolSections, type JobProgress } from "../job-progress";
 
 export const PROTOCOL_PROMPT_VERSION = 1;
 
@@ -20,7 +22,56 @@ export type ProtocolPromptInput = {
   safetyIdentifier: string;
 };
 
-type ResponsesPayload = { output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }> };
+type ResponsesPayload = {
+  output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>;
+  incomplete_details?: { reason?: string } | null;
+  error?: { message?: string } | null;
+};
+type StreamEvent = { type?: string; delta?: string; response?: ResponsesPayload; message?: string; error?: { message?: string } };
+
+const outputText = (payload: ResponsesPayload | undefined) =>
+  payload?.output?.flatMap((item) => item.content ?? []).find((part) => part.type === "output_text")?.text;
+
+/**
+ * Reads a streamed Responses API answer (server-sent events) and returns its
+ * output text. `onText` sees the text written so far after every delta.
+ */
+export async function readResponseStream(body: ReadableStream<Uint8Array>, onText: (text: string) => void) {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+  let final: string | undefined;
+  const handle = (block: string) => {
+    const data = block.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
+    if (!data || data === "[DONE]") return;
+    const event = JSON.parse(data) as StreamEvent;
+    switch (event.type) {
+      case "response.output_text.delta":
+        text += event.delta ?? "";
+        onText(text);
+        break;
+      case "response.completed":
+        final = outputText(event.response);
+        break;
+      case "response.incomplete":
+        throw new Error(`The model stopped before finishing the protocol (${event.response?.incomplete_details?.reason ?? "incomplete"})`);
+      case "response.failed":
+        throw new Error(`Protocol generation failed: ${event.response?.error?.message ?? "unknown error"}`);
+      case "error":
+        throw new Error(`Protocol generation failed: ${event.message ?? event.error?.message ?? "unknown error"}`);
+    }
+  };
+  const reader = body.getReader();
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    buffer = (buffer + decoder.decode(chunk.value, { stream: true })).replace(/\r\n/g, "\n");
+    for (let end = buffer.indexOf("\n\n"); end >= 0; end = buffer.indexOf("\n\n")) {
+      handle(buffer.slice(0, end));
+      buffer = buffer.slice(end + 2);
+    }
+  }
+  handle((buffer + decoder.decode()).trim());
+  return final ?? (text || undefined);
+}
 
 const evidence = { type: "array", items: { type: "string" } } as const;
 const keyed = (fields: Record<string, unknown>, required: string[]) => ({
@@ -110,10 +161,15 @@ function fakeProtocol(refs: Map<string, string>, input: ProtocolPromptInput): un
   };
 }
 
-export async function generateProtocol(input: ProtocolPromptInput, signal: AbortSignal): Promise<{ model: string; content: ProtocolContent }> {
+export async function generateProtocol(
+  input: ProtocolPromptInput,
+  signal: AbortSignal,
+  onProgress: (progress: JobProgress) => void = () => {},
+): Promise<{ model: string; content: ProtocolContent }> {
   const { refs, text } = buildTranscriptBlock(input);
   const participantIds = new Set(input.participants.map((participant) => participant.id));
   if (fakeAiEnabled()) {
+    onProgress({ step: "writing", section: protocolSections.length - 1, at: Date.now() });
     const content = normalizeProtocol(fakeProtocol(refs, input), refs, participantIds);
     if (!content) throw new Error("Fake protocol failed validation");
     return { model: "fake", content };
@@ -122,13 +178,15 @@ export async function generateProtocol(input: ProtocolPromptInput, signal: Abort
   if (!apiKey) throw new BlockedJobError("OPENAI_API_KEY is not configured");
   const model = process.env.OPENAI_MEETINGS_MODEL?.trim() || "gpt-6-astra";
   const language = input.language === "en" ? "English" : "German";
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  onProgress({ step: "analysing", at: Date.now() });
+  const response = await slowFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(5 * 60_000)]),
     body: JSON.stringify({
       model,
       store: false,
+      stream: true,
       safety_identifier: input.safetyIdentifier,
       reasoning: { effort: "low" },
       max_output_tokens: 16_000,
@@ -153,8 +211,17 @@ export async function generateProtocol(input: ProtocolPromptInput, signal: Abort
     if (response.status === 401 || response.status === 403) throw new BlockedJobError(`OpenAI rejected the API key (${response.status})`);
     throw new Error(`Protocol generation failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
   }
-  const payload = await response.json() as ResponsesPayload;
-  const output = payload.output?.flatMap((item) => item.content ?? []).find((part) => part.type === "output_text")?.text;
+  if (!response.body) throw new Error("The model returned no protocol");
+  // The strict schema writes the sections in order, so the key reached so far is the progress.
+  let section = -1;
+  let scanned = 0;
+  const output = await readResponseStream(response.body, (text) => {
+    const reached = protocolSectionReached(text.slice(Math.max(0, scanned - 32)), section);
+    scanned = text.length;
+    if (reached === section) return;
+    section = reached;
+    onProgress({ step: "writing", section, at: Date.now() });
+  });
   if (!output) throw new Error("The model returned no protocol");
   const content = normalizeProtocol(JSON.parse(output), refs, participantIds);
   if (!content) throw new Error("The model returned an invalid protocol");

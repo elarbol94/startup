@@ -5438,6 +5438,22 @@
         "failed": "Failed",
         "blocked": "Blocked",
         "cancelled": "Cancelled"
+      },
+      "progress": {
+        "started": "Running for {elapsed}",
+        "preparing": "Finding and removing silence · {elapsed}",
+        "transcribing": "Part {part} of {parts} · {done} of {total} audio",
+        "remaining": "about {minutes, plural, one {# minute} other {# minutes}} left",
+        "almostDone": "almost done",
+        "analysing": "The AI is reading the transcript · {elapsed}",
+        "writing": "Writing: {section} ({number} of {count})",
+        "sections": {
+          "summary": "Summary",
+          "agendaItems": "Agenda",
+          "decisions": "Decisions",
+          "actionItems": "Action items",
+          "openQuestions": "Open questions"
+        }
       }
     },
     "transcript": {

@@ -127,6 +127,15 @@ local `livekit-server --dev` and set `LIVEKIT_API_KEY=devkey`,
    (OpenAI, diarized; see *Silence and implausible tracks*) → `merge` (one meeting timeline) → `protocol` (OpenAI,
    structured output). Every decision and action item must cite transcript
    lines; uncited ones are dropped.
+   While a job runs, the worker writes its progress onto the job row
+   (`meeting_jobs.progress`, under the job's lease; `job-progress.ts`), and
+   the *Aufnahmen* and *Protokoll* tabs show it as a bar: transcription by
+   finished parts (*Teil 3 von 6*), moving within the running part at the
+   speed of the finished ones (capped at 90 % of it) with an estimate of the
+   time left; the protocol by the section the streamed answer has reached
+   (summary → agenda → decisions → action items → open questions). Silence
+   detection, the wait for the model's first output and the ffmpeg stages
+   have no measure and show elapsed time instead.
 5. Participants review the draft, name the speakers and edit the protocol.
    Speakers of call tracks are named from the recording automatically and are
    not offered for naming; only voices of uploads and room microphones need
