@@ -419,7 +419,8 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await properties(page);
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("48");
   await page.keyboard.press("Tab");
-  await a.click();
+  // Back to the canvas with a still selected; clicking the selected box again would edit its text.
+  await page.locator("[data-presentation-canvas]").focus();
   await page.keyboard.press("Control+Shift+C");
   await expect(page.getByText("Format kopiert.", { exact: true })).toBeVisible();
   await b.click();
@@ -427,7 +428,7 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(48);
   expect((await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.text).toBe("Second idea");
-  await b.click();
+  await page.locator("[data-presentation-canvas]").focus();
   await page.keyboard.press("Control+z");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(32);

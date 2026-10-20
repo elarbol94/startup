@@ -41,6 +41,8 @@ export function usePresentationTextEditing() {
     pending.current = null;
   }, []);
   useEffect(() => clearPending, [clearPending]);
+  /** The last edit entered by a click into a selected box, and its editor once mounted. */
+  const clickEntry = useRef<{ id: string; at: number; editor?: Editor; selectAll?: boolean } | null>(null);
 
   /**
    * Enters edit mode within the current event, so the editor mounts and focuses before the next
@@ -51,6 +53,7 @@ export function usePresentationTextEditing() {
     clearPending();
     editing.current = id;
     pending.current = { id, keys: [], timer: setTimeout(clearPending, READY_TIMEOUT), caret };
+    clickEntry.current = caret ? { id, at: Date.now() } : null;
     flushSync(() => setEditingId(id));
   }, [clearPending]);
 
@@ -73,8 +76,10 @@ export function usePresentationTextEditing() {
     if (!caret) { replayKeys(editor, buffer.keys); return; }
     // The shared text reaches a freshly mounted editor a moment after it is ready and resets
     // the selection, so the caret is placed once that has happened.
+    if (clickEntry.current?.id === id) clickEntry.current.editor = editor;
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (editor.isDestroyed) return;
+      if (clickEntry.current?.id === id && clickEntry.current.selectAll) { editor.commands.selectAll(); replayKeys(editor, buffer.keys); return; }
       const position = editor.view.posAtCoords({ left: caret.x, top: caret.y });
       editor.commands.setTextSelection(position?.pos ?? editor.state.doc.content.size);
       replayKeys(editor, buffer.keys);
@@ -119,5 +124,16 @@ export function usePresentationTextEditing() {
     startEditing(create());
   }, [startEditing]);
 
-  return { editingId, onPlaced, onCanvasDoubleClick, startEditing, stopEditing, onEditingChange, onEditorReady, captureKey };
+  /**
+   * A double-click whose first click just entered edit mode keeps the double-click meaning
+   * the editor always had: everything selected, ready to be typed over.
+   */
+  const onEditingDoubleClick = useCallback((id: string) => {
+    const entry = clickEntry.current;
+    if (entry?.id !== id || Date.now() - entry.at > 800) return;
+    entry.selectAll = true;
+    if (entry.editor && !entry.editor.isDestroyed) entry.editor.commands.selectAll();
+  }, []);
+
+  return { editingId, onEditingDoubleClick, onPlaced, onCanvasDoubleClick, startEditing, stopEditing, onEditingChange, onEditorReady, captureKey };
 }

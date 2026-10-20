@@ -44,6 +44,7 @@ import type { PresentationRecord, PresentationRevisionItem } from "../presentati
 import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, moveStep, presentationShapeKinds, rotateElements, scaleElements, unionBounds, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
 import { usePresentationShapeEdits } from "./presentation-editor/use-presentation-shape-edits";
+import { nextFrameBounds } from "../lib/presentation-frame-rail";
 import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
 import { PresentationSelectionTools } from "./presentation-selection-tools";
@@ -79,6 +80,11 @@ import { applySelectChanges, dragTargetId, parentSelection, selectionPath, selec
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
+/** Whether this viewer last left the frame rail open -- a per-browser convenience only. */
+const RAIL_KEY = "presentation-frame-rail-open";
+const subscribeRail = () => () => {};
+// Only where the rail docks beside the canvas: on small screens it is a drawer over it.
+const getRailOpen = () => { try { return window.localStorage.getItem(RAIL_KEY) === "1" && window.matchMedia("(min-width: 1280px)").matches; } catch { return false; } };
 const CAMERA_DURATION = 700;
 
 async function requestEditLease(id: string, sessionId: string, action: "acquire" | "takeover" | "heartbeat" | "release"): Promise<{ editable?: boolean; holderName?: string }> {
@@ -149,7 +155,16 @@ function Editor({
   const leaseReady = !canEdit || !!collaboration?.ready;
   const [conflict] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "design" | "assets" | "comments" | null>(null);
-  const [pathOpen, setPathOpen] = useState(false);
+  // The frame rail stays open for authors who keep it open, like PowerPoint's slide pane:
+  // the last choice in this browser is the starting state.
+  const railRemembered = useSyncExternalStore(subscribeRail, getRailOpen, () => false);
+  const [pathChoice, setPathChoice] = useState<boolean | null>(null);
+  const pathOpen = pathChoice ?? railRemembered;
+  const setPathOpen = useCallback((next: boolean | ((open: boolean) => boolean)) => {
+    const open = typeof next === "function" ? next(pathOpen) : next;
+    setPathChoice(open);
+    try { window.localStorage.setItem(RAIL_KEY, open ? "1" : "0"); } catch { /* storage unavailable: the choice lasts for this visit */ }
+  }, [pathOpen]);
   const [workspaceDialog, setWorkspaceDialog] = useState<"sharing" | "history" | "playback" | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -567,10 +582,20 @@ function Editor({
             onAsset={(attachmentId, alt) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "image", x, y, width: 360, height: 240, rotation: 0, content: { attachmentId, alt } }); }}
             onIcon={(name) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "icon", x, y, width: 100, height: 100, rotation: 0, content: { name, color: "#6366f1" } }); }} />
 );
+  const scene = useMemo(() => ({ title, elements, steps, background, settings }), [title, elements, steps, background, settings]);
+  /** The rail's "New frame": the next frame beside the last one on the path, like a new slide. */
+  const addFrameAtEnd = () => {
+    if (disabled || elements.length >= 500) return;
+    const frame: PresentationElement = { id: createId(), type: "frame", ...nextFrameBounds(elements, steps), rotation: 0, content: { label: "", shape: "rect", color: "" } };
+    dispatch(frameInsertionEdit([frame], current => [...current, frame], t));
+    setSelectedIds([frame.id]);
+    flyTo(frame);
+  };
   const pathPanel = (<PresentationPathPanel presentation={presentation} steps={steps} elements={elements} selected={selected}
     activeStep={activeStep} activeStepId={activeStepId} setActiveStepId={setActiveStepId} setSelectedIds={setSelectedIds} flyTo={flyTo}
     commitSteps={commitSteps} addStep={addStep} disabled={disabled} readOnly={readOnly} sensors={sensors} onStepDragEnd={onStepDragEnd}
-    settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch} />);
+    settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch}
+    scene={scene} onNewFrame={addFrameAtEnd} />);
   const openHistory = useCallback(async () => {
     if (await flush()) { router.refresh(); setWorkspaceDialog("history"); }
   }, [flush, router]);
@@ -834,7 +859,7 @@ function Editor({
             if (placementClick.current) { placementClick.current = false; event.preventDefault(); event.stopPropagation(); return; }
             clickSelection.onClickCapture(event);
           }}
-          onDoubleClick={event => { if (!pendingElement && !disabled && elements.length < 500) textEditing.onCanvasDoubleClick(event, () => addTextAt(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))); }}
+          onDoubleClick={event => { const editedNode = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node")?.dataset.id; if (editedNode && editedNode === textEditing.editingId) { textEditing.onEditingDoubleClick(editedNode); return; } if (!pendingElement && !disabled && elements.length < 500) textEditing.onCanvasDoubleClick(event, () => addTextAt(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))); }}
           onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const id = node.dataset.id; if (!selectionPath(elements, id).some(level => selectedIds.includes(level))) setSelectedIds([selectionTargetId(elements, id, selectedIds)]); } else clickSelection.onPaneContextMenu(event); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
           {contextPosition && <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} position={contextPosition} onClose={() => { setContextPosition(null); canvasRef.current?.focus(); }} />}
           <div className="absolute right-3 bottom-3 z-10 flex rounded-lg border bg-background shadow-sm">{elements.length > 0 && <PresentationMiniMapToggle visible={miniMapVisible} onToggle={() => setMiniMapVisible(value => !value)} showLabel={interact("minimapShow")} hideLabel={interact("minimapHide")} />}        <Button type="button" variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION })}>

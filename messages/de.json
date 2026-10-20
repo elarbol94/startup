@@ -3757,6 +3757,7 @@
       "path": "Weg",
       "pathDescription": "Die Reihenfolge der Stationen. Ziehen zum Umsortieren, Klicken fliegt die Kamera hin.",
       "addStep": "Auswahl als Station",
+      "newFrame": "Neuer Rahmen",
       "removeStep": "Station entfernen",
       "missingStep": "Element gelöscht",
       "retargetStep": "Station auf Auswahl setzen",
