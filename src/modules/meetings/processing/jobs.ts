@@ -128,9 +128,17 @@ export function completeJob<T>(job: MeetingJob, write: (tx: Transaction) => T, o
   });
 }
 
+/** The error message, with the reason fetch keeps in `cause` ("fetch failed" alone says nothing). */
+export function jobErrorText(error: unknown) {
+  if (!(error instanceof Error)) return String(error);
+  const cause = error.cause as (Error & { code?: string }) | undefined;
+  const reason = cause instanceof Error ? cause.code ?? cause.message : null;
+  return reason && !error.message.includes(reason) ? `${error.message} (${reason})` : error.message;
+}
+
 /** Records a failure under the job's own lease: retry with backoff, block or fail. */
 export function failJob(job: MeetingJob, error: unknown, now = Date.now()) {
-  const message = (error instanceof Error ? error.message : String(error)).slice(0, 2000);
+  const message = jobErrorText(error).slice(0, 2000);
   const permanent = error instanceof PermanentJobError;
   const blocked = error instanceof BlockedJobError;
   const retry = !permanent && !blocked && job.attempts < job.maxAttempts;

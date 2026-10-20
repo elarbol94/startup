@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { BlockedJobError } from "./jobs";
+import { slowFetch } from "./slow-fetch";
 import { cutAudio, cutWavClip, detectSilences, keepAudioRanges } from "./media-tools";
 import { keySegments, planChunks, referenceClips, type KeyedSegment, type RawSegment } from "./chunks";
 import { planTranscription, segmentsToOriginal } from "./silence";
@@ -43,7 +44,7 @@ async function transcribeChunkWithOpenAI(request: ChunkRequest): Promise<ChunkRe
     form.append("known_speaker_names[]", speaker.name);
     form.append("known_speaker_references[]", speaker.dataUrl);
   }
-  const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+  const response = await slowFetch("https://api.openai.com/v1/audio/transcriptions", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}` },
     body: form,

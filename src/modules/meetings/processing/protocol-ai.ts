@@ -1,6 +1,7 @@
 import "server-only";
 
 import { BlockedJobError } from "./jobs";
+import { slowFetch } from "./slow-fetch";
 import { fakeAiEnabled } from "./transcription";
 import { keepKnownEvidence, protocolContentSchema, protocolKeysAreUnique, type ProtocolContent } from "../protocol-content";
 import { protocolSectionReached, protocolSections, type JobProgress } from "../job-progress";
@@ -178,7 +179,7 @@ export async function generateProtocol(
   const model = process.env.OPENAI_MEETINGS_MODEL?.trim() || "gpt-6-astra";
   const language = input.language === "en" ? "English" : "German";
   onProgress({ step: "analysing", at: Date.now() });
-  const response = await fetch("https://api.openai.com/v1/responses", {
+  const response = await slowFetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     signal: AbortSignal.any([signal, AbortSignal.timeout(5 * 60_000)]),

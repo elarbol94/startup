@@ -5,7 +5,7 @@ import path from "node:path";
 import { and, eq, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { meetingJobInputs, meetingJobs, meetingRecordings, meetings } from "../schema";
-import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, setJobProgress, settleMeetingStatus, type MeetingJob } from "./jobs";
+import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, jobErrorText, LeaseLostError, setJobProgress, settleMeetingStatus, type MeetingJob } from "./jobs";
 import { stageHandlers } from "./stages";
 import { audit, DERIVED_STAGING, retentionExpiry } from "./store";
 import { runDailyOrphanSweep } from "./sweeper";
@@ -35,7 +35,7 @@ async function runJob(job: MeetingJob) {
       console.warn(JSON.stringify({ event: "meeting_job_lease_lost", jobId: job.id, stage: job.stage }));
       return;
     }
-    console.error(JSON.stringify({ event: "meeting_job_failed", jobId: job.id, stage: job.stage, attempts: job.attempts, error: error instanceof Error ? error.message : String(error) }));
+    console.error(JSON.stringify({ event: "meeting_job_failed", jobId: job.id, stage: job.stage, attempts: job.attempts, error: jobErrorText(error) }));
     failJob(job, error);
     settleMeetingStatus(db, job.meetingId);
   } finally {
