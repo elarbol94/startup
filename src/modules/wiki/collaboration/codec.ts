@@ -2,7 +2,7 @@ import { richSchema, toDoc, fromDoc, type Content } from "./rich-text";
 import * as Y from "yjs";
 import { updateYFragment, yXmlFragmentToProsemirrorJSON } from "@tiptap/y-tiptap";
 import type { TiptapNode } from "../lib/tiptap";
-import { normalizeSteps, type PresentationSnapshot } from "../lib/presentation";
+import { defaultPresentationSettings, normalizeSteps, presentationSettingsSchema, type PresentationSnapshot } from "../lib/presentation";
 
 export const LOCAL = "collaboration-local";
 export const REMOTE = "collaboration-remote";
@@ -117,7 +117,12 @@ export function presentationJSON(doc: Y.Doc): PresentationSnapshot {
     return { ...element, content: { ...element.content, ...fromDoc(yXmlFragmentToProsemirrorJSON(fragment)) } };
   });
   const steps = collection(doc, "steps") as PresentationSnapshot["steps"];
-  return { ...doc.getMap("settings").toJSON(), elements, steps: normalizeSteps(steps, elements) } as PresentationSnapshot;
+  // Settings saved before a field existed (grid, guides, defaults…) get its default here, as the
+  // server's snapshot schema gives them: the editor reads these fields without checking.
+  const shared = doc.getMap("settings").toJSON() as Partial<PresentationSnapshot>;
+  const parsed = presentationSettingsSchema.safeParse(shared.settings ?? {});
+  const settings = parsed.success ? parsed.data : { ...defaultPresentationSettings, ...shared.settings, grid: defaultPresentationSettings.grid, guides: defaultPresentationSettings.guides, ruler: false, defaults: {} };
+  return { ...shared, settings, elements, steps: normalizeSteps(steps, elements) } as PresentationSnapshot;
 }
 export function seedPage(doc: Y.Doc, content: TiptapNode, documentMode: boolean, settings: Record<string, unknown>) {
   doc.transact(() => {

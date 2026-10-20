@@ -9,6 +9,16 @@ const deck: PresentationSnapshot = { ...empty, title: "Shared", elements: [{ id:
 function seeded() { const doc = new Y.Doc(); patchPresentation(doc, empty, deck); return doc; }
 
 describe("shared document state", () => {
+  it("gives settings saved before the grid, guides and defaults existed their defaults", () => {
+    const doc = seeded();
+    // A deck shared before those settings existed: only the original playback fields.
+    doc.getMap("settings").set("settings", { defaultStepDurationMs: 4000, loop: false, cameraTransitionMs: 700, cameraEasing: "ease-in-out" });
+    const { settings } = presentationJSON(doc);
+    expect(settings.grid).toEqual(defaultPresentationSettings.grid);
+    expect(settings.guides).toEqual(defaultPresentationSettings.guides);
+    expect(settings.defaults).toEqual({});
+    expect(settings.defaultStepDurationMs).toBe(4000);
+  });
   it("preserves adjacent marks, custom nodes and attributes when seeding", () => {
     const doc = new Y.Doc(); const content = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "plain " }, { type: "text", text: "bold", marks: [{ type: "bold", attrs: {} }] }, { type: "text", text: " tail" }] }, { type: "citation", attrs: { items: [{ sourceId: "s" }], label: "[1]" } }] };
     seedPage(doc, content, true, {});
