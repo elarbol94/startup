@@ -50,6 +50,9 @@ bridged to a `Y.UndoManager`. The full map is in the code under
 
 ## Phases
 
+Status (2026-10-20): all five phases are implemented; behaviour is documented in
+`docs/presentations.md`.
+
 Each phase adds unit tests for the pure logic and Playwright cases for the
 gestures, then runs `npm run check` and the presentation e2e specs.
 

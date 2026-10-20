@@ -2,7 +2,7 @@
 
 ## Workspace tools
 
-The editor separates the document header from its creation toolbar. **Path / Weg** opens a collapsible playback-order panel, including timing and speaker notes. Selecting an object keeps the canvas in focus; **Selection actions → Properties** or **Tools / Werkzeuge** opens Properties. Tools also opens Design, Assets or Comments in the same right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates and PowerPoint import.
+The editor separates the document header from its creation toolbar. **Path / Weg** opens the frame rail: a thumbnail per stop in playback order, like PowerPoint's slide pane, with **New frame** adding the next frame beside the last one as a new stop, plus timing and speaker notes. It reopens where it docks if it was left open. Selecting an object keeps the canvas in focus; **Selection actions → Properties** or **Tools / Werkzeuge** opens Properties. Tools also opens Design, Assets or Comments in the same right panel. Narrower screens use dismissible drawers. Sharing, history and playback settings open in dialogs; export and explicit Save are in the header actions menu. Save failures remain visible with panels closed. The presentation library uses noninteractive first-stop previews and a single New menu for templates and PowerPoint import.
 
 Presentations use an infinite canvas and an ordered path of camera stops and
 object animations. Content includes text, images, frames, shapes, icons, charts,
@@ -321,9 +321,24 @@ rectangle. Shift adds to selection. Space+drag or the middle mouse button pans. 
 dots remain attached to canvas coordinates and use coarser/finer powers-of-two intervals
 as zoom changes, without changing alignment snapping.
 
-Double-click text (or press Enter with a text object selected) to edit and select all its
-text. Escape returns to object selection. Typing and dialog shortcuts remain local to their
-controls; save also commits a focused property field.
+Selection follows PowerPoint. A click selects an object, the outermost group around it
+for a group member; a second click on a selected group selects the member under the
+pointer, and siblings stay directly selectable while working inside the group. Escape steps
+out one level at a time: text editing → object → its group → nothing. A click on empty
+canvas clears the selection, including inside a frame: frames behave like slides and are
+selected by their outline or label. Pressing any member of a selected group drags the whole
+selection.
+
+A single click on an already selected text box or shape edits its text with the caret at
+the click. Typing while a text box or closed shape is selected replaces its text (so the
+single-letter tool keys apply only without such a selection). Double-click, or Enter, edits
+with all text selected. Closed shapes hold text like text boxes; its size, bold, alignment
+and colour are under **Text** in the shape's properties. Typing and dialog shortcuts remain
+local to their controls; save also commits a focused property field.
+
+Several selected objects each show an outline, and eight handles on the box around all of
+them scale them together (Shift on a corner keeps proportions, Alt scales from the centre).
+A single rotated object keeps its rotate handle on its own rotated top edge.
 
 Ctrl/Cmd+drag duplicates the selected hierarchy at the drop location. On Mac, Option+drag
 also copies. Originals stay fixed; previews are local until release. Shift constrains drag
@@ -340,14 +355,14 @@ Windows/Linux use Ctrl, macOS uses Cmd for these object shortcuts:
 | Shortcut | Action |
 | --- | --- |
 | Ctrl+C / X / V | Copy / cut / paste presentation objects |
-| Ctrl+D | Duplicate selected objects |
+| Ctrl+D | Duplicate selected objects; after moving the copy, the next Ctrl+D repeats that move |
 | Ctrl+A | Select canvas hierarchy roots |
 | Ctrl+G / Ctrl+Shift+G | Group / ungroup |
 | Arrow / Shift+Arrow | Move by 1 / 10 canvas units |
 | Tab / Shift+Tab | Next / previous object while canvas has focus |
 | Ctrl+] / Ctrl+[ | Forward / backward one layer |
 | Ctrl+Shift+] / Ctrl+Shift+[ | Front / back |
-| Enter / Escape | Edit text / leave editing or cancel a gesture |
+| Enter / Escape | Edit text / step out one level (editing, group, selection) or cancel a gesture |
 | Delete / Backspace | Delete selected objects |
 | Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | Undo / redo |
 | Ctrl+S | Save |
@@ -362,11 +377,18 @@ pastes insert no objects; browser clipboard permission may be required. External
 clipboard formats are not supported; use PowerPoint import for those files.
 
 **Insert → Shape**, **Chart**, and **Icon** open choices before adding an object. Shapes include
-rectangles, rounded rectangles, ellipses, triangles, diamonds, lines, arrows, and double-headed
-arrows. Lines/arrows use two endpoint handles; Shift constrains endpoints to 45-degree increments.
-Connected endpoints must be explicitly detached before free positioning. Closed shapes have
-resize and rotation controls, with a corner-radius field for rounded rectangles. Line styling
-includes thickness, dash pattern and opacity, plus start/end head styles and head size.
+rectangles, rounded rectangles, ellipses, triangles, diamonds, pentagons, hexagons, stars,
+parallelograms, trapezoids, chevrons, speech bubbles, plus signs, lines, arrows, and
+double-headed arrows. A selected adjustable shape shows a yellow handle for its corner
+radius, slant, notch, tail or inner radius. Closed shapes have resize and rotation controls,
+with a corner-radius field for rounded rectangles.
+
+Lines/arrows use two endpoint handles. Dropping an end on another object glues it to that
+object's nearest connection site (top, right, bottom or left, shown while dragging); a glued
+end is green and follows the object. Dropping it on empty canvas, or deleting the object,
+leaves that end free; Shift keeps a free end on 45-degree steps. **Line route** switches a
+line between straight, elbow and curved. Line styling includes thickness, dash pattern and
+opacity, plus start/end head styles and head size.
 
 Optional styling fields are stored in the existing canvas JSON. Legacy decks keep their defaults;
 no database migration is needed. The shared SVG renderer serves editing, playback, previews,
