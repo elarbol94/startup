@@ -5,7 +5,7 @@ import path from "node:path";
 import { and, eq, inArray, isNull, lt } from "drizzle-orm";
 import { db } from "@/db";
 import { meetingJobInputs, meetingJobs, meetingRecordings, meetings } from "../schema";
-import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, settleMeetingStatus, type MeetingJob } from "./jobs";
+import { claimNextJob, enqueueJob, failJob, heartbeat, HEARTBEAT_MS, LeaseLostError, setJobProgress, settleMeetingStatus, type MeetingJob } from "./jobs";
 import { stageHandlers } from "./stages";
 import { audit, DERIVED_STAGING, retentionExpiry } from "./store";
 import { runDailyOrphanSweep } from "./sweeper";
@@ -23,10 +23,12 @@ async function runJob(job: MeetingJob) {
     }
   }, HEARTBEAT_MS);
   beat.unref?.();
+  setJobProgress(job, { step: "started", at: Date.now() });
   try {
     await stageHandlers[job.stage](job, {
       signal: controller.signal,
       assertLease: () => { if (leaseLost) throw new LeaseLostError(); },
+      reportProgress: (progress) => { if (!leaseLost) setJobProgress(job, progress); },
     });
   } catch (error) {
     if (error instanceof LeaseLostError || leaseLost) {

@@ -1,0 +1,1 @@
+ALTER TABLE `meeting_jobs` ADD `progress` text;

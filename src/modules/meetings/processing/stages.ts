@@ -22,6 +22,7 @@ import {
   meetingTranscripts,
   meetingTranscriptSegments,
 } from "../schema";
+import type { JobProgress } from "../job-progress";
 import { parseProtocolContent } from "../protocol-content";
 import { completeJob, enqueueJob, LeaseLostError, PermanentJobError, type MeetingJob } from "./jobs";
 import { extractSpeechAudio, probeMedia } from "./media-tools";
@@ -29,7 +30,7 @@ import { generateProtocol, PROTOCOL_PROMPT_VERSION } from "./protocol-ai";
 import { audit, DERIVED_STAGING, derivedStagingPath, recordingFilePath, retentionExpiry } from "./store";
 import { transcribeAudio } from "./transcription";
 
-export type StageContext = { signal: AbortSignal; assertLease: () => void };
+export type StageContext = { signal: AbortSignal; assertLease: () => void; reportProgress: (progress: JobProgress) => void };
 
 function loadMeeting(id: string) {
   const meeting = db.select().from(meetings).where(eq(meetings.id, id)).get();
@@ -144,6 +145,7 @@ async function transcribe(job: MeetingJob, context: StageContext) {
     language: meeting.language,
     signal: context.signal,
     beforeRequest: () => { context.assertLease(); assertAiAllowed(job); },
+    onProgress: context.reportProgress,
   });
   // A call track holds one person's microphone: diarization labels would only add noise.
   const segments = recording.speakerScope === "single"
@@ -292,7 +294,7 @@ async function protocol(job: MeetingJob, context: StageContext) {
     segments,
     previousActionItems: current ? parseProtocolContent(current.content).actionItems.map(({ itemKey, text }) => ({ itemKey, text })) : [],
     safetyIdentifier: crypto.createHash("sha256").update(`meeting:${meeting.createdBy}`).digest("hex").slice(0, 32),
-  }, context.signal);
+  }, context.signal, context.reportProgress);
   completeJob(job, (tx) => {
     const version = (tx.select({ value: max(meetingProtocols.version) }).from(meetingProtocols)
       .where(eq(meetingProtocols.meetingId, meeting.id)).get()?.value ?? 0) + 1;

@@ -163,6 +163,8 @@ export const meetingJobs = sqliteTable(
     leaseUntil: integer("lease_until", { mode: "timestamp_ms" }),
     heartbeatAt: integer("heartbeat_at", { mode: "timestamp_ms" }),
     lastError: text("last_error").notNull().default(""),
+    /** JSON progress of the running attempt (job-progress.ts); cleared on claim and failure. */
+    progress: text("progress"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

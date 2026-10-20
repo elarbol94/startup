@@ -8,6 +8,7 @@ import { meetingFor, visibleMeetingCondition, type MeetingViewer } from "./acces
 import { meetingCallEndpoints } from "./call-schema";
 import { parseProtocolContent } from "./protocol-content";
 import { livekitConfig } from "./calls/livekit";
+import { jobProgressView, parseJobProgress } from "./job-progress";
 import { meetingHasMedia } from "./processing/store";
 import { recordingWarnings } from "./recording-warnings";
 import {
@@ -153,9 +154,14 @@ export function getMeetingDetail(viewer: MeetingViewer, meetingId: string) {
     .where(eq(meetingRecordings.meetingId, meeting.id)).orderBy(asc(meetingRecordings.createdAt)).all();
   const jobs = db.select({
     id: meetingJobs.id, stage: meetingJobs.stage, status: meetingJobs.status, recordingId: meetingJobs.recordingId,
-    attempts: meetingJobs.attempts, lastError: meetingJobs.lastError, updatedAt: meetingJobs.updatedAt,
+    attempts: meetingJobs.attempts, lastError: meetingJobs.lastError, updatedAt: meetingJobs.updatedAt, progress: meetingJobs.progress,
   }).from(meetingJobs).where(and(eq(meetingJobs.meetingId, meeting.id), ne(meetingJobs.status, "done")))
-    .orderBy(desc(meetingJobs.updatedAt)).limit(30).all();
+    .orderBy(desc(meetingJobs.updatedAt)).limit(30).all()
+    // Computed at render time: the page refreshes every few seconds while work runs.
+    .map(({ progress, ...job }) => {
+      const parsed = job.status === "running" ? parseJobProgress(progress) : null;
+      return { ...job, progress: parsed ? jobProgressView(parsed, Date.now()) : null };
+    });
   const uploads = db.select({
     id: mediaUploadSessions.id, fileName: mediaUploadSessions.fileName, state: mediaUploadSessions.state, error: mediaUploadSessions.error,
     userId: mediaUploadSessions.userId,

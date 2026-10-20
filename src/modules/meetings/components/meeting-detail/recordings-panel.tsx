@@ -13,6 +13,7 @@ import { dismissFailedUpload } from "../../upload-actions";
 import type { MeetingDetail } from "../../queries";
 import { formatBytes, formatClock, useMeetingAction } from "../meeting-ui";
 import { MeetingPill } from "../meeting-pill";
+import { JobProgressBar } from "./job-progress";
 import { UploadDisclosure } from "./upload-disclosure";
 import { useChunkedUpload } from "./use-chunked-upload";
 
@@ -141,6 +142,7 @@ export function RecordingsPanel({ detail }: { detail: MeetingDetail }) {
                     <Button size="sm" variant="outline" disabled={pending} onClick={() => run(() => retryMeetingJob(job.id))}><RotateCcw />{t("jobs.retry")}</Button>
                   )}
                 </span>
+                {job.progress && <JobProgressBar progress={job.progress} />}
                 {job.lastError && job.status !== "queued" && <p className="w-full text-xs text-muted-foreground">{job.lastError}</p>}
               </li>
             ))}

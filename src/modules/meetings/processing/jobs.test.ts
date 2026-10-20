@@ -17,7 +17,7 @@ vi.mock("@/db", async () => {
 import { db, sqlite } from "@/db";
 import { meetingJobs, meetings } from "../schema";
 import { resetDatabase, seedMeeting } from "../test-helpers";
-import { cancelPendingJobs, claimNextJob, completeJob, enqueueJob, failJob, heartbeat, LEASE_MS, LeaseLostError, PermanentJobError } from "./jobs";
+import { cancelPendingJobs, claimNextJob, completeJob, enqueueJob, failJob, heartbeat, LEASE_MS, LeaseLostError, PermanentJobError, setJobProgress } from "./jobs";
 
 const T0 = 1_800_000_000_000;
 let meetingId: string;
@@ -61,6 +61,20 @@ describe("meeting job queue", () => {
     expect(write).not.toHaveBeenCalled();
     expect(heartbeat(first, T0 + LEASE_MS + 2)).toBe(false);
     expect(heartbeat(second, T0 + LEASE_MS + 2)).toBe(true);
+  });
+
+  it("records progress only under the current lease and forgets it on reclaim and failure", () => {
+    enqueue();
+    const first = claimNextJob(T0)!;
+    setJobProgress(first, { step: "preparing", at: T0 }, T0 + 1);
+    expect(JSON.parse(row(first.id).progress!)).toEqual({ step: "preparing", at: T0 });
+    const second = claimNextJob(T0 + LEASE_MS + 1)!;
+    expect(row(first.id).progress).toBeNull();
+    setJobProgress(first, { step: "preparing", at: T0 + 2 }, T0 + LEASE_MS + 2);
+    expect(row(first.id).progress).toBeNull();
+    setJobProgress(second, { step: "analysing", at: T0 + 3 }, T0 + LEASE_MS + 3);
+    failJob(second, new Error("boom"), T0 + LEASE_MS + 4);
+    expect(row(second.id).progress).toBeNull();
   });
 
   it("discards a completion after the lease expired even when nobody reclaimed the job", () => {

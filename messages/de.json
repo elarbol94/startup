@@ -5429,6 +5429,22 @@
         "failed": "Fehlgeschlagen",
         "blocked": "Blockiert",
         "cancelled": "Abgebrochen"
+      },
+      "progress": {
+        "started": "Läuft seit {elapsed}",
+        "preparing": "Stille wird erkannt und herausgeschnitten · seit {elapsed}",
+        "transcribing": "Teil {part} von {parts} · {done} von {total} Audio",
+        "remaining": "noch ca. {minutes, plural, one {# Minute} other {# Minuten}}",
+        "almostDone": "gleich fertig",
+        "analysing": "Die KI liest das Transkript · seit {elapsed}",
+        "writing": "Schreibt: {section} ({number} von {count})",
+        "sections": {
+          "summary": "Zusammenfassung",
+          "agendaItems": "Tagesordnung",
+          "decisions": "Beschlüsse",
+          "actionItems": "Aufgaben",
+          "openQuestions": "Offene Fragen"
+        }
       }
     },
     "transcript": {
