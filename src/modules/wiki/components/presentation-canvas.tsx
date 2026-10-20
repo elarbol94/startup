@@ -236,7 +236,7 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
       // The drawing stays put; the text editor sits over it, centred like the rendered text.
       <div className="relative h-full w-full">
         <div className="pointer-events-none absolute inset-0"><PresentationShape element={element} /></div>
-        <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0 flex flex-col justify-center" />
+        <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0 flex flex-col justify-center [&>div]:h-auto [&_.ProseMirror]:h-auto [&_.ProseMirror]:min-h-0" />
       </div>
     ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} /></div>}
     {selected && data.editable && data.resizable !== false && isLinearShape(element) && data.lookupElement && data.onLineEndDrop &&

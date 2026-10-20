@@ -917,6 +917,7 @@ function Editor({
               <SelectionOverlay
                 box={selectionBounds}
                 rotation={selection.length === 1 ? selection[0].rotation : 0}
+                startAngle={selection[0]?.rotation ?? 0}
                 outlines={selection}
                 referenceAngles={rotationReferences}
                 // Individual objects use local-axis handles; several scale together.

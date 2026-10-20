@@ -22,6 +22,7 @@ const cursorFor = (x: number, y: number) => x === 0 ? "ns-resize" : y === 0 ? "e
 export function SelectionOverlay({
   box,
   rotation,
+  startAngle = rotation,
   outlines,
   scalable,
   referenceAngles,
@@ -39,6 +40,8 @@ export function SelectionOverlay({
   box: PresentationBounds;
   /** Rotation of `box` around its centre, in degrees; 0 for a multi-selection. */
   rotation: number;
+  /** The angle rotation snapping starts from (the first object's, for several). */
+  startAngle?: number;
   /** Each selected object, outlined individually when several are selected. */
   outlines: PresentationElement[];
   scalable: boolean;
@@ -72,7 +75,7 @@ export function SelectionOverlay({
     const center = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
     const pointer = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY });
     let lastAngle = Math.atan2(pointer.y - center.y, pointer.x - center.x);
-    let rawRotation = rotation, appliedRotation = rotation;
+    let rawRotation = startAngle, appliedRotation = startAngle;
 
     const move = (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== event.pointerId) return;
