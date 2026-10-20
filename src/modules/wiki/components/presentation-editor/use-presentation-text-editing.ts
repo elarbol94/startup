@@ -33,9 +33,15 @@ function replayKeys(editor: Editor, keys: string[]) {
 
 export function usePresentationTextEditing() {
   const [editingId, setEditingId] = useState<string | null>(null);
+  /**
+   * The text being entered with a caret (a click into it, or typing on it). Its editor does not
+   * take focus on mount: keys stay buffered on the canvas until the shared text has arrived,
+   * so nothing typed in that moment lands in the still-empty editor and overwrites the text.
+   */
+  const [deferredId, setDeferredId] = useState<string | null>(null);
   const editing = useRef<string | null>(null);
   /** Keys typed after entering edit mode and before the inline editor reported ready. */
-  const pending = useRef<{ id: string; keys: string[]; timer: ReturnType<typeof setTimeout>; caret?: { x: number; y: number } | "end" } | null>(null);
+  const pending = useRef<{ id: string; keys: string[]; timer: ReturnType<typeof setTimeout>; caret?: { x: number; y: number } | "end"; expected?: string } | null>(null);
   const clearPending = useCallback(() => {
     if (pending.current) clearTimeout(pending.current.timer);
     pending.current = null;
@@ -48,13 +54,13 @@ export function usePresentationTextEditing() {
    * Enters edit mode within the current event, so the editor mounts and focuses before the next
    * key. With `caret` (a screen point, or "end") the caret goes there; otherwise all text is selected.
    */
-  const startEditing = useCallback((id: string, caret?: { x: number; y: number } | "end") => {
+  const startEditing = useCallback((id: string, caret?: { x: number; y: number } | "end", expected?: string) => {
     if (editing.current === id) return;
     clearPending();
     editing.current = id;
-    pending.current = { id, keys: [], timer: setTimeout(clearPending, READY_TIMEOUT), caret };
+    pending.current = { id, keys: [], timer: setTimeout(clearPending, READY_TIMEOUT), caret, expected };
     clickEntry.current = caret && caret !== "end" ? { id, at: Date.now() } : null;
-    flushSync(() => setEditingId(id));
+    flushSync(() => { setEditingId(id); setDeferredId(caret ? id : null); });
   }, [clearPending]);
 
   const stopEditing = useCallback((id?: string) => {
@@ -62,6 +68,7 @@ export function usePresentationTextEditing() {
     clearPending();
     editing.current = null;
     setEditingId(null);
+    setDeferredId(null);
   }, [clearPending]);
 
   const onEditingChange = useCallback((id: string, value: boolean) => {
@@ -71,19 +78,27 @@ export function usePresentationTextEditing() {
   const onEditorReady = useCallback((id: string, editor: Editor) => {
     const buffer = pending.current;
     if (buffer?.id !== id) return;
-    clearPending();
     const caret = buffer.caret;
-    if (!caret) { replayKeys(editor, buffer.keys); return; }
-    // The shared text reaches a freshly mounted editor a moment after it is ready and resets
-    // the selection, so the caret is placed once that has happened.
+    if (!caret) { clearPending(); replayKeys(editor, buffer.keys); return; }
     if (clickEntry.current?.id === id) clickEntry.current.editor = editor;
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      if (editor.isDestroyed) return;
-      if (clickEntry.current?.id === id && clickEntry.current.selectAll) { editor.commands.selectAll(); replayKeys(editor, buffer.keys); return; }
-      const position = caret === "end" ? null : editor.view.posAtCoords({ left: caret.x, top: caret.y });
-      editor.commands.setTextSelection(position?.pos ?? editor.state.doc.content.size);
+    // Wait (a few frames at most) until the shared text has reached the editor, then place
+    // the caret, take focus and type what was buffered meanwhile.
+    // ProseMirror's textContent joins paragraphs without line breaks.
+    const expected = buffer.expected?.replace(/\n/g, "");
+    let frames = 0;
+    const place = () => {
+      if (editor.isDestroyed || pending.current !== buffer) return;
+      if (expected !== undefined && editor.state.doc.textContent !== expected && frames++ < 60) { requestAnimationFrame(place); return; }
+      clearPending();
+      if (clickEntry.current?.id === id && clickEntry.current.selectAll) editor.commands.selectAll();
+      else {
+        const position = caret === "end" ? null : editor.view.posAtCoords({ left: caret.x, top: caret.y });
+        editor.commands.setTextSelection(position?.pos ?? editor.state.doc.content.size);
+      }
+      editor.view.focus();
       replayKeys(editor, buffer.keys);
-    }));
+    };
+    requestAnimationFrame(place);
   }, [clearPending]);
 
   /**
@@ -135,5 +150,5 @@ export function usePresentationTextEditing() {
     if (entry.editor && !entry.editor.isDestroyed) entry.editor.commands.selectAll();
   }, []);
 
-  return { editingId, onEditingDoubleClick, onPlaced, onCanvasDoubleClick, startEditing, stopEditing, onEditingChange, onEditorReady, captureKey };
+  return { editingId, deferredId, onEditingDoubleClick, onPlaced, onCanvasDoubleClick, startEditing, stopEditing, onEditingChange, onEditorReady, captureKey };
 }

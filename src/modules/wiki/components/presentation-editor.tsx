@@ -81,7 +81,7 @@ import { usePresentationClipboard } from "./presentation-editor/use-presentation
 import { usePresentationClickSelection } from "./presentation-editor/use-presentation-click-selection";
 import { usePlacementFocus } from "./presentation-editor/use-placement-focus";
 import { isControlKey, isModifierShortcut, presentationKeyScope } from "./presentation-editor/presentation-keyboard-scope";
-import { isTextHost, withHostText } from "../lib/presentation-text-host";
+import { isTextHost, textHostContent, withHostText } from "../lib/presentation-text-host";
 import { applySelectChanges, dragTargetId, parentSelection, selectionPath, selectionTargetId } from "../lib/presentation-selection";
 
 const subscribePlatform = () => () => {};
@@ -301,17 +301,17 @@ function Editor({
   if (textEditing.editingId && !elements.some((element) => element.id === textEditing.editingId)) textEditing.stopEditing();
   const editOnClick = useCallback((id: string, point: { x: number; y: number }) => {
     const element = elements.find((element) => element.id === id);
-    if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point);
+    if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point, textHostContent(element).text);
   }, [elements, disabled, textEditing]);
   const clickSelection = usePresentationClickSelection({ elements, reactFlow, selectedIds, setSelectedIds, isMac, onClickSelected: editOnClick });
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
-      onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
+      onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
       onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.onEditingChange, textEditing.onEditorReady],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, textEditing.onEditorReady],
   );
 
   /**
@@ -720,7 +720,7 @@ function Editor({
     else if (!pendingElement && canMutate && isTextHost(selected) && !selectedLocked && event.key.length === 1 && !event.altKey && key !== " ") {
       // Typing on a selected text box or shape adds to its text, like PowerPoint: edit mode
       // opens with the caret at the end and this key is buffered for the editor.
-      textEditing.startEditing(selected.id, "end"); textEditing.captureKey(event); return;
+      textEditing.startEditing(selected.id, "end", textHostContent(selected).text); textEditing.captureKey(event); return;
     }
     else if (!pendingElement) id = toolShortcut(event);
     if (id === "copy" || id === "cut" || id === "paste") return; // handled in the clipboard events these keys fire

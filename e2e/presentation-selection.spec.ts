@@ -176,8 +176,9 @@ test("copy and repeated paste work at once without clipboard permission, each pa
   expect(pasted).toHaveLength(3);
   expect(pasted.some((e) => e.x === original.x && e.y === original.y)).toBe(false);
   for (let index = 1; index < pasted.length; index++) {
-    expect(pasted[index].x - pasted[index - 1].x).toBeCloseTo(24, 5);
-    expect(pasted[index].y - pasted[index - 1].y).toBeCloseTo(24, 5);
+    // PowerPoint pastes in place, 12 pt down and right of the previous copy.
+    expect(pasted[index].x - pasted[index - 1].x).toBeCloseTo(12, 5);
+    expect(pasted[index].y - pasted[index - 1].y).toBeCloseTo(12, 5);
   }
 
   // A clipboard that holds no presentation objects is reported, in German, and changes nothing.

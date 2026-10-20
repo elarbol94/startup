@@ -355,12 +355,16 @@ Windows/Linux use Ctrl, macOS uses Cmd for these object shortcuts:
 | Shortcut | Action |
 | --- | --- |
 | Ctrl+C / X / V | Copy / cut / paste presentation objects |
-| Ctrl+D | Duplicate selected objects; after moving the copy, the next Ctrl+D repeats that move |
+| Ctrl+D | Duplicate 12 pt down and right; after moving the copy, the next Ctrl+D repeats that move |
 | Ctrl+A | Select canvas hierarchy roots |
 | Ctrl+G / Ctrl+Shift+G | Group / ungroup |
-| Arrow / Shift+Arrow | Move by 1 / 10 canvas units |
+| Arrow / Ctrl+Arrow | Move by 0.72 pt |
+| Shift+Arrow / Ctrl+Shift+Arrow | Resize by 10 % / 1 % around the centre (Right/Up grow) |
+| Alt+Left / Alt+Right | Rotate by 15° |
+| Ctrl+B / I / U, Ctrl+L / E / R | Bold, italic, underline, alignment of all text of the selection |
+| Ctrl+] / Ctrl+[, Ctrl+Shift+> / < | Font size up / down PowerPoint's size list |
+| F2 | Enter / leave text editing |
 | Tab / Shift+Tab | Next / previous object while canvas has focus |
-| Ctrl+] / Ctrl+[ | Forward / backward one layer |
 | Ctrl+Shift+] / Ctrl+Shift+[ | Front / back |
 | Enter / Escape | Edit text / step out one level (editing, group, selection) or cancel a gesture |
 | Delete / Backspace | Delete selected objects |
@@ -376,7 +380,20 @@ presentation through the existing validated upload API before objects are insert
 pastes insert no objects; browser clipboard permission may be required. External PowerPoint
 clipboard formats are not supported; use PowerPoint import for those files.
 
-**Insert → Shape**, **Chart**, and **Icon** open choices before adding an object. Shapes include
+**Shapes / Formen** opens PowerPoint's shape gallery: "Recently Used Shapes" and PowerPoint's
+eight categories (Basic Shapes, Lines, Arrows, Callouts, Symbols, Flowchart, Stars and Banners,
+Buttons) with all 172 entries in PowerPoint's order and names. Every preset is drawn from the
+DrawingML preset definitions PowerPoint uses (`src/modules/wiki/lib/preset-shapes/`), including
+all of its yellow handles, its own connection sites and its text area. With a tool armed, a click
+inserts PowerPoint's default size at the click, a drag spans the box (Shift keeps proportions,
+Ctrl draws from the centre), lines and connectors run from press to release and glue to the shapes
+they touch, a scribble draws freehand, and a freeform or curve takes clicked points (double-click
+or Enter finishes, a click on the first point closes it). Escape disarms the tool. New shapes take
+PowerPoint's default style (fill #156082, 1.5 pt outline #042433, white 18 pt Aptos text). Ctrl+V
+pastes in place, 12 pt down and right of the copy and cascading; the context menu pastes at the
+click. PowerPoint files keep presets and their adjustment values in both directions.
+
+**Insert → Chart** and **Icon** open choices before adding an object. Older decks' shapes include
 rectangles, rounded rectangles, ellipses, triangles, diamonds, pentagons, hexagons, stars,
 parallelograms, trapezoids, chevrons, speech bubbles, plus signs, lines, arrows, and
 double-headed arrows. A selected adjustable shape shows a yellow handle for its corner

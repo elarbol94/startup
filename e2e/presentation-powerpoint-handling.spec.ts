@@ -117,7 +117,11 @@ test("Ctrl+D repeats how far the previous copy was moved", async ({ page }) => {
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("Control+d"); await expect(page.locator(".react-flow__node")).toHaveCount(5);
   const first = (await selected(page).getAttribute("data-id"))!;
-  for (let i = 0; i < 8; i++) await page.keyboard.press("Shift+ArrowRight");
+  // Moved by dragging (Shift+Arrow resizes, as in PowerPoint).
+  const copy = (await node(page, first).boundingBox())!;
+  await page.mouse.move(copy.x + copy.width / 2, copy.y + copy.height / 2); await page.mouse.down();
+  await page.mouse.move(copy.x + copy.width / 2 + 160, copy.y + copy.height / 2 + 4, { steps: 10 }); await page.mouse.up();
+  await canvas(page).focus();
   await page.keyboard.press("Control+d"); await expect(page.locator(".react-flow__node")).toHaveCount(6);
   const second = (await selected(page).getAttribute("data-id"))!;
   const deck = await saved(page, id);

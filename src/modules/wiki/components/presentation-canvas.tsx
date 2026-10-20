@@ -38,6 +38,8 @@ export type PresentationNodeData = {
   dropTarget?: boolean;
   /** This text element is open in the inline editor. Owned by the editor, so shortcuts can enter it synchronously. */
   editing?: boolean;
+  /** Entered with a caret: the editing hook focuses the editor once the shared text is there. */
+  editingDeferred?: boolean;
   onEditingChange?: (id: string, editing: boolean) => void;
   onTextEditorReady?: (id: string, editor: Editor) => void;
   [key: string]: unknown;
@@ -115,7 +117,7 @@ function TextEditSurface({ element, content, data, setEditing, className, style 
     // Escape, and F2 as in PowerPoint, leave text editing with the object still selected.
     if (event.key === "Escape" || event.key === "F2") { event.preventDefault(); event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); }
   }}>
-    <PresentationRichText inline elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
+    <PresentationRichText inline autoFocus={!data.editingDeferred} elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
   </div>;
 }
 
@@ -283,6 +285,7 @@ export function elementsToNodes(
     onGestureEnd?: () => void;
     onTextChange?: (id: string, text: string) => void;
     editingId?: string | null;
+    deferredId?: string | null;
     onEditingChange?: (id: string, editing: boolean) => void;
     onTextEditorReady?: (id: string, editor: Editor) => void;
   onRichTextChange?: (id: string, content: TextContent) => void;
@@ -353,6 +356,7 @@ export function elementsToNodes(
         hidden: options.hiddenIds?.has(element.id),
         dropTarget: options.dropTargetId === element.id || undefined,
         editing: isTextHost(element) && options.editingId === element.id,
+        editingDeferred: options.deferredId === element.id || undefined,
         onEditingChange: options.onEditingChange,
         onTextEditorReady: options.onTextEditorReady,
       },

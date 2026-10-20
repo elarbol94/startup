@@ -63,9 +63,14 @@ dialogs and menus. "Strg" is ⌘ on macOS.
 
 ## Presentation editor
 
-T **T**ext · V **V**iereck · E **E**llipse · L **L**inie · R **R**ahmen. Object shortcuts follow
-PowerPoint: Strg+D duplizieren, Strg+G gruppieren, Strg+Umschalt+G Gruppierung aufheben,
-Strg+]/[ Ebene, Strg+Umschalt+C/V Format kopieren/einfügen, ⇧ ⇧ Befehle.
+Follows PowerPoint (observed in Microsoft 365 PowerPoint, see
+`plans/presentation-powerpoint-parity.md`); there are no single-letter tools, so typing on a
+selected box or shape adds to its text. Pfeiltasten 0,72 pt verschieben · Umschalt+Pfeil
+Größe um 10 % (Strg+Umschalt+Pfeil 1 %) · Alt+←/→ um 15° drehen · Strg+B/I/U und Strg+L/E/R
+für den ganzen Text · Strg+]/[ oder Strg+Umschalt+>/< Schriftgrad · F2 Text bearbeiten ·
+Strg+D duplizieren · Strg+G gruppieren · Strg+Umschalt+G Gruppierung aufheben ·
+Strg+Umschalt+]/[ ganz nach vorne/hinten · Strg+Umschalt+C/V Format kopieren/einfügen ·
+⇧ ⇧ Befehle.
 
 ## PDF reader
 

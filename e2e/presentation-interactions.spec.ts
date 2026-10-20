@@ -64,8 +64,9 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
   await page.keyboard.down("Shift"); await page.mouse.move(b.x - 15, b.y - 15); await page.mouse.down(); await page.mouse.move(b.x + b.width + 15, b.y + b.height + 15, { steps: 10 }); await page.mouse.up(); await page.keyboard.up("Shift");
   await expect(selected(page)).toHaveCount(2);
   await node(page, "a").click(); await page.locator("[data-presentation-canvas]").focus();
+  // PowerPoint: Arrow moves 0.72 pt; Shift+Down shrinks the height by 10 % around the centre.
   await page.keyboard.press("ArrowRight"); await page.keyboard.press("Shift+ArrowDown");
-  await expect.poll(async () => (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a")).toMatchObject({ x: 101, y: 110 });
+  await expect.poll(async () => { const a = (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a"); return [Math.round(a.x * 100) / 100, Math.round(a.y * 100) / 100, a.height]; }).toEqual([100.72, 104.5, 81]);
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click(); await page.getByRole("menuitem", { name: "Sperren", exact: true }).click();
   await page.locator("[data-presentation-canvas]").focus(); await page.keyboard.press("Delete"); await expect(node(page, "a")).toBeVisible();
   await page.keyboard.press("Shift+F10"); await expect(page.getByRole("menuitem", { name: "Entsperren", exact: true })).toBeEnabled(); await page.getByRole("menuitem", { name: "Entsperren", exact: true }).click();

@@ -113,7 +113,7 @@ test("reloading does not show my previous load as a collaborator", async ({ page
   await expect(status.getByText("E2E Admin")).toHaveCount(0);
 });
 
-test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arrow", async ({ page }) => {
+test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+]/[", async ({ page }) => {
   const id = await seedPresentation(page);
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("Control+Shift+C");
@@ -129,10 +129,10 @@ test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arro
   await expect(page.locator(".react-flow__node")).toHaveCount(count);
   const order = async () => (await saved(page, id)).elements.map((e: { id: string }) => e.id) as string[];
   await node(page, "a").click(); await canvas(page).focus();
-  await page.keyboard.press("Control+Shift+ArrowUp");
+  await page.keyboard.press("Control+Shift+BracketRight");
   let ids = await order(); expect(ids.indexOf("a")).toBeGreaterThan(ids.indexOf("line"));
   const before = (await saved(page, id)).elements.find((e: { id: string }) => e.id === "a");
-  await page.keyboard.press("Control+Shift+ArrowDown");
+  await page.keyboard.press("Control+Shift+BracketLeft");
   ids = await order(); expect(ids.indexOf("a")).toBeLessThan(ids.indexOf("b"));
   const after = (await saved(page, id)).elements.find((e: { id: string }) => e.id === "a");
   expect({ x: after.x, y: after.y }).toEqual({ x: before.x, y: before.y });

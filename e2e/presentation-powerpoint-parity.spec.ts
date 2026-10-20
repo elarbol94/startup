@@ -8,6 +8,8 @@ test.setTimeout(180_000);
 type Element = { id: string; type: string; x: number; y: number; width: number; height: number; rotation: number; content: Record<string, unknown> & { preset?: string; connection?: { fromId?: string; toId?: string }; freeform?: { closed: boolean } } };
 const node = (page: Page, id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
 const canvas = (page: Page) => page.locator("[data-presentation-canvas]");
+/** A slide-sized frame, so fitting the view keeps the canvas points the tests use on screen. */
+const slide = { id: "slide", type: "frame", x: 0, y: 0, width: 960, height: 540, rotation: 0, content: { label: "Slide", shape: "rect", color: "" } };
 const box = (id: string, x: number, y: number) => ({ id, type: "shape", x, y, width: 200, height: 120, rotation: 0, content: { shape: "rect", preset: "rect", fill: "#156082", stroke: "#042433", strokeWidth: 1.5, opacity: 1, text: "Alpha", fontSize: 18 } });
 
 async function save(page: Page) {
@@ -26,7 +28,7 @@ async function flow(page: Page, point: { x: number; y: number }) {
 const added = (before: Element[], after: Element[]) => after.filter((element) => !before.some((other) => other.id === element.id));
 
 test("the gallery lists PowerPoint's categories and shapes; a click inserts the default size, a drag spans the box", async ({ page }) => {
-  const id = await seed(page, false, false, [box("a", 0, 0)], { steps: [], waitFor: "a" });
+  const id = await seed(page, false, false, [slide, box("a", 0, 0)], { steps: [], waitFor: "a" });
   await page.getByTestId("presentation-shapes-button").click();
   const gallery = page.getByTestId("presentation-shape-gallery");
   for (const category of ["Standardformen", "Linien", "Pfeile", "Legenden", "Symbole", "Flussdiagramm", "Sterne und Banner", "Schaltflächen"]) await expect(gallery.getByRole("region", { name: category })).toBeVisible();
@@ -51,7 +53,7 @@ test("the gallery lists PowerPoint's categories and shapes; a click inserts the 
 });
 
 test("an elbow connector drawn from one shape to another is glued at both ends", async ({ page }) => {
-  const id = await seed(page, false, false, [box("a", 0, 0), box("b", 500, 300)], { steps: [], waitFor: "b" });
+  const id = await seed(page, false, false, [slide, box("a", 0, 0), box("b", 500, 300)], { steps: [], waitFor: "b" });
   const from = await flow(page, { x: 195, y: 60 }), to = await flow(page, { x: 505, y: 360 });
   await drawShape(page, "Verbinder: gewinkelt mit Pfeil", from, to);
   await save(page);
@@ -62,7 +64,7 @@ test("an elbow connector drawn from one shape to another is glued at both ends",
 });
 
 test("scribble draws freehand and freeform closes on its first point", async ({ page }) => {
-  const id = await seed(page, false, false, [box("a", 0, 0)], { steps: [], waitFor: "a" });
+  const id = await seed(page, false, false, [slide, box("a", 0, 0)], { steps: [], waitFor: "a" });
   await page.getByTestId("presentation-shapes-button").click();
   await page.getByTestId("presentation-shape-gallery").getByRole("button", { name: "Freihandform: Skizze", exact: true }).first().click();
   const p = await flow(page, { x: 400, y: 300 });
@@ -81,7 +83,7 @@ test("scribble draws freehand and freeform closes on its first point", async ({ 
 });
 
 test("PowerPoint's keys: nudge, Shift resize around the centre, Alt rotate, Ctrl+B, Ctrl+Shift+>, F2 and typing", async ({ page }) => {
-  const id = await seed(page, false, false, [box("a", 400, 200)], { steps: [], waitFor: "a" });
+  const id = await seed(page, false, false, [slide, box("a", 400, 200)], { steps: [], waitFor: "a" });
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("ArrowRight");
   await page.keyboard.press("Shift+ArrowRight");
