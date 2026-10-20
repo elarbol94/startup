@@ -77,7 +77,7 @@ export function pptxSlidePaths(files: PptxFiles) {
   return { root, paths, cx: Number(size?.getAttribute("cx")) || 9144000, cy: Number(size?.getAttribute("cy")) || 5143500 };
 }
 
-/** The slide title placeholder's text (`title`/`ctrTitle`), used to name the frame and stop. */
+/** The slide title placeholder's text (`title`/`ctrTitle`), else the slide's name, used to name the frame and stop. */
 export function pptxSlideTitle(files: PptxFiles, path: string) {
   const slide = readPptxXml(files, path);
   for (const shape of xmlNodes(slide, "sp")) {
@@ -86,7 +86,8 @@ export function pptxSlideTitle(files: PptxFiles, path: string) {
     const text = xmlNodes(shape, "p").map((paragraph) => xmlNodes(paragraph, "t").map((node) => node.textContent ?? "").join("")).join(" ").replace(/\s+/g, " ").trim();
     if (text) return text.slice(0, 200);
   }
-  return "";
+  // Slides without a title placeholder may still carry a name (the .pptx export writes the frame label there).
+  return (xmlNodes(slide, "cSld")[0]?.getAttribute("name") ?? "").replace(/\s+/g, " ").trim().slice(0, 200);
 }
 
 export const pptxWarningCodes = [

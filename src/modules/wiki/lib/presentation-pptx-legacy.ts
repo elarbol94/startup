@@ -2,6 +2,7 @@
 // example hand-written archives without [Content_Types].xml) that the full parser rejects.
 import type { Element as XmlElement } from "@xmldom/xmldom";
 import type { PresentationElement, PresentationSnapshot, PresentationTextElement } from "./presentation";
+import { srcRectToImageCrop } from "./presentation-pptx-image";
 import { pptxImageMime, pptxSlidePaths, pptxSlideTitle, readPptxRelations, readPptxXml, resolvePptxPath, xmlChildren as direct, xmlNodes as nodes, type PptxFiles, type PptxImportMedia, type PptxImportWarning } from "./presentation-pptx-archive";
 
 const attr = (element: XmlElement | undefined, key: string, fallback = 0) => Number(element?.getAttribute(key) ?? fallback) || fallback;
@@ -48,8 +49,10 @@ export function importLegacyPptx(files: PptxFiles) {
           if (!image || !mime) { warn("missingMedia"); continue; }
           let item = media.find((entry) => entry.name === imagePath);
           if (!item) { item = { key: id(), name: imagePath, mime, bytes: image }; media.push(item); }
-          if (nodes(node, "srcRect").length) warn("formatting");
-          elements.push({ id: elementId, parentId, type: "image", ...box, content: { attachmentId: item.key, alt: nodes(node, "cNvPr")[0]?.getAttribute("descr")?.slice(0, 500) || "" } }); continue;
+          const srcRect = nodes(node, "srcRect")[0];
+          const crop = srcRect ? srcRectToImageCrop({ l: attr(srcRect, "l") / 1000, t: attr(srcRect, "t") / 1000, r: attr(srcRect, "r") / 1000, b: attr(srcRect, "b") / 1000 }) : null;
+          if (crop?.zoom === 5) warn("formatting");
+          elements.push({ id: elementId, parentId, type: "image", ...box, content: { attachmentId: item.key, alt: nodes(node, "cNvPr")[0]?.getAttribute("descr")?.slice(0, 500) || "", ...crop } }); continue;
         }
         const paragraphs = nodes(node, "txBody")[0];
         if (paragraphs && nodes(paragraphs, "t").length) {
