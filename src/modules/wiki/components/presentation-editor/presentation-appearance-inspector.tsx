@@ -12,6 +12,8 @@ import { presentationTextFits } from "../../lib/presentation-layout";
 import { presentationFrameShapes, presentationShapeKinds, type PresentationElement } from "../../lib/presentation";
 import { PresentationRichText } from "../presentation-rich-text";
 import { DraftInput, DraftTextarea } from "./draft-fields";
+import { PresentationShapeTextInspector } from "./presentation-shape-text-inspector";
+import { isTextHost } from "../../lib/presentation-text-host";
 import { parseNumberInput } from "./presentation-editor-utils";
 
 export function PresentationAppearanceInspector({
@@ -269,6 +271,7 @@ export function PresentationAppearanceInspector({
               }}
             />
           </label>
+          {isTextHost(selected) && <PresentationShapeTextInspector selected={selected} updateElement={updateElement} colorSwatches={colorSwatches} />}
         </div>
       )}
       </fieldset>

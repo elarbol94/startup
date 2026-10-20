@@ -5,7 +5,7 @@ export const RunColor = Mark.create({ name: "runColor", addAttributes: () => ({ 
 export const richExtensions = () => [StarterKit.configure({ undoRedo: false, heading: false, codeBlock: false, blockquote: false, horizontalRule: false, bulletList: false, orderedList: false, listItem: false, link: { openOnClick: false } }), RunColor];
 export const richSchema = getSchema(richExtensions());
 export type Content = PresentationTextElement["content"];
-export function toDoc(content: Content): JSONContent {
+export function toDoc(content: Pick<Content, "text" | "runs">): JSONContent {
   const paragraphs: JSONContent[] = [{ type: "paragraph", content: [] }];
   for (const run of content.runs ?? [{ text: content.text }]) {
     run.text.split("\n").forEach((text, index) => {

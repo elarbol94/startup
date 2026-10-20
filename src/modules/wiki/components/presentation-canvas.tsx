@@ -10,6 +10,7 @@ import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
 import { PresentationContent, presentationTextStyle } from "./presentation-content";
+import { isTextHost, shapeTextContent } from "../lib/presentation-text-host";
 
 /**
  * The node types are shared by the editor and the player: what a reader sees while
@@ -24,7 +25,7 @@ export type PresentationNodeData = {
   onGestureStart?: () => void;
   onGestureEnd?: () => void;
   onTextChange?: (id: string, text: string) => void;
-  onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onRichTextChange?: (id: string, content: TextContent) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onEndpointChange?: (element: PresentationElement) => void;
   mediaUrl?: (id: string) => string;
@@ -89,6 +90,28 @@ function Resizer({ selected, data }: { selected: boolean; data: PresentationNode
   </div></ViewportPortal>;
 }
 
+type TextContent = Extract<PresentationElement, { type: "text" }>["content"];
+
+/**
+ * The inline rich-text editor of a text box or a shape. Same box and typography as the
+ * rendered text, so the text does not move on entering edit mode.
+ */
+function TextEditSurface({ element, content, data, setEditing, className }: {
+  element: PresentationElement; content: TextContent; data: PresentationNodeData; setEditing: (editing: boolean) => void; className?: string;
+}) {
+  return <div className={cn("nodrag nopan nowheel cursor-text", className)} style={presentationTextStyle(content)} onBlur={event => {
+    // Decided a frame later: remounting the editor (React's development double mount)
+    // drops focus for a moment and gives it back.
+    const surface = event.currentTarget;
+    requestAnimationFrame(() => {
+      const active = document.activeElement;
+      if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search]")) setEditing(false);
+    });
+  }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
+    <PresentationRichText inline elementId={element.id} content={content} onChange={next => data.onRichTextChange?.(element.id, next)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
+  </div>;
+}
+
 function TextNode({ data, selected }: NodeProps<PresentationNode>) {
   const element = data.element;
   if (element.type !== "text") return null;
@@ -106,18 +129,7 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
     >
       <Resizer selected={Boolean(selected)} data={data} />
       {data.editing && data.editable ? (
-        // Same box and typography as the view below, so the text does not move on entering edit mode.
-        <div className={cn("nodrag nopan nowheel h-full w-full cursor-text bg-background/95", !color && "text-foreground")} style={presentationTextStyle(element.content)} onBlur={event => {
-          // Decided a frame later: remounting the editor (React's development double mount)
-          // drops focus for a moment and gives it back.
-          const surface = event.currentTarget;
-          requestAnimationFrame(() => {
-            const active = document.activeElement;
-            if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search]")) setEditing(false);
-          });
-        }} onKeyDown={event => { if (event.key === "Escape") { event.stopPropagation(); setEditing(false); event.currentTarget.closest<HTMLElement>("[data-presentation-canvas]")?.focus(); } }}>
-          <PresentationRichText inline elementId={element.id} content={element.content} onChange={content => data.onRichTextChange?.(element.id, content)} onReady={editor => data.onTextEditorReady?.(element.id, editor)} />
-        </div>
+        <TextEditSurface element={element} content={element.content} data={data} setEditing={setEditing} className={cn("h-full w-full bg-background/95", !color && "text-foreground")} />
       ) : (
         <div
           className={cn("h-full w-full overflow-hidden whitespace-pre-wrap break-words leading-tight", !color && "text-foreground")}
@@ -214,9 +226,16 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
   const nodeRef = useRef<HTMLDivElement>(null);
   const element = data.element;
   if (element.type !== "shape") return null;
+  const setEditing = (editing: boolean) => data.onEditingChange?.(element.id, editing);
   return <div ref={nodeRef} inert={data.hidden || undefined} className={cn("h-full w-full text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
     <Resizer selected={Boolean(selected)} data={data} />
-    <div className="pointer-events-none h-full w-full"><PresentationShape element={element} /></div>
+    {data.editing && data.editable ? (
+      // The drawing stays put; the text editor sits over it, centred like the rendered text.
+      <div className="relative h-full w-full">
+        <div className="pointer-events-none absolute inset-0"><PresentationShape element={element} /></div>
+        <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0 flex flex-col justify-center" />
+      </div>
+    ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} /></div>}
     {selected && data.editable && data.resizable !== false && isLinearShape(element) && <LineHandles data={data} nodeRef={nodeRef} />}
   </div>;
 }
@@ -293,7 +312,7 @@ export function elementsToNodes(
     editingId?: string | null;
     onEditingChange?: (id: string, editing: boolean) => void;
     onTextEditorReady?: (id: string, editor: Editor) => void;
-  onRichTextChange?: (id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => void;
+  onRichTextChange?: (id: string, content: TextContent) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
   onEndpointChange?: (element: PresentationElement) => void;
     /** Ids currently hidden so they can fade in — the player's step-arrival entrance. */
@@ -355,7 +374,7 @@ export function elementsToNodes(
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
         dropTarget: options.dropTargetId === element.id || undefined,
-        editing: element.type === "text" && options.editingId === element.id,
+        editing: isTextHost(element) && options.editingId === element.id,
         onEditingChange: options.onEditingChange,
         onTextEditorReady: options.onTextEditorReady,
       },

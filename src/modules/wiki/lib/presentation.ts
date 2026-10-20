@@ -57,6 +57,7 @@ export {
   groupPresentationElements,
   ungroupPresentationElements,
   duplicatePresentationTree,
+  smartDuplicateOffset,
   frameAtPoint,
   assignFrameMembership,
 } from "./presentation-hierarchy";

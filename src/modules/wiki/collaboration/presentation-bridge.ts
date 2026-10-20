@@ -34,6 +34,8 @@ export class PresentationBridge {
     this.state = { ...this.state, ...snapshot, dirty: false, failed: false };
     this.notify({ type: "shared", snapshot });
   };
+  /** The canvas as the bridge knows it right now, which can be ahead of React's last render. */
+  current = () => this.state;
   cancelGesture = () => {
     if (!this.state.gestureActive) return false;
     if (this.gestureChanged) { this.dispatch({ type: "undo" }); this.undo?.clear(false, true); }

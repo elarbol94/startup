@@ -105,6 +105,17 @@ const shapeElementSchema = z.object({
     endHead: z.enum(["none", "triangle", "open"]).optional(),
     headSize: z.number().finite().min(1).max(1000).optional(),
     connection: z.object({ fromId: z.string().min(1).max(64), toId: z.string().min(1).max(64) }).optional(),
+    // Text inside the shape, as in PowerPoint. Same names and limits as a text element's
+    // content, so the rich-text editor, its shared fragment and the renderer are reused.
+    text: z.string().max(5_000).optional(),
+    runs: presentationTextRunSchema.array().max(200).optional(),
+    fontSize: z.number().int().min(8).max(400).optional(),
+    color: z.string().max(32).optional(),
+    align: z.enum(["left", "center", "right"]).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    font: z.enum(presentationFonts).optional(),
   }),
 });
 

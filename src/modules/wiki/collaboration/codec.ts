@@ -75,12 +75,13 @@ function patchCollection(doc: Y.Doc, name: string, before: { id: string }[], aft
     let map = items.get(item.id);
     if (!map) { map = new Y.Map(); items.set(item.id, map); }
     patchMap(map, old.get(item.id) ?? {}, item);
-    if (name === "elements" && "type" in item && item.type === "text") {
-      const next = item as unknown as { content: Content };
-      const previous = old.get(item.id) as unknown as { content: Content } | undefined;
+    // Text boxes and shapes keep their rich text in a shared fragment the inline editor binds to.
+    if (name === "elements" && "type" in item && (item.type === "text" || item.type === "shape")) {
+      const next = item as unknown as { content: Partial<Content> };
+      const previous = old.get(item.id) as unknown as { content: Partial<Content> } | undefined;
       if (!same(previous?.content.text, next.content.text) || !same(previous?.content.runs, next.content.runs)) {
         const fragment = doc.getXmlFragment(`rich:${item.id}`);
-        const json = toDoc(next.content);
+        const json = toDoc({ text: next.content.text ?? "", runs: next.content.runs });
         if (!same(yXmlFragmentToProsemirrorJSON(fragment), json)) updateYFragment(doc, fragment, richSchema.nodeFromJSON(json), { mapping: new Map(), isOMark: new Map() });
       }
     }
@@ -105,8 +106,14 @@ export function patchPresentation(doc: Y.Doc, before: PresentationSnapshot, afte
 }
 export function presentationJSON(doc: Y.Doc): PresentationSnapshot {
   const elements = (collection(doc, "elements") as PresentationSnapshot["elements"]).map(element => {
-    if (element.type !== "text") return element;
+    if (element.type !== "text" && element.type !== "shape") return element;
     const fragment = doc.getXmlFragment(`rich:${element.id}`);
+    if (element.type === "shape") {
+      // A shape without text has no fragment content; an emptied one drops its text fields.
+      if (element.content.text === undefined && !fragment.length) return element;
+      const { text, runs } = fromDoc(yXmlFragmentToProsemirrorJSON(fragment));
+      return { ...element, content: { ...element.content, text: text || undefined, runs: text ? runs : undefined } };
+    }
     return { ...element, content: { ...element.content, ...fromDoc(yXmlFragmentToProsemirrorJSON(fragment)) } };
   });
   const steps = collection(doc, "steps") as PresentationSnapshot["steps"];

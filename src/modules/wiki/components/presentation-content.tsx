@@ -1,6 +1,7 @@
 import { PresentationShape } from "./presentation-shape";
 import type { CSSProperties, SVGProps, ReactElement } from "react";
 import { presentationFontFamilies, presentationIconNames, type PresentationElement } from "../lib/presentation";
+import { shapeTextContent } from "../lib/presentation-text-host";
 
 // Pure vectors, with no client-component or hook dependency: authored icons must
 // also render in downloadable HTML outside Next.js's client-component protocol.
@@ -35,13 +36,9 @@ export function presentationTextStyle(c: Extract<PresentationElement, { type: "t
     boxSizing: "border-box", padding: c.padding ?? 0, textAlign: c.align, color: c.color || "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word", lineHeight: 1.15 };
 }
 
-/** Shared by the editor, presenter previews, print, public and offline delivery. */
-export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${id}`, interactive = true }: {
-  element: PresentationElement; mediaUrl?: (id: string) => string; interactive?: boolean;
-}) {
-  if (element.type === "text") {
-    const c = element.content;
-    const style: CSSProperties = { ...presentationTextStyle(c), height: "100%", overflow: "hidden" };
+/** The typeset text of a text element, or of a shape seen as one (see `shapeTextContent`). */
+export function PresentationTextBody({ content: c, interactive, style: extra }: { content: Extract<PresentationElement, { type: "text" }>["content"]; interactive: boolean; style?: CSSProperties }) {
+    const style: CSSProperties = { ...presentationTextStyle(c), height: "100%", overflow: "hidden", ...extra };
     const runs = c.runs ?? [{ text: c.text }];
     const renderRuns = (entries: typeof runs) => entries.map((run, i) => {
       const child = <span style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, textDecoration: run.underline ? "underline" : undefined, color: run.color || undefined }}>{run.text}</span>;
@@ -56,7 +53,13 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
       return <div style={style}>{lines.map((line, i) => <div key={i}>{c.list === "bullet" ? "• " : `${i + 1}. `}{renderRuns(line)}</div>)}</div>;
     }
     return <div style={style}>{renderRuns(runs)}</div>;
-  }
+}
+
+/** Shared by the editor, presenter previews, print, public and offline delivery. */
+export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${id}`, interactive = true }: {
+  element: PresentationElement; mediaUrl?: (id: string) => string; interactive?: boolean;
+}) {
+  if (element.type === "text") return <PresentationTextBody content={element.content} interactive={interactive} />;
   if (element.type === "image") {
     const c = element.content;
     return <div style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: c.mask === "circle" ? "50%" : c.mask === "rounded" ? "10%" : undefined, clipPath: c.mask === "diamond" ? "polygon(50% 0,100% 50%,50% 100%,0 50%)" : undefined }}>
@@ -107,5 +110,12 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
   if (element.type === "frame") return <div style={{ height: "100%", border: element.content.shape === "none" ? undefined : `2px solid ${element.content.color || "currentColor"}`, borderRadius: element.content.shape === "circle" ? "50%" : 12 }}>
     {element.content.label && <span style={{ position: "absolute", top: -24, fontSize: 14, color: element.content.color || "inherit" }}>{element.content.label}</span>}
   </div>;
-  return <PresentationShape element={element} />;
+  if (!element.content.text) return <PresentationShape element={element} />;
+  // Text in a shape is centred vertically over the drawing, like PowerPoint's default anchor.
+  return <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <PresentationShape element={element} />
+    <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+      <PresentationTextBody content={shapeTextContent(element.content)} interactive={interactive} style={{ height: "auto", maxHeight: "100%" }} />
+    </div>
+  </div>;
 }

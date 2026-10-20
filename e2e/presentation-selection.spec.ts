@@ -67,12 +67,12 @@ test("Shift- and Ctrl-click add and remove objects, groups included, and a plain
   await node(page, "a").click({ modifiers: ["Control"] }); await expect(node(page, group!)).not.toHaveClass(/selected/);
 });
 
-test("frames are selected from their interior and label, moved by label and edge, and marqueed inside", async ({ page }) => {
+test("frames behave like slides: empty inside deselects, label and edge select and move, marquee inside", async ({ page }) => {
   const id = await seed(page);
   const interior = await screen(page, { x: 800, y: 500 });
-  await page.mouse.click(interior.x, interior.y); await expect(node(page, "frame")).toHaveClass(/selected/); await expect(selected(page)).toHaveCount(1);
+  await node(page, "a").click(); await expect(selected(page)).toHaveCount(1);
+  await page.mouse.click(interior.x, interior.y); await expect(selected(page)).toHaveCount(0);
   await node(page, "a").click(); await node(page, "b").click({ modifiers: ["Shift"] });
-  await shiftClick(page, interior.x, interior.y); await expect(selected(page)).toHaveCount(3);
   await shiftClick(page, interior.x, interior.y); await expect(selected(page)).toHaveCount(2);
 
   await page.keyboard.press("Escape"); await expect(selected(page)).toHaveCount(0);

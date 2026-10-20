@@ -89,12 +89,36 @@ export function ungroupPresentationElements(elements: PresentationElement[], id:
   return elements.filter((element) => element.id !== id).map((element) => element.parentId === id ? { ...element, parentId: group.parentId } : element);
 }
 
-export function duplicatePresentationTree(elements: PresentationElement[], ids: Set<string>, idMap: Map<string, string>): PresentationElement[] {
+/**
+ * The offset for the next Ctrl+D. Duplicating the copies a previous duplicate made -- after the
+ * author moved them -- repeats that move, PowerPoint's "smart duplicate"; anything else gets
+ * the standard nudge.
+ */
+export function smartDuplicateOffset(
+  elements: PresentationElement[],
+  rootIds: string[],
+  last: { sources: string[]; copies: string[] } | null,
+): { x: number; y: number } {
+  const fallback = { x: PRESENTATION_DUPLICATE_OFFSET, y: PRESENTATION_DUPLICATE_OFFSET };
+  if (!last || last.copies.length !== rootIds.length || !rootIds.every((id, index) => last.copies[index] === id)) return fallback;
+  const source = elements.find((element) => element.id === last.sources[0]);
+  const copy = elements.find((element) => element.id === last.copies[0]);
+  if (!source || !copy) return fallback;
+  const offset = { x: copy.x - source.x, y: copy.y - source.y };
+  return offset.x || offset.y ? offset : fallback;
+}
+
+export function duplicatePresentationTree(
+  elements: PresentationElement[],
+  ids: Set<string>,
+  idMap: Map<string, string>,
+  offset = { x: PRESENTATION_DUPLICATE_OFFSET, y: PRESENTATION_DUPLICATE_OFFSET },
+): PresentationElement[] {
   const included = presentationDescendants(elements, ids);
   const copies = elements.filter((element) => included.has(element.id)).map((element) => ({
     ...element, id: idMap.get(element.id)!, locked: false,
     parentId: element.parentId ? idMap.get(element.parentId) ?? element.parentId : undefined,
-    x: element.x + PRESENTATION_DUPLICATE_OFFSET, y: element.y + PRESENTATION_DUPLICATE_OFFSET,
+    x: element.x + offset.x, y: element.y + offset.y,
     ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: { fromId: idMap.get(element.content.connection.fromId) ?? element.content.connection.fromId, toId: idMap.get(element.content.connection.toId) ?? element.content.connection.toId } } } : {}),
   } as PresentationElement));
   return elements.length + copies.length <= 500 ? [...elements, ...copies] : elements;

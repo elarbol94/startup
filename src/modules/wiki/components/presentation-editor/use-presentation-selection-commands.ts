@@ -6,6 +6,7 @@ import type { useTranslations } from "next-intl";
 import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import { ungroupSteps } from "../../lib/presentation-interactions";
+import { isTextHost } from "../../lib/presentation-text-host";
 import { groupPresentationElements, ungroupPresentationElements, type PresentationCanvasAction, type PresentationElement, type PresentationStep } from "../../lib/presentation";
 
 export function usePresentationSelectionCommands({
@@ -38,7 +39,7 @@ export function usePresentationSelectionCommands({
     setSelectedIds(elements.filter(e => e.parentId && groups.has(e.parentId)).map(e => e.id));
   }, [canMutate, selectedRoots, steps, elements, dispatch, t, setSelectedIds]);
   const editText = useCallback(() => {
-    if (selected?.type !== "text" || !canMutate) return;
+    if (!isTextHost(selected) || !canMutate) return;
     startTextEditing(selected.id);
   }, [selected, canMutate, startTextEditing]);
   const setSelectionLocked = useCallback((locked: boolean) => {

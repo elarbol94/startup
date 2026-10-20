@@ -17,9 +17,13 @@ async function snapshot(page: Page, id: string) {
 /** A pane point left of the seeded frame, checked to be empty canvas. */
 async function emptyPanePoint(page: Page) {
   const box = (await page.locator("[data-presentation-canvas]").boundingBox())!;
-  const point = { x: box.x + 80, y: box.y + box.height / 2 };
-  expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains("react-flow__pane"), point)).toBe(true);
-  return point;
+  // The fitted frame's outline can land at a fixed offset, depending on the app's chrome; take
+  // the first candidate that really is canvas.
+  for (const offset of [80, 40, 20, 120, 160]) {
+    const point = { x: box.x + offset, y: box.y + box.height / 2 };
+    if (await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.classList.contains("react-flow__pane"), point)) return point;
+  }
+  throw new Error("No empty canvas point left of the seeded frame");
 }
 /** Top/left of the first character, in screen pixels. */
 function firstGlyph(page: Page, selector: string) {

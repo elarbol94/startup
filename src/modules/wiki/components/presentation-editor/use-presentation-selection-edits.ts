@@ -1,13 +1,13 @@
 "use client";
 // Edits of the selected presentation elements: delete (with their steps), duplicate, z-order
 // and copying/pasting an element's format. Used by presentation-editor.tsx.
-import { useCallback, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import type { useTranslations } from "next-intl";
 import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import { copyPresentationFormat, pastePresentationFormat, type PresentationFormat } from "../../lib/presentation-format";
 import { mutableSelection, selectionRoots } from "../../lib/presentation-interactions";
-import { duplicatePresentationTree, isPresentationElementLocked, presentationDescendants, reorderElement, type PresentationCanvasAction, type PresentationElement } from "../../lib/presentation";
+import { duplicatePresentationTree, isPresentationElementLocked, presentationDescendants, reorderElement, smartDuplicateOffset, type PresentationCanvasAction, type PresentationElement } from "../../lib/presentation";
 import { presentationRemovalSet, removePresentationElements } from "../../lib/presentation-frames";
 import { frameInsertionEdit } from "./use-presentation-frames";
 
@@ -46,17 +46,23 @@ export function usePresentationSelectionEdits({
     [elements, dispatch, setSelectedIds],
   );
 
+  /** The last Ctrl+D, so duplicating its moved copies repeats that move. */
+  const lastDuplicate = useRef<{ sources: string[]; copies: string[] } | null>(null);
   const duplicateSelection = useCallback(
     (ids: string[]) => {
       if (disabled || !mutableSelection(elements, ids)) return;
-      const roots = new Set(selectionRoots(elements, ids).map(element => element.id));
+      const rootIds = selectionRoots(elements, ids).map(element => element.id);
+      const roots = new Set(rootIds);
       const included = presentationDescendants(elements, roots);
       if (elements.length + included.size > 500) { toast.error(t("presentations.elementLimit")); return; }
+      const offset = smartDuplicateOffset(elements, rootIds, lastDuplicate.current);
       // Ids are minted here rather than inside the update, which has to stay pure.
       const copies = new Map([...included].map((id) => [id, createId()]));
       const added = elements.filter((element) => included.has(element.id)).map((element) => ({ ...element, id: copies.get(element.id)! }));
-      dispatch(frameInsertionEdit(added, current => duplicatePresentationTree(current, roots, copies), t));
-      setSelectedIds([...roots].map((id) => copies.get(id)!));
+      dispatch(frameInsertionEdit(added, current => duplicatePresentationTree(current, roots, copies, offset), t));
+      const copyIds = rootIds.map((id) => copies.get(id)!);
+      lastDuplicate.current = { sources: rootIds, copies: copyIds };
+      setSelectedIds(copyIds);
     },
     [disabled, dispatch, elements, t, setSelectedIds],
   );
