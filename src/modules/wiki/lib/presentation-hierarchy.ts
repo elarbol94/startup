@@ -2,6 +2,7 @@
 // canvas. Re-exported by presentation.ts.
 import { presentationCameraBounds, unionBounds } from "./presentation-geometry";
 import type { PresentationElement, PresentationFrameElement } from "./presentation-model";
+import { remapConnection } from "./presentation-connectors";
 
 /**
  * Z-order is the order of the array: the last element of its band paints on top. Frames
@@ -119,7 +120,8 @@ export function duplicatePresentationTree(
     ...element, id: idMap.get(element.id)!, locked: false,
     parentId: element.parentId ? idMap.get(element.parentId) ?? element.parentId : undefined,
     x: element.x + offset.x, y: element.y + offset.y,
-    ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: { fromId: idMap.get(element.content.connection.fromId) ?? element.content.connection.fromId, toId: idMap.get(element.content.connection.toId) ?? element.content.connection.toId } } } : {}),
+    // A copy stays glued to originals it was not copied with.
+    ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: remapConnection(element.content.connection, (id) => idMap.get(id) ?? id, offset) } } : {}),
   } as PresentationElement));
   return elements.length + copies.length <= 500 ? [...elements, ...copies] : elements;
 }

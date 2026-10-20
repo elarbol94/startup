@@ -51,9 +51,21 @@ describe("attached connectors", () => {
     expect(restored.elements).toEqual(elements);
     expect(() => presentationElementsSchema.parse(state.elements)).not.toThrow();
   });
-  it("detaches a connector when an endpoint is removed", () => {
-    const result = maintainPresentationLayout([frame("a", 0), connector]);
-    expect(result[1].type === "shape" && result[1].content.connection).toBeUndefined();
+  it("leaves an end free where it was when its element is removed, and detaches with no glued end left", () => {
+    const glued = maintainPresentationLayout([frame("a", 0), frame("b", 300), connector]);
+    const end = glued[2].type === "shape" ? glued[2].x + glued[2].width : 0;
+    const result = maintainPresentationLayout([glued[0], glued[2]]);
+    expect(result[1].type === "shape" && result[1].content.connection).toMatchObject({ fromId: "a", toId: undefined, to: { x: end, y: 50 } });
+    expect(result[1]).toMatchObject({ x: 100, width: 200 });
+    const loose = maintainPresentationLayout([result[1]]);
+    expect(loose[0].type === "shape" && loose[0].content.connection).toBeUndefined();
+  });
+  it("routes elbow and curved connectors from connection sites into a padded box", () => {
+    const elbow = { ...connector, content: { ...connector.content, route: "elbow" as const, connection: { fromId: "a", fromSite: "bottom" as const, toId: "b", toSite: "left" as const } } };
+    const [, , line] = maintainPresentationLayout([frame("a", 0), { ...frame("b", 300), y: 200 }, elbow]);
+    expect(line).toMatchObject({ rotation: 0, x: 26, y: 76 });
+    expect(line.type === "shape" && line.content.points).toEqual([{ x: 24, y: 24 }, { x: 24, y: 174 }, { x: 274, y: 174 }]);
+    expect(maintainPresentationLayout([frame("a", 0), { ...frame("b", 300), y: 200 }, line])[2]).toBe(line);
   });
   it("remaps copied endpoint IDs when duplicating a connected selection", () => {
     const elements = maintainPresentationLayout([frame("a", 0), frame("b", 300), connector]);

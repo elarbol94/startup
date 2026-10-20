@@ -145,6 +145,24 @@ describe("PowerPoint export: package", () => {
   });
 });
 
+describe("PowerPoint export: canvas shapes beyond the basics", () => {
+  it("exports the newer kinds as presets, text in shapes, and elbow or curved lines as paths", () => {
+    const shape = (id: string, kind: string, extra: Record<string, unknown> = {}) => ({ id, type: "shape", parentId: "f", x: 100, y: 100, width: 200, height: 100, rotation: 0, content: { shape: kind, fill: "#ffffff", stroke: "#123456", strokeWidth: 2, opacity: 1, ...extra } }) as PresentationElement;
+    const routed = (id: string, route: "elbow" | "curve", points: { x: number; y: number }[]) => shape(id, "arrow", { route, points });
+    const snapshot: PresentationSnapshot = { title: "Shapes", background: "", settings: defaultPresentationSettings, steps: [{ id: "s", elementId: "f" }], elements: [
+      frame("f", 0, "Shapes"),
+      shape("star", "star"), shape("bubble", "callout", { text: "Hello there", runs: [{ text: "Hello", bold: true }, { text: " there" }] }),
+      routed("elbow", "elbow", [{ x: 24, y: 24 }, { x: 100, y: 24 }, { x: 100, y: 76 }, { x: 176, y: 76 }]),
+      routed("curve", "curve", [{ x: 24, y: 24 }, { x: 80, y: 24 }, { x: 120, y: 76 }, { x: 176, y: 76 }]),
+    ] };
+    const slide = strFromU8(unzipSync(exportPresentationPptx(snapshot, {}, { now: new Date("2026-10-20T10:00:00Z") }).bytes)["ppt/slides/slide1.xml"]);
+    expect(slide).toContain('prst="star5"'); expect(slide).toContain('prst="wedgeRectCallout"');
+    expect(slide).toMatch(/prst="wedgeRectCallout".*<p:txBody><a:bodyPr[^>]*anchor="ctr".*<a:rPr[^>]*b="1".*Hello<\/a:t>.*there<\/a:t>/);
+    expect(slide).toMatch(/<a:custGeom>.*<a:moveTo>.*<\/a:moveTo><a:lnTo>.*<a:lnTo>.*<a:lnTo>.*<\/a:path>.*<a:tailEnd type="triangle"/);
+    expect(slide).toContain("<a:cubicBezTo>");
+  });
+});
+
 describe("image crop geometry", () => {
   it("reads PNG sizes and inverts cover crops", () => {
     expect(imageSize(png(400, 100))).toEqual({ width: 400, height: 100 });

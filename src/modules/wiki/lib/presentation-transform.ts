@@ -206,6 +206,12 @@ export function applyGeometryChanges(
       && Math.abs(target.height - element.height) < geometryEpsilon
     ) return element;
     touched = true;
+    // A connector's free ends are canvas points: moving the line carries them along.
+    const connection = element.type === "shape" ? element.content.connection : undefined;
+    if (element.type === "shape" && connection && (connection.from || connection.to)) {
+      const dx = target.x - element.x, dy = target.y - element.y, move = (p?: { x: number; y: number }) => p && { x: p.x + dx, y: p.y + dy };
+      return { ...element, x: target.x, y: target.y, width: target.width, height: target.height, content: { ...element.content, connection: { ...connection, from: move(connection.from), to: move(connection.to) } } };
+    }
     return { ...element, x: target.x, y: target.y, width: target.width, height: target.height };
   });
   if (!touched) return { elements, guides: snapped.guides };

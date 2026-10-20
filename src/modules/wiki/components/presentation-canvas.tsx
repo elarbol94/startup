@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import type { Editor } from "@tiptap/react";
 import { ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
-import { resizePresentationElement, isLinearShape, lineEndpoints, moveLineEndpoint } from "../lib/presentation-interactions";
+import { resizePresentationElement, isLinearShape } from "../lib/presentation-interactions";
+import { AdjustHandle, LineEndHandles, type LineEndDrop } from "./presentation-editor/shape-handles";
 import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
 import { PresentationRichText } from "./presentation-rich-text";
@@ -27,7 +28,10 @@ export type PresentationNodeData = {
   onTextChange?: (id: string, text: string) => void;
   onRichTextChange?: (id: string, content: TextContent) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
-  onEndpointChange?: (element: PresentationElement) => void;
+  /** A line end dropped on an object (glue) or on empty canvas (free end). */
+  onLineEndDrop?: (id: string, end: 0 | 1, drop: LineEndDrop) => void;
+  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number }) => void;
+  lookupElement?: (id: string) => PresentationElement | undefined;
   mediaUrl?: (id: string) => string;
   hidden?: boolean;
   /** A frame the dragged selection would join if dropped now. */
@@ -223,11 +227,10 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
  * Rotation stays on the node wrapper, so it applies to shapes exactly as to everything else.
  */
 function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
-  const nodeRef = useRef<HTMLDivElement>(null);
   const element = data.element;
   if (element.type !== "shape") return null;
   const setEditing = (editing: boolean) => data.onEditingChange?.(element.id, editing);
-  return <div ref={nodeRef} inert={data.hidden || undefined} className={cn("h-full w-full text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
+  return <div inert={data.hidden || undefined} className={cn("h-full w-full text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
     <Resizer selected={Boolean(selected)} data={data} />
     {data.editing && data.editable ? (
       // The drawing stays put; the text editor sits over it, centred like the rendered text.
@@ -236,47 +239,11 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
         <TextEditSurface element={element} content={shapeTextContent(element.content)} data={data} setEditing={setEditing} className="absolute inset-0 flex flex-col justify-center" />
       </div>
     ) : <div className="pointer-events-none h-full w-full"><PresentationContent element={element} interactive={false} /></div>}
-    {selected && data.editable && data.resizable !== false && isLinearShape(element) && <LineHandles data={data} nodeRef={nodeRef} />}
+    {selected && data.editable && data.resizable !== false && isLinearShape(element) && data.lookupElement && data.onLineEndDrop &&
+      <LineEndHandles element={element} lookup={data.lookupElement} onDrop={(end, drop) => data.onLineEndDrop?.(element.id, end, drop)} />}
+    {selected && data.editable && data.resizable !== false && !isLinearShape(element) && data.onAdjust &&
+      <AdjustHandle element={element} onAdjust={(patch) => data.onAdjust?.(element.id, patch)} onGestureStart={data.onGestureStart} onGestureEnd={data.onGestureEnd} />}
   </div>;
-}
-
-function LineHandles({ data, nodeRef }: { data: PresentationNodeData; nodeRef: React.RefObject<HTMLDivElement | null> }) {
-  const { zoom } = useViewport();
-  const flow = useReactFlow();
-  const [draft, setDraft] = useState<PresentationElement | null>(null);
-  const t = useTranslations("wiki.presentations.interactions");
-  const cleanup = useRef<(() => void) | null>(null);
-  useEffect(() => () => cleanup.current?.(), []);
-  const element = data.element;
-  if (element.type !== "shape") return null;
-  const points = lineEndpoints(draft ?? element);
-  return <ViewportPortal><div className="pointer-events-none absolute inset-0" style={{ zIndex: 2000 }}>{([0, 1] as const).map(endpoint => <button key={endpoint} type="button" aria-label={t(endpoint === 0 ? "startPoint" : "endPoint")} title={element.content.connection ? t("detachFirst") : undefined}
-    disabled={Boolean(element.content.connection)} className="nodrag nopan pointer-events-auto absolute z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white bg-indigo-500 disabled:bg-gray-400" style={{ left: points[endpoint].x, top: points[endpoint].y, width: 12 / zoom, height: 12 / zoom }}
-    onClick={event => event.stopPropagation()}
-    onPointerDown={event => {
-      if (event.button !== 0) return;
-      event.preventDefault(); event.stopPropagation();
-      const node = nodeRef.current?.closest<HTMLElement>(".react-flow__node");
-      if (!node) return;
-      const handle = event.currentTarget;
-      handle.setPointerCapture(event.pointerId);
-      const original = node.style.transform;
-      const originalOrigin = node.style.transformOrigin;
-      node.style.transformOrigin = "center center";
-      let next = element;
-      const move = (event: PointerEvent) => {
-        next = moveLineEndpoint(element, endpoint, flow.screenToFlowPosition({ x: event.clientX, y: event.clientY }), event.shiftKey) as typeof element;
-        node.style.transform = `translate(${next.x}px, ${next.y}px) rotate(${next.rotation}deg)`;
-        node.style.width = `${next.width}px`;
-        setDraft(next);
-      };
-      const clear = () => { setDraft(null); if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId); node.style.transformOrigin = originalOrigin; node.style.transform = original; node.style.width = `${element.width}px`; window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", finish); window.removeEventListener("pointercancel", cancel); window.removeEventListener("keydown", key); window.removeEventListener("blur", cancel); cleanup.current = null; };
-      const finish = () => { clear(); data.onEndpointChange?.(next); };
-      const cancel = () => clear();
-      const key = (event: KeyboardEvent) => { if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); cancel(); } };
-      cleanup.current = clear;
-      window.addEventListener("pointermove", move); window.addEventListener("pointerup", finish); window.addEventListener("pointercancel", cancel); window.addEventListener("keydown", key); window.addEventListener("blur", cancel);
-    }} />)}</div></ViewportPortal>;
 }
 
 function ContentNode({ data, selected }: NodeProps<PresentationNode>) {
@@ -314,7 +281,8 @@ export function elementsToNodes(
     onTextEditorReady?: (id: string, editor: Editor) => void;
   onRichTextChange?: (id: string, content: TextContent) => void;
   onResizeChange?: (element: PresentationElement, free: boolean) => void;
-  onEndpointChange?: (element: PresentationElement) => void;
+  onLineEndDrop?: (id: string, end: 0 | 1, drop: LineEndDrop) => void;
+  onAdjust?: (id: string, patch: { adjust?: number; cornerRadius?: number }) => void;
     /** Ids currently hidden so they can fade in — the player's step-arrival entrance. */
     enteringIds?: Set<string>;
     hiddenIds?: Set<string>;
@@ -323,6 +291,8 @@ export function elementsToNodes(
     dropTargetId?: string | null;
   },
 ): PresentationNode[] {
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const lookupElement = (id: string) => byId.get(id);
   return elements.map((element, index) => {
     const style: CSSProperties = element.type === "frame" ? { pointerEvents: "none" } : {};
     // Empty space and section interiors use the pane cursor; only selectable
@@ -369,7 +339,9 @@ export function elementsToNodes(
         onGestureEnd: options.onGestureEnd,
         onTextChange: options.onTextChange,
         onRichTextChange: options.onRichTextChange,
-        onEndpointChange: options.onEndpointChange,
+        onLineEndDrop: options.onLineEndDrop,
+        onAdjust: options.onAdjust,
+        lookupElement: options.onLineEndDrop ? lookupElement : undefined,
         onResizeChange: options.onResizeChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),

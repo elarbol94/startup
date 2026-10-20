@@ -9,7 +9,7 @@ export type PresentationFrameShape = (typeof presentationFrameShapes)[number];
 export const presentationElementTypes = ["text", "image", "frame", "shape", "video", "audio", "chart", "icon"] as const;
 export type PresentationElementType = (typeof presentationElementTypes)[number];
 
-export const presentationShapeKinds = ["rect", "roundedRect", "ellipse", "triangle", "diamond", "arrow", "doubleArrow", "line"] as const;
+export const presentationShapeKinds = ["rect", "roundedRect", "ellipse", "triangle", "diamond", "pentagon", "hexagon", "star", "parallelogram", "trapezoid", "chevron", "callout", "plus", "arrow", "doubleArrow", "line"] as const;
 export type PresentationShapeKind = (typeof presentationShapeKinds)[number];
 
 const geometrySchema = {
@@ -89,6 +89,9 @@ const chartElementSchema = z.object({ ...geometrySchema, type: z.literal("chart"
 export const presentationIconNames = ["target", "lightbulb", "users", "rocket", "heart", "globe", "check", "star", "calendar", "chart", "briefcase", "leaf"] as const;
 const iconElementSchema = z.object({ ...geometrySchema, type: z.literal("icon"), content: z.object({ name: z.enum(presentationIconNames), color: z.string().max(32).optional(), label: z.string().max(200).optional() }) });
 
+const pointSchema = z.object({ x: z.number().finite().min(-1_000_000).max(1_000_000), y: z.number().finite().min(-1_000_000).max(1_000_000) });
+const connectionSiteNames = ["top", "right", "bottom", "left"] as const;
+
 /** Empty `fill`/`stroke` mean "no fill" and "follow the theme", so shapes read on both. */
 const shapeElementSchema = z.object({
   ...geometrySchema,
@@ -104,7 +107,20 @@ const shapeElementSchema = z.object({
     startHead: z.enum(["none", "triangle", "open"]).optional(),
     endHead: z.enum(["none", "triangle", "open"]).optional(),
     headSize: z.number().finite().min(1).max(1000).optional(),
-    connection: z.object({ fromId: z.string().min(1).max(64), toId: z.string().min(1).max(64) }).optional(),
+    /** 0..1 setting of the yellow adjustment handle (slant, notch, inner radius...); see presentation-shape-geometry. */
+    adjust: z.number().finite().min(0).max(1).optional(),
+    /**
+     * A connector: each end is glued to an element (at a connection site, or where the line
+     * meets its outline) or free at a canvas point. At least one end is glued.
+     */
+    connection: z.object({
+      fromId: z.string().min(1).max(64).optional(), toId: z.string().min(1).max(64).optional(),
+      fromSite: z.enum(connectionSiteNames).optional(), toSite: z.enum(connectionSiteNames).optional(),
+      from: pointSchema.optional(), to: pointSchema.optional(),
+    }).refine((connection) => Boolean(connection.fromId || connection.toId)).optional(),
+    /** How a line runs between its ends. Elbow and curved lines keep their computed path in `points`. */
+    route: z.enum(["straight", "elbow", "curve"]).optional(),
+    points: pointSchema.array().min(2).max(8).optional(),
     // Text inside the shape, as in PowerPoint. Same names and limits as a text element's
     // content, so the rich-text editor, its shared fragment and the renderer are reused.
     text: z.string().max(5_000).optional(),

@@ -4,6 +4,7 @@
 import type { PresentationElement, PresentationShapeElement, PresentationTextElement } from "./presentation";
 import { imagePlacement, imageSize } from "./presentation-pptx-image";
 import { xmlEscape } from "./presentation-pptx-export-parts";
+import { SHAPE_TEXT_PADDING, shapeTextContent } from "./presentation-text-host";
 
 export const pptxExportWarningCodes = ["chart", "icon", "video", "audio", "missingMedia", "unsupportedImage"] as const;
 export type PptxExportWarningCode = (typeof pptxExportWarningCodes)[number];
@@ -75,7 +76,13 @@ function textXml(element: PresentationTextElement, ctx: SlideContext) {
   return `<p:sp>${nv("Sp", ctx, "TextBox", "", "").replace("<p:cNvSpPr/>", '<p:cNvSpPr txBox="1"/>')}<p:spPr>${xfrm(element, ctx)}${geometry("rect")}${solidFill(element.background)}</p:spPr>${textBodyXml(element.content, ctx)}</p:sp>`;
 }
 
-const presets: Record<string, string> = { rect: "rect", roundedRect: "roundRect", ellipse: "ellipse", triangle: "triangle", diamond: "diamond" };
+// The newer kinds map to PowerPoint's own presets so they stay editable there; their adjustment
+// handle positions keep PowerPoint's defaults.
+const presets: Record<string, string> = {
+  rect: "rect", roundedRect: "roundRect", ellipse: "ellipse", triangle: "triangle", diamond: "diamond",
+  pentagon: "pentagon", hexagon: "hexagon", star: "star5", parallelogram: "parallelogram", trapezoid: "trapezoid",
+  chevron: "chevron", callout: "wedgeRectCallout", plus: "plus",
+};
 const heads = { triangle: "triangle", open: "arrow" } as const;
 export const isLinearKind = (kind: PresentationShapeElement["content"]["shape"]) => kind === "line" || kind === "arrow" || kind === "doubleArrow";
 
@@ -95,12 +102,26 @@ function shapeXml(element: PresentationShapeElement, ctx: SlideContext) {
     // the connector is that stroke: zero height at mid-box, rotated about the same centre.
     const start = c.startHead ?? (c.shape === "doubleArrow" ? "triangle" : "none");
     const end = c.endHead ?? (c.shape === "arrow" || c.shape === "doubleArrow" ? "triangle" : "none");
+    if (c.points && c.route && c.route !== "straight") return routedLineXml(element, ctx, { start, end });
     const box = { ...element, y: element.y + element.height / 2, height: 0 };
     return `<p:cxnSp>${nv("CxnSp", ctx, "Connector")}<p:spPr>${xfrm(box, ctx)}${geometry("line")}${lineXml(c, ctx, { start, end })}</p:spPr></p:cxnSp>`;
   }
   const radius = c.shape === "roundedRect" ? Math.min(50000, (Math.min(c.cornerRadius ?? 20, element.width / 2, element.height / 2) / Math.min(element.width, element.height)) * 100000) : undefined;
   const fill = c.fill ? solidFill(c.fill, c.opacity) : solidFill(element.background, c.opacity);
-  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${geometry(presets[c.shape], radius)}${fill}${lineXml(c, ctx)}</p:spPr></p:sp>`;
+  const text = c.text ? textBodyXml(shapeTextContent(c), ctx, { anchor: "ctr", inset: SHAPE_TEXT_PADDING }) : "";
+  return `<p:sp>${nv("Sp", ctx, "Shape")}<p:spPr>${xfrm(element, ctx)}${geometry(presets[c.shape] ?? "rect", radius)}${fill}${lineXml(c, ctx)}</p:spPr>${text}</p:sp>`;
+}
+
+/** An elbow or curved connector: its path as custom geometry inside its box, with the same line ends. */
+function routedLineXml(element: PresentationShapeElement, ctx: SlideContext, ends: { start: string; end: string }) {
+  const points = element.content.points!;
+  const w = Math.max(1, emu(element.width, ctx)), h = Math.max(1, emu(element.height, ctx));
+  const pt = (p: { x: number; y: number }) => `<a:pt x="${emu(p.x, ctx)}" y="${emu(p.y, ctx)}"/>`;
+  const segments = element.content.route === "curve" && points.length === 4
+    ? `<a:cubicBezTo>${pt(points[1])}${pt(points[2])}${pt(points[3])}</a:cubicBezTo>`
+    : points.slice(1).map((p) => `<a:lnTo>${pt(p)}</a:lnTo>`).join("");
+  const geometryXml = `<a:custGeom><a:avLst/><a:gdLst/><a:ahLst/><a:cxnLst/><a:rect l="0" t="0" r="r" b="b"/><a:pathLst><a:path w="${w}" h="${h}" fill="none"><a:moveTo>${pt(points[0])}</a:moveTo>${segments}</a:path></a:pathLst></a:custGeom>`;
+  return `<p:sp>${nv("Sp", ctx, "Connector")}<p:spPr>${xfrm({ ...element, rotation: 0 }, ctx)}${geometryXml}<a:noFill/>${lineXml(element.content, ctx, ends)}</p:spPr></p:sp>`;
 }
 
 const masks = { circle: "ellipse", rounded: "roundRect", diamond: "diamond" } as const;

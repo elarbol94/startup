@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PresentationElement } from "./presentation";
 import { adjustFromPoint, adjustHandlePoint, adjustableShapeKinds, defaultShapeAdjust, shapeOutlinePath } from "./presentation-shape-geometry";
-import { connectorBox, facingSite, nearestSite, outlinePoint, routeConnector, sitePoint } from "./presentation-connectors";
+import { connectorBox, facingSite, lineEnds, nearestSite, outlinePoint, routeConnector, setLineEnd, setLineRoute, sitePoint } from "./presentation-connectors";
 
 const box = (id: string, x: number, y: number, rotation = 0, shape = "rect"): PresentationElement =>
   ({ id, type: "shape", x, y, width: 100, height: 50, rotation, content: { shape: shape as "rect", fill: "", stroke: "", strokeWidth: 2, opacity: 1 } });
@@ -57,5 +57,35 @@ describe("connectors", () => {
     const { x, y, width, height, local } = connectorBox([{ x: 100, y: 25 }, { x: 300, y: 225 }]);
     expect([x, y]).toEqual([76, 1]); expect([width, height]).toEqual([248, 248]);
     expect(local).toEqual([{ x: 24, y: 24 }, { x: 224, y: 224 }]);
+  });
+});
+
+describe("dropping line ends and switching routes", () => {
+  const line = (): Extract<PresentationElement, { type: "shape" }> => ({ id: "l", type: "shape", x: 500, y: 490, width: 200, height: 20, rotation: 0, content: { shape: "arrow", fill: "", stroke: "", strokeWidth: 2, opacity: 1 } });
+  const a = box("a", 0, 0), b = box("b", 300, 200);
+  const byId = new Map([a, b].map((element) => [element.id, element]));
+  it("glues a dropped end to a site and keeps the other end free where it was", () => {
+    const glued = setLineEnd(line(), 0, { element: a, site: "right" }, byId);
+    expect(glued.content.connection).toMatchObject({ fromId: "a", fromSite: "right", to: { x: 700, y: 500 } });
+    expect(lineEnds(glued)[0].x).toBeCloseTo(100); expect(lineEnds(glued)[0].y).toBeCloseTo(25);
+    expect(lineEnds(glued)[1].x).toBeCloseTo(700); expect(lineEnds(glued)[1].y).toBeCloseTo(500);
+  });
+  it("frees an end dropped on empty canvas and turns back into a plain line without glue", () => {
+    const glued = setLineEnd(line(), 0, { element: a, site: "right" }, byId);
+    const loose = setLineEnd(glued, 0, { point: { x: 400, y: 500 } }, byId);
+    expect(loose.content.connection).toBeUndefined();
+    expect(loose).toMatchObject({ x: 400, width: 300, rotation: 0 });
+  });
+  it("routes a free line as an elbow or curve and back, keeping its ends", () => {
+    const diagonal = { ...line(), x: 0, y: 0, width: 100 * Math.SQRT2, rotation: 45 };
+    const [start, end] = lineEnds(diagonal);
+    for (const route of ["elbow", "curve"] as const) {
+      const routed = setLineRoute(diagonal, route, byId);
+      expect(routed.content.route).toBe(route); expect(routed.rotation).toBe(0);
+      const ends = lineEnds(routed);
+      expect(ends[0].x).toBeCloseTo(start.x); expect(ends[1].y).toBeCloseTo(end.y);
+      const back = setLineRoute(routed, "straight", byId);
+      expect(back.content.points).toBeUndefined(); expect(back.rotation).toBeCloseTo(45);
+    }
   });
 });

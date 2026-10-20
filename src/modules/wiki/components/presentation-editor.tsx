@@ -29,7 +29,7 @@ import { arrangePresentation, layoutRoots, presentationAlignments } from "../lib
 import { useFormatter, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useStoreApi, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
+import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
@@ -43,6 +43,7 @@ import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
 import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, moveStep, presentationShapeKinds, rotateElements, scaleElements, unionBounds, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
+import { usePresentationShapeEdits } from "./presentation-editor/use-presentation-shape-edits";
 import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
 import { PresentationSelectionTools } from "./presentation-selection-tools";
@@ -104,7 +105,6 @@ function Editor({
   // Canvas geometry is already stored; viewport sizing is the readiness signal.
   const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
   const viewportEngine = useStore((state) => state.panZoom);
-  const flowStore = useStoreApi<PresentationNode>();
   const format = useFormatter();
   const router = useRouter();
   const reactFlow = useReactFlow<PresentationNode>();
@@ -264,9 +264,7 @@ function Editor({
 
   const { startGesture, endGesture } = usePresentationGestureBoundaries(dispatch);
 
-  const onEndpointChange = useCallback((next: PresentationElement) => {
-    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => e.id === next.id && !isPresentationElementLocked(current, e.id) ? { ...e, x: next.x, y: next.y, width: next.width, rotation: next.rotation } : e) });
-  }, [dispatch]);
+  const { onLineEndDrop, onRouteChange, onAdjust } = usePresentationShapeEdits(dispatch);
   const onRichTextChange = useCallback((id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => updateElement(id, element => element.type === "text" ? { ...element, content } : withHostText(element, content)), [updateElement]);
   const onResizeChange = useCallback((next: PresentationElement, free: boolean) => {
     dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true });
@@ -281,28 +279,15 @@ function Editor({
     const element = elements.find((element) => element.id === id);
     if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point);
   }, [elements, disabled, textEditing]);
-  /**
-   * Pressing a member of a selected group: React Flow only drags what *it* considers selected,
-   * plus the pressed node, and would first select that node alone. Marking the member selected
-   * in its store for this press makes it drag the whole selection -- the group and everything
-   * selected beside it -- as PowerPoint does. The next render restores the store from props.
-   */
-  const pressGroupMember = (event: React.PointerEvent) => {
-    if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
-    const id = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node")?.dataset.id;
-    if (!id || selectedSet.has(id) || !selectedSet.has(dragTargetId(elements, id, selectedSet))) return;
-    const node = flowStore.getState().nodeLookup.get(id);
-    if (node) node.selected = true;
-  };
   const clickSelection = usePresentationClickSelection({ elements, reactFlow, selectedIds, setSelectedIds, isMac, onClickSelected: editOnClick });
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
-      onRichTextChange, onEndpointChange, onResizeChange, editingId: textEditing.editingId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
+      onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
       onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange, dropTargetId, textEditing.editingId, textEditing.onEditingChange, textEditing.onEditorReady],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.onEditingChange, textEditing.onEditorReady],
   );
 
   /**
@@ -844,7 +829,7 @@ function Editor({
 
       <div className="flex min-h-0 flex-1">
         <WorkspacePanel title={t("presentations.path")} open={pathOpen} onClose={() => setPathOpen(false)} side="left" narrow className="h-full max-h-full overflow-y-auto"><fieldset disabled={disabled} className="min-w-0">{pathPanel}</fieldset></WorkspacePanel>
-        <div ref={canvasRef} data-presentation-canvas tabIndex={0} onPointerMove={event => { if (pendingElement && !disabled) { const point = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); setPendingElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }); } }} onPointerDownCapture={event => { if (pendingElement && !disabled && event.button === 0 && !(event.target as HTMLElement).closest("button, .react-flow__minimap, .react-flow__controls")) { event.preventDefault(); event.stopPropagation(); placementClick.current = true; placePending(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })); return; } cancelledGesture.current = false; clickSelection.onPointerDown(event); const target = event.target as HTMLElement; marqueeBase.current = event.shiftKey && target.classList.contains("react-flow__pane") ? selectedIds : []; pressGroupMember(event); duplicateDrag(event); }} className="relative min-h-40 min-w-0 flex-1 bg-muted/30 outline-none"
+        <div ref={canvasRef} data-presentation-canvas tabIndex={0} onPointerMove={event => { if (pendingElement && !disabled) { const point = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); setPendingElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }); } }} onPointerDownCapture={event => { if (pendingElement && !disabled && event.button === 0 && !(event.target as HTMLElement).closest("button, .react-flow__minimap, .react-flow__controls")) { event.preventDefault(); event.stopPropagation(); placementClick.current = true; placePending(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })); return; } cancelledGesture.current = false; clickSelection.onPointerDown(event); const target = event.target as HTMLElement; marqueeBase.current = event.shiftKey && target.classList.contains("react-flow__pane") ? selectedIds : []; clickSelection.pressGroupMember(event); duplicateDrag(event); }} className="relative min-h-40 min-w-0 flex-1 bg-muted/30 outline-none"
           onClickCapture={event => {
             if (placementClick.current) { placementClick.current = false; event.preventDefault(); event.stopPropagation(); return; }
             clickSelection.onClickCapture(event);
@@ -976,7 +961,7 @@ function Editor({
           {selected && (
             <PresentationAppearanceInspector selected={selected} disabled={disabled} selectedLocked={selectedLocked} collaboration={collaboration}
               updateElement={updateElement} reorderSelected={reorderSelected} duplicateSelection={duplicateSelection} deleteSelection={deleteSelection}
-              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} />
+              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} onRouteChange={onRouteChange} />
           )}
 
           <PresentationStudioInspector elements={elements} selectedIds={selectedIds} activeStep={activeStep}

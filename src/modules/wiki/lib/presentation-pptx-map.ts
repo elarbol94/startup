@@ -24,6 +24,8 @@ const shapeKinds: Record<string, PresentationShapeKind> = {
   rect: "rect", flowChartProcess: "rect", roundRect: "roundedRect", flowChartAlternateProcess: "roundedRect", ellipse: "ellipse", flowChartConnector: "ellipse",
   triangle: "triangle", diamond: "diamond", flowChartDecision: "diamond", rightArrow: "arrow", leftRightArrow: "doubleArrow",
   line: "line", straightConnector1: "line",
+  pentagon: "pentagon", hexagon: "hexagon", star5: "star", parallelogram: "parallelogram", trapezoid: "trapezoid",
+  chevron: "chevron", wedgeRectCallout: "callout", wedgeRoundRectCallout: "callout", plus: "plus", mathPlus: "plus",
 };
 const fonts: Array<[RegExp, NonNullable<TextContent["font"]>]> = [[/georgia/i, "georgia"], [/courier|consolas|mono|menlo/i, "mono"], [/times|cambria|garamond|serif|palatino|book antiqua/i, "serif"], [/arial|helvetica/i, "arial"]];
 

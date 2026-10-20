@@ -3850,7 +3850,9 @@
         "roundedRect": "Abgerundetes Rechteck",
         "triangle": "Dreieck",
         "diamond": "Raute",
-        "doubleArrow": "Doppelpfeil"
+        "doubleArrow": "Doppelpfeil",
+        "pentagon": "Fünfeck", "hexagon": "Sechseck", "star": "Stern", "parallelogram": "Parallelogramm",
+        "trapezoid": "Trapez", "chevron": "Chevron", "callout": "Sprechblase", "plus": "Plus"
       },
       "elementTypes": {
         "text": "Text",
@@ -4017,6 +4019,7 @@
         "line": "Liniendiagramm",
         "pie": "Kreisdiagramm",
         "startPoint": "Startpunkt",
+        "adjustHandle": "Form anpassen", "route": "Linienführung", "routeStraight": "Gerade", "routeElbow": "Gewinkelt", "routeCurve": "Gekrümmt",
         "endPoint": "Endpunkt",
         "detachFirst": "Vor dem Verschieben der Endpunkte die Verbindung lösen",
         "cornerRadius": "Eckenradius",

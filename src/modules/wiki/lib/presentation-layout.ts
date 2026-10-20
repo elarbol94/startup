@@ -1,3 +1,4 @@
+import { layoutConnector } from "./presentation-connectors";
 import { isPresentationElementLocked, presentationAncestors, presentationCameraBounds, presentationDescendants, type PresentationElement, type PresentationTextElement } from "./presentation";
 
 export const presentationAlignments = ["left", "center", "right", "top", "middle", "bottom", "horizontal", "vertical"] as const;
@@ -74,16 +75,6 @@ export function fitPresentationText(element: PresentationTextElement): Presentat
   return size === element.content.fontSize ? element : { ...element, content: { ...element.content, fontSize: size } };
 }
 
-function endpoint(element: PresentationElement, target: PresentationElement) {
-  const cx = element.x + element.width / 2, cy = element.y + element.height / 2;
-  const angle = element.rotation * Math.PI / 180, cos = Math.cos(angle), sin = Math.sin(angle);
-  const dx = target.x + target.width / 2 - cx, dy = target.y + target.height / 2 - cy;
-  const x = dx * cos + dy * sin, y = -dx * sin + dy * cos;
-  const ellipse = (element.type === "frame" && element.content.shape === "circle") || (element.type === "shape" && element.content.shape === "ellipse");
-  const denominator = ellipse ? Math.hypot(x / (element.width / 2), y / (element.height / 2)) : Math.max(Math.abs(x) / (element.width / 2), Math.abs(y) / (element.height / 2));
-  if (!denominator) return { x: cx, y: cy };
-  return { x: cx + (x * cos - y * sin) / denominator, y: cy + (x * sin + y * cos) / denominator };
-}
 /** Recompute derived geometry in the same undo step as a text or section edit. */
 export function maintainPresentationLayout(elements: PresentationElement[]): PresentationElement[] {
   const byId = new Map(elements.map(e => [e.id, e]));
@@ -93,17 +84,9 @@ export function maintainPresentationLayout(elements: PresentationElement[]): Pre
       const fitted = fitPresentationText(e); changed ||= fitted !== e; return fitted;
     }
     if (e.type !== "shape" || !e.content.connection) return e;
-    const from = byId.get(e.content.connection.fromId), to = byId.get(e.content.connection.toId);
-    if (!from || !to || from.id === to.id || from.id === e.id || to.id === e.id || (from.type === "shape" && from.content.connection) || (to.type === "shape" && to.content.connection) || !["line", "arrow", "doubleArrow"].includes(e.content.shape)) {
-      changed = true; return { ...e, content: { ...e.content, connection: undefined } };
-    }
-    const a = endpoint(from, to), b = endpoint(to, from);
-    const length = Math.hypot(b.x - a.x, b.y - a.y);
-    const width = Math.min(20_000, Math.max(20, length));
-    const x = (a.x + b.x) / 2 - width / 2, y = (a.y + b.y) / 2 - 10;
-    const rotation = Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI;
-    if (e.x === x && e.y === y && e.width === width && e.height === 20 && e.rotation === rotation) return e;
-    changed = true; return { ...e, x, y, width, height: 20, rotation };
+    const next = layoutConnector(e, byId);
+    changed ||= next !== e;
+    return next;
   });
   return changed ? result : elements;
 }

@@ -4,9 +4,9 @@
 // click on empty canvas -- also inside a frame -- clears the selection, as on a slide.
 // Used by presentation-editor.tsx.
 import { useCallback, useRef, type Dispatch, type MouseEvent, type PointerEvent, type SetStateAction } from "react";
-import type { useReactFlow } from "@xyflow/react";
+import { useStoreApi, type useReactFlow } from "@xyflow/react";
 import type { PresentationElement } from "../../lib/presentation";
-import { contextMenuSelection, drillSelectionTargetId, paneClickSelection, selectionPath, selectionTargetId, toggleSelection } from "../../lib/presentation-selection";
+import { contextMenuSelection, dragTargetId, drillSelectionTargetId, paneClickSelection, selectionPath, selectionTargetId, toggleSelection } from "../../lib/presentation-selection";
 import type { PresentationNode } from "../presentation-canvas";
 
 /** Further than this (screen px) between press and release is a drag, not a click. */
@@ -26,6 +26,22 @@ export function usePresentationClickSelection({ elements, reactFlow, selectedIds
   const pressSelection = useRef<string[]>([]);
   /** Set while React Flow resets its own selection right after a pane click we resolved. */
   const paneClick = useRef(false);
+
+  const flowStore = useStoreApi<PresentationNode>();
+  /**
+   * Pressing a member of a selected group: React Flow only drags what *it* considers selected,
+   * plus the pressed node, and would first select that node alone. Marking the member selected
+   * in its store for this press makes it drag the whole selection -- the group and everything
+   * selected beside it -- as PowerPoint does. The next render restores the store from props.
+   */
+  const pressGroupMember = useCallback((event: PointerEvent) => {
+    if (event.button !== 0 || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+    const id = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node")?.dataset.id;
+    const selected = new Set(selectedIds);
+    if (!id || selected.has(id) || !selected.has(dragTargetId(elements, id, selected))) return;
+    const node = flowStore.getState().nodeLookup.get(id);
+    if (node) node.selected = true;
+  }, [elements, flowStore, selectedIds]);
 
   const onPointerDown = useCallback((event: PointerEvent) => { origin.current = { x: event.clientX, y: event.clientY }; pressSelection.current = selectedIds; }, [selectedIds]);
 
@@ -77,5 +93,5 @@ export function usePresentationClickSelection({ elements, reactFlow, selectedIds
   /** React Flow deselects everything after a pane click; the pane click already decided. */
   const ignoreSelectChanges = useCallback(() => paneClick.current, []);
 
-  return { onPointerDown, onClickCapture, onPaneClick, onPaneContextMenu, ignoreSelectChanges };
+  return { pressGroupMember, onPointerDown, onClickCapture, onPaneClick, onPaneContextMenu, ignoreSelectChanges };
 }

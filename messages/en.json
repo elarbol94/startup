@@ -3850,7 +3850,9 @@
         "roundedRect": "Rounded rectangle",
         "triangle": "Triangle",
         "diamond": "Diamond",
-        "doubleArrow": "Double-headed arrow"
+        "doubleArrow": "Double-headed arrow",
+        "pentagon": "Pentagon", "hexagon": "Hexagon", "star": "Star", "parallelogram": "Parallelogram",
+        "trapezoid": "Trapezoid", "chevron": "Chevron", "callout": "Speech bubble", "plus": "Plus"
       },
       "elementTypes": {
         "text": "Text",
@@ -4017,6 +4019,7 @@
         "line": "Line chart",
         "pie": "Pie chart",
         "startPoint": "Start point",
+        "adjustHandle": "Adjust shape", "route": "Line route", "routeStraight": "Straight", "routeElbow": "Elbow", "routeCurve": "Curved",
         "endPoint": "End point",
         "detachFirst": "Detach the connector before moving its endpoints",
         "cornerRadius": "Corner radius",

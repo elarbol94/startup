@@ -3,7 +3,7 @@
  * four connection sites or, without a site, where the line meets its outline -- or left free
  * at a point. The route between the ends is straight, elbow (orthogonal) or curved.
  */
-import type { PresentationElement } from "./presentation";
+import type { PresentationElement } from "./presentation-model";
 
 type Point = { x: number; y: number };
 export type ConnectionSite = "top" | "right" | "bottom" | "left";
@@ -103,4 +103,113 @@ export function connectorBox(points: Point[]): { x: number; y: number; width: nu
   const height = Math.min(20_000, Math.max(20, Math.max(...ys) - y + CONNECTOR_PADDING));
   const round = (value: number) => Math.round(value * 100) / 100;
   return { x, y, width, height, local: points.map((p) => ({ x: round(p.x - x), y: round(p.y - y) })) };
+}
+
+export type PresentationConnection = NonNullable<Extract<PresentationElement, { type: "shape" }>["content"]["connection"]>;
+
+/**
+ * A connection carried over to copies: glued ids go through `map` (undefined: that element was
+ * not copied, so the copy cannot keep the connection), free points move by `shift`.
+ */
+export function remapConnection(connection: PresentationConnection, map: (id: string) => string | undefined, shift: Point): PresentationConnection | undefined {
+  const fromId = connection.fromId === undefined ? undefined : map(connection.fromId);
+  const toId = connection.toId === undefined ? undefined : map(connection.toId);
+  if ((connection.fromId && !fromId) || (connection.toId && !toId)) return undefined;
+  const move = (point?: Point) => point && { x: point.x + shift.x, y: point.y + shift.y };
+  return { ...connection, fromId, toId, from: move(connection.from), to: move(connection.to) };
+}
+
+type ShapeElement = Extract<PresentationElement, { type: "shape" }>;
+const LINEAR = new Set(["line", "arrow", "doubleArrow"]);
+/** Height of the box a straight line is drawn in; its length is the width. */
+export const STRAIGHT_LINE_HEIGHT = 20;
+
+/** A line's two ends in canvas coordinates: its routed path's ends, or its rotated box's. */
+export function lineEnds(element: ShapeElement): [Point, Point] {
+  const points = element.content.points;
+  if (points && element.content.route && element.content.route !== "straight") {
+    const first = points[0], last = points[points.length - 1];
+    return [{ x: element.x + first.x, y: element.y + first.y }, { x: element.x + last.x, y: element.y + last.y }];
+  }
+  const angle = element.rotation * Math.PI / 180, dx = Math.cos(angle) * element.width / 2, dy = Math.sin(angle) * element.width / 2;
+  const c = centre(element);
+  return [{ x: c.x - dx, y: c.y - dy }, { x: c.x + dx, y: c.y + dy }];
+}
+
+/** Places a line along `points`: straight lines as a rotated box, routed ones in a padded box. */
+export function placeLine(element: ShapeElement, points: Point[], route: ConnectorRoute): ShapeElement {
+  if (route === "straight") {
+    const [a, b] = [points[0], points[points.length - 1]];
+    const width = Math.min(20_000, Math.max(20, Math.hypot(b.x - a.x, b.y - a.y)));
+    return { ...element, x: (a.x + b.x) / 2 - width / 2, y: (a.y + b.y) / 2 - STRAIGHT_LINE_HEIGHT / 2, width, height: STRAIGHT_LINE_HEIGHT,
+      rotation: Math.atan2(b.y - a.y, b.x - a.x) * 180 / Math.PI, content: { ...element.content, points: undefined } };
+  }
+  const box = connectorBox(points);
+  return { ...element, x: box.x, y: box.y, width: box.width, height: box.height, rotation: 0, content: { ...element.content, points: box.local } };
+}
+
+const sameGeometry = (a: ShapeElement, b: ShapeElement) => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height
+  && a.rotation === b.rotation && JSON.stringify(a.content.points) === JSON.stringify(b.content.points) && JSON.stringify(a.content.connection) === JSON.stringify(b.content.connection);
+
+/**
+ * Re-derives a line's geometry from what it is glued to, in the same undo step as the edit
+ * that moved those elements. A glued element that disappeared (or became a connector) leaves
+ * that end free where it was; with no glued end left the line is an ordinary line again.
+ */
+export function layoutConnector(element: ShapeElement, byId: Map<string, PresentationElement>): ShapeElement {
+  const connection = element.content.connection;
+  if (!connection) return element;
+  if (!LINEAR.has(element.content.shape)) return { ...element, content: { ...element.content, connection: undefined } };
+  const ends = lineEnds(element);
+  const glue = (id: string | undefined) => {
+    const target = id === undefined ? undefined : byId.get(id);
+    return target && target.id !== element.id && !(target.type === "shape" && target.content.connection) ? target : undefined;
+  };
+  const from = glue(connection.fromId);
+  let to = glue(connection.toId);
+  if (from && to && from.id === to.id) to = undefined;
+  if (!from && !to) {
+    return { ...element, content: { ...element.content, connection: undefined } };
+  }
+  const next: PresentationConnection = {
+    ...connection,
+    fromId: from?.id, fromSite: from ? connection.fromSite : undefined, from: from ? undefined : connection.from ?? ends[0],
+    toId: to?.id, toSite: to ? connection.toSite : undefined, to: to ? undefined : connection.to ?? ends[1],
+  };
+  const route = element.content.route ?? "straight";
+  const { points } = routeConnector({ element: from, site: next.fromSite, point: next.from }, { element: to, site: next.toSite, point: next.to }, route);
+  const placed = placeLine({ ...element, content: { ...element.content, connection: next } }, points, route);
+  return sameGeometry(placed, element) ? element : placed;
+}
+
+export type LineEndTarget = { element: PresentationElement; site: ConnectionSite } | { point: Point };
+
+/**
+ * A line end dropped somewhere: on an element it glues there at `site`, elsewhere it stays
+ * free at the point. The other end keeps what it had. A line with no glued end left is an
+ * ordinary line again, drawn along its route between the two points.
+ */
+export function setLineEnd(element: ShapeElement, end: 0 | 1, target: LineEndTarget, byId: Map<string, PresentationElement>): ShapeElement {
+  const ends = lineEnds(element);
+  const route = element.content.route ?? "straight";
+  const glued = "element" in target;
+  const current: Partial<PresentationConnection> = element.content.connection ?? {};
+  const next: Partial<PresentationConnection> = end === 0
+    ? { ...current, fromId: glued ? target.element.id : undefined, fromSite: glued ? target.site : undefined, from: glued ? undefined : target.point }
+    : { ...current, toId: glued ? target.element.id : undefined, toSite: glued ? target.site : undefined, to: glued ? undefined : target.point };
+  if (!next.fromId && !next.from) next.from = ends[0];
+  if (!next.toId && !next.to) next.to = ends[1];
+  if (!next.fromId && !next.toId) {
+    const loose = { ...element, content: { ...element.content, connection: undefined } };
+    return placeLine(loose, routeConnector({ point: next.from }, { point: next.to }, route).points, route);
+  }
+  return layoutConnector({ ...element, content: { ...element.content, connection: next as PresentationConnection } }, byId);
+}
+
+/** Switches a line between straight, elbow and curved, keeping where its ends are. */
+export function setLineRoute(element: ShapeElement, route: ConnectorRoute, byId: Map<string, PresentationElement>): ShapeElement {
+  const next = { ...element, content: { ...element.content, route: route === "straight" ? undefined : route } };
+  if (element.content.connection) return layoutConnector(next, byId);
+  const [a, b] = lineEnds(element);
+  return placeLine(next, routeConnector({ point: a }, { point: b }, route).points, route);
 }
