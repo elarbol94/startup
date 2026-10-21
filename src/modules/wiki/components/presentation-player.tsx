@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { ReactFlow, ReactFlowProvider, getViewportForBounds, useReactFlow, useStore, useStoreApi, type NodeMouseHandler } from "@xyflow/react";
-import { ChevronLeft, ChevronRight, Maximize, Minimize, NotebookText, Pause, Play, Scan, Spotlight, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, CornerLeftUp, Maximize, Minimize, NotebookText, Pause, Play, Scan, Spotlight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
@@ -19,10 +19,22 @@ import {
   presentationCameraEasingFns,
   resolveStepDuration,
   stepTarget,
-  presentationCameraStep,
   presentationHiddenIds,
+  presentationDetails,
+  presentationElementCaption,
+  presentationSceneElements,
+  presentationScenePosition,
+  presentationStops,
+  enterPresentationDetail,
+  exitPresentationDetail,
+  sceneOfStop,
+  stepPresentationPosition,
   type PresentationBounds,
+  type PresentationPosition,
+  type PresentationStop,
 } from "../lib/presentation";
+import { PresentationDetailBadges } from "./presentation-detail-badges";
+import { useDetailFlip } from "./presentation-player/use-detail-flip";
 import { parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import type { PresentationRecord } from "../presentation-queries";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
@@ -49,14 +61,25 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
-  const [index, setIndex] = useState(() => Math.min(Math.max(follow?.stepIndex ?? 0, 0), Math.max(presentation.steps.length - 1, 0)));
+  const { steps, settings } = presentation;
+  const elements = presentation.elements;
+  // Stops are the steps plus one for each detail page without its own; the player walks
+  // the stops of the open scene and remembers where each open detail page was entered from.
+  const stops = useMemo(() => presentationStops(elements, steps), [elements, steps]);
+  const details = presentationDetails(elements);
+  const [position, setPosition] = useState<PresentationPosition>(() => {
+    const first = stops.findIndex((stop) => stop.sceneId === null);
+    return { index: follow ? clampStop(follow.stepIndex ?? 0, stops) : Math.max(first, 0), returns: [] };
+  });
+  const index = position.index;
+  const scene = sceneOfStop(stops, index);
+  const sceneElements = useMemo(() => presentationSceneElements(elements, scene), [elements, scene]);
+  const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [presenterSession] = useState(() => clientUUID());
   const [reducedMotion, setReducedMotion] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [playing, setPlaying] = useState(false);
 
-  const { steps, settings } = presentation;
-  const elements = presentation.elements;
   const cameraDuration = reducedMotion ? 0 : settings.cameraTransitionMs;
   const cameraEase = presentationCameraEasingFns[settings.cameraEasing];
 
@@ -71,14 +94,14 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // Elements that belong to the current step's target: what fades in as it arrives.
   // Derived straight from the index, so re-arriving at a step re-plays the entrance.
   const enteringIds = useMemo(() => {
-    const step = steps[index];
-    const target = step ? stepTarget(step, elements) : null;
-    return target ? new Set(elementsWithinStep(target, elements).map((element) => element.id)) : new Set<string>();
-  }, [index, steps, elements]);
+    const step = stops[index]?.step;
+    const target = step ? stepTarget(step, sceneElements) : null;
+    return target ? new Set(elementsWithinStep(target, sceneElements).map((element) => element.id)) : new Set<string>();
+  }, [index, stops, sceneElements]);
 
-  const hiddenIds = useMemo(() => presentationHiddenIds(elements, steps, index), [elements, steps, index]);
-  const animationMs = reducedMotion ? 0 : steps[index]?.animationMs ?? 300;
-  const nodes = useMemo(() => elementsToNodes(elements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: presentation.background }), [elements, enteringIds, hiddenIds, animationMs, reducedMotion, presentation.background]);
+  const hiddenIds = useMemo(() => presentationHiddenIds(elements, steps, stops[index]?.stepIndex ?? -1), [elements, steps, stops, index]);
+  const animationMs = reducedMotion ? 0 : stops[index]?.step.animationMs ?? 300;
+  const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: presentation.background }), [sceneElements,enteringIds, hiddenIds, animationMs, reducedMotion, presentation.background]);
 
   const overview = useCallback(
     (duration = cameraDuration) => void reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
@@ -101,12 +124,12 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
    */
   const flyTo = useCallback(
     (stepIndex: number, duration = cameraDuration) => {
-      const step = presentationCameraStep(steps, stepIndex);
+      const step = cameraStop(stops, stepIndex);
       const target = step ? stepTarget(step, elements) : null;
       if (!target) return overview(duration);
       fitStop(presentationCameraBounds(target), duration);
     },
-    [elements, overview, steps, cameraDuration, fitStop],
+    [elements, overview, stops, cameraDuration, fitStop],
   );
 
   // Presenter-side pinch/wheel zoom and free pan: ReactFlow's own pane already implements
@@ -162,29 +185,64 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // to a stale index.
   useEffect(() => clearSnapBack, [index, clearSnapBack]);
 
-  // Autoplay: advance to the next step after its effective duration elapses, looping
-  // back to the start (or stopping) once the path runs out.
-  useEffect(() => {
-    if (!playing || !steps.length) return;
-    const duration = resolveStepDuration(steps[index], settings);
-    const timer = setTimeout(() => {
-      if (index + 1 < steps.length) setIndex(index + 1);
-      else if (settings.loop && steps.length > 1) setIndex(0);
-      else setPlaying(false);
-    }, duration);
-    return () => clearTimeout(timer);
-  }, [playing, index, steps, settings]);
 
   // A follower's camera belongs to the presenter, so every local way to move — clicking the
   // canvas, the arrow keys, the control bar — routes through here and does nothing.
   const following = Boolean(follow);
+
+  // Every change of position goes through here, so turning into or out of a detail page
+  // looks the same whether the presenter, autoplay, the presenter view or a live host moved.
+  const stageRef = useRef<HTMLDivElement>(null);
+  const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, getZoom: reactFlow.getZoom, background: presentation.background,
+    durationMs: reducedMotion ? 0 : Math.max(500, settings.cameraTransitionMs) });
+  const positionRef = useRef(position);
+  useEffect(() => { positionRef.current = position; }, [position]);
+  const go = useCallback((next: PresentationPosition) => {
+    if (isFlipping()) return;
+    const from = sceneOfStop(stops, positionRef.current.index), to = sceneOfStop(stops, next.index);
+    const commit = () => { positionRef.current = next; setPosition(next); };
+    const opener = to ? details.boxByFrame.get(to) : undefined, closer = from ? details.boxByFrame.get(from) : undefined;
+    if (to && opener && details.sceneOf(opener) === from) {
+      setVisited((current) => new Set(current).add(opener));
+      void flip("in", opener, commit);
+    } else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit);
+    else commit();
+  }, [details, flip, isFlipping, stops]);
+
+  // Autoplay: advance to the next stop after its effective duration elapses -- out of a
+  // finished detail page too -- looping back to the start (or stopping) once the path runs out.
+  useEffect(() => {
+    if (!playing || !stops[index]) return;
+    const duration = resolveStepDuration(stops[index].step, settings);
+    const timer = setTimeout(() => {
+      const next = stepPresentationPosition(elements, stops, positionRef.current, 1);
+      const first = stops.findIndex((stop) => stop.sceneId === null);
+      if (next.index !== positionRef.current.index) go(next);
+      else if (settings.loop && first >= 0 && first !== positionRef.current.index) go({ index: first, returns: [] });
+      else setPlaying(false);
+    }, duration);
+    return () => clearTimeout(timer);
+  }, [playing, index, stops, settings, elements, go]);
+
   const move = useCallback(
-    (delta: number) => {
+    (delta: 1 | -1) => {
       if (following) return;
-      setIndex((current) => Math.min(Math.max(current + delta, 0), Math.max(steps.length - 1, 0)));
+      go(stepPresentationPosition(elements, stops, positionRef.current, delta));
     },
-    [following, steps.length],
+    [following, go, elements, stops],
   );
+  const openDetail = useCallback((boxId: string) => {
+    const frameId = details.frameByBox.get(boxId);
+    const next = frameId ? enterPresentationDetail(stops, positionRef.current, frameId) : null;
+    if (following || !next) return;
+    setPlaying(false);
+    go(next);
+  }, [details, following, go, stops]);
+  const closeDetail = useCallback(() => {
+    if (following) return;
+    const next = exitPresentationDetail(elements, stops, positionRef.current);
+    if (next) go(next);
+  }, [elements, following, go, stops]);
 
   // The Prezi "click anything, you're there" jump: an element that some step targets goes
   // through the normal setIndex path (status, notes, live broadcast, camera all follow); an
@@ -197,7 +255,11 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       event.stopPropagation();
       if (following) return;
       const target = node.data.element;
-      const action = elementClickAction(steps, elements, index, target.id);
+      // An element with a detail page turns over to it.
+      if (details.frameByBox.has(target.id)) { suppressSnapBack.current = true; openDetail(target.id); return; }
+      // Clicks resolve within the open scene: its stops, its elements.
+      const local = stops.map((stop, at) => ({ stop, at })).filter(({ stop }) => stop.sceneId === scene);
+      const action = elementClickAction(local.map(({ stop }) => stop.step), sceneElements, local.findIndex(({ at }) => at === index), target.id);
       // Clicking the frame that fills the screen is a click "on the slide", not on an
       // element: it advances exactly like empty canvas, which means no autoplay pause and
       // no snap-back suppression either — the container's own advance does neither.
@@ -213,23 +275,24 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       suppressSnapBack.current = true;
       setPlaying(false);
       if (action.kind === "jump") {
-        setIndex(action.index);
+        const jump = local[action.index].at;
+        setPosition((current) => ({ ...current, index: jump }));
         // Explicit, not left to the index-driven effect: clicking the CURRENT step's element
         // leaves index unchanged, so that effect would never re-run and the click would do
         // nothing visible.
-        flyTo(action.index);
+        flyTo(jump);
         return;
       }
       fitStop(presentationCameraBounds(target), cameraDuration);
     },
-    [following, steps, elements, index, move, flyTo, cameraDuration, fitStop],
+    [following, details, openDetail, stops, scene, sceneElements, index, move, flyTo, cameraDuration, fitStop],
   );
 
   // Remote follow (polled live session); the presenter-notes window keeps its own
   // BroadcastChannel path below untouched.
   const applyRemoteStep = useCallback(
-    (stepIndex: number) => setIndex(Math.min(Math.max(stepIndex, 0), Math.max(steps.length - 1, 0))),
-    [steps.length],
+    (stepIndex: number) => { const next = clampStop(stepIndex, stops); if (next !== positionRef.current.index) go({ index: next, returns: [] }); },
+    [go, stops],
   );
   const remoteLive = usePresentationFollower(follow?.code ?? null, applyRemoteStep, follow?.live);
 
@@ -253,7 +316,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       if (!message) return;
       if (message.type === "goto") {
         setPlaying(false);
-        setIndex(Math.min(Math.max(message.index, 0), Math.max(steps.length - 1, 0)));
+        go({ index: clampStop(message.index, stops), returns: [] });
       } else if (message.type === "request-step") {
         channel.postMessage({ type: "step", index: indexRef.current });
       }
@@ -262,7 +325,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       channel.close();
       channelRef.current = null;
     };
-  }, [following, presentation.id, presenterSession, steps.length]);
+  }, [following, presentation.id, presenterSession, stops, go]);
 
   useEffect(() => {
     channelRef.current?.postMessage({ type: "step", index });
@@ -293,12 +356,16 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
 
   // The first flight waits for a sized pane and lands instantly on the opening stop; there
   // is no fitView to race it. Later step changes animate.
+  // A new scene is framed at once too: the card turn is its transition, not a camera flight.
   const firstFlight = useRef(true);
+  const framedScene = useRef(scene);
   useEffect(() => {
     if (!viewportSized) return;
-    const frame = requestAnimationFrame(() => { flyTo(index, firstFlight.current ? 0 : undefined); firstFlight.current = false; });
+    const instant = firstFlight.current || framedScene.current !== scene;
+    framedScene.current = scene;
+    const frame = requestAnimationFrame(() => { flyTo(index, instant ? 0 : undefined); firstFlight.current = false; });
     return () => cancelAnimationFrame(frame);
-  }, [index, flyTo, viewportSized]);
+  }, [index, scene, flyTo, viewportSized]);
 
   // Entering fullscreen or resizing changes what "fits" means, so the current step is
   // re-framed instantly rather than left half off-screen.
@@ -334,6 +401,10 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         // happens to change step, since the poll only re-frames on a new step.
         event.preventDefault();
         overview();
+      } else if ((event.key === "Escape" || event.key === "Backspace") && scene !== null && !following) {
+        // Escape leaves the open detail page first; only on the overview does it end the show.
+        event.preventDefault();
+        closeDetail();
       } else if (event.key === "Escape" && !document.fullscreenElement) {
         // A follower has no business in the editor -- they were handed a code, not the
         // presentation. Send them back to the join screen, same as the badge's exit link,
@@ -344,7 +415,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [exitPresent, following, move, overview, router]);
+  }, [exitPresent, following, move, overview, router, scene, closeDetail]);
 
   // Its own listener, kept separate from the step-navigation one above: zoom is
   // presenter-local camera state, unrelated to whichever step index is currently shown.
@@ -386,14 +457,19 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     }
   }, [t]);
 
+  const scenePosition = presentationScenePosition(stops, index);
+  const sceneFrame = scene ? elements.find((element) => element.id === scene) : undefined;
+  const sceneCaption = (sceneFrame && presentationElementCaption(sceneFrame)) || t("presentations.details.group");
   return (
     <div
       ref={containerRef}
+      data-scene={scene ?? "overview"}
       data-testid="presentation-player"
       // Covers the wiki rail and the app chrome: presenting owns the whole viewport.
       className="fixed inset-0 z-50 bg-background"
       style={presentation.background ? { backgroundColor: presentation.background } : undefined}
     >
+      <div ref={stageRef} className="absolute inset-0" data-testid="presentation-stage" data-scene={scene ?? "overview"}>
       <ReactFlow
         nodes={nodes}
         edges={[]}
@@ -424,7 +500,12 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         onMoveEnd={onGestureEnd}
         preventScrolling
         proOptions={{ hideAttribution: false }}
-      />
+      >
+        <PresentationDetailBadges elements={sceneElements} frameByBox={details.frameByBox} visited={visited} hiddenIds={hiddenIds}
+          onOpen={following ? undefined : openDetail}
+          openLabel={(box) => t(visited.has(box.id) ? "presentations.details.visitedNamed" : "presentations.details.openNamed", { name: presentationElementCaption(box) || t("presentations.details.group") })} />
+      </ReactFlow>
+      </div>
 
       {spotlight && (
         <div
@@ -443,13 +524,13 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         </div>
       )}
 
-      {playing && steps.length > 0 && (
+      {playing && stops[index] && (
         // Progress hint for the running step: a bar that fills over its effective duration.
         <div className="absolute inset-x-0 top-0 z-10 h-1 bg-foreground/10">
           <div
             key={`${index}-${playing}`}
             className="h-full origin-left bg-indigo-500"
-            style={{ animation: `presentation-step-progress ${resolveStepDuration(steps[index], settings)}ms linear forwards` }}
+            style={{ animation: `presentation-step-progress ${resolveStepDuration(stops[index].step, settings)}ms linear forwards` }}
           />
         </div>
       )}
@@ -469,22 +550,26 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
             variant="ghost"
             size="icon-sm"
             aria-label={playing ? t("presentations.pause") : t("presentations.play")}
-            disabled={!steps.length}
+            disabled={!stops.length}
             onClick={() => {
-              if (!playing && index === steps.length - 1) setIndex(0);
+              const first = stops.findIndex((stop) => stop.sceneId === null);
+              if (!playing && scene === null && scenePosition.current >= scenePosition.total && first >= 0) go({ index: first, returns: [] });
               setPlaying((current) => !current);
             }}
           >
             {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
           </Button>
           <span className="mx-1 h-5 w-px bg-border" />
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.previousStep")} disabled={index === 0} onClick={() => move(-1)}>
+          {scene !== null && <Button type="button" variant="ghost" size="sm" data-testid="presentation-detail-back" aria-label={t("presentations.details.back")} title={`${t("presentations.details.back")} (Esc)`} onClick={closeDetail}>
+            <CornerLeftUp className="size-4" /><span className="max-w-32 truncate text-xs">{sceneCaption}</span>
+          </Button>}
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.previousStep")} disabled={scene === null && scenePosition.current <= 1} onClick={() => move(-1)}>
             <ChevronLeft className="size-4" />
           </Button>
           <span className="min-w-16 text-center text-xs tabular-nums" role="status" aria-live="polite">
-            {steps.length ? `${index + 1} / ${steps.length}` : t("presentations.noSteps")}
+            {scenePosition.total ? `${scenePosition.current} / ${scenePosition.total}` : t("presentations.noSteps")}
           </span>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.nextStep")} disabled={index >= steps.length - 1} onClick={() => move(1)}>
+          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.nextStep")} disabled={scene === null && scenePosition.current >= scenePosition.total} onClick={() => move(1)}>
             <ChevronRight className="size-4" />
           </Button>
           <span className="mx-1 h-5 w-px bg-border" />
@@ -508,7 +593,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
           <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.openPresenterView")} onClick={openPresenterView}>
             <NotebookText className="size-4" />
           </Button>
-          <PresentationLiveControl presentationId={presentation.id} stepIndex={index} stopRef={stopLive} />
+          <PresentationLiveControl presentationId={presentation.id} stepIndex={Math.max(index, 0)} stopRef={stopLive} />
           </>}
           <Button
             type="button"
@@ -524,6 +609,22 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       )}
     </div>
   );
+}
+
+/** A stop index from outside (a live host, the presenter view), kept inside the path. */
+function clampStop(index: number, stops: PresentationStop[]): number {
+  return Math.min(Math.max(index, 0), Math.max(stops.length - 1, 0));
+}
+
+/** The camera stop at or before `index` within its scene; fade steps keep the camera where it was. */
+function cameraStop(stops: PresentationStop[], index: number) {
+  const scene = sceneOfStop(stops, index);
+  for (let at = index; at >= 0; at--) {
+    const stop = stops[at];
+    if (stop?.sceneId === scene && (!stop.step.action || stop.step.action === "camera")) return stop.step;
+  }
+  // A detail page that opens on a fade still shows the page itself.
+  return scene ? { id: `detail:${scene}`, elementId: scene } : undefined;
 }
 
 export function PresentationPlayer({

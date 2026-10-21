@@ -25,6 +25,8 @@ const geometrySchema = {
   background: z.string().max(32).optional(),
   parentId: z.string().min(1).max(64).optional(),
   locked: z.boolean().optional(),
+  /** The frame this element opens as its detail page while presenting; see presentation-details. */
+  detailId: z.string().min(1).max(64).optional(),
   source: z.object({ pageId: z.string().min(1).max(64), sectionId: z.string().max(200), reviewedFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(), syncHeading: z.boolean().optional(), syncSubsections: z.boolean().optional(), knownSectionIds: z.array(z.string().min(1).max(200)).max(5000).optional(), approvedStructure: z.object({ level: z.number().int().min(1).max(6), parentSectionId: z.string().min(1).max(200).nullable() }).optional() }).nullable().optional(),
 };
 

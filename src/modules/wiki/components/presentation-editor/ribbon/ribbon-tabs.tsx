@@ -6,7 +6,7 @@
 // Review (Überprüfen): Comments, Versions.  View (Ansicht): Show, Zoom, Panes.
 // Shape Format (Formformat, contextual): Insert Shapes, Shape Styles, WordArt, Arrange.
 import { useTranslations } from "next-intl";
-import { AlignHorizontalJustifyCenter, BringToFront, ChartColumn, ClipboardPaste, Copy, Film, Group, History, ImagePlus, Images, Layers, Link2, Loader2, Lock, LockOpen, Map as MapIcon, Maximize2, MessageSquare, Paintbrush, Palette, PanelLeft, PanelRight, Scissors, Search, SendToBack, Settings, Shapes, Smile, SquareMousePointer, Square, Type, Ungroup, FileDown, Keyboard } from "lucide-react";
+import { AlignHorizontalJustifyCenter, BringToFront, ChartColumn, ClipboardPaste, Copy, Film, Group, History, ImagePlus, Images, Layers, Link2, Loader2, Lock, LockOpen, Map as MapIcon, Maximize2, MessageSquare, Paintbrush, Palette, PanelLeft, PanelRight, Scissors, Search, SendToBack, Settings, Shapes, Smile, SquareMousePointer, Square, Type, Ungroup, FileDown, Keyboard, CornerDownRight, CornerLeftUp, BookOpenText, Trash2 } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -60,6 +60,11 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
   }
   const arrangeMenu = (large: boolean) => <DropdownMenu><DropdownMenuTrigger render={<RibbonButton large={large} caret label={t("presentations.layout.arrange")} icon={<Layers />} disabled={model.disabled} />} />
     <DropdownMenuContent className="min-w-60">{arrangeItems}</DropdownMenuContent></DropdownMenu>;
+  // Detail pages: open (or create) the selected element's page, leave it, fill it from the wiki.
+  const detailGroup = <RibbonGroup label={t("presentations.details.group")}>
+    {button("openDetail", <CornerDownRight />, { large: true, testId: "ribbon-open-detail" })}
+    <RibbonStack>{button("closeDetail", <CornerLeftUp />)}{button("importWiki", <BookOpenText />)}{button("removeDetail", <Trash2 />)}</RibbonStack>
+  </RibbonGroup>;
   const formatProps = { shapes: formatting.shapes, texts: formatting.texts, format: formatting.format, updateShapes: formatting.updateShapes, updateTexts: formatting.updateTexts,
     onOpenPane: model.onOpenPane, onEyedropper: formatting.requestColor, disabled: model.disabled };
 
@@ -74,6 +79,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
         {button("addFrame", <Square />, { large: true })}
         <RibbonStack>{pathButton()}</RibbonStack>
       </RibbonGroup>
+      {detailGroup}
       <TextRibbonGroups {...formatProps} onTextKey={model.onTextKey} shortcuts={shortcuts} />
       <RibbonGroup label={r("groups.drawing")}>
         {shapesButton()}
@@ -90,6 +96,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
     </>;
     case "insert": return <>
       <RibbonGroup label={r("groups.frames")}>{button("addFrame", <Square />, { large: true, label: r("newFrame") })}</RibbonGroup>
+      {detailGroup}
       <RibbonGroup label={r("groups.images")}>{imageButton(true)}</RibbonGroup>
       <RibbonGroup label={r("groups.illustrations")}>
         {shapesButton()}

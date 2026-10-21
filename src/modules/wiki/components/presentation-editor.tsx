@@ -92,6 +92,11 @@ import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
 import { EditPointsOverlay, type EditPointsLabels } from "./presentation-editor/edit-points-overlay";
 import { formatCentimetres } from "../lib/presentation-grid";
 import { applyDefaults } from "../lib/presentation-shape-defaults";
+import { presentationElementCaption, presentationSceneElements, presentationSceneSteps } from "../lib/presentation";
+import { useDetailScene } from "./presentation-editor/use-detail-scene";
+import { DetailSceneBar } from "./presentation-editor/detail-scene-bar";
+import { WikiImportDialog } from "./presentation-editor/wiki-import-dialog";
+import { PresentationDetailBadges } from "./presentation-detail-badges";
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
@@ -326,14 +331,18 @@ function Editor({
     if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point, textHostContent(element).text);
   }, [elements, disabled, textEditing]);
   const clickSelection = usePresentationClickSelection({ elements, reactFlow, selectedIds, setSelectedIds, isMac, onClickSelected: editOnClick });
+  // Only the open scene is drawn: the overview, or the one detail page being edited.
+  const detail = useDetailScene({ elements, steps, dispatch, disabled, setSelectedIds, reactFlow });
+  const [wikiImportOpen, setWikiImportOpen] = useState(false);
+  const tDetails = useTranslations("wiki.presentations.details");
   const nodes = useMemo(
-    () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
+    () => elementsToNodes(dragPreview ? [...detail.elements, ...dragPreview] : detail.elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
       onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady,
       onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId, background }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, onTextEditorReady, background],
+    [detail.elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, onTextEditorReady, background],
   );
 
   /**
@@ -507,11 +516,11 @@ function Editor({
       appliedNavigation.current = navigationKey;
       appliedViewportEngine.current = viewportEngine;
       const target = elements.find((element) => element.id === requestedElement);
-      if (target) { setSelectedIds([target.id]); setActiveStepId(steps.find((step) => step.elementId === target.id)?.id ?? null); flyTo(target); setActivePanel("properties"); }
+      if (target) { detail.reveal(target.id); setSelectedIds([target.id]); setActiveStepId(steps.find((step) => step.elementId === target.id)?.id ?? null); flyTo(target); setActivePanel("properties"); }
       else void reactFlow.fitView({ padding: 0.2 });
     }, 0);
     return () => clearTimeout(timer);
-  }, [elements, flyTo, viewportSized, presentation.id, reactFlow, requestedElement, steps, viewportEngine]);
+  }, [elements, flyTo, viewportSized, presentation.id, reactFlow, requestedElement, steps, viewportEngine, detail]);
 
   const addStep = useCallback(() => {
     if (!selected || disabled) return;
@@ -618,7 +627,9 @@ function Editor({
   /** The rail's "New frame": the next frame beside the last one on the path, like a new slide. */
   const addFrameAtEnd = () => {
     if (disabled || elements.length >= 500) return;
-    const frame: PresentationElement = { id: createId(), type: "frame", ...nextFrameBounds(elements, steps), rotation: 0, content: { label: "", shape: "rect", color: "" } };
+    // New frames extend the overview's path, never a detail page's.
+    if (detail.sceneId) detail.show(null);
+    const frame: PresentationElement = { id: createId(), type: "frame", ...nextFrameBounds(presentationSceneElements(elements, null), presentationSceneSteps(elements, steps, null)), rotation: 0, content: { label: "", shape: "rect", color: "" } };
     dispatch(frameInsertionEdit([frame], current => [...current, frame], t));
     setSelectedIds([frame.id]);
     flyTo(frame);
@@ -644,7 +655,7 @@ function Editor({
     if (element.type === "shape") ribbon.showContextual();
     if (element.type === "text" && !drawLock) textEditing.startEditing(element.id);
   };
-  const pathPanel = (<PresentationPathPanel presentation={presentation} steps={steps} elements={elements} selected={selected}
+  const pathPanel = (<PresentationPathPanel presentation={presentation} steps={detail.steps} elements={elements} selected={selected}
     activeStep={activeStep} activeStepId={activeStepId} setActiveStepId={setActiveStepId} setSelectedIds={setSelectedIds} flyTo={flyTo}
     commitSteps={commitSteps} addStep={addStep} disabled={disabled} readOnly={readOnly} sensors={sensors} onStepDragEnd={onStepDragEnd}
     settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch}
@@ -682,6 +693,10 @@ function Editor({
     { id: "exportPptx", label: `${t("presentations.ribbon.exportAs")} ${t("presentations.exportPptx")}`, execute: () => void downloadPresentationPptx(presentation.id, flush, { saveFailed: t("presentations.leaveSaveFailed"), failed: t("presentations.exportPptxFailed"), placeholders: t("presentations.exportPptxPlaceholders") }), disabledReason: restoring !== null || uploading ? unavailable : undefined, group: commandText },
     { id: "history", label: t("presentations.history"), execute: openHistory, group: commandText },
     { id: "playback", label: t("presentations.playbackSettings"), execute: () => setWorkspaceDialog("playback"), group: commandText },
+    { id: "openDetail", label: selected && detail.frameByBox.has(selected.id) ? tDetails("open") : tDetails("create"), execute: () => { if (selected) detail.open(selected.id); }, disabledReason: !selected || selected.type === "shape" && selected.content.connection ? t("presentations.commands.selectFirst") : !detail.frameByBox.has(selected.id) && insertReason ? insertReason : undefined, group: commandText },
+    { id: "closeDetail", label: tDetails("close"), execute: detail.close, disabledReason: detail.sceneId ? undefined : unavailable, group: commandText },
+    { id: "removeDetail", label: tDetails("remove"), execute: () => { if (selected) detail.remove(selected.id); }, disabledReason: !disabled && selected && detail.frameByBox.has(selected.id) ? undefined : unavailable, group: commandText },
+    { id: "importWiki", label: tDetails("importWiki"), execute: () => setWikiImportOpen(true), disabledReason: !disabled && detail.sceneId ? undefined : unavailable, group: commandText },
     { id: "toggleMiniMap", label: t("presentations.ribbon.miniMap"), execute: () => setMiniMapVisible(value => !value), active: miniMapVisible, disabledReason: elements.length ? undefined : unavailable, group: commandText },
   ];
   const duplicateDrag = (event: React.PointerEvent<HTMLDivElement>) => startDuplicateDrag(event, {
@@ -705,7 +720,7 @@ function Editor({
     { id: "copy", label: interact("copy"), execute: () => copySelection(), group: commandText, disabledReason: (selection.length > 0) ? undefined : unavailable },
     { id: "cut", label: interact("cut"), execute: () => copySelection(true), group: commandText, disabledReason: (canMutate) ? undefined : unavailable },
     { id: "paste", label: interact("paste"), execute: pasteSelection, group: commandText, disabledReason: (!disabled) ? undefined : unavailable },
-    { id: "selectAll", label: interact("selectAll"), execute: () => setSelectedIds(selectionRoots(elements, elements.map(e => e.id)).map(e => e.id)), group: commandText, disabledReason: (elements.length > 0) ? undefined : unavailable },
+    { id: "selectAll", label: interact("selectAll"), execute: () => setSelectedIds(selectionRoots(elements, detail.elements.map(e => e.id)).map(e => e.id)), group: commandText, disabledReason: (detail.elements.length > 0) ? undefined : unavailable },
     { id: "group", label: interact("group"), execute: groupSelection, group: commandText, disabledReason: (canMutate && selectedRoots.length >= 2 && elements.length < 500) ? undefined : unavailable },
     { id: "ungroup", label: interact("ungroup"), execute: ungroupSelection, group: commandText, disabledReason: (canMutate && selectedRoots.some(e => e.type === "frame" && e.content.isGroup)) ? undefined : unavailable },
     { id: "editText", label: interact("editText"), execute: editText, group: commandText, disabledReason: (canMutate && isTextHost(selected)) ? undefined : unavailable },
@@ -735,7 +750,8 @@ function Editor({
       || (id === "editText" && isTextHost(selected)) || (id === "lock" && selection.some(e => !e.locked)) || (id === "unlock" && selection.some(e => e.locked))
       || (id.startsWith("align-") && selectedRoots.length >= 2) || (id === "connect" && !arrangementDisabled && selectedRoots.length === 2)
       || (id === "detach" && selected?.type === "shape" && selected.content.connection)
-    : ["addText", "addFrame", "addShape", "addChart", "addIcon", "addImage", "paste", "selectAll", "overview", "toggleRuler", "toggleGrid", "toggleGuides", "gridGuides", "shortcutHelp"].includes(id));
+      || (id === "openDetail" && selection.length === 1) || (id === "removeDetail" && Boolean(selected && detail.frameByBox.has(selected.id)))
+    : (detail.sceneId && (id === "closeDetail" || id === "importWiki")) || ["addText", "addFrame", "addShape", "addChart", "addIcon", "addImage", "paste", "selectAll", "overview", "toggleRuler", "toggleGrid", "toggleGuides", "gridGuides", "shortcutHelp"].includes(id));
   const handleKeyboard = useEffectEvent((event: KeyboardEvent) => {
     // An armed drawing tool owns the keyboard (Escape cancels it, Enter finishes a freeform).
     if (drawTool) return;
@@ -775,9 +791,9 @@ function Editor({
     if (id === "copy" || id === "cut" || id === "paste") return; // handled in the clipboard events these keys fire
     if (id) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) executeCommand(id); return; }
     if (event.shiftKey && event.key === "F10") { event.preventDefault(); const box = canvasRef.current?.getBoundingClientRect(); if (box) setContextPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 }); return; }
-    if (key === "escape") { if (dragCancel.current) dragCancel.current(); else if (bridge.cancelGesture()) { cancelledGesture.current = true; window.dispatchEvent(new Event("presentation-cancel-gesture")); } else { setContextPosition(null); setSelectedIds(current => parentSelection(elements, current)); commandRoot.current?.focus(); } return; }
+    if (key === "escape") { if (dragCancel.current) dragCancel.current(); else if (bridge.cancelGesture()) { cancelledGesture.current = true; window.dispatchEvent(new Event("presentation-cancel-gesture")); } else if (!selectedIds.length && detail.sceneId) detail.close(); else { setContextPosition(null); setSelectedIds(current => parentSelection(elements, current)); commandRoot.current?.focus(); } return; }
     if (key === "tab" && canvasRef.current?.contains(target)) {
-      const roots = elements.filter(e => !presentationAncestors(elements, e.id).some(parent => parent.type === "frame" && parent.content.isGroup)); if (!roots.length) return;
+      const roots = detail.elements.filter(e => !presentationAncestors(elements, e.id).some(parent => parent.type === "frame" && parent.content.isGroup)); if (!roots.length) return;
       event.preventDefault(); const current = roots.findIndex(e => selectedIds.includes(e.id));
       setSelectedIds([roots[(current + (event.shiftKey ? -1 : 1) + roots.length) % roots.length].id]); return;
     }
@@ -869,6 +885,7 @@ function Editor({
           onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const id = node.dataset.id; if (!selectionPath(elements, id).some(level => selectedIds.includes(level))) setSelectedIds([selectionTargetId(elements, id, selectedIds)]); } else clickSelection.onPaneContextMenu(event); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
           {drawTool && !disabled && <PresentationDrawOverlay tool={drawTool} reactFlow={reactFlow} lookup={(id) => elements.find((element) => element.id === id)}
             onCreate={createDrawn} onCancel={() => { setDrawTool(null); setDrawLock(false); canvasRef.current?.focus(); }} label={t(`presentations.shapeGallery.shapes.${drawTool.id}`)} />}
+          <DetailSceneBar trail={detail.trail} onShow={detail.show} onClose={detail.close} onImport={() => setWikiImportOpen(true)} disabled={disabled} />
           {contextPosition && <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} position={contextPosition} onClose={() => { setContextPosition(null); canvasRef.current?.focus(); }} />}
           <div className="absolute right-3 bottom-3 z-10 flex rounded-lg border bg-background shadow-sm">{elements.length > 0 && <PresentationMiniMapToggle visible={miniMapVisible} onToggle={() => setMiniMapVisible(value => !value)} showLabel={interact("minimapShow")} hideLabel={interact("minimapHide")} />}        <Button type="button" variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION })}>
           <Maximize2 className="size-3.5" />{t("presentations.overview")}
@@ -924,6 +941,9 @@ function Editor({
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
             <SnapGuides guides={dragPreview ? previewGuides : guides} />
+            <PresentationDetailBadges elements={detail.elements} frameByBox={detail.frameByBox} onOpen={detail.open}
+              createFor={!disabled && selection.length === 1 && !dragPreview && !(selected?.type === "shape" && selected.content.connection) && !(selected?.type === "frame" && detail.sceneId === selected.id) ? selected : null}
+              openLabel={box => tDetails("openNamed", { name: presentationElementCaption(box) || tDetails("group") })} createLabel={tDetails("create")} />
             {settings.guides.show && <CanvasGuides guides={settings.guides.list} onChange={view.setGuides} createId={() => createId()} elements={elements} rulers={settings.ruler} disabled={disabled}
               format={cm => formatCentimetres(cm, locale)} labels={{ guide: t("presentations.gridGuides.guide"), addVertical: t("presentations.gridGuides.addVertical"), addHorizontal: t("presentations.gridGuides.addHorizontal"), delete: t("presentations.gridGuides.delete") }} />}
             {formatting.editPointsElement && !disabled && <EditPointsOverlay element={formatting.editPointsElement} labels={t.raw("presentations.editPoints") as EditPointsLabels}
@@ -1027,6 +1047,7 @@ function Editor({
           </div>
         </WorkspacePanel>
       </div>
+      <WikiImportDialog open={wikiImportOpen} onOpenChange={setWikiImportOpen} onImport={detail.importSection} />
       <GridGuidesDialog open={gridDialog} onOpenChange={setGridDialog} settings={settings} update={updateSettings} toggleGuides={view.toggleGuides} disabled={disabled} />
       <Dialog open={workspaceDialog !== null} onOpenChange={(open) => { if (!open) setWorkspaceDialog(null); }}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" aria-describedby={undefined}>

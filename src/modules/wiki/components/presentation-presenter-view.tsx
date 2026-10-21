@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { PresentationScene } from "./presentation-scene";
-import { stepLabel, stepTarget } from "../lib/presentation";
+import { presentationStops, stepLabel, stepTarget } from "../lib/presentation";
 import { formatElapsed, parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import { CollaborationContext, CollaborationStatus, useCollaboration, useCollaborationContext } from "../collaboration/ui";
 import * as Y from "yjs";
@@ -39,7 +39,8 @@ function SharedPresenterView({ presentation: initial, sessionId }: { presentatio
     collaboration.doc.on("afterTransaction", update);
     return () => { collaboration.doc.off("afterTransaction", update); };
   }, [collaboration]);
-  const presentation = { ...initial, ...snapshot };
+  // The player counts stops, which include detail pages without steps of their own.
+  const presentation = { ...initial, ...snapshot, steps: presentationStops(snapshot.elements, snapshot.steps).map((stop) => stop.step) };
   const t = useTranslations("wiki");
   const studio = useTranslations("presentationStudio");
   const hydrated = useSyncExternalStore(subscribeHydration, () => true, () => false);

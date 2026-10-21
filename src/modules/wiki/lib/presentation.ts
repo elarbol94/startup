@@ -62,6 +62,26 @@ export {
   assignFrameMembership,
 } from "./presentation-hierarchy";
 export {
+  PRESENTATION_DETAIL_ORIGIN,
+  type PresentationSceneId,
+  type PresentationDetails,
+  presentationDetails,
+  presentationSceneElements,
+  presentationSceneTrail,
+  presentationElementCaption,
+  createPresentationDetail,
+  removePresentationDetail,
+  type PresentationStop,
+  presentationStops,
+  presentationSceneSteps,
+  type PresentationPosition,
+  sceneOfStop,
+  enterPresentationDetail,
+  exitPresentationDetail,
+  stepPresentationPosition,
+  presentationScenePosition,
+} from "./presentation-details";
+export {
   parsePresentationSteps,
   normalizeSteps,
   moveStep,
