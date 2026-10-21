@@ -129,6 +129,24 @@ export function AppNavigation({
     suppressNavigationUntilRef.current = Date.now() + 500;
   }
 
+  // Each group has its own item context, so module drags stay inside their group and never reach the group handler.
+  const itemDragHandlers = {
+    sensors,
+    collisionDetection: closestCenter,
+    onDragStart: () => {
+      suppressNavigationUntilRef.current = Number.POSITIVE_INFINITY;
+      onDragStateChange?.(true);
+    },
+    onDragEnd: (event: DragEndEvent) => {
+      handleNavigationDragEnd(event);
+      onDragStateChange?.(false);
+    },
+    onDragCancel: () => {
+      suppressNavigationUntilRef.current = Date.now() + 500;
+      onDragStateChange?.(false);
+    },
+  };
+
   return (
     <TooltipProvider>
       <div className="flex min-h-0 flex-1 flex-col">
@@ -166,35 +184,19 @@ export function AppNavigation({
               />
             )}
           </div>
-          <DndContext
-            id="app-sidebar-navigation"
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragStart={() => {
-              suppressNavigationUntilRef.current = Number.POSITIVE_INFINITY;
-              onDragStateChange?.(true);
-            }}
-            onDragEnd={(event) => {
-              handleNavigationDragEnd(event);
-              onDragStateChange?.(false);
-            }}
-            onDragCancel={() => {
-              suppressNavigationUntilRef.current = Date.now() + 500;
-              onDragStateChange?.(false);
-            }}
-          >
-            <DndContext id="app-sidebar-groups" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
-              <SortableContext items={layout.order} strategy={verticalListSortingStrategy}>
-                {groups.map(({ group, items }) => (
-                  <SortableNavGroup
-                    key={group}
-                    group={group}
-                    label={t(`groups.${group}`)}
-                    navigationId={navigationId}
-                    compact={compact}
-                    collapsed={layout.collapsed.includes(group)}
-                    onToggle={() => toggleGroup(group)}
-                  >
+          <DndContext id="app-sidebar-groups" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+            <SortableContext items={layout.order} strategy={verticalListSortingStrategy}>
+              {groups.map(({ group, items }) => (
+                <SortableNavGroup
+                  key={group}
+                  group={group}
+                  label={t(`groups.${group}`)}
+                  navigationId={navigationId}
+                  compact={compact}
+                  collapsed={layout.collapsed.includes(group)}
+                  onToggle={() => toggleGroup(group)}
+                >
+                  <DndContext id={`app-sidebar-navigation-${group}`} {...itemDragHandlers}>
                     <SortableContext items={items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
                       {items.map((item) => (
                         <SortableNavLink
@@ -212,10 +214,10 @@ export function AppNavigation({
                         />
                       ))}
                     </SortableContext>
-                  </SortableNavGroup>
-                ))}
-              </SortableContext>
-            </DndContext>
+                  </DndContext>
+                </SortableNavGroup>
+              ))}
+            </SortableContext>
           </DndContext>
           <div className="mt-auto flex flex-col gap-0.5 pt-3">
             <NavLink
