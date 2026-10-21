@@ -119,4 +119,17 @@ test("a clicker takes the detour on the path, animated even when the system redu
   await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
   await page.keyboard.press("ArrowUp");
   await expect(player).toHaveAttribute("data-scene", "overview");
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+
+  // A window that stops painting freezes animations; a turn still completes and keys keep working.
+  await page.evaluate(() => {
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (...args: Parameters<typeof animate>) { const animation = animate.apply(this, args); animation.pause(); return animation; };
+  });
+  await page.keyboard.press("ArrowDown");
+  await expect(player).toHaveAttribute("data-scene", "page");
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await page.keyboard.press("ArrowUp");
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
 });

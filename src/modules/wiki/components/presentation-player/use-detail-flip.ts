@@ -22,7 +22,14 @@ function toRect(from: Rect, to: Rect, angle: number): string {
   return `${PERSPECTIVE} translate(${dx}px, ${dy}px) scale(${to.width / from.width}, ${to.height / from.height}) rotateY(${angle}deg)`;
 }
 
-const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+/**
+ * A browser that stops painting (a hidden or covered window, a projector that just took the
+ * screen) stops animation frames and timelines too. A turn must never hang there, or every
+ * key after it is dropped, so each wait gives up after a while and the turn just completes.
+ */
+const timeout = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+const nextFrame = () => Promise.race([new Promise<void>((resolve) => requestAnimationFrame(() => resolve())), timeout(100)]);
+const settle = (animation: Animation, ms: number) => Promise.race([animation.finished.then(() => undefined, () => undefined), timeout(ms + 250)]);
 
 export function useDetailFlip({ containerRef, stageRef, getZoom, background, durationMs }: {
   containerRef: RefObject<HTMLDivElement | null>;
@@ -104,11 +111,11 @@ export function useDetailFlip({ containerRef, stageRef, getZoom, background, dur
         cleanup.push(front);
         stage.style.opacity = "0";
         flushSync(commit);
-        await front.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(box, middle, 90) }], { duration: half, easing: "ease-in", fill: "forwards" }).finished;
+        await settle(front.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(box, middle, 90) }], { duration: half, easing: "ease-in", fill: "forwards" }), half);
         front.remove();
         stage.style.background = background || getComputedStyle(containerRef.current!).backgroundColor;
         stage.style.opacity = "1";
-        await stage.animate([{ transform: toRect(full, middle, -90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out" }).finished;
+        await settle(stage.animate([{ transform: toRect(full, middle, -90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out" }), half);
       } else {
         cleanup.push(snapshot(container, 3));
         const back = cleanup[0];
@@ -118,23 +125,24 @@ export function useDetailFlip({ containerRef, stageRef, getZoom, background, dur
         const node = nodeOf(boxId);
         const box = node?.getBoundingClientRect();
         if (!node || !box?.width || !box.height) {
-          await back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: half, fill: "forwards" }).finished;
+          await settle(back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: half, fill: "forwards" }), half);
           return;
         }
         const middle = lerp(box, full, 0.5);
-        await back.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(full, middle, -90) }], { duration: half, easing: "ease-in", fill: "forwards" }).finished;
+        await settle(back.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(full, middle, -90) }], { duration: half, easing: "ease-in", fill: "forwards" }), half);
         back.remove();
         const front = card(node, box, container, 3);
         cleanup.push(front);
         node.style.visibility = "hidden";
         try {
-          await front.animate([{ transform: toRect(box, middle, 90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out", fill: "forwards" }).finished;
+          await settle(front.animate([{ transform: toRect(box, middle, 90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out", fill: "forwards" }), half);
         } finally {
           node.style.visibility = "";
         }
       }
     } finally {
       for (const element of cleanup) element.remove();
+      stage.getAnimations().forEach((animation) => animation.cancel());
       stage.style.opacity = "";
       stage.style.background = "";
       busy.current = false;
