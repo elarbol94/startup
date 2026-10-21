@@ -919,7 +919,8 @@ function Editor({
             {/* Shown gridlines replace the background dots: the overlay draws them over the slide. */}
             {settings.grid.show
               ? <GridOverlay spacing={settings.grid.spacing} transparency={settings.grid.transparency} />
-              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} color={inkOn(presentationSurface(background)) === PRESENTATION_DARK_INK ? "#94a3b8" : "#64748b"} />}
+              // bgColor too: the dot layer otherwise paints the app theme's colour over the slide surface.
+              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} bgColor={presentationSurface(background)} color={inkOn(presentationSurface(background)) === PRESENTATION_DARK_INK ? "#94a3b8" : "#64748b"} />}
             {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}

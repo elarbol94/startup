@@ -18,7 +18,10 @@ async function deck(page: Page, id: string): Promise<{ elements: Element[]; step
 }
 
 test("a box gets a detail page in the editor and flips open to it while presenting", async ({ page }) => {
+  // In the app's dark mode the deck still sits on its own white surface.
+  await page.emulateMedia({ colorScheme: "dark" });
   const id = await seed(page, false, false, elements, { waitFor: "lend" });
+  await expect.poll(() => page.locator(".react-flow__background").evaluate((layer) => getComputedStyle(layer).backgroundColor)).toBe("rgb(255, 255, 255)");
 
   // Selecting a box offers a detail page; one click creates it and opens it.
   await page.locator('.react-flow__node[data-id="lend"]').click();
