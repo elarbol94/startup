@@ -7,8 +7,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ReactFlow, ReactFlowProvider, getViewportForBounds, useReactFlow, useStore, useStoreApi, type NodeMouseHandler } from "@xyflow/react";
-import { ChevronLeft, ChevronRight, CornerLeftUp, Maximize, Minimize, NotebookText, Pause, Play, Scan, Spotlight, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import {
   PRESENTATION_CAMERA_PADDING,
@@ -27,6 +25,7 @@ import {
   enterPresentationDetail,
   exitPresentationDetail,
   presentationStopDetail,
+  presentationStopBounds,
   sceneOfStop,
   stepPresentationPosition,
   type PresentationBounds,
@@ -38,7 +37,12 @@ import { useDetailFlip } from "./presentation-player/use-detail-flip";
 import { parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import type { PresentationRecord } from "../presentation-queries";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
-import { PresentationFollowBadge, PresentationLiveControl, usePresentationFollower } from "./presentation-live";
+import { PresentationFollowBadge, usePresentationFollower } from "./presentation-live";
+import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
+import { PlayerControls } from "./presentation-player/player-controls";
+import { BlankScreenOverlay, SpotlightOverlay, StopNumberBadge, type BlankScreen } from "./presentation-player/player-overlays";
+import { useIdle } from "./presentation-player/use-idle";
+import { usePlayerKeys } from "./presentation-player/use-player-keys";
 
 /** Set when this player is a remote follower mirroring someone else's live session. */
 type FollowSource = { code: string; hostName: string; hostUserId?: string; stepIndex?: number; live?: boolean };
@@ -53,7 +57,10 @@ const GESTURE_SNAP_BACK_MS = 900;
 // session's own 45s heartbeat staleness is what ends it.
 const LIVE_STOP_TIMEOUT_MS = 2_000;
 
-function Player({ presentation, follow }: { presentation: PresentationRecord; follow?: FollowSource }) {
+// How long the mouse rests before the controls and the cursor leave the audience's view.
+const IDLE_HIDE_MS = 2_500;
+
+function Player({ presentation, follow, startStepId }: { presentation: PresentationRecord; follow?: FollowSource; startStepId?: string }) {
   const t = useTranslations("wiki");
   const router = useRouter();
   const reactFlow = useReactFlow<PresentationNode>();
@@ -69,8 +76,10 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const details = presentationDetails(elements);
   const openerIds = useMemo(() => new Set(details.frameByBox.keys()), [details]);
   const [position, setPosition] = useState<PresentationPosition>(() => {
-    const first = stops.findIndex((stop) => stop.sceneId === null);
-    return { index: follow ? clampStop(follow.stepIndex ?? 0, stops) : Math.max(first, 0), returns: [] };
+    if (follow) return { index: clampStop(follow.stepIndex ?? 0, stops), returns: [] };
+    // "From current stop" in the editor; a stop on a detail page leaves it towards its opener.
+    const chosen = startStepId ? stops.findIndex((stop) => stop.step.id === startStepId) : -1;
+    return { index: chosen >= 0 ? chosen : Math.max(stops.findIndex((stop) => stop.sceneId === null), 0), returns: [] };
   });
   const index = position.index;
   const scene = sceneOfStop(stops, index);
@@ -128,16 +137,16 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
 
   /**
    * Every step is framed by fitting its element's bounds, so a small frame nested inside
-   * a large one zooms all the way in — the camera never inherits the previous scale.
+   * a large one zooms all the way in — the camera never inherits the previous scale. A fade
+   * that reveals something outside that view widens it, rather than happening off-screen.
    */
   const flyTo = useCallback(
     (stepIndex: number, duration = cameraDuration) => {
-      const step = cameraStop(stops, stepIndex, details.frameByBox);
-      const target = step ? stepTarget(step, elements) : null;
-      if (!target) return overview(duration);
-      return fitStop(presentationCameraBounds(target), duration);
+      const bounds = presentationStopBounds(elements, stops, stepIndex);
+      if (!bounds) return overview(duration);
+      return fitStop(bounds, duration);
     },
-    [elements, overview, stops, details, cameraDuration, fitStop],
+    [elements, overview, stops, cameraDuration, fitStop],
   );
 
   // Presenter-side pinch/wheel zoom and free pan: ReactFlow's own pane already implements
@@ -208,32 +217,47 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     return element ? fitStop(presentationCameraBounds(element), duration, true) : Promise.resolve(false);
   }, [elements, fitStop]);
   const frameCurrent = useCallback((duration: number) => flyTo(positionRef.current.index, duration), [flyTo]);
+  // The stop whose camera has landed: a stop's autoplay time and progress bar start there, so
+  // a long flight or card turn never eats into what the audience gets to see.
+  const [arrivedAt, setArrivedAt] = useState<number | null>(null);
+  const land = useCallback((flight: Promise<unknown>, duration: number, at: number) => {
+    // An interrupted flight may never settle; the camera is there by then anyway.
+    void Promise.race([flight, new Promise((resolve) => setTimeout(resolve, duration + 250))]).then(() => setArrivedAt(at));
+  }, []);
   const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, surface, backdrop: inkOn(surface) === PRESENTATION_DARK_INK ? "#c3cad4" : "#020306",
     durationMs: reducedMotion ? 0 : Math.max(600, settings.cameraTransitionMs), focusElement, frameCurrent });
+  /** False when a card turn is still running: the move is dropped and the caller decides what then. */
   const go = useCallback((next: PresentationPosition) => {
-    if (isFlipping()) return;
+    if (isFlipping()) return false;
     const from = sceneOfStop(stops, positionRef.current.index), to = sceneOfStop(stops, next.index);
     const commit = () => { positionRef.current = next; setPosition(next); setQuietIndex(to !== from ? next.index : null); };
     const opener = to ? details.boxByFrame.get(to) : undefined, closer = from ? details.boxByFrame.get(from) : undefined;
-    if (to && opener && details.sceneOf(opener) === from) void flip("in", opener, commit);
-    else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit);
+    const landed = () => setArrivedAt(positionRef.current.index);
+    if (to && opener && details.sceneOf(opener) === from) void flip("in", opener, commit).then(landed);
+    else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit).then(landed);
     else commit();
+    return true;
   }, [details, flip, isFlipping, stops]);
 
   // Autoplay: advance to the next stop after its effective duration elapses -- out of a
   // finished detail page too -- looping back to the start (or stopping) once the path runs out.
+  // A card turn outlasts its scene switch (and a short stop), so a tick that lands during one
+  // waits for it instead: go() would drop the move and nothing would ever re-arm the timer.
   useEffect(() => {
-    if (!playing || !stops[index]) return;
+    if (!playing || !stops[index] || arrivedAt !== index) return;
     const duration = resolveStepDuration(stops[index].step, settings);
-    const timer = setTimeout(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const advance = () => {
+      if (isFlipping()) { timer = setTimeout(advance, 100); return; }
       const next = stepPresentationPosition(elements, stops, positionRef.current, 1);
       const first = stops.findIndex((stop) => stop.sceneId === null);
       if (next.index !== positionRef.current.index) go(next);
       else if (settings.loop && first >= 0 && first !== positionRef.current.index) go({ index: first, returns: [] });
       else setPlaying(false);
-    }, duration);
+    };
+    timer = setTimeout(advance, duration);
     return () => clearTimeout(timer);
-  }, [playing, index, stops, settings, elements, go]);
+  }, [playing, index, arrivedAt, stops, settings, elements, go, isFlipping]);
 
   const move = useCallback(
     (delta: 1 | -1) => {
@@ -266,11 +290,11 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       event.stopPropagation();
       if (following) return;
       const target = node.data.element;
-      // An element with a detail page turns over to it.
-      if (details.frameByBox.has(target.id)) { suppressSnapBack.current = true; openDetail(target.id); return; }
-      // Clicks resolve within the open scene: its stops, its elements.
+      // Clicks resolve within the open scene: its stops, its elements. An element with a
+      // detail page -- or one standing for the frame that has it -- turns over to it.
       const local = stops.map((stop, at) => ({ stop, at })).filter(({ stop }) => stop.sceneId === scene);
-      const action = elementClickAction(local.map(({ stop }) => stop.step), sceneElements, local.findIndex(({ at }) => at === index), target.id);
+      const action = elementClickAction(local.map(({ stop }) => stop.step), sceneElements, local.findIndex(({ at }) => at === index), target.id, details.frameByBox);
+      if (action.kind === "open") { suppressSnapBack.current = true; openDetail(action.boxId); return; }
       // Clicking the frame that fills the screen is a click "on the slide", not on an
       // element: it advances exactly like empty canvas, which means no autoplay pause and
       // no snap-back suppression either — the container's own advance does neither.
@@ -287,7 +311,10 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       setPlaying(false);
       if (action.kind === "jump") {
         const jump = local[action.index].at;
-        setPosition((current) => ({ ...current, index: jump }));
+        // The ref too, so a key pressed right after the click steps on from the new stop.
+        const next = { ...positionRef.current, index: jump };
+        positionRef.current = next;
+        setPosition(next);
         // Explicit, not left to the index-driven effect: clicking the CURRENT step's element
         // leaves index unchanged, so that effect would never re-run and the click would do
         // nothing visible.
@@ -307,29 +334,25 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   );
   const remoteLive = usePresentationFollower(follow?.code ?? null, applyRemoteStep, follow?.live);
 
-  // Kept current without being an effect dependency, so the channel below is set up once
-  // and can still answer a presenter window's "where are we" with the latest step.
-  const indexRef = useRef(index);
-  useEffect(() => {
-    indexRef.current = index;
-  }, [index]);
-
   const channelRef = useRef<BroadcastChannel | null>(null);
 
   // Presenter windows follow this player over BroadcastChannel: it broadcasts its own step
-  // changes, and applies "goto" from a presenter window steering it back.
+  // changes -- with the detail pages to come back out of, so the presenter view walks the
+  // same path -- and applies "goto" from a presenter window steering it.
   useEffect(() => {
     if (following || typeof BroadcastChannel === "undefined") return;
     const channel = new BroadcastChannel(presenterChannelName(presentation.id, presenterSession));
     channelRef.current = channel;
+    const announce = () => channel.postMessage({ type: "step", index: positionRef.current.index, returns: positionRef.current.returns });
     channel.onmessage = (event) => {
       const message = parsePresenterMessage(event.data);
       if (!message) return;
       if (message.type === "goto") {
         setPlaying(false);
-        go({ index: clampStop(message.index, stops), returns: [] });
+        // A move dropped during a card turn would leave the presenter view a stop ahead.
+        if (!go({ index: clampStop(message.index, stops), returns: (message.returns ?? []).map((at) => clampStop(at, stops)) })) announce();
       } else if (message.type === "request-step") {
-        channel.postMessage({ type: "step", index: indexRef.current });
+        announce();
       }
     };
     return () => {
@@ -339,8 +362,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   }, [following, presentation.id, presenterSession, stops, go]);
 
   useEffect(() => {
-    channelRef.current?.postMessage({ type: "step", index });
-  }, [index]);
+    channelRef.current?.postMessage({ type: "step", index: position.index, returns: position.returns });
+  }, [position]);
 
   // End the live session before navigating when possible. Its fixed endpoint can finish
   // after this bounded wait, so a slow connection does not trap the presenter. Browser
@@ -376,9 +399,10 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     framedScene.current = scene;
     // A detail page turn frames the scenes itself, in step with the card.
     if (isFlipping()) return;
-    const frame = requestAnimationFrame(() => { flyTo(index, instant ? 0 : undefined); firstFlight.current = false; });
+    const duration = instant ? 0 : cameraDuration;
+    const frame = requestAnimationFrame(() => { land(flyTo(index, duration), duration, index); firstFlight.current = false; });
     return () => cancelAnimationFrame(frame);
-  }, [index, scene, flyTo, viewportSized, isFlipping]);
+  }, [index, scene, flyTo, viewportSized, isFlipping, land, cameraDuration]);
 
   // Entering fullscreen or resizing changes what "fits" means, so the current step is
   // re-framed instantly rather than left half off-screen.
@@ -396,74 +420,49 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     };
   }, [flyTo, index]);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
-      // Space activates a focused control; it must not also advance the presentation.
-      if (event.key === " " && target?.closest("button, a, [role='button']")) return;
-      if (event.key === "ArrowRight" || event.key === " " || event.key === "PageDown") {
-        event.preventDefault();
-        move(1);
-      } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
-        event.preventDefault();
-        move(-1);
-      } else if (event.key === "Home" && !following) {
-        // Followers are excluded: an overview here would stick until the presenter
-        // happens to change step, since the poll only re-frames on a new step.
-        event.preventDefault();
-        overview();
-      } else if ((event.key === "ArrowDown" || (event.key === "Enter" && !target?.closest("button, a, [role='button']"))) && !following) {
-        // Opens the detail page of what the current stop shows, for keyboards and clickers.
-        const frameId = presentationStopDetail(elements, stops, positionRef.current.index);
-        const box = frameId ? details.boxByFrame.get(frameId) : undefined;
-        if (box) { event.preventDefault(); openDetail(box); }
-      } else if ((event.key === "Escape" || event.key === "Backspace" || event.key === "ArrowUp") && scene !== null && !following) {
-        // Escape leaves the open detail page first; only on the overview does it end the show.
-        event.preventDefault();
-        closeDetail();
-      } else if (event.key === "Escape" && !document.fullscreenElement) {
-        // A follower has no business in the editor -- they were handed a code, not the
-        // presentation. Send them back to the join screen, same as the badge's exit link,
-        // and with no stop: the session is the presenter's, not theirs.
-        if (following) router.push("/wiki/presentations/follow");
-        else void exitPresent();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [exitPresent, following, move, overview, router, scene, closeDetail, openDetail, elements, stops, details]);
+  // A view the presenter asked for -- the overview, a keyboard zoom -- stays until the next
+  // stop or Escape, unlike a drag or pinch, which snaps back once let go.
+  const heldView = useRef(false);
+  useEffect(() => { heldView.current = false; }, [index]);
+  const holdView = useCallback(() => { clearSnapBack(); heldView.current = true; }, [clearSnapBack]);
+  const restoreView = useCallback(() => {
+    if (!heldView.current) return false;
+    heldView.current = false;
+    void flyTo(positionRef.current.index);
+    return true;
+  }, [flyTo]);
 
-  // Its own listener, kept separate from the step-navigation one above: zoom is
-  // presenter-local camera state, unrelated to whichever step index is currently shown.
-  useEffect(() => {
-    const onZoomKeyDown = (event: KeyboardEvent) => {
-      if (following || event.ctrlKey || event.metaKey || event.altKey) return;
-      if (!["+", "=", "-", "_"].includes(event.key)) return;
-      event.preventDefault();
-      const zooming = event.key === "-" || event.key === "_" ? reactFlow.zoomOut : reactFlow.zoomIn;
-      void zooming({ duration: 150 });
-      scheduleSnapBack();
-    };
-    window.addEventListener("keydown", onZoomKeyDown);
-    return () => window.removeEventListener("keydown", onZoomKeyDown);
-  }, [following, reactFlow, scheduleSnapBack]);
+  // PowerPoint's B and W. Autoplay waits behind a blank screen, and moving on lifts it.
+  const [blank, setBlankState] = useState<BlankScreen>(null);
+  const setBlank = useCallback((screen: BlankScreen) => { setBlankState(screen); if (screen) setPlaying(false); }, []);
+  const [blankedAt, setBlankedAt] = useState(index);
+  if (blankedAt !== index) { setBlankedAt(index); setBlankState(null); }
 
-  // Spotlight/laser-pointer overlay: a presenter toggle, purely cosmetic. The pointer
-  // position is written straight to the overlay's own CSS variables instead of React state
-  // so mouse movement never triggers a render.
+  const jumpTo = useCallback((number: number) => {
+    const local = stops.map((stop, at) => ({ stop, at })).filter(({ stop }) => stop.sceneId === sceneOfStop(stops, positionRef.current.index));
+    const target = local[number - 1];
+    if (!target) return false;
+    setPlaying(false);
+    return go({ index: target.at, returns: positionRef.current.returns });
+  }, [go, stops]);
+
+  const stopNumber = usePlayerKeys({
+    following, inDetail: scene !== null, blank, move, setBlank, jumpTo, restoreView, closeDetail,
+    overview: () => { holdView(); void overview(); },
+    zoom: (direction) => { holdView(); void (direction === "in" ? reactFlow.zoomIn : reactFlow.zoomOut)({ duration: 150 }); },
+    openCurrentDetail: () => {
+      const frameId = presentationStopDetail(elements, stops, positionRef.current.index);
+      const box = frameId ? details.boxByFrame.get(frameId) : undefined;
+      if (box) openDetail(box);
+      return Boolean(box);
+    },
+    exit: () => void exitPresent(),
+  });
+
+  // Spotlight/laser pointer: a presenter toggle, purely cosmetic (see SpotlightOverlay).
   const [spotlight, setSpotlight] = useState(false);
-  const spotlightRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!spotlight) return;
-    const onPointerMove = (event: PointerEvent) => {
-      spotlightRef.current?.style.setProperty("--spotlight-x", `${event.clientX}px`);
-      spotlightRef.current?.style.setProperty("--spotlight-y", `${event.clientY}px`);
-    };
-    window.addEventListener("pointermove", onPointerMove);
-    return () => window.removeEventListener("pointermove", onPointerMove);
-  }, [spotlight]);
+  // The controls and the cursor leave the audience's view while the mouse rests.
+  const idle = useIdle(IDLE_HIDE_MS, !following);
 
   const toggleFullscreen = useCallback(async () => {
     try {
@@ -478,16 +477,20 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const scenePosition = presentationScenePosition(stops, index);
   const sceneFrame = scene ? elements.find((element) => element.id === scene) : undefined;
   const sceneCaption = (sceneFrame && presentationElementCaption(sceneFrame)) || t("presentations.details.group");
+  const progressing = playing && stops[index] && arrivedAt === index;
   return (
     <div
       ref={containerRef}
       data-scene={scene ?? "overview"}
       data-testid="presentation-player"
-      // Covers the wiki rail and the app chrome: presenting owns the whole viewport.
-      className="fixed inset-0 z-50 bg-background"
+      data-idle={idle || undefined}
+      // Covers the wiki rail and the app chrome: presenting owns the whole viewport. A resting
+      // mouse, or the laser pointer's own dot, hides the system cursor.
+      className={`fixed inset-0 z-50 bg-background ${idle || spotlight ? "cursor-none [&_*]:cursor-none!" : ""}`}
       // Depth for the detail page turn, which rotates the stage below in 3D.
       style={{ backgroundColor: surface, perspective: "2200px" }}
     >
+      <PresentationDocumentTitle title={presentation.title} />
       <div ref={stageRef} className="absolute inset-0" data-testid="presentation-stage" data-scene={scene ?? "overview"}>
       <ReactFlow
         nodes={nodes}
@@ -525,25 +528,13 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       />
       </div>
 
-      {spotlight && (
-        <div
-          ref={spotlightRef}
-          aria-hidden
-          className="pointer-events-none fixed inset-0 z-40"
-          style={{
-            background:
-              "radial-gradient(circle 180px at var(--spotlight-x, 50%) var(--spotlight-y, 50%), transparent 0%, transparent 55%, rgb(0 0 0 / 0.55) 100%)",
-          }}
-        >
-          <div
-            className="absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-500 shadow-[0_0_14px_4px_rgba(239,68,68,0.85)]"
-            style={{ left: "var(--spotlight-x, 50%)", top: "var(--spotlight-y, 50%)" }}
-          />
-        </div>
-      )}
+      {spotlight && <SpotlightOverlay />}
+      <BlankScreenOverlay screen={blank} />
+      <StopNumberBadge digits={stopNumber} />
 
-      {playing && stops[index] && (
-        // Progress hint for the running step: a bar that fills over its effective duration.
+      {progressing && (
+        // Progress hint for the running step: a bar that fills over its effective duration,
+        // from the moment the camera has landed.
         <div className="absolute inset-x-0 top-0 z-10 h-1 bg-foreground/10">
           <div
             key={`${index}-${playing}`}
@@ -553,78 +544,35 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         </div>
       )}
 
-      {following && <PresentationFollowBadge live={remoteLive} hostName={follow?.hostName ?? ""} hostUserId={follow?.hostUserId ?? null} />}
+      {/* A follower has no control bar; the badge takes its place, and its height is kept
+          clear of the slide the same way. */}
+      {following && <PresentationFollowBadge ref={controlsRef} live={remoteLive} hostName={follow?.hostName ?? ""} hostUserId={follow?.hostUserId ?? null} />}
 
-      {/* The strip spans the whole viewport width, so it must stay transparent to pointers:
-          only the pill itself is a control, and only the pill may swallow a canvas click. */}
-      {!following && (
-      <div ref={controlsRef} data-testid="presentation-controls" className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-center gap-2 p-4">
-        <div
-          className="pointer-events-auto flex max-w-full flex-wrap items-center justify-center gap-1 rounded-2xl border bg-background/90 px-2 py-1 shadow-sm backdrop-blur sm:rounded-full"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={playing ? t("presentations.pause") : t("presentations.play")}
-            disabled={!stops.length}
-            onClick={() => {
-              const first = stops.findIndex((stop) => stop.sceneId === null);
-              if (!playing && scene === null && scenePosition.current >= scenePosition.total && first >= 0) go({ index: first, returns: [] });
-              setPlaying((current) => !current);
-            }}
-          >
-            {playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          {scene !== null && <Button type="button" variant="ghost" size="sm" data-testid="presentation-detail-back" aria-label={t("presentations.details.back")} title={`${t("presentations.details.back")} (Esc)`} onClick={closeDetail}>
-            <CornerLeftUp className="size-4" /><span className="max-w-32 truncate text-xs">{sceneCaption}</span>
-          </Button>}
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.previousStep")} disabled={scene === null && scenePosition.current <= 1} onClick={() => move(-1)}>
-            <ChevronLeft className="size-4" />
-          </Button>
-          <span className="min-w-16 text-center text-xs tabular-nums" role="status" aria-live="polite">
-            {scenePosition.total ? `${scenePosition.current} / ${scenePosition.total}` : t("presentations.noSteps")}
-          </span>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.nextStep")} disabled={scene === null && scenePosition.current >= scenePosition.total} onClick={() => move(1)}>
-            <ChevronRight className="size-4" />
-          </Button>
-          <span className="mx-1 h-5 w-px bg-border" />
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.overview")} onClick={() => overview()}>
-            <Scan className="size-4" />
-          </Button>
-          <Button
-            type="button"
-            variant={spotlight ? "secondary" : "ghost"}
-            size="icon-sm"
-            aria-label={t("presentations.spotlight")}
-            aria-pressed={spotlight}
-            onClick={() => setSpotlight((current) => !current)}
-          >
-            <Spotlight className="size-4" />
-          </Button>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.fullscreen")} aria-pressed={fullscreen} onClick={() => void toggleFullscreen()}>
-            {fullscreen ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-          </Button>
-          {(presentation.role === "owner" || presentation.role === "edit") && <>
-          <Button type="button" variant="ghost" size="icon-sm" aria-label={t("presentations.openPresenterView")} onClick={openPresenterView}>
-            <NotebookText className="size-4" />
-          </Button>
-          <PresentationLiveControl presentationId={presentation.id} stepIndex={Math.max(index, 0)} stopRef={stopLive} />
-          </>}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label={t("presentations.exitPresent")}
-            onClick={() => void exitPresent()}
-          >
-            <X className="size-4" />
-          </Button>
-        </div>
-      </div>
-      )}
+      {!following && <PlayerControls
+        controlsRef={controlsRef}
+        hidden={idle}
+        playing={playing}
+        canPlay={stops.length > 0}
+        onPlay={() => {
+          const first = stops.findIndex((stop) => stop.sceneId === null);
+          if (!playing && scene === null && scenePosition.current >= scenePosition.total && first >= 0) go({ index: first, returns: [] });
+          setPlaying((current) => !current);
+        }}
+        sceneCaption={scene !== null ? sceneCaption : null}
+        onCloseDetail={closeDetail}
+        position={scenePosition}
+        canPrevious={scene !== null || scenePosition.current > 1}
+        canNext={scene !== null || scenePosition.current < scenePosition.total}
+        onMove={move}
+        onOverview={() => { holdView(); void overview(); }}
+        spotlight={spotlight}
+        onSpotlight={() => setSpotlight((current) => !current)}
+        fullscreen={fullscreen}
+        onFullscreen={() => void toggleFullscreen()}
+        presenterTools={presentation.role === "owner" || presentation.role === "edit"
+          ? { presentationId: presentation.id, stepIndex: Math.max(index, 0), stopLive, onOpenPresenterView: openPresenterView } : null}
+        onExit={() => void exitPresent()}
+      />}
     </div>
   );
 }
@@ -634,31 +582,19 @@ function clampStop(index: number, stops: PresentationStop[]): number {
   return Math.min(Math.max(index, 0), Math.max(stops.length - 1, 0));
 }
 
-/**
- * The camera stop at or before `index` within its scene. Fade steps keep the camera where it
- * was, and so does a stop on an element that opens a detail page: that stop is the detour's
- * place in the path, and the card turns over from the view the audience already has.
- */
-function cameraStop(stops: PresentationStop[], index: number, openers: Map<string, string>) {
-  const scene = sceneOfStop(stops, index);
-  for (let at = index; at >= 0; at--) {
-    const stop = stops[at];
-    if (stop?.sceneId === scene && (!stop.step.action || stop.step.action === "camera") && !openers.has(stop.step.elementId)) return stop.step;
-  }
-  // A detail page that opens on a fade still shows the page itself.
-  return scene ? { id: `detail:${scene}`, elementId: scene } : undefined;
-}
-
 export function PresentationPlayer({
   presentation,
   follow,
+  startStepId,
 }: {
   presentation: PresentationRecord;
   follow?: FollowSource;
+  /** The stop to open on, for "from current stop"; the first stop otherwise. */
+  startStepId?: string;
 }) {
   return (
     <ReactFlowProvider>
-      <Player presentation={presentation} follow={follow} />
+      <Player presentation={presentation} follow={follow} startStepId={startStepId} />
     </ReactFlowProvider>
   );
 }

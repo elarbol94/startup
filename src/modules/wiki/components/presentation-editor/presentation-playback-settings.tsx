@@ -1,7 +1,7 @@
 "use client";
 // Playback settings of a presentation (default step duration, loop, camera transition and
 // easing), shown in the editor's workspace dialog. Used by presentation-editor.tsx.
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Checkbox } from "@/components/ui/checkbox";
 import { parseSecondsInput, presentationCameraEasings, type PresentationCameraEasing, type PresentationSettings } from "../../lib/presentation";
 import { DraftInput } from "./draft-fields";
@@ -13,6 +13,9 @@ export function PresentationPlaybackSettings({ disabled, settings, updateSetting
   updateSettings: (update: Partial<PresentationSettings>) => void;
 }) {
   const t = useTranslations("wiki");
+  const locale = useLocale();
+  // The allowed range under each field, so a clamped value never comes as a surprise.
+  const range = (min: number, max: number) => <span className="mt-0.5 block text-[11px]">{t("presentations.rangeHint", { min: min.toLocaleString(locale), max: max.toLocaleString(locale) })}</span>;
   return (
           <>            <fieldset disabled={disabled} className="space-y-3">
             <label className="block text-xs text-muted-foreground">
@@ -27,6 +30,7 @@ export function PresentationPlaybackSettings({ disabled, settings, updateSetting
                 normalise={(raw) => secondsText(parseSecondsInput(raw, STEP_DURATION_RANGE) ?? settings.defaultStepDurationMs)}
                 onCommit={(next) => updateSettings({ defaultStepDurationMs: msFromSecondsText(next) })}
               />
+              {range(STEP_DURATION_RANGE.min / 1000, STEP_DURATION_RANGE.max / 1000)}
             </label>
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Checkbox checked={settings.loop} onCheckedChange={(checked) => updateSettings({ loop: checked === true })} />
@@ -48,6 +52,7 @@ export function PresentationPlaybackSettings({ disabled, settings, updateSetting
                 normalise={(raw) => secondsText(parseSecondsInput(raw, CAMERA_TRANSITION_RANGE) ?? settings.cameraTransitionMs)}
                 onCommit={(next) => updateSettings({ cameraTransitionMs: msFromSecondsText(next) })}
               />
+              {range(CAMERA_TRANSITION_RANGE.min / 1000, CAMERA_TRANSITION_RANGE.max / 1000)}
             </label>
             <label className="block text-xs text-muted-foreground">
               {t("presentations.cameraEasing")}

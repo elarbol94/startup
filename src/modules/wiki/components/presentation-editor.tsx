@@ -31,7 +31,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { History, Loader2, Lock, Maximize2, Play, Save, Square, TriangleAlert } from "lucide-react";
+import { History, Loader2, Lock, Maximize2, MonitorPlay, Play, Save, Square, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
@@ -819,12 +819,18 @@ function Editor({
     // The player is server-rendered from the saved canvas, so the navigation waits for the
     // write rather than presenting a stale canvas. A modifier click still means "new tab" --
     // it just gets one with the edit in it.
-    present: (variant) => <Button type="button" size="sm" variant={variant === "ribbon" ? "ghost" : "default"} disabled={!steps.length || restoring !== null || uploading} nativeButton={false} role="link"
-      className={variant === "ribbon" ? "h-[70px] flex-col justify-start gap-1 px-2 pt-1.5 text-xs font-normal [&_svg]:size-6!" : undefined}
-      title={variant === "ribbon" ? t("presentations.ribbon.fromStartTip") : undefined}
-      render={<Link href={presentHref} onClick={(event) => leaveVia(event, presentHref)} onAuxClick={(event) => auxFlush(event, presentHref)} />}>
-      <Play className="size-3.5" />{variant === "ribbon" ? t("presentations.ribbon.fromStart") : t("presentations.present")}
-    </Button>,
+    // "From current stop" opens on the stop selected in the path panel.
+    present: (variant) => {
+      const fromCurrent = variant === "ribbonCurrent", ribbon = variant !== "titleBar";
+      const href = fromCurrent && activeStep ? `${presentHref}?from=${encodeURIComponent(activeStep.id)}` : presentHref;
+      return <Button type="button" size="sm" variant={ribbon ? "ghost" : "default"} disabled={!steps.length || restoring !== null || uploading || (fromCurrent && !activeStep)} nativeButton={false} role="link"
+        className={ribbon ? "h-[70px] flex-col justify-start gap-1 px-2 pt-1.5 text-xs font-normal [&_svg]:size-6!" : undefined}
+        title={ribbon ? t(fromCurrent ? "presentations.ribbon.fromCurrentTip" : "presentations.ribbon.fromStartTip") : undefined}
+        render={<Link href={href} onClick={(event) => leaveVia(event, href)} onAuxClick={(event) => auxFlush(event, href)} />}>
+        {fromCurrent ? <MonitorPlay className="size-3.5" /> : <Play className="size-3.5" />}
+        {fromCurrent ? t("presentations.ribbon.fromCurrent") : ribbon ? t("presentations.ribbon.fromStart") : t("presentations.present")}
+      </Button>;
+    },
     onLeave: () => flushThen(listHref, false), onSearch: openCommands,
     pathOpen, togglePath, activePanel, togglePanel,
     shapeGallery: { open: galleryOpen, setOpen: setGalleryOpen, armed: Boolean(drawTool), onPick: (entry, options) => { setGalleryOpen(false); setPendingElement(null); setDrawLock(Boolean(options?.lock)); setDrawTool(entry); canvasRef.current?.focus(); } },

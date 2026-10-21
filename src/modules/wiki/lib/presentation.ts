@@ -80,6 +80,10 @@ export {
   exitPresentationDetail,
   stepPresentationPosition,
   presentationStopDetail,
+  presentationCameraStop,
+  presentationStopBounds,
+  presentationTour,
+  presentationStopHeading,
   presentationScenePosition,
 } from "./presentation-details";
 export {

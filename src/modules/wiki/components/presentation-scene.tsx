@@ -1,12 +1,14 @@
 import { PresentationContent } from "./presentation-content";
-import { presentationCameraBounds, presentationCameraStep, presentationHiddenIds, stepTarget, unionBounds, type PresentationSnapshot } from "../lib/presentation";
+import { presentationCameraBounds, presentationCameraStep, presentationHiddenIds, stepTarget, unionBounds, type PresentationBounds, type PresentationSnapshot } from "../lib/presentation";
 
-export function PresentationScene({ presentation, index, mediaUrl, interactive = false, padding = 0.12 }: {
-  presentation: PresentationSnapshot; index: number; mediaUrl?: (id: string) => string; interactive?: boolean; padding?: number;
+/** `bounds` overrides what is framed (null: everything), for callers that know the stop's
+ * framing better than the plain step list, such as the presenter view with detail pages. */
+export function PresentationScene({ presentation, index, bounds, mediaUrl, interactive = false, padding = 0.12 }: {
+  presentation: PresentationSnapshot; index: number; bounds?: PresentationBounds | null; mediaUrl?: (id: string) => string; interactive?: boolean; padding?: number;
 }) {
-  const step = presentationCameraStep(presentation.steps, index);
+  const step = bounds === undefined ? presentationCameraStep(presentation.steps, index) : null;
   const target = step ? stepTarget(step, presentation.elements) : null;
-  const b = target ? presentationCameraBounds(target) : unionBounds(presentation.elements.map(presentationCameraBounds)) ?? { x: 0, y: 0, width: 960, height: 540 };
+  const b = bounds ?? (target ? presentationCameraBounds(target) : unionBounds(presentation.elements.map(presentationCameraBounds)) ?? { x: 0, y: 0, width: 960, height: 540 });
   const hidden = presentationHiddenIds(presentation.elements, presentation.steps, index);
   const view = { x: b.x - b.width * padding, y: b.y - b.height * padding, width: b.width * (1 + 2 * padding), height: b.height * (1 + 2 * padding) };
   // Only what the view can show: every stop in the frame rail draws a scene of its own.

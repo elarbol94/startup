@@ -3,11 +3,15 @@ import {
   createPresentationDetail,
   enterPresentationDetail,
   exitPresentationDetail,
+  presentationCameraStop,
   presentationDetails,
   presentationElementCaption,
   presentationSceneElements,
   presentationSceneTrail,
   presentationScenePosition,
+  presentationStopBounds,
+  presentationStopHeading,
+  presentationTour,
   presentationStops,
   removePresentationDetail,
   stepPresentationPosition,
@@ -136,5 +140,48 @@ describe("presenting detail pages", () => {
   it("finds the way back without history, from the stop of the opening element", () => {
     expect(exitPresentationDetail(elements, stops, { index: 2, returns: [] })).toEqual({ index: 3, returns: [] });
     expect(exitPresentationDetail(elements, stops, { index: 0, returns: [] })).toBeNull();
+  });
+
+  it("frames a stop the way the audience sees it", () => {
+    expect(presentationCameraStop(stops, 0)?.id).toBe("s1");
+    // Coming back to the stop on "lend" -- out of its page, or backwards -- shows the topic itself.
+    expect(presentationCameraStop(stops, 3)?.id).toBe("s3");
+    expect(presentationCameraStop(stops, 2)?.id).toBe("d1");
+    expect(presentationCameraStop(stops, 4)?.elementId).toBe("processPage");
+    // A page that opens on a fade shows the page itself.
+    const fadeFirst = presentationStops(elements, [step("s1", "overview"), { ...step("f", "process"), action: "fadeIn" as const }]);
+    expect(presentationCameraStop(fadeFirst, 1)).toEqual({ id: "detail:lendPage", elementId: "lendPage" });
+  });
+
+  it("lists the talk as a clicker walks it, detours included", () => {
+    // s1, s2, then "lend" turns its page over onto d1, and the page's end comes back to s3.
+    expect(presentationTour(elements, stops)).toEqual([
+      { index: 0, returns: [] }, { index: 1, returns: [] }, { index: 2, returns: [3] }, { index: 3, returns: [] },
+    ]);
+    expect(presentationTour(elements, presentationStops(elements, []))).toEqual([]);
+  });
+
+  it("names a stop on a frame without a label after the first words on it", () => {
+    const blank = frame("blank", 0, 0, { content: { label: "", shape: "rect", color: "" } } as Partial<PresentationElement>);
+    const named = [blank, box("Lower line", 10, 300, { parentId: "blank" }), box("Upper line", 10, 20, { parentId: "blank" })];
+    expect(presentationStopHeading(named, blank, 6)).toBe("Upper line");
+    expect(presentationStopHeading([blank], blank, 6)).toBe("7");
+    expect(presentationStopHeading(elements, elements[0], 0)).toBe("overview");
+  });
+
+  it("widens the view to take in what fades in outside it", () => {
+    const fades = presentationStops(elements, [
+      step("s1", "start"), { ...step("f1", "lend"), action: "fadeIn" as const },
+      { ...step("f2", "start"), action: "fadeOut" as const }, step("s2", "start"),
+    ]);
+    expect(presentationStopBounds(elements, fades, 0)).toEqual({ x: 40, y: 40, width: 150, height: 100 });
+    // "lend" sits below "start": the camera takes in both, and keeps both while a fade-out plays.
+    expect(presentationStopBounds(elements, fades, 1)).toEqual({ x: 40, y: 40, width: 150, height: 260 });
+    expect(presentationStopBounds(elements, fades, 2)).toEqual({ x: 40, y: 40, width: 150, height: 260 });
+    // The next camera stop frames its own element again.
+    expect(presentationStopBounds(elements, fades, 3)).toEqual({ x: 40, y: 40, width: 150, height: 100 });
+    // A scene that has only fades so far has nothing to frame: the player shows all of it.
+    const onlyFades = presentationStops(elements, [{ ...step("f", "lend"), action: "fadeIn" as const }]);
+    expect(presentationStopBounds(elements, onlyFades, 0)).toBeNull();
   });
 });

@@ -469,6 +469,37 @@ describe("player element clicks", () => {
     expect(elementClickAction([], elements, 0, "outer")).toEqual({ kind: "look" });
     expect(elementClickAction(steps("gone"), elements, 0, "outer")).toEqual({ kind: "look" });
   });
+
+  describe("an element standing for the frame it sits in", () => {
+    // The topic-map shape: each stop's frame is covered edge to edge by a disc, so the disc
+    // is all a presenter can click.
+    const overview = frame("overview", 0, 0, 2000, 1000);
+    const north: PresentationElement = { ...frame("north", 100, 100, 200, 200), parentId: "overview" };
+    const disc = { id: "disc", type: "shape", parentId: "north", x: 100, y: 100, width: 200, height: 200, rotation: 0,
+      content: { shape: "ellipse", fill: "", stroke: "", strokeWidth: 2, opacity: 1 } } as PresentationElement;
+    const caption: PresentationElement = { ...text("caption", "Title"), parentId: "overview" };
+    const loose = text("loose", "Outside every frame");
+    const map = [overview, north, disc, caption, loose];
+
+    it("jumps to the stop of the nearest frame around it", () => {
+      expect(elementClickAction(steps("overview", "north"), map, 0, "disc")).toEqual({ kind: "jump", index: 1 });
+    });
+
+    it("only looks closer once the presenter is already inside that frame", () => {
+      expect(elementClickAction(steps("overview", "north"), map, 1, "disc")).toEqual({ kind: "look" });
+      expect(elementClickAction(steps("overview", "north"), map, 1, "caption")).toEqual({ kind: "look" });
+    });
+
+    it("looks when no frame around it has a stop", () => {
+      expect(elementClickAction(steps("north"), map, 0, "loose")).toEqual({ kind: "look" });
+    });
+
+    it("turns over to the detail page of the element, or of the frame it sits in", () => {
+      const openers = new Map([["north", "northPage"]]);
+      expect(elementClickAction(steps("overview"), map, 0, "north", openers)).toEqual({ kind: "open", boxId: "north" });
+      expect(elementClickAction(steps("overview"), map, 0, "disc", openers)).toEqual({ kind: "open", boxId: "north" });
+    });
+  });
 });
 
 describe("alignment snapping", () => {

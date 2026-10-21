@@ -2,8 +2,9 @@
 // the player turns over to like the back of a card. The frame lives on the same canvas, far
 // below the deck, so editing, undo, collaboration and export treat it like every other frame;
 // only what is shown at a time is scoped to one "scene". Re-exported by presentation.ts.
-import { presentationAncestors } from "./presentation-hierarchy";
+import { presentationAncestors, presentationDescendants } from "./presentation-hierarchy";
 import { PRESENTATION_FRAME_SIZE } from "./presentation-frames";
+import { presentationCameraBounds, unionBounds } from "./presentation-geometry";
 import type { PresentationBounds, PresentationElement, PresentationStep } from "./presentation-model";
 
 /** Where detail pages are laid out: far enough below any real deck that nothing drifts into them. */
@@ -218,6 +219,74 @@ export function stepPresentationPosition(elements: PresentationElement[], stops:
     return (frameId && enterPresentationDetail(stops, arrived, frameId)) || arrived;
   }
   return exitPresentationDetail(elements, stops, position) ?? position;
+}
+
+/**
+ * The step the camera frames at stop `index`: the camera stop at or before it within its
+ * scene; fade steps keep the camera where it was. A stop on an element that opens a detail
+ * page frames that element: walking forward it turns over at once, so the audience only sees
+ * it when coming back -- out of the page, or backwards -- and then sees the topic just shown.
+ * The player and the presenter view share it.
+ */
+export function presentationCameraStop(stops: PresentationStop[], index: number): PresentationStep | undefined {
+  const scene = sceneOfStop(stops, index);
+  for (let at = index; at >= 0; at--) {
+    const stop = stops[at];
+    if (stop?.sceneId === scene && (!stop.step.action || stop.step.action === "camera")) return stop.step;
+  }
+  // A detail page that opens on a fade still shows the page itself.
+  return scene ? { id: `detail:${scene}`, elementId: scene } : undefined;
+}
+
+/**
+ * What the camera frames at stop `index`: its camera stop's element, widened to take in what
+ * fades in after it within the scene, so an entrance never happens off-screen. Null when the
+ * scene has no camera stop yet (the player shows the whole scene).
+ */
+export function presentationStopBounds(elements: PresentationElement[], stops: PresentationStop[], index: number): PresentationBounds | null {
+  const camera = presentationCameraStop(stops, index);
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  const target = camera ? byId.get(camera.elementId) : undefined;
+  if (!target) return null;
+  const scene = sceneOfStop(stops, index);
+  const boxes = [presentationCameraBounds(target)];
+  for (let at = index; at >= 0 && stops[at]?.step !== camera; at--) {
+    const { step, sceneId } = stops[at];
+    const revealed = sceneId === scene && step.action === "fadeIn" ? byId.get(step.elementId) : undefined;
+    if (revealed) boxes.push(presentationCameraBounds(revealed));
+  }
+  return unionBounds(boxes);
+}
+
+/**
+ * The whole talk as a clicker walks it from the first overview stop: every detour into a
+ * detail page on the path included, in order. Players without scenes of their own (the
+ * offline file) step through this list.
+ */
+export function presentationTour(elements: PresentationElement[], stops: PresentationStop[]): PresentationPosition[] {
+  const first = stops.findIndex((stop) => stop.sceneId === null);
+  if (first < 0) return [];
+  const tour: PresentationPosition[] = [{ index: first, returns: [] }];
+  // Each stop is visited at most once per way in, so the walk always ends.
+  for (let guard = 0; guard < stops.length * 4; guard++) {
+    const next = stepPresentationPosition(elements, stops, tour.at(-1)!, 1);
+    if (next.index === tour.at(-1)!.index) break;
+    tour.push(next);
+  }
+  return tour;
+}
+
+/**
+ * A stop's name for the presenter: the element's own words, or for a frame without a label
+ * the first words on it, top to bottom -- a frame named "7" helps nobody mid-talk.
+ */
+export function presentationStopHeading(elements: PresentationElement[], target: PresentationElement, index: number): string {
+  const own = presentationElementCaption(target);
+  if (own || target.type !== "frame") return own || `${index + 1}`;
+  const inside = presentationDescendants(elements, new Set([target.id]));
+  const worded = elements.filter((element) => element.id !== target.id && inside.has(element.id) && presentationElementCaption(element))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  return worded.length ? presentationElementCaption(worded[0]).slice(0, 60) : `${index + 1}`;
 }
 
 /** The detail page of the element the current stop shows, if it has one. */

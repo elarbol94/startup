@@ -119,7 +119,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
       </RibbonGroup>
     </>;
     case "slideShow": return <>
-      <RibbonGroup label={r("groups.startShow")}>{model.present("ribbon")}</RibbonGroup>
+      <RibbonGroup label={r("groups.startShow")}>{model.present("ribbon")}{model.present("ribbonCurrent")}</RibbonGroup>
       <RibbonGroup label={r("groups.setUp")}>
         {button("playback", <Settings />, { large: true })}
         {pathButton(true)}
