@@ -15,6 +15,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { PanelLeftOpen, Search, Settings } from "lucide-react";
+import { toast } from "sonner";
 import { UserMenu } from "@/components/user-menu";
 import { ShareMenu } from "@/components/share/share-menu";
 import { currentPageShareTarget } from "@/components/share/share-target";
@@ -25,15 +26,19 @@ import { GLOBAL_SHORTCUTS, NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
 import { ariaKeyShortcuts } from "@/lib/shortcuts";
 import { requestAppNavigation } from "@/lib/app-navigation";
 import { cn } from "@/lib/utils";
-import { isNavItemActive } from "@/modules/registry";
-import { NavGroupLabel, NavLink, SortableNavLink, navItemClass } from "./nav-items";
+import { isNavItemActive, type ModuleNavGroup } from "@/modules/registry";
+import { NavLink, SortableNavLink, navItemClass } from "./nav-items";
+import { SortableNavGroup } from "./nav-group";
 import { QuickCreateMenu } from "./quick-create-menu";
 import { ThemeToggle } from "./theme-toggle";
+import { saveSidebarGroupLayout } from "./sidebar-layout-actions";
 import {
   NAVIGATION_ORDER_STORAGE_KEY,
   groupedNavigationItems,
+  moveGroup,
   parseNavigationOrder,
   reorderWithinGroup,
+  type SidebarGroupLayout,
 } from "./sidebar-model";
 
 function loadNavigationOrder(): string[] {
@@ -57,6 +62,7 @@ export function AppNavigation({
   onExpand,
   onDragStateChange,
   showShare = true,
+  groupLayout,
 }: {
   compact: boolean;
   pathname: string;
@@ -70,6 +76,8 @@ export function AppNavigation({
   onDragStateChange?: (dragging: boolean) => void;
   /** The phone header has its own share button, so the phone sheet leaves it out. */
   showShare?: boolean;
+  /** The user's saved group order and collapsed groups. */
+  groupLayout: SidebarGroupLayout;
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
@@ -77,7 +85,27 @@ export function AppNavigation({
   const router = useRouter();
   const suppressNavigationUntilRef = useRef(0);
   const [navigationOrder, setNavigationOrder] = useState<string[]>(loadNavigationOrder);
-  const groups = useMemo(() => groupedNavigationItems(navigationOrder), [navigationOrder]);
+  const [layout, setLayout] = useState<SidebarGroupLayout>(groupLayout);
+  const groups = useMemo(() => groupedNavigationItems(navigationOrder, layout.order), [navigationOrder, layout.order]);
+
+  /** Group order and collapsed groups are kept per user on the server, so they follow the person across browsers. */
+  function updateLayout(next: SidebarGroupLayout) {
+    setLayout(next);
+    saveSidebarGroupLayout(next).catch(() => toast.error(t("layoutSaveFailed")));
+  }
+
+  function handleGroupDragEnd(event: DragEndEvent) {
+    if (!event.over) return;
+    const next = moveGroup(layout.order, String(event.active.id) as ModuleNavGroup, layout.order.indexOf(String(event.over.id) as ModuleNavGroup));
+    if (next) updateLayout({ ...layout, order: next });
+  }
+
+  function toggleGroup(group: ModuleNavGroup) {
+    const collapsed = layout.collapsed.includes(group)
+      ? layout.collapsed.filter((item) => item !== group)
+      : [...layout.collapsed, group];
+    updateLayout({ ...layout, collapsed });
+  }
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
@@ -155,31 +183,39 @@ export function AppNavigation({
               onDragStateChange?.(false);
             }}
           >
-            {groups.map(({ group, items }) => {
-              const labelId = `${navigationId}-group-${group}`;
-              return (
-                <div key={group} role="group" aria-labelledby={labelId} className="flex flex-col gap-0.5">
-                  <NavGroupLabel id={labelId} label={t(`groups.${group}`)} compact={compact} />
-                  <SortableContext items={items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
-                    {items.map((item) => (
-                      <SortableNavLink
-                        key={item.key}
-                        item={item}
-                        label={t(item.key)}
-                        active={isNavItemActive(item.href, pathname)}
-                        compact={compact}
-                        onActivate={() => {
-                          // Close the menu even when an active workspace tab takes the navigation.
-                          onNavigate?.();
-                          requestAppNavigation(item.href, () => router.push(item.href));
-                        }}
-                        suppressNavigationUntilRef={suppressNavigationUntilRef}
-                      />
-                    ))}
-                  </SortableContext>
-                </div>
-              );
-            })}
+            <DndContext id="app-sidebar-groups" sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleGroupDragEnd}>
+              <SortableContext items={layout.order} strategy={verticalListSortingStrategy}>
+                {groups.map(({ group, items }) => (
+                  <SortableNavGroup
+                    key={group}
+                    group={group}
+                    label={t(`groups.${group}`)}
+                    navigationId={navigationId}
+                    compact={compact}
+                    collapsed={layout.collapsed.includes(group)}
+                    onToggle={() => toggleGroup(group)}
+                  >
+                    <SortableContext items={items.map((item) => item.key)} strategy={verticalListSortingStrategy}>
+                      {items.map((item) => (
+                        <SortableNavLink
+                          key={item.key}
+                          item={item}
+                          label={t(item.key)}
+                          active={isNavItemActive(item.href, pathname)}
+                          compact={compact}
+                          onActivate={() => {
+                            // Close the menu even when an active workspace tab takes the navigation.
+                            onNavigate?.();
+                            requestAppNavigation(item.href, () => router.push(item.href));
+                          }}
+                          suppressNavigationUntilRef={suppressNavigationUntilRef}
+                        />
+                      ))}
+                    </SortableContext>
+                  </SortableNavGroup>
+                ))}
+              </SortableContext>
+            </DndContext>
           </DndContext>
           <div className="mt-auto flex flex-col gap-0.5 pt-3">
             <NavLink

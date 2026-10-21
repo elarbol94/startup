@@ -24,7 +24,7 @@ import { requestAppNavigation } from "@/lib/app-navigation";
 import { isNavItemActive, moduleNav, moduleNavItemForPath } from "@/modules/registry";
 import { WorkspaceSearch } from "@/modules/context/components/workspace-search";
 import { AppNavigation } from "./app-sidebar/app-navigation";
-import { brandInitials } from "./app-sidebar/sidebar-model";
+import { brandInitials, type SidebarGroupLayout } from "./app-sidebar/sidebar-model";
 import { useSidebarRail } from "./app-sidebar/use-sidebar-rail";
 
 const subscribeNever = () => () => {};
@@ -42,11 +42,13 @@ export function AppSidebar({
   userName,
   userEmail,
   companyName,
+  groupLayout,
 }: {
   userId: string;
   userName: string;
   userEmail: string;
   companyName?: string;
+  groupLayout: SidebarGroupLayout;
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
@@ -121,6 +123,7 @@ export function AppSidebar({
             onNavigate={() => setMobileOpen(false)}
             onOpenSearch={() => setSearchOpen(true)}
             showShare={false}
+            groupLayout={groupLayout}
           />
         </SheetContent>
       </Sheet>
@@ -149,6 +152,7 @@ export function AppSidebar({
           userEmail={userEmail}
           onOpenSearch={() => setSearchOpen(true)}
           onExpand={() => setCollapsed(false)}
+          groupLayout={groupLayout}
         />
       </aside>
       <WorkspaceSearch open={searchOpen} onOpenChange={setSearchOpen} />

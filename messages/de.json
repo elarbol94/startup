@@ -325,7 +325,9 @@
     "draft": "Entwurf",
     "groups": { "work": "Arbeit", "communication": "Kommunikation", "finance": "Finanzen", "knowledge": "Wissen" },
     "toggleTheme": "Farbmodus wechseln",
-    "openInNewTab": "In neuem Tab öffnen"
+    "openInNewTab": "In neuem Tab öffnen",
+    "moveSection": "Bereich verschieben",
+    "layoutSaveFailed": "Die Seitenleiste konnte nicht gespeichert werden"
   },
   "cloud": {
     "title": "Cloud",

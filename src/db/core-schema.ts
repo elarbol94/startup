@@ -30,6 +30,7 @@ export const userProfilePreferences = sqliteTable("user_profile_preferences", {
   markColor: text("mark_color").notNull().unique(),
   wikiTypographyJson: text("wiki_typography_json").default(""),
   wikiProofingJson: text("wiki_proofing_json").default(""),
+  sidebarLayoutJson: text("sidebar_layout_json").default(""),
   updatedAt: integer("updated_at", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date()),

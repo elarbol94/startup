@@ -1,0 +1,1 @@
+ALTER TABLE `user_profile_preferences` ADD `sidebar_layout_json` text DEFAULT '';

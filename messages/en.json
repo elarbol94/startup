@@ -325,7 +325,9 @@
     "draft": "Draft",
     "groups": { "work": "Work", "communication": "Communication", "finance": "Finance", "knowledge": "Knowledge" },
     "toggleTheme": "Switch colour mode",
-    "openInNewTab": "Open in new tab"
+    "openInNewTab": "Open in new tab",
+    "moveSection": "Move section",
+    "layoutSaveFailed": "The sidebar layout could not be saved"
   },
   "cloud": {
     "title": "Cloud",

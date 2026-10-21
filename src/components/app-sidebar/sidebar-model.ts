@@ -42,10 +42,44 @@ export function parseNavigationOrder(stored: string | null): string[] {
   }
 }
 
-/** Sidebar groups in their fixed order; inside a group the user's saved order applies. */
-export function groupedNavigationItems(order: readonly string[]): { group: ModuleNavGroup; items: ModuleNavItem[] }[] {
+/** Which sidebar groups the user moved and collapsed; saved per user on the server. */
+export type SidebarGroupLayout = { order: ModuleNavGroup[]; collapsed: ModuleNavGroup[] };
+
+export const DEFAULT_GROUP_LAYOUT: SidebarGroupLayout = { order: [...moduleNavGroups], collapsed: [] };
+
+/** Keeps only known groups, each once, and appends any group the stored layout does not know yet. */
+export function parseGroupLayout(stored: string | null | undefined): SidebarGroupLayout {
+  try {
+    const parsed: unknown = JSON.parse(stored || "null");
+    if (!parsed || typeof parsed !== "object") return DEFAULT_GROUP_LAYOUT;
+    const { order, collapsed } = parsed as { order?: unknown; collapsed?: unknown };
+    const known = (value: unknown): ModuleNavGroup[] => {
+      if (!Array.isArray(value)) return [];
+      return value.filter((group, index): group is ModuleNavGroup => moduleNavGroups.includes(group) && value.indexOf(group) === index);
+    };
+    const savedOrder = known(order);
+    return {
+      order: [...savedOrder, ...moduleNavGroups.filter((group) => !savedOrder.includes(group))],
+      collapsed: known(collapsed),
+    };
+  } catch {
+    return DEFAULT_GROUP_LAYOUT;
+  }
+}
+
+/** Moves `group` one place in the given direction; null at the edges or for an unknown group. */
+export function moveGroup(order: readonly ModuleNavGroup[], group: ModuleNavGroup, toIndex: number): ModuleNavGroup[] | null {
+  const from = order.indexOf(group);
+  if (from < 0 || toIndex < 0 || toIndex >= order.length || from === toIndex) return null;
+  const next = [...order];
+  next.splice(toIndex, 0, ...next.splice(from, 1));
+  return next;
+}
+
+/** Sidebar groups in the user's order; inside a group the user's saved module order applies. */
+export function groupedNavigationItems(order: readonly string[], groupOrder: readonly ModuleNavGroup[] = moduleNavGroups): { group: ModuleNavGroup; items: ModuleNavItem[] }[] {
   const items = orderedNavigationItems(order);
-  return moduleNavGroups.map((group) => ({ group, items: items.filter((item) => item.group === group) }));
+  return groupOrder.map((group) => ({ group, items: items.filter((item) => item.group === group) }));
 }
 
 /** Moves `activeKey` to `overKey`'s place. Items only move inside their own group; otherwise null. */
