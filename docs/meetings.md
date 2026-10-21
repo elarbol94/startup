@@ -172,7 +172,31 @@ its own, and nothing leaves the meeting without a person's action.
 | `MEETINGS_MAX_UPLOAD_BYTES` | 4 GiB | Largest single recording. |
 | `MEETINGS_TRANSCRIBE_CHUNK_SECONDS` | 1200 | Long recordings (after removing long silences) are transcribed in chunks cut at silences. |
 | `MEETINGS_FAKE_AI` | – | `1` replaces OpenAI with fixed fixture output (tests, UI work). |
+| `MEETINGS_TRANSCRIBER_URL`, `MEETINGS_TRANSCRIBER_TOKEN` | – | Self-hosted transcriber on the homeserver (see below). Empty: OpenAI only. |
 | `FFMPEG_PATH`, `FFPROBE_PATH` | `ffmpeg`, `ffprobe` | Media tools; the Docker image includes them. |
+
+### Self-hosted transcriber (homeserver)
+
+With `MEETINGS_TRANSCRIBER_URL` set, the `transcribe` stage first sends the
+whole recording (after removing long silences) to the transcriber on the
+homeserver GPU (`deploy/transcriber/`, Whisper `large-v3-turbo` + pyannote).
+It runs there at roughly a third of the recording's length; the meeting page
+shows its queue position and progress. Because pyannote sees the whole
+meeting at once, speaker labels stay consistent without the chunk-to-chunk
+reference clips the OpenAI path needs. Call tracks with one known speaker
+skip speaker separation. The meeting title and participant names are sent
+as a short prompt, which keeps punctuation and helps with names.
+
+**Fallback**: when the transcriber is unreachable (about 30 s without an
+answer), reports a failure, or takes longer than 15 minutes plus the
+recording's length, the stage continues with OpenAI as before. The reason is
+logged (`meeting_local_transcriber_fallback`) and stored in the
+`ai.transcribe` audit entry (`localTranscriberFallback`); `engine` is `local`
+or `openai`. Lease loss and a changed AI setting end the job instead.
+
+The transcriber is used only where OpenAI would be allowed (*KI-Verarbeitung*
+on), because OpenAI may take over. Audio travels over Tailscale; the service
+deletes it when the job ends and keeps results for a day at most.
 
 Locally, install ffmpeg (`apt install ffmpeg`, `brew install ffmpeg`, or
 `winget install ffmpeg`). Without it, uploads are stored but processing fails

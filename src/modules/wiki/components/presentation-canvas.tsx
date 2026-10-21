@@ -6,6 +6,7 @@ import { ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } 
 import { cn } from "@/lib/utils";
 import { isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
 import { resizePresentationElement, isLinearShape } from "../lib/presentation-interactions";
+import { presentationDefaultInks } from "../lib/presentation-ink";
 import { AdjustHandle, LineEndHandles, type LineEndDrop } from "./presentation-editor/shape-handles";
 import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
@@ -43,6 +44,8 @@ export type PresentationNodeData = {
   editingDeferred?: boolean;
   onEditingChange?: (id: string, editing: boolean) => void;
   onTextEditorReady?: (id: string, editor: Editor) => void;
+  /** Colour for text, charts and icons without their own: dark on a light slide, light on a dark one. */
+  ink?: string;
   [key: string]: unknown;
 };
 
@@ -143,11 +146,12 @@ function TextNode({ data, selected }: NodeProps<PresentationNode>) {
     >
       <Resizer selected={Boolean(selected)} data={data} />
       {data.editing && data.editable ? (
-        <TextEditSurface element={element} content={element.content} data={data} setEditing={setEditing} className={cn("h-full w-full bg-background/95", !color && "text-foreground")} />
+        <TextEditSurface element={element} content={element.content} data={data} setEditing={setEditing} className={cn("h-full w-full", !color && !data.ink && "text-foreground")}
+          style={!color && data.ink ? { color: data.ink } : undefined} />
       ) : (
         <div
-          className={cn("h-full w-full overflow-hidden whitespace-pre-wrap break-words leading-tight", !color && "text-foreground")}
-          style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || undefined }}
+          className={cn("h-full w-full overflow-hidden whitespace-pre-wrap break-words leading-tight", !color && !data.ink && "text-foreground")}
+          style={{ fontSize, fontWeight: bold ? 700 : 400, textAlign: align, color: color || data.ink }}
           data-presentation-text={element.id}
           onDoubleClick={() => { if (data.editable) setEditing(true); }}
         >
@@ -240,7 +244,7 @@ function ShapeNode({ data, selected }: NodeProps<PresentationNode>) {
   const element = data.element;
   if (element.type !== "shape") return null;
   const setEditing = (editing: boolean) => data.onEditingChange?.(element.id, editing);
-  return <div inert={data.hidden || undefined} className={cn("h-full w-full text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
+  return <div inert={data.hidden || undefined} style={data.ink ? { color: data.ink } : undefined} className={cn("h-full w-full", !data.ink && "text-foreground", data.editable && "cursor-move", data.editable && selected && !isLinearShape(element) && "ring-2 ring-indigo-500/60")}>
     <Resizer selected={Boolean(selected)} data={data} />
     {data.editing && data.editable ? (
       // The drawing stays put; the text editor sits over it, centred like the rendered text.
@@ -263,7 +267,7 @@ function ContentNode({ data, selected }: NodeProps<PresentationNode>) {
   useEffect(() => {
     if (data.hidden) ref.current?.querySelectorAll("video,audio").forEach((media) => (media as HTMLMediaElement).pause());
   }, [data.hidden]);
-  return <div ref={ref} inert={data.hidden || undefined} className={cn("h-full w-full", data.editable && "cursor-move active:cursor-grabbing", data.editable && selected && "ring-2 ring-indigo-500/60")}>
+  return <div ref={ref} inert={data.hidden || undefined} style={data.ink ? { color: data.ink } : undefined} className={cn("h-full w-full", data.editable && "cursor-move active:cursor-grabbing", data.editable && selected && "ring-2 ring-indigo-500/60")}>
     <Resizer selected={Boolean(selected)} data={data} />
     <div className={data.editable ? "pointer-events-none h-full w-full" : "nodrag nopan nowheel h-full w-full"}>
       <PresentationContent element={data.element} mediaUrl={data.mediaUrl} interactive={!data.editable} />
@@ -302,10 +306,13 @@ export function elementsToNodes(
     animationMs?: number;
     mediaUrl?: (id: string) => string;
     dropTargetId?: string | null;
+    /** The presentation background, which text on the bare canvas reads against. */
+    background?: string;
   },
 ): PresentationNode[] {
   const byId = new Map(elements.map((element) => [element.id, element]));
   const lookupElement = (id: string) => byId.get(id);
+  const inks = presentationDefaultInks(elements, options.background);
   return elements.map((element, index) => {
     const style: CSSProperties = element.type === "frame" ? { pointerEvents: "none" } : {};
     // Empty space and section interiors use the pane cursor; only selectable
@@ -363,6 +370,7 @@ export function elementsToNodes(
         editingDeferred: options.deferredId === element.id || undefined,
         onEditingChange: options.onEditingChange,
         onTextEditorReady: options.onTextEditorReady,
+        ink: inks.get(element.id),
       },
     };
   });

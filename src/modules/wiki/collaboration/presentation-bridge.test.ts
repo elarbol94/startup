@@ -172,3 +172,19 @@ it("keeps a drop into a frame, the frame's move and a created frame's stop in on
   expect(element("a")).toMatchObject({ x: 100, parentId: "f" });
   stop(); vi.useRealTimers();
 });
+
+it("does not re-read the document for a server round trip that changed nothing", () => {
+  const provider = new CollaborationProvider("presentation", "empty-update-test");
+  const empty = { title: "Empty", elements: [], steps: [], background: "", settings: defaultPresentationSettings };
+  patchPresentation(provider.doc, { ...empty, settings: {} as typeof defaultPresentationSettings }, empty);
+  const notify = vi.fn();
+  const source = presentationJSON(provider.doc);
+  const bridge = new PresentationBridge(provider, initialPresentationCanvasState(source.elements, [], "", source.settings, "Empty"), notify);
+  const stop = bridge.connect();
+  const read = vi.spyOn(bridge as unknown as { sync: () => void }, "sync");
+  Y.applyUpdate(provider.doc, Y.encodeStateAsUpdate(new Y.Doc()), REMOTE);
+  expect(read).not.toHaveBeenCalled();
+  provider.doc.transact(() => provider.doc.getMap("settings").set("title", "Renamed"), REMOTE);
+  expect(read).toHaveBeenCalledTimes(1);
+  stop();
+});

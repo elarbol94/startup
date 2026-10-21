@@ -1,9 +1,33 @@
 "use client";
-// Presentation canvas decorations drawn inside React Flow: snap/distance guides and the
-// minimap node. Used by presentation-editor.tsx.
+// Presentation canvas decorations drawn inside React Flow: the visible grid, snap/distance
+// guides and the minimap node. Used by presentation-editor.tsx.
 import { ViewportPortal, useReactFlow, useViewport, type MiniMapNodeProps } from "@xyflow/react";
 import type { SnapGuide } from "../../lib/presentation";
+import { gridDisplayGap } from "../../lib/presentation-grid";
 import type { PresentationNode } from "../presentation-canvas";
+
+/**
+ * View → Gridlines. React Flow's <Background> paints under the nodes, where a filled slide
+ * hides it; PowerPoint draws the grid over the slide, so this layer sits above the objects
+ * (with React Flow's panels; the guides and controls come later and stay on top) and lets
+ * every pointer event through. Dots fall on multiples of the spacing from the canvas origin,
+ * the points snapping uses.
+ */
+export function GridOverlay({ spacing }: { spacing: number }) {
+  const { x, y, zoom } = useViewport();
+  const gap = gridDisplayGap(spacing, zoom) * zoom;
+  const offset = (value: number) => ((value % gap) + gap) % gap;
+  return (
+    <svg data-testid="presentation-grid-overlay" aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" style={{ zIndex: 5 }}>
+      <pattern id="presentation-grid-overlay" width={gap} height={gap} x={offset(x)} y={offset(y)} patternUnits="userSpaceOnUse">
+        {/* Dark dot with a light halo: visible on a white slide and on the dark canvas alike. */}
+        <circle cx={0.75} cy={0.75} r={1.5} fill="#f8fafc" fillOpacity={0.5} />
+        <circle cx={0.75} cy={0.75} r={0.9} fill="#475569" fillOpacity={0.85} />
+      </pattern>
+      <rect width="100%" height="100%" fill="url(#presentation-grid-overlay)" />
+    </svg>
+  );
+}
 
 /** Alignment lines are drawn in canvas coordinates, so they stay glued to the elements
  * they describe while the author pans and zooms. */

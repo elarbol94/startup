@@ -1,5 +1,7 @@
 import type { TemplatePalette } from "./presentation-template-palettes";
 import type { PresentationElement, PresentationFrameElement, PresentationStep } from "./presentation";
+import { layoutConnector, placeLine, type ConnectionSite } from "./presentation-connectors";
+type ShapeElement = Extract<PresentationElement, { type: "shape" }>;
 import type { PresentationTemplate } from "./presentation-templates";
 
 export const spatialTemplateIds = ["topicmap", "journey", "layers", "comparison"] as const;
@@ -24,14 +26,20 @@ export function buildSpatialTemplate(id: SpatialId, locale: "de" | "en", title?:
   function text(parent: PresentationFrameElement, key: string, x: number, y: number, width: number, height: number, value: string, size: number, bold = false, color = ink, align: "left" | "center" = "left") {
     elements.push({ id: `${parent.id}-${key}`, type: "text", parentId: parent.id, x: parent.x + x, y: parent.y + y, width, height, rotation: 0, content: { text: value, fontSize: size, color, bold, align, font: "sans" } });
   }
-  // The renderer rotates lines around their midpoint, not their starting point.
-  function line(parent: PresentationFrameElement, key: string, x1: number, y1: number, x2: number, y2: number) {
-    const width = Math.hypot(x2 - x1, y2 - y1);
-    elements.push({ id: `${id}-${key}`, type: "shape", parentId: parent.id,
-      x: (x1 + x2) / 2 - width / 2, y: (y1 + y2) / 2 - 10, width, height: 20,
-      rotation: Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI,
-      content: { shape: "line", fill: "", stroke: palette?.connector ?? "#88b5ad", strokeWidth: 5, opacity: 1 } });
+  // A connector: an end glued to a region follows it when the region moves; a free end stays
+  // at its point. Geometry is laid out once every region exists, at the end.
+  type End = { glue: PresentationElement; site: ConnectionSite } | { x: number; y: number };
+  function line(parent: PresentationFrameElement, key: string, from: End, to: End) {
+    const shape: ShapeElement = { id: `${id}-${key}`, type: "shape", parentId: parent.id, x: 0, y: 0, width: 20, height: 20, rotation: 0,
+      content: { shape: "line", fill: "", stroke: palette?.connector ?? "#88b5ad", strokeWidth: 5, opacity: 1 } };
+    // A line with no glued end is an ordinary line between two points.
+    if (!("glue" in from) && !("glue" in to)) { elements.push(placeLine(shape, [from, to], "straight")); return; }
+    const fromEnd = "glue" in from ? { fromId: from.glue.id, fromSite: from.site } : { from: { x: from.x, y: from.y } };
+    const toEnd = "glue" in to ? { toId: to.glue.id, toSite: to.site } : { to: { x: to.x, y: to.y } };
+    elements.push({ ...shape, content: { ...shape.content, connection: { ...fromEnd, ...toEnd } } });
   }
+  /** What a line glues to in a region: its visible disc, or the region itself when it is a card. */
+  const surface = (f: PresentationFrameElement) => elements.find((element) => element.id === `${f.id}-disc`) ?? f;
   const centerX = (f: PresentationFrameElement) => f.x + f.width / 2;
   function stop(f: PresentationFrameElement, detail = false) {
     steps.push({ id: `${id}-stop-${steps.length}`, elementId: f.id, notes: detail
@@ -45,16 +53,14 @@ export function buildSpatialTemplate(id: SpatialId, locale: "de" | "en", title?:
   function region(key: string, x: number, y: number, label: string, parent = root, width = 800, fill = soft) {
     const organic = id === "topicmap" || id === "journey";
     const f = frame(key, x, y, width, parent, organic ? undefined : fill);
-    if (organic) elements.push({ id: `${f.id}-disc`, type: "shape", parentId: f.id, x, y, width, height: f.height, rotation: 0, content: { shape: "ellipse", fill, stroke: accent, strokeWidth: 2, opacity: 1 } });
     const scale = width / 800;
     const body = de ? "[Kerngedanke]\n[Beispiel oder Beleg]" : "[Key idea]\n[Example or evidence]";
     if (organic) {
+      // The text lives in the disc, as in PowerPoint: moving or resizing the disc takes it along.
       const headingSize = Math.round(42 * scale), bodySize = Math.round(32 * scale);
-      const headingHeight = headingSize * 1.15, bodyHeight = bodySize * 1.15 * 2;
-      const gap = 24 * scale;
-      const top = (f.height - headingHeight - gap - bodyHeight) / 2;
-      text(f, "label", 125 * scale, top, 550 * scale, headingHeight + 2, label, headingSize, true, ink, "center");
-      text(f, "body", 125 * scale, top + headingHeight + gap, 550 * scale, bodyHeight + 2, body, bodySize, false, ink, "center");
+      const runs = [{ text: label, bold: true, size: headingSize }, ...body.split("\n").flatMap((line) => [{ text: "\n" }, { text: line, size: bodySize }])];
+      elements.push({ id: `${f.id}-disc`, type: "shape", parentId: f.id, x, y, width, height: f.height, rotation: 0,
+        content: { shape: "ellipse", fill, stroke: accent, strokeWidth: 2, opacity: 1, text: `${label}\n${body}`, runs, fontSize: bodySize, color: ink, align: "center", font: "sans" } });
     } else {
       text(f, "label", 45 * scale, 35 * scale, 710 * scale, 110 * scale, label, Math.round(52 * scale), true);
       text(f, "body", 45 * scale, 200 * scale, 710 * scale, 160 * scale, body, Math.round(32 * scale));
@@ -71,10 +77,10 @@ export function buildSpatialTemplate(id: SpatialId, locale: "de" | "en", title?:
       region("west", cx - 1000 - branchWidth / 2, cy - branchHeight / 2, de ? "[Perspektive D]" : "[Perspective D]", root, branchWidth),
     ];
     const [north, east, south, west] = branches;
-    line(root, "north-link", cx, north.y + north.height, cx, center.y);
-    line(root, "south-link", cx, center.y + center.height, cx, south.y);
-    line(root, "west-link", west.x + west.width, cy, center.x, cy);
-    line(root, "east-link", center.x + center.width, cy, east.x, cy);
+    line(root, "north-link", { glue: surface(north), site: "bottom" }, { glue: surface(center), site: "top" });
+    line(root, "south-link", { glue: surface(center), site: "bottom" }, { glue: surface(south), site: "top" });
+    line(root, "west-link", { glue: surface(west), site: "right" }, { glue: surface(center), site: "left" });
+    line(root, "east-link", { glue: surface(center), site: "right" }, { glue: surface(east), site: "left" });
     stop(center, true);
     for (const branch of branches) { stop(root); stop(branch, true); }
   } else if (id === "journey") {
@@ -85,9 +91,9 @@ export function buildSpatialTemplate(id: SpatialId, locale: "de" | "en", title?:
       const y = i % 2 ? axisY + distance : axisY - distance - width * 9 / 16;
       return region(`milestone-${i}`, x, y, de ? `[Station ${i + 1}]` : `[Stop ${i + 1}]`, root, width);
     });
-    line(root, "route", centerX(milestones[0]), axisY, centerX(milestones[3]), axisY);
+    line(root, "route", { x: centerX(milestones[0]), y: axisY }, { x: centerX(milestones[3]), y: axisY });
     milestones.forEach((f, i) => {
-      line(root, `connection-${i}`, centerX(f), Math.min(axisY, i % 2 ? f.y : f.y + f.height), centerX(f), Math.max(axisY, i % 2 ? f.y : f.y + f.height));
+      line(root, `connection-${i}`, { glue: surface(f), site: i % 2 ? "top" : "bottom" }, { x: centerX(f), y: axisY });
       stop(f, true);
     });
   } else if (id === "layers") {
@@ -106,12 +112,13 @@ export function buildSpatialTemplate(id: SpatialId, locale: "de" | "en", title?:
     const right = region("right", root.width - margin - width, top, de ? "[Perspektive B]" : "[Perspective B]", root, width, palette?.secondary ?? "#efe6d9");
     const synthesis = region("synthesis", (root.width - width) / 2, 1180, de ? "[Gemeinsames Fazit]" : "[Shared conclusion]", root, width, strong);
     const junctionY = (left.y + left.height + synthesis.y) / 2;
-    line(root, "left-link", centerX(left), left.y + left.height, centerX(left), junctionY);
-    line(root, "right-link", centerX(right), right.y + right.height, centerX(right), junctionY);
-    line(root, "bridge", centerX(left), junctionY, centerX(right), junctionY);
-    line(root, "conclusion-link", centerX(synthesis), junctionY, centerX(synthesis), synthesis.y);
+    line(root, "left-link", { glue: surface(left), site: "bottom" }, { x: centerX(left), y: junctionY });
+    line(root, "right-link", { glue: surface(right), site: "bottom" }, { x: centerX(right), y: junctionY });
+    line(root, "bridge", { x: centerX(left), y: junctionY }, { x: centerX(right), y: junctionY });
+    line(root, "conclusion-link", { x: centerX(synthesis), y: junctionY }, { glue: surface(synthesis), site: "top" });
     stop(left, true); stop(root); stop(right, true); stop(root); stop(synthesis, true);
   }
   stop(root);
-  return { id, elements, steps };
+  const byId = new Map(elements.map((element) => [element.id, element]));
+  return { id, elements: elements.map((element) => element.type === "shape" ? layoutConnector(element, byId) : element), steps };
 }

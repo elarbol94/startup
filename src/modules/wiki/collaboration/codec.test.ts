@@ -19,6 +19,26 @@ describe("shared document state", () => {
     expect(settings.defaults).toEqual({});
     expect(settings.defaultStepDurationMs).toBe(4000);
   });
+  it("keeps the grid, guides and ruler on when they are switched on in such a deck", () => {
+    const doc = seeded();
+    doc.getMap("settings").set("settings", { defaultStepDurationMs: 4000, loop: false, cameraTransitionMs: 700, cameraEasing: "ease-in-out" });
+    for (const change of [{ grid: { ...defaultPresentationSettings.grid, show: true } }, { guides: { ...defaultPresentationSettings.guides, show: true } }, { ruler: true }]) {
+      const before = presentationJSON(doc);
+      patchPresentation(doc, before, { ...before, settings: { ...before.settings, ...change } });
+    }
+    const { settings } = presentationJSON(doc);
+    expect(settings.grid).toEqual({ ...defaultPresentationSettings.grid, show: true });
+    expect(settings.guides.show).toBe(true);
+    expect(settings.ruler).toBe(true);
+    expect(settings.defaultStepDurationMs).toBe(4000);
+  });
+  it("completes a grid an older client wrote field by field", () => {
+    const doc = seeded();
+    doc.getMap("settings").set("settings", { defaultStepDurationMs: 4000, loop: false, cameraTransitionMs: 700, cameraEasing: "ease-in-out", grid: { show: true }, ruler: true });
+    const { settings } = presentationJSON(doc);
+    expect(settings.grid).toEqual({ ...defaultPresentationSettings.grid, show: true });
+    expect(settings.ruler).toBe(true);
+  });
   it("preserves adjacent marks, custom nodes and attributes when seeding", () => {
     const doc = new Y.Doc(); const content = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "plain " }, { type: "text", text: "bold", marks: [{ type: "bold", attrs: {} }] }, { type: "text", text: " tail" }] }, { type: "citation", attrs: { items: [{ sourceId: "s" }], label: "[1]" } }] };
     seedPage(doc, content, true, {});

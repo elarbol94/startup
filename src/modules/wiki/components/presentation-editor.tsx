@@ -28,7 +28,7 @@ import { arrangePresentation, layoutRoots, presentationAlignments } from "../lib
 import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import { Background, BackgroundVariant, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
+import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
@@ -58,7 +58,7 @@ import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import type { SaveState } from "./presentation-editor/presentation-editor-utils";
 import { DraftInput } from "./presentation-editor/draft-fields";
-import { SnapGuides } from "./presentation-editor/canvas-decorations";
+import { GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
 import { PresentationMiniMap, PresentationMiniMapToggle } from "./presentation-editor/presentation-minimap";
 import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
 import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, toolShortcut, withToolKey } from "./presentation-editor/presentation-shortcuts";
@@ -88,10 +88,10 @@ import { usePresentationViewSettings } from "./presentation-editor/use-presentat
 import { FormatRibbon } from "./presentation-editor/format-pane/format-ribbon";
 import { FormatShapePane } from "./presentation-editor/format-pane/format-shape-pane";
 import { CanvasGuides } from "./presentation-editor/canvas-guides";
-import { CanvasRulers } from "./presentation-editor/canvas-rulers";
+import { CanvasRulers, RULER_SIZE } from "./presentation-editor/canvas-rulers";
 import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
 import { EditPointsOverlay, type EditPointsLabels } from "./presentation-editor/edit-points-overlay";
-import { formatCentimetres, gridDisplayGap } from "../lib/presentation-grid";
+import { formatCentimetres } from "../lib/presentation-grid";
 import { applyDefaults } from "../lib/presentation-shape-defaults";
 
 const subscribePlatform = () => () => {};
@@ -329,11 +329,11 @@ function Editor({
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
       onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady,
-      onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
+      onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId, background }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, onTextEditorReady],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, onTextEditorReady, background],
   );
 
   /**
@@ -874,10 +874,10 @@ function Editor({
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={arrangementRoots.length !== 2 || elements.length >= 500} onClick={connectSelection}>{t("presentations.layout.connect")}</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" data-testid="presentation-view-menu" />}>{t("presentations.gridGuides.menu")}</DropdownMenuTrigger><DropdownMenuContent>
+        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" data-testid="presentation-view-menu" />}>{t("presentations.gridGuides.menu")}</DropdownMenuTrigger><DropdownMenuContent className="w-auto min-w-56">
           <DropdownMenuItem data-testid="view-ruler" onClick={view.toggleRuler}>{settings.ruler ? "✓ " : ""}{t("presentations.gridGuides.ruler")}</DropdownMenuItem>
-          <DropdownMenuItem data-testid="view-gridlines" onClick={view.toggleGrid}>{settings.grid.show ? "✓ " : ""}{t("presentations.gridGuides.gridlines")}<DropdownMenuShortcut aria-hidden>{tShortcuts("shift")}+F9</DropdownMenuShortcut></DropdownMenuItem>
-          <DropdownMenuItem data-testid="view-guides" onClick={view.toggleGuides}>{settings.guides.show ? "✓ " : ""}{t("presentations.gridGuides.guides")}<DropdownMenuShortcut aria-hidden>{tShortcuts("alt")}+F9</DropdownMenuShortcut></DropdownMenuItem>
+          <DropdownMenuItem data-testid="view-gridlines" onClick={view.toggleGrid}>{settings.grid.show ? "✓ " : ""}{t("presentations.gridGuides.gridlines")}<DropdownMenuShortcut aria-hidden>{isMac ? "⇧" : tShortcuts("shift")}+F9</DropdownMenuShortcut></DropdownMenuItem>
+          <DropdownMenuItem data-testid="view-guides" onClick={view.toggleGuides}>{settings.guides.show ? "✓ " : ""}{t("presentations.gridGuides.guides")}<DropdownMenuShortcut aria-hidden>{isMac ? "⌥" : tShortcuts("alt")}+F9</DropdownMenuShortcut></DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem data-testid="view-grid-settings" onClick={() => setGridDialog(true)}>{t("presentations.gridGuides.title")}…</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
@@ -1004,10 +1004,10 @@ function Editor({
             onPaneClick={event => { endGesture(); clickSelection.onPaneClick(event); }}
             proOptions={{ hideAttribution: false }}
           >
-            {settings.grid.show
-              ? <Background id="presentation-grid" variant={BackgroundVariant.Dots} gap={gridDisplayGap(settings.grid.spacing, canvasZoom)} size={1.5 / canvasZoom} color="#94a3b8" />
-              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />}
-            <Controls position="bottom-left" showInteractive={false} />
+            <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />
+            {settings.grid.show && <GridOverlay spacing={settings.grid.spacing} />}
+            {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
+            <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
             <SnapGuides guides={dragPreview ? previewGuides : guides} />
             {settings.guides.show && <CanvasGuides guides={settings.guides.list} onChange={view.setGuides} createId={() => createId()} elements={elements} rulers={settings.ruler} disabled={disabled}

@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { BlockedJobError } from "./jobs";
 import { slowFetch } from "./slow-fetch";
+import { LocalTranscriberError, localTranscriberUrl, transcribeWithLocalService } from "./local-transcriber";
 import { cutAudio, cutWavClip, detectSilences, keepAudioRanges } from "./media-tools";
 import { keySegments, planChunks, referenceClips, type KeyedSegment, type RawSegment } from "./chunks";
 import { planTranscription, segmentsToOriginal } from "./silence";
@@ -16,8 +17,10 @@ export type TranscriptionResult = {
   segments: KeyedSegment[];
   /** Silence left out before sending the audio (ms). */
   skippedMs: number;
-  /** Language OpenAI reported, when it reports one. */
+  /** Language the engine reported, when it reports one. */
   detectedLanguage: string | null;
+  /** Why the local transcriber was not used although configured (OpenAI took over). */
+  fallbackReason: string | null;
 };
 
 type KnownSpeaker = { name: string; dataUrl: string };
@@ -79,33 +82,67 @@ function fakeChunk(chunkIndex: number): ChunkResult {
   };
 }
 
-/**
- * Transcribes a speech-audio file chunk by chunk. Long silences are left out
- * first (see silence.ts) and the timestamps mapped back to the original, so a
- * forgotten microphone costs neither API minutes nor transcript noise.
- * `beforeRequest` runs before every external call and throws when the job
- * lost its lease or the meeting's AI policy no longer allows the call.
- */
-export async function transcribeAudio(input: {
+type TranscriptionInput = {
   file: string;
   durationMs: number;
   language: string;
+  /** Context for the local transcriber's spelling (title, participants). */
+  prompt: string;
+  /** False for a call track: one known speaker, no speaker separation. */
+  diarize: boolean;
+  /** Stable per worker job (the local transcriber's idempotency key). */
+  key: string;
   signal: AbortSignal;
   beforeRequest: () => void;
   onProgress?: (progress: JobProgress) => void;
-}): Promise<TranscriptionResult> {
+};
+
+/** Lease loss, a changed AI policy or an abort end the job; anything else may fall back to OpenAI. */
+const mayFallBack = (error: unknown, signal: AbortSignal) => error instanceof LocalTranscriberError && !signal.aborted;
+
+/**
+ * Transcribes a speech-audio file. Long silences are left out first (see
+ * silence.ts) and the timestamps mapped back to the original, so a forgotten
+ * microphone costs neither API minutes nor transcript noise. With
+ * MEETINGS_TRANSCRIBER_URL set, the homeserver transcriber gets the whole
+ * file first; OpenAI (chunk by chunk) is the fallback when it is unreachable,
+ * fails or takes too long. `beforeRequest` runs before every external call
+ * and throws when the job lost its lease or the meeting's AI policy no longer
+ * allows the call.
+ */
+export async function transcribeAudio(input: TranscriptionInput): Promise<TranscriptionResult> {
   const fake = fakeAiEnabled();
   if (!fake) input.onProgress?.({ step: "preparing", at: Date.now() });
   const plan = fake
     ? { ranges: null, chunks: planChunks(input.durationMs, [], MAX_CHUNK_MS), skippedMs: 0 }
     : planTranscription(input.durationMs, await detectSilences(input.file, 700, input.durationMs, input.signal), MAX_CHUNK_MS);
-  if (!plan.chunks.length) return { engine: "silence", model: "", segments: [], skippedMs: plan.skippedMs, detectedLanguage: null };
+  if (!plan.chunks.length) return { engine: "silence", model: "", segments: [], skippedMs: plan.skippedMs, detectedLanguage: null, fallbackReason: null };
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), "meeting-transcribe-"));
   try {
     let source = input.file;
     if (plan.ranges) {
       source = path.join(workDir, "compact.ogg");
       await keepAudioRanges(input.file, source, plan.ranges, input.durationMs, input.signal);
+    }
+    const toOriginal = (segments: KeyedSegment[]) => plan.ranges ? segmentsToOriginal(plan.ranges, segments) : segments;
+    let fallbackReason: string | null = null;
+    if (!fake && localTranscriberUrl()) {
+      const totalMs = plan.chunks.reduce((sum, chunk) => sum + chunk.durationMs, 0);
+      try {
+        const local = await transcribeWithLocalService({
+          file: source, durationMs: totalMs, language: input.language, prompt: input.prompt, diarize: input.diarize,
+          key: input.key, signal: input.signal, beforePoll: input.beforeRequest, onProgress: input.onProgress,
+        });
+        return {
+          engine: "local", model: local.model, skippedMs: plan.skippedMs, detectedLanguage: local.language, fallbackReason: null,
+          // The whole meeting was separated at once, so its speaker labels are stable throughout.
+          segments: toOriginal(keySegments(0, { startMs: 0, durationMs: totalMs }, local.segments, [])),
+        };
+      } catch (error) {
+        if (!mayFallBack(error, input.signal)) throw error;
+        fallbackReason = (error as Error).message.slice(0, 500);
+        console.warn(JSON.stringify({ event: "meeting_local_transcriber_fallback", key: input.key, reason: fallbackReason }));
+      }
     }
     const chunks = plan.chunks;
     const segments: KeyedSegment[] = [];
@@ -150,9 +187,10 @@ export async function transcribeAudio(input: {
     return {
       engine: fake ? "fake" : "openai",
       model,
-      segments: plan.ranges ? segmentsToOriginal(plan.ranges, segments) : segments,
+      segments: toOriginal(segments),
       skippedMs: plan.skippedMs,
       detectedLanguage,
+      fallbackReason,
     };
   } finally {
     await fs.rm(workDir, { recursive: true, force: true });

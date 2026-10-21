@@ -4943,6 +4943,8 @@
   },
   "shortcuts": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
+    "alt": "Alt",
     "then": "then"
   },
   "officeDocuments": {
@@ -5465,6 +5467,10 @@
         "remaining": "about {minutes, plural, one {# minute} other {# minutes}} left",
         "almostDone": "almost done",
         "analysing": "The AI is reading the transcript · {elapsed}",
+        "localStarting": "Handing over to the homeserver",
+        "localQueued": "Waiting for the homeserver · position {position} in its queue",
+        "localTranscribing": "Homeserver: transcribing",
+        "localDiarizing": "Homeserver: identifying speakers",
         "writing": "Writing: {section} ({number} of {count})",
         "sections": {
           "summary": "Summary",

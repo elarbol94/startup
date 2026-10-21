@@ -4943,6 +4943,8 @@
   },
   "shortcuts": {
     "ctrl": "Strg",
+    "shift": "Umschalt",
+    "alt": "Alt",
     "then": "dann"
   },
   "officeDocuments": {
@@ -5465,6 +5467,10 @@
         "remaining": "noch ca. {minutes, plural, one {# Minute} other {# Minuten}}",
         "almostDone": "gleich fertig",
         "analysing": "Die KI liest das Transkript · seit {elapsed}",
+        "localStarting": "Wird an den Homeserver übergeben",
+        "localQueued": "Wartet auf den Homeserver · Platz {position} in der Warteschlange",
+        "localTranscribing": "Homeserver: Transkribieren",
+        "localDiarizing": "Homeserver: Sprecher:innen erkennen",
         "writing": "Schreibt: {section} ({number} von {count})",
         "sections": {
           "summary": "Zusammenfassung",

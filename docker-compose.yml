@@ -36,6 +36,9 @@ services:
       OPENAI_TRANSCRIBE_MODEL: ${OPENAI_TRANSCRIBE_MODEL:-gpt-4o-transcribe-diarize}
       OPENAI_MEETINGS_MODEL: ${OPENAI_MEETINGS_MODEL:-gpt-6-astra}
       MEETINGS_MAX_UPLOAD_BYTES: ${MEETINGS_MAX_UPLOAD_BYTES:-4294967296}
+      # Self-hosted transcriber on the homeserver GPU (deploy/transcriber); OpenAI is the fallback.
+      MEETINGS_TRANSCRIBER_URL: ${MEETINGS_TRANSCRIBER_URL:-}
+      MEETINGS_TRANSCRIBER_TOKEN: ${MEETINGS_TRANSCRIBER_TOKEN:-}
       # Online calls (Compose profile "meetings"); empty keys switch calls off.
       LIVEKIT_API_KEY: ${LIVEKIT_API_KEY:-}
       LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET:-}

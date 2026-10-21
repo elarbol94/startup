@@ -134,6 +134,19 @@ async function extractAudio(job: MeetingJob, context: StageContext) {
   moveStagedFileIntoStore(staged, storedName);
 }
 
+/**
+ * A short punctuated sentence for Whisper: it keeps sentence case and
+ * punctuation, and the names help it spell participants and the topic.
+ */
+function transcriptionPrompt(meeting: typeof meetings.$inferSelect) {
+  const names = db.select({ name: user.name }).from(meetingAccess).innerJoin(user, eq(user.id, meetingAccess.userId))
+    .where(eq(meetingAccess.meetingId, meeting.id)).orderBy(asc(user.name)).all().map((row) => row.name).slice(0, 20);
+  const prompt = meeting.language === "en"
+    ? `Meeting: ${meeting.title}.${names.length ? ` Participants: ${names.join(", ")}.` : ""}`
+    : `Besprechung: ${meeting.title}.${names.length ? ` Teilnehmende: ${names.join(", ")}.` : ""}`;
+  return prompt.slice(0, 600);
+}
+
 async function transcribe(job: MeetingJob, context: StageContext) {
   const recording = loadRecording(job.recordingId);
   const meeting = assertAiAllowed(job);
@@ -143,6 +156,9 @@ async function transcribe(job: MeetingJob, context: StageContext) {
     file,
     durationMs: recording.durationMs ?? 0,
     language: meeting.language,
+    prompt: transcriptionPrompt(meeting),
+    diarize: recording.speakerScope !== "single",
+    key: job.executionKey,
     signal: context.signal,
     beforeRequest: () => { context.assertLease(); assertAiAllowed(job); },
     onProgress: context.reportProgress,
@@ -163,6 +179,7 @@ async function transcribe(job: MeetingJob, context: StageContext) {
     });
     audit(tx, job.meetingId, null, "ai.transcribe", {
       engine: result.engine, model: result.model, recordingId: recording.id, skippedSilenceMs: result.skippedMs, detectedLanguage: result.detectedLanguage,
+      ...(result.fallbackReason ? { localTranscriberFallback: result.fallbackReason } : {}),
     });
     enqueueJob(tx, {
       meetingId: job.meetingId, stage: "merge", transcriptId: transcript.id, policyRevision: meeting.policyRevision,

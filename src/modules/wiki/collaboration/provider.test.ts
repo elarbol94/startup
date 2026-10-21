@@ -112,3 +112,13 @@ it("hides this tab's previous load from presence but still shows other clients",
   // A live client is never retired, so a duplicated tab cannot hide it.
   expect(JSON.parse(session.values().next().value!)).toEqual([first.client]);
 });
+it("does not notify listeners for a heartbeat that changes nothing", async () => {
+  const client = provider(); await client.start();
+  expect(client.status).toBe("saved");
+  const listener = vi.fn(); client.subscribe(listener);
+  expect(await client.flush()).toBe(true);
+  expect(listener).not.toHaveBeenCalled();
+  client.doc.getText("text").insert(5, "!");
+  expect(await client.flush()).toBe(true);
+  expect(listener).toHaveBeenCalled(); expect(client.status).toBe("saved");
+});

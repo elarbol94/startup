@@ -23,9 +23,15 @@ export class PresentationBridge {
       captureTransaction: transaction => transaction.origin !== ySyncPluginKey
         || !presentationValuesEqual(this.state.elements, presentationJSON(doc).elements),
     });
-    doc.on("afterTransaction", this.sync);
+    doc.on("afterTransaction", this.onTransaction);
     this.sync();
-    return () => { doc.off("afterTransaction", this.sync); this.undo?.destroy(); this.undo = null; };
+    return () => { doc.off("afterTransaction", this.onTransaction); this.undo?.destroy(); this.undo = null; };
+  };
+  // Every server round trip applies an update, usually an empty one; only a change can
+  // alter the presentation, so the others skip re-reading the whole document.
+  private onTransaction = (transaction: Y.Transaction) => {
+    if (!transaction.changed.size && !transaction.deleteSet.clients.size) return;
+    this.sync();
   };
   private sync = () => {
     if (!this.provider) return;

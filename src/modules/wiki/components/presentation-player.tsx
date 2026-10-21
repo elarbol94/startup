@@ -78,7 +78,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
 
   const hiddenIds = useMemo(() => presentationHiddenIds(elements, steps, index), [elements, steps, index]);
   const animationMs = reducedMotion ? 0 : steps[index]?.animationMs ?? 300;
-  const nodes = useMemo(() => elementsToNodes(elements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs }), [elements, enteringIds, hiddenIds, animationMs, reducedMotion]);
+  const nodes = useMemo(() => elementsToNodes(elements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: presentation.background }), [elements, enteringIds, hiddenIds, animationMs, reducedMotion, presentation.background]);
 
   const overview = useCallback(
     (duration = cameraDuration) => void reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
