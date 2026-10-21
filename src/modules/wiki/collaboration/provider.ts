@@ -73,6 +73,9 @@ export class CollaborationProvider implements CollaborationClient {
   private emit() { this.listeners.forEach(listener => listener()); }
   private setStatus(status: CollaborationStatus) {
     if ((this.status === "denied" || this.status === "error") && status !== this.status) return;
+    // The 3 s presence heartbeat reports "saved" again and again; re-rendering every
+    // subscribed editor for it is wasted work.
+    if (status === this.status) return;
     this.status = status; this.emit();
   }
   private journal() {

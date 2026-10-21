@@ -4942,6 +4942,8 @@
   },
   "shortcuts": {
     "ctrl": "Ctrl",
+    "shift": "Shift",
+    "alt": "Alt",
     "then": "then"
   },
   "officeDocuments": {

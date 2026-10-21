@@ -36,7 +36,8 @@ describe("localized, editable template layouts", () => {
           expect(frame.width / frame.height).toBeCloseTo(16 / 9);
           expect(step.notes!.length).toBeGreaterThan(30);
           const children = template.elements.filter((element) => element.parentId === frame.id);
-          expect(children.some((element) => element.type === "text")).toBe(true);
+          // Text boxes, or text in a shape (the spatial templates' bubbles).
+          expect(children.some((element) => element.type === "text" || (element.type === "shape" && Boolean(element.content.text)))).toBe(true);
           for (const child of children) {
             expect(child.x).toBeGreaterThanOrEqual(frame.x);
             expect(child.y).toBeGreaterThanOrEqual(frame.y);
@@ -117,6 +118,21 @@ describe("spatial template alignment", () => {
       const parent = frame("layers", parentKey), child = frame("layers", childKey);
       expect(parent.x + parent.width - child.x - child.width).toBeCloseTo(parent.y + parent.height - child.y - child.height);
     }
+  });
+  it("keeps each bubble's text in the bubble, so moving it takes the text along", () => {
+    const { elements } = presentationTemplates.topicmap;
+    const disc = elements.find((element) => element.id === "topicmap-north-disc")!;
+    expect(disc).toMatchObject({ type: "shape", content: { text: "[Perspective A]\n[Key idea]\n[Example or evidence]", align: "center" } });
+    expect(elements.some((element) => element.id.startsWith("topicmap-north-") && element.type === "text")).toBe(false);
+  });
+  it("glues the connecting lines to the regions they join", () => {
+    const { elements } = presentationTemplates.topicmap;
+    const link = elements.find((element) => element.id === "topicmap-north-link")!;
+    expect(link).toMatchObject({ content: { connection: { fromId: "topicmap-north-disc", toId: "topicmap-center-disc" } } });
+    const north = frame("topicmap", "north"), center = frame("topicmap", "center");
+    // Laid out between the two discs: from the bottom of one to the top of the other.
+    expect(link.width).toBeCloseTo(center.y - (north.y + north.height));
+    for (const id of presentationTemplateIds) expect(() => presentationElementsSchema.parse(presentationTemplates[id].elements)).not.toThrow();
   });
   it("centers the comparison conclusion between equal-sized perspectives", () => {
     const left = frame("comparison", "left"), right = frame("comparison", "right"), conclusion = frame("comparison", "synthesis");

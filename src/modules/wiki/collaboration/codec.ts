@@ -54,7 +54,9 @@ export function patchMap(map: Y.Map<unknown>, before: Record<string, unknown>, a
     if (isObject(value)) {
       const child = current instanceof Y.Map ? current : new Y.Map<unknown>();
       if (child !== current) map.set(key, child);
-      patchMap(child, isObject(before[key]) ? before[key] : {}, value);
+      // A new map starts empty: write the whole object, not only what changed since `before`,
+      // or a document seeded before the field existed keeps a partial copy of it.
+      patchMap(child, child === current && isObject(before[key]) ? before[key] : {}, value);
     } else if (typeof value === "string" && textKeys.has(key)) {
       const child = current instanceof Y.Text ? current : new Y.Text();
       if (child !== current) map.set(key, child);
@@ -120,7 +122,11 @@ export function presentationJSON(doc: Y.Doc): PresentationSnapshot {
   // Settings saved before a field existed (grid, guides, defaults…) get its default here, as the
   // server's snapshot schema gives them: the editor reads these fields without checking.
   const shared = doc.getMap("settings").toJSON() as Partial<PresentationSnapshot>;
-  const parsed = presentationSettingsSchema.safeParse(shared.settings ?? {});
+  // Nested objects written field by field by an older client can be partial: fill them in.
+  const stored = (shared.settings ?? {}) as Partial<PresentationSnapshot["settings"]>;
+  const parsed = presentationSettingsSchema.safeParse({ ...stored,
+    ...(isObject(stored.grid) ? { grid: { ...defaultPresentationSettings.grid, ...stored.grid } } : {}),
+    ...(isObject(stored.guides) ? { guides: { ...defaultPresentationSettings.guides, ...stored.guides } } : {}) });
   const settings = parsed.success ? parsed.data : { ...defaultPresentationSettings, ...shared.settings, grid: defaultPresentationSettings.grid, guides: defaultPresentationSettings.guides, ruler: false, defaults: {} };
   return { ...shared, settings, elements, steps: normalizeSteps(steps, elements) } as PresentationSnapshot;
 }
