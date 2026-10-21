@@ -323,7 +323,7 @@
     "newDeadline": "Neue Deadline",
     "newContact": "Neuer Kontakt",
     "draft": "Entwurf",
-    "groups": { "work": "Arbeit", "finance": "Finanzen", "knowledge": "Wissen" },
+    "groups": { "work": "Arbeit", "communication": "Kommunikation", "finance": "Finanzen", "knowledge": "Wissen" },
     "toggleTheme": "Farbmodus wechseln",
     "openInNewTab": "In neuem Tab öffnen"
   },
