@@ -20,8 +20,8 @@ export function DetailSceneBar({ trail, onShow, onClose, onImport, disabled }: {
   const current = trail.at(-1);
   if (!current) return null;
   const name = (box: PresentationElement, frame: PresentationElement) => presentationElementCaption(box) || presentationElementCaption(frame) || t("group");
-  return <div data-testid="detail-scene-bar" className="absolute top-3 left-1/2 z-10 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 items-center gap-1 rounded-full border bg-background/95 py-1 pr-1 pl-1 shadow-md backdrop-blur">
-    <Button type="button" variant="ghost" size="sm" className="rounded-full" onClick={onClose} title={`${t("close")} (Esc)`} aria-label={t("close")}>
+  return <div data-testid="detail-scene-bar" className="flex min-w-0 shrink-0 items-center gap-1 border-b bg-indigo-500/10 px-2 py-1">
+    <Button type="button" variant="ghost" size="sm" onClick={onClose} title={`${t("close")} (Esc)`} aria-label={t("close")}>
       <CornerLeftUp className="size-4" />
     </Button>
     <nav aria-label={t("trail")} className="flex min-w-0 items-center gap-0.5 text-sm">
@@ -33,8 +33,8 @@ export function DetailSceneBar({ trail, onShow, onClose, onImport, disabled }: {
           : <button type="button" className="truncate rounded px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onShow(frame.id, trail[index + 1].box)}>{name(box, frame)}</button>}
       </span>)}
     </nav>
-    <span className="mx-1 h-5 w-px bg-border" />
-    <Button type="button" variant="ghost" size="sm" className="rounded-full" disabled={disabled} onClick={onImport} data-testid="detail-import-wiki">
+    <span className="hidden min-w-0 truncate text-xs text-muted-foreground lg:inline">{t("editing", { name: name(current.box, current.frame) })}</span>
+    <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" disabled={disabled} onClick={onImport} data-testid="detail-import-wiki">
       <BookOpenText className="size-4" /><span className="hidden sm:inline">{t("importWiki")}</span>
     </Button>
   </div>;

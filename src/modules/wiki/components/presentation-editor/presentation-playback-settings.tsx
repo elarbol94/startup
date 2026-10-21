@@ -32,6 +32,10 @@ export function PresentationPlaybackSettings({ disabled, settings, updateSetting
               <Checkbox checked={settings.loop} onCheckedChange={(checked) => updateSettings({ loop: checked === true })} />
               {t("presentations.loopPlayback")}
             </label>
+            <label className="flex items-start gap-2 text-xs text-muted-foreground">
+              <Checkbox className="mt-0.5" checked={settings.motion === "always"} onCheckedChange={(checked) => updateSettings({ motion: checked === true ? "always" : "system" })} />
+              {t("presentations.motionAlways")}
+            </label>
             <label className="block text-xs text-muted-foreground">
               {t("presentations.cameraTransition")}
               <DraftInput

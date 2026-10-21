@@ -6,7 +6,7 @@ import { ViewportPortal, useViewport, useReactFlow, type Node, type NodeProps } 
 import { cn } from "@/lib/utils";
 import { isPresentationElementLocked, type PresentationElement } from "../lib/presentation";
 import { resizePresentationElement, isLinearShape } from "../lib/presentation-interactions";
-import { presentationDefaultInks } from "../lib/presentation-ink";
+import { inkOn, presentationDefaultInks } from "../lib/presentation-ink";
 import { AdjustHandle, LineEndHandles, type LineEndDrop } from "./presentation-editor/shape-handles";
 import { PresentationShape } from "./presentation-shape";
 import { useTranslations } from "next-intl";
@@ -44,6 +44,8 @@ export type PresentationNodeData = {
   editingDeferred?: boolean;
   onEditingChange?: (id: string, editing: boolean) => void;
   onTextEditorReady?: (id: string, editor: Editor) => void;
+  /** Drawn in the editor (selection is possible there), as opposed to a player or a preview. */
+  authoring?: boolean;
   /** Colour for text, charts and icons without their own: dark on a light slide, light on a dark one. */
   ink?: string;
   [key: string]: unknown;
@@ -203,9 +205,10 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
         // An invisible frame is a pure camera target — it stays outlined in the editor
         // so it can be grabbed, and disappears in the player.
         shape === "none" && data.editable && "rounded-xl border-2 border-dashed opacity-50",
-        shape !== "none" && !color && "border-foreground/40",
+        shape !== "none" && !color && !data.ink && "border-foreground/40",
       )}
-      style={shape !== "none" && color ? { borderColor: color } : undefined}
+      // Without a colour of its own the outline follows the slide: dark on light, light on dark.
+      style={shape !== "none" && (color || data.ink) ? { borderColor: color || `${data.ink}66` } : undefined}
     >
       {/* Only the outline and the label receive pointer events: they move the frame. A click
           on the empty interior reaches the pane (which selects the frame) and a drag there
@@ -222,11 +225,12 @@ function FrameNode({ data, selected }: NodeProps<PresentationNode>) {
         </svg>
       )}
       <Resizer selected={Boolean(selected)} data={data} />
-      {label && (
+      {/* A frame's name is for the author; while presenting, the slide speaks for itself. */}
+      {label && data.authoring && (
         <span
           data-frame-label
           className="pointer-events-auto absolute -top-6 left-0 max-w-full truncate text-sm font-medium"
-          style={{ color: color || undefined }}
+          style={{ color: color || data.ink || undefined }}
         >
           {label}
         </span>
@@ -370,7 +374,8 @@ export function elementsToNodes(
         editingDeferred: options.deferredId === element.id || undefined,
         onEditingChange: options.onEditingChange,
         onTextEditorReady: options.onTextEditorReady,
-        ink: inks.get(element.id),
+        ink: inks.get(element.id) ?? (element.type === "frame" ? inkOn(options.background) : undefined),
+        authoring: options.selectedIds !== undefined,
       },
     };
   });

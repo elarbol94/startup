@@ -213,6 +213,12 @@ export const presentationSettingsSchema = z.object({
   loop: z.boolean().default(false),
   cameraTransitionMs: z.number().int().min(100).max(5_000).default(700),
   cameraEasing: z.enum(presentationCameraEasings).default("ease-in-out"),
+  /**
+   * Whether the presenter's own player animates when their system asks for reduced motion:
+   * a talk's camera flights and card turns are its content, and presenting laptops often
+   * have animations switched off. Followers on their own devices always keep their setting.
+   */
+  motion: z.enum(["always", "system"]).default("always"),
   ...presentationViewSettingsFields,
   /** Set as Default Shape / Line / Text Box: the format new objects of that kind start with. */
   defaults: z.object({ shape: presentationShapeDefaultsSchema.optional(), line: presentationShapeDefaultsSchema.optional(), textBox: presentationShapeDefaultsSchema.optional() }).default({}),

@@ -79,6 +79,7 @@ export {
   enterPresentationDetail,
   exitPresentationDetail,
   stepPresentationPosition,
+  presentationStopDetail,
   presentationScenePosition,
 } from "./presentation-details";
 export {

@@ -106,9 +106,9 @@ describe("presenting detail pages", () => {
   });
 
   it("walks the overview without wandering into detail pages", () => {
-    const next = stepPresentationPosition(elements, stops, { index: 1, returns: [] }, 1);
-    expect(next).toEqual({ index: 3, returns: [] });
-    expect(stepPresentationPosition(elements, stops, next, 1)).toEqual(next);
+    const next = stepPresentationPosition(elements, stops, { index: 0, returns: [] }, 1);
+    expect(next).toEqual({ index: 1, returns: [] });
+    expect(stepPresentationPosition(elements, stops, { index: 3, returns: [] }, 1)).toEqual({ index: 3, returns: [] });
     expect(presentationScenePosition(stops, 3)).toEqual({ current: 3, total: 3 });
   });
 
@@ -119,6 +119,18 @@ describe("presenting detail pages", () => {
     expect(deeper).toEqual({ index: 4, returns: [1, 2] });
     expect(stepPresentationPosition(elements, stops, deeper, 1)).toEqual(inside);
     expect(stepPresentationPosition(elements, stops, inside, -1)).toEqual({ index: 1, returns: [] });
+  });
+
+  it("opens a detail page when the path arrives on its element, so a clicker can reach it", () => {
+    // s3 targets "lend", which opens lendPage: "next" from s2 turns the page over, and the
+    // page's last "next" comes back to s3, from where the overview goes on.
+    const inside = stepPresentationPosition(elements, stops, { index: 1, returns: [] }, 1);
+    expect(inside).toEqual({ index: 2, returns: [3] });
+    expect(stepPresentationPosition(elements, stops, inside, 1)).toEqual({ index: 3, returns: [] });
+    // Walking back onto it does not open it again.
+    expect(stepPresentationPosition(elements, stops, { index: 3, returns: [] }, -1)).toEqual({ index: 1, returns: [] });
+    const fadeSteps = presentationStops(elements, [step("s1", "overview"), { ...step("f", "lend"), action: "fadeIn" as const }, step("d1", "process")]);
+    expect(stepPresentationPosition(elements, fadeSteps, { index: 0, returns: [] }, 1)).toEqual({ index: 1, returns: [] });
   });
 
   it("finds the way back without history, from the stop of the opening element", () => {

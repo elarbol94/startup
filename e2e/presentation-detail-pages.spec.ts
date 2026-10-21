@@ -70,3 +70,50 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present$`));
 });
+
+test("a clicker takes the detour on the path, animated even when the system reduces motion", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const deckWithPage = [
+    ...elements.map((element) => element.id === "lend" ? { ...element, detailId: "page" } : element),
+    { id: "page", type: "frame", x: 0, y: 100_000, width: 960, height: 540, rotation: 0, content: { label: "Gegenstandsverleih", shape: "rect", color: "" } },
+    { id: "pageText", type: "text", parentId: "page", x: 60, y: 100_060, width: 800, height: 90, rotation: 0, content: { text: "Bohrmaschinen, Leitern", fontSize: 40, bold: true, align: "left", color: "" } },
+  ];
+  // The author put the box itself on the path: that stop is where the detour happens.
+  const id = await seed(page, false, false, deckWithPage, { steps: [{ id: "s1", elementId: "frame" }, { id: "s2", elementId: "lend" }], waitFor: "lend" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  const player = page.getByTestId("presentation-player");
+  const status = page.getByRole("status").filter({ hasText: "/" });
+  await expect(status).toHaveText("1 / 2");
+  // The status is server-rendered; the canvas only draws once the player runs in the browser.
+  await expect(page.locator('.react-flow__node[data-id="lend"]')).toBeVisible();
+  // What the audience sees: no frame names, no library credit.
+  await expect(page.locator("[data-frame-label]")).toHaveCount(0);
+  await expect(page.locator(".react-flow__attribution")).toHaveCount(0);
+
+  // "Next" on a clicker arrives at the box and turns its page over -- with the card turn.
+  // The turn is short, so its layers are counted as they come rather than polled for.
+  type Counted = Window & { flipLayers?: number };
+  await player.evaluate((root) => {
+    (window as Counted).flipLayers = 0;
+    new MutationObserver((records) => {
+      for (const record of records) for (const node of record.addedNodes) if ((node as HTMLElement).dataset?.detailFlip !== undefined) (window as Counted).flipLayers! += 1;
+    }).observe(root, { childList: true });
+  });
+  await page.keyboard.press("PageDown");
+  await expect(player).toHaveAttribute("data-scene", "page");
+  await expect.poll(() => page.evaluate(() => (window as Counted).flipLayers)).toBeGreaterThan(0);
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+
+  // The page's last "next" turns back to the box's stop; the overview goes on from there.
+  await page.keyboard.press("PageDown");
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await expect(status).toHaveText("2 / 2");
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+
+  // On that stop, Down opens the page again and Up closes it.
+  await page.keyboard.press("ArrowDown");
+  await expect(player).toHaveAttribute("data-scene", "page");
+  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await page.keyboard.press("ArrowUp");
+  await expect(player).toHaveAttribute("data-scene", "overview");
+});

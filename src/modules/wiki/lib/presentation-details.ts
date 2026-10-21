@@ -204,14 +204,26 @@ export function exitPresentationDetail(elements: PresentationElement[], stops: P
 
 /**
  * The arrow keys walk the open scene only. Past its last stop (or before its first) a detail
- * page closes again; the overview simply stops at its ends.
+ * page closes again; the overview simply stops at its ends. Moving forward onto a stop on an
+ * element with a detail page opens that page, so a clicker with only "next" and "back" can
+ * take every detour the author put on the path; coming back to it leaves the page closed.
  */
 export function stepPresentationPosition(elements: PresentationElement[], stops: PresentationStop[], position: PresentationPosition, delta: 1 | -1): PresentationPosition {
   const scene = sceneOfStop(stops, position.index);
   for (let index = position.index + delta; index >= 0 && index < stops.length; index += delta) {
-    if (stops[index].sceneId === scene) return { ...position, index };
+    if (stops[index].sceneId !== scene) continue;
+    const arrived = { ...position, index };
+    const { step } = stops[index];
+    const frameId = delta === 1 && (!step.action || step.action === "camera") ? presentationDetails(elements).frameByBox.get(step.elementId) : undefined;
+    return (frameId && enterPresentationDetail(stops, arrived, frameId)) || arrived;
   }
   return exitPresentationDetail(elements, stops, position) ?? position;
+}
+
+/** The detail page of the element the current stop shows, if it has one. */
+export function presentationStopDetail(elements: PresentationElement[], stops: PresentationStop[], index: number): string | null {
+  const step = stops[index]?.step;
+  return step ? presentationDetails(elements).frameByBox.get(step.elementId) ?? null : null;
 }
 
 /** "3 / 7" within the open scene. */

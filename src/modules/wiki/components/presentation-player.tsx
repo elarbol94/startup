@@ -6,7 +6,6 @@ import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useTheme } from "next-themes";
 import { ReactFlow, ReactFlowProvider, getViewportForBounds, useReactFlow, useStore, useStoreApi, type NodeMouseHandler } from "@xyflow/react";
 import { ChevronLeft, ChevronRight, CornerLeftUp, Maximize, Minimize, NotebookText, Pause, Play, Scan, Spotlight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -27,6 +26,7 @@ import {
   presentationStops,
   enterPresentationDetail,
   exitPresentationDetail,
+  presentationStopDetail,
   sceneOfStop,
   stepPresentationPosition,
   type PresentationBounds,
@@ -34,6 +34,7 @@ import {
   type PresentationStop,
 } from "../lib/presentation";
 import { PresentationDetailBadges } from "./presentation-detail-badges";
+import { PRESENTATION_DARK_INK, inkOn, presentationSurface } from "../lib/presentation-ink";
 import { useDetailFlip } from "./presentation-player/use-detail-flip";
 import { parsePresenterMessage, presenterChannelName } from "../lib/presenter";
 import type { PresentationRecord } from "../presentation-queries";
@@ -57,11 +58,11 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const t = useTranslations("wiki");
   const router = useRouter();
   const reactFlow = useReactFlow<PresentationNode>();
-  const { resolvedTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsRef = useRef<HTMLDivElement>(null);
   const viewportSized = useStore((state) => state.width > 0 && state.height > 0);
   const { steps, settings } = presentation;
+  const surface = presentationSurface(presentation.background);
   const elements = presentation.elements;
   // Stops are the steps plus one for each detail page without its own; the player walks
   // the stops of the open scene and remembers where each open detail page was entered from.
@@ -76,7 +77,10 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const sceneElements = useMemo(() => presentationSceneElements(elements, scene), [elements, scene]);
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
   const [presenterSession] = useState(() => clientUUID());
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [systemReducedMotion, setReducedMotion] = useState(false);
+  // The presenter's deck animates unless its settings defer to the system; a follower's own
+  // device setting always wins, since that is the person who asked for less motion.
+  const reducedMotion = systemReducedMotion && (Boolean(follow) || settings.motion === "system");
   const [fullscreen, setFullscreen] = useState(false);
   const [playing, setPlaying] = useState(false);
 
@@ -101,7 +105,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
 
   const hiddenIds = useMemo(() => presentationHiddenIds(elements, steps, stops[index]?.stepIndex ?? -1), [elements, steps, stops, index]);
   const animationMs = reducedMotion ? 0 : stops[index]?.step.animationMs ?? 300;
-  const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: presentation.background }), [sceneElements,enteringIds, hiddenIds, animationMs, reducedMotion, presentation.background]);
+  const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: surface }), [surface, sceneElements, enteringIds, hiddenIds, animationMs, reducedMotion]);
 
   const overview = useCallback(
     (duration = cameraDuration) => void reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
@@ -124,12 +128,12 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
    */
   const flyTo = useCallback(
     (stepIndex: number, duration = cameraDuration) => {
-      const step = cameraStop(stops, stepIndex);
+      const step = cameraStop(stops, stepIndex, details.frameByBox);
       const target = step ? stepTarget(step, elements) : null;
       if (!target) return overview(duration);
       fitStop(presentationCameraBounds(target), duration);
     },
-    [elements, overview, stops, cameraDuration, fitStop],
+    [elements, overview, stops, details, cameraDuration, fitStop],
   );
 
   // Presenter-side pinch/wheel zoom and free pan: ReactFlow's own pane already implements
@@ -193,7 +197,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // Every change of position goes through here, so turning into or out of a detail page
   // looks the same whether the presenter, autoplay, the presenter view or a live host moved.
   const stageRef = useRef<HTMLDivElement>(null);
-  const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, getZoom: reactFlow.getZoom, background: presentation.background,
+  const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, getZoom: reactFlow.getZoom, background: surface,
     durationMs: reducedMotion ? 0 : Math.max(500, settings.cameraTransitionMs) });
   const positionRef = useRef(position);
   useEffect(() => { positionRef.current = position; }, [position]);
@@ -401,7 +405,12 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         // happens to change step, since the poll only re-frames on a new step.
         event.preventDefault();
         overview();
-      } else if ((event.key === "Escape" || event.key === "Backspace") && scene !== null && !following) {
+      } else if ((event.key === "ArrowDown" || (event.key === "Enter" && !target?.closest("button, a, [role='button']"))) && !following) {
+        // Opens the detail page of what the current stop shows, for keyboards and clickers.
+        const frameId = presentationStopDetail(elements, stops, positionRef.current.index);
+        const box = frameId ? details.boxByFrame.get(frameId) : undefined;
+        if (box) { event.preventDefault(); openDetail(box); }
+      } else if ((event.key === "Escape" || event.key === "Backspace" || event.key === "ArrowUp") && scene !== null && !following) {
         // Escape leaves the open detail page first; only on the overview does it end the show.
         event.preventDefault();
         closeDetail();
@@ -415,7 +424,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [exitPresent, following, move, overview, router, scene, closeDetail]);
+  }, [exitPresent, following, move, overview, router, scene, closeDetail, openDetail, elements, stops, details]);
 
   // Its own listener, kept separate from the step-navigation one above: zoom is
   // presenter-local camera state, unrelated to whichever step index is currently shown.
@@ -467,14 +476,16 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       data-testid="presentation-player"
       // Covers the wiki rail and the app chrome: presenting owns the whole viewport.
       className="fixed inset-0 z-50 bg-background"
-      style={presentation.background ? { backgroundColor: presentation.background } : undefined}
+      style={{ backgroundColor: surface }}
     >
       <div ref={stageRef} className="absolute inset-0" data-testid="presentation-stage" data-scene={scene ?? "overview"}>
       <ReactFlow
         nodes={nodes}
         edges={[]}
         nodeTypes={presentationNodeTypes}
-        colorMode={resolvedTheme === "dark" ? "dark" : "light"}
+        // The deck's own surface decides, not the app theme: a talk looks the same on any laptop.
+        colorMode={inkOn(surface) === PRESENTATION_DARK_INK ? "light" : "dark"}
+        style={{ backgroundColor: surface }}
         // With stops the opening camera is stop 1 (see the first flight above).
         fitView={!steps.length}
         fitViewOptions={{ padding: 0.15 }}
@@ -499,7 +510,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         onMoveStart={onGestureStart}
         onMoveEnd={onGestureEnd}
         preventScrolling
-        proOptions={{ hideAttribution: false }}
+        // The audience sees the deck, not the library drawing it (the editor keeps the credit).
+        proOptions={{ hideAttribution: true }}
       >
         <PresentationDetailBadges elements={sceneElements} frameByBox={details.frameByBox} visited={visited} hiddenIds={hiddenIds}
           onOpen={following ? undefined : openDetail}
@@ -616,12 +628,16 @@ function clampStop(index: number, stops: PresentationStop[]): number {
   return Math.min(Math.max(index, 0), Math.max(stops.length - 1, 0));
 }
 
-/** The camera stop at or before `index` within its scene; fade steps keep the camera where it was. */
-function cameraStop(stops: PresentationStop[], index: number) {
+/**
+ * The camera stop at or before `index` within its scene. Fade steps keep the camera where it
+ * was, and so does a stop on an element that opens a detail page: that stop is the detour's
+ * place in the path, and the card turns over from the view the audience already has.
+ */
+function cameraStop(stops: PresentationStop[], index: number, openers: Map<string, string>) {
   const scene = sceneOfStop(stops, index);
   for (let at = index; at >= 0; at--) {
     const stop = stops[at];
-    if (stop?.sceneId === scene && (!stop.step.action || stop.step.action === "camera")) return stop.step;
+    if (stop?.sceneId === scene && (!stop.step.action || stop.step.action === "camera") && !openers.has(stop.step.elementId)) return stop.step;
   }
   // A detail page that opens on a fade still shows the page itself.
   return scene ? { id: `detail:${scene}`, elementId: scene } : undefined;

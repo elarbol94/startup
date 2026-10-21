@@ -52,7 +52,7 @@ export function WikiImportDialog({ open, onOpenChange, onImport }: {
   };
 
   return <Dialog open={open} onOpenChange={close}>
-    <DialogContent className="max-h-[85dvh] overflow-hidden sm:max-w-lg" data-testid="wiki-import-dialog">
+    <DialogContent className="max-h-[85dvh] grid-cols-[minmax(0,1fr)] overflow-hidden sm:max-w-lg" data-testid="wiki-import-dialog">
       <DialogHeader>
         <DialogTitle>{t("importTitle")}</DialogTitle>
         <DialogDescription>{t("importDescription")}</DialogDescription>

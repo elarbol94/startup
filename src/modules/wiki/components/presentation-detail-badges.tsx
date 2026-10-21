@@ -24,7 +24,7 @@ export function PresentationDetailBadges({ elements, frameByBox, visited, hidden
   createLabel?: string;
 }) {
   const { zoom } = useViewport();
-  const size = BADGE_PX / zoom;
+  const size = BADGE_PX / zoom, gap = 4 / zoom;
   const boxes = elements.filter((element) => frameByBox.has(element.id) && !hiddenIds?.has(element.id));
   const badge = (box: PresentationElement, kind: "open" | "visited" | "create") => (
     <button key={`${kind}-${box.id}`} type="button" data-detail-badge={kind} data-element-id={box.id}
@@ -32,7 +32,8 @@ export function PresentationDetailBadges({ elements, frameByBox, visited, hidden
       className={cn("nodrag nopan pointer-events-auto absolute grid place-items-center rounded-full shadow-md transition-transform hover:scale-110",
         kind === "create" ? "border-2 border-dashed border-indigo-500 bg-background text-indigo-600" : "bg-indigo-600 text-white",
         kind === "visited" && "bg-emerald-600")}
-      style={{ left: box.x + box.width - size * 0.6, top: box.y - size * 0.4, width: size, height: size, zIndex: 2100 }}
+      // Just outside the top-right corner, clear of the editor's corner resize handle.
+      style={{ left: box.x + box.width + gap, top: box.y - size - gap, width: size, height: size, zIndex: 2100 }}
       onPointerDown={(event) => event.stopPropagation()}
       onClick={(event) => { event.stopPropagation(); onOpen?.(box.id); }}>
       {kind === "visited" ? <Check style={{ width: size * 0.55, height: size * 0.55 }} />

@@ -10,6 +10,13 @@ import type { PresentationElement } from "./presentation-model";
 export const PRESENTATION_DARK_INK = "#1f2937";
 export const PRESENTATION_LIGHT_INK = "#f8fafc";
 
+/**
+ * What a deck without a background colour of its own is drawn on: white, in the editor, the
+ * player, previews and print alike, so it looks the same whichever theme the app is in.
+ */
+export const PRESENTATION_DEFAULT_BACKGROUND = "#ffffff";
+export const presentationSurface = (background?: string) => background || PRESENTATION_DEFAULT_BACKGROUND;
+
 /** Dark ink on a light colour, light ink on a dark one; undefined for a colour we cannot read. */
 export function inkOn(surface: string | null | undefined): string | undefined {
   const color = parseColor(surface);

@@ -87,6 +87,7 @@ import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
 import { EditPointsOverlay, type EditPointsLabels } from "./presentation-editor/edit-points-overlay";
 import { formatCentimetres } from "../lib/presentation-grid";
 import { applyDefaults } from "../lib/presentation-shape-defaults";
+import { PRESENTATION_DARK_INK, inkOn, presentationSurface } from "../lib/presentation-ink";
 import { presentationElementCaption, presentationSceneElements, presentationSceneSteps } from "../lib/presentation";
 import { useDetailScene } from "./presentation-editor/use-detail-scene";
 import { DetailSceneBar } from "./presentation-editor/detail-scene-bar";
@@ -335,7 +336,7 @@ function Editor({
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...detail.elements, ...dragPreview] : detail.elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
       onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady,
-      onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId, background }).map(node => {
+      onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId, background: presentationSurface(background) }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
@@ -856,6 +857,9 @@ function Editor({
 
       <div className="flex min-h-0 flex-1">
         <WorkspacePanel title={t("presentations.path")} open={pathOpen} onClose={() => setPathOpen(false)} side="left" narrow className="h-full max-h-full overflow-y-auto"><fieldset disabled={disabled} className="min-w-0">{pathPanel}</fieldset></WorkspacePanel>
+        {/* The detail page breadcrumb sits above the canvas, never over the slide being edited. */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <DetailSceneBar trail={detail.trail} onShow={detail.show} onClose={detail.close} onImport={() => setWikiImportOpen(true)} disabled={disabled} />
         <div ref={canvasRef} data-presentation-canvas tabIndex={0} onPointerMove={event => { if (pendingElement && !disabled) { const point = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); setPendingElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }); } }} onPointerDownCapture={event => { if (formatting.picking) { event.preventDefault(); event.stopPropagation(); formatting.pickAt(event.clientX, event.clientY); return; } if ((event.target as HTMLElement).closest("[data-presentation-overlay]")) return; if (pendingElement && !disabled && event.button === 0 && !(event.target as HTMLElement).closest("button, .react-flow__minimap, .react-flow__controls")) { event.preventDefault(); event.stopPropagation(); placementClick.current = true; placePending(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })); return; } cancelledGesture.current = false; clickSelection.onPointerDown(event); const target = event.target as HTMLElement; marqueeBase.current = event.shiftKey && target.classList.contains("react-flow__pane") ? selectedIds : []; clickSelection.pressGroupMember(event); duplicateDrag(event); }} className={`relative min-h-40 min-w-0 flex-1 bg-muted/30 outline-none ${formatting.picking ? "cursor-crosshair [&_*]:!cursor-crosshair" : ""}`}
           onClickCapture={event => {
             if (placementClick.current) { placementClick.current = false; event.preventDefault(); event.stopPropagation(); return; }
@@ -865,7 +869,6 @@ function Editor({
           onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const id = node.dataset.id; if (!selectionPath(elements, id).some(level => selectedIds.includes(level))) setSelectedIds([selectionTargetId(elements, id, selectedIds)]); } else clickSelection.onPaneContextMenu(event); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
           {drawTool && !disabled && <PresentationDrawOverlay tool={drawTool} reactFlow={reactFlow} lookup={(id) => elements.find((element) => element.id === id)}
             onCreate={createDrawn} onCancel={() => { setDrawTool(null); setDrawLock(false); canvasRef.current?.focus(); }} label={t(`presentations.shapeGallery.shapes.${drawTool.id}`)} />}
-          <DetailSceneBar trail={detail.trail} onShow={detail.show} onClose={detail.close} onImport={() => setWikiImportOpen(true)} disabled={disabled} />
           {contextPosition && <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} position={contextPosition} onClose={() => { setContextPosition(null); canvasRef.current?.focus(); }} />}
           <div className="absolute right-3 bottom-3 z-10 flex rounded-lg border bg-background shadow-sm">{elements.length > 0 && <PresentationMiniMapToggle visible={miniMapVisible} onToggle={() => setMiniMapVisible(value => !value)} showLabel={interact("minimapShow")} hideLabel={interact("minimapHide")} />}        <Button type="button" variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION })}>
           <Maximize2 className="size-3.5" />{t("presentations.overview")}
@@ -906,7 +909,7 @@ function Editor({
             onSelectionEnd={() => { marqueeBase.current = []; }}
             selectionMode={SelectionMode.Full}
             panActivationKeyCode="Space"
-            style={background ? { backgroundColor: background } : undefined}
+            style={{ backgroundColor: presentationSurface(background) }}
             panOnDrag={[1]}
             // Wheel and two-finger scroll pan; Ctrl/Cmd+wheel and pinch (a wheel with ctrlKey) zoom.
             panOnScroll zoomActivationKeyCode={["Control", "Meta"]}
@@ -916,7 +919,7 @@ function Editor({
             {/* Shown gridlines replace the background dots: the overlay draws them over the slide. */}
             {settings.grid.show
               ? <GridOverlay spacing={settings.grid.spacing} transparency={settings.grid.transparency} />
-              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />}
+              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} color={inkOn(presentationSurface(background)) === PRESENTATION_DARK_INK ? "#94a3b8" : "#64748b"} />}
             {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
@@ -961,6 +964,7 @@ function Editor({
               </div>
             </div>
           )}
+        </div>
         </div>
 
         <WorkspacePanel title={t(`workspace.${activePanel ?? "properties"}`)} open={activePanel !== null} onClose={() => setActivePanel(null)} className="h-full max-h-full overflow-y-auto">
