@@ -1,15 +1,13 @@
-import { placeAtCenter } from "./helpers/presentation-fixture";
+import { placeAtCenter, openPane, fileMenu } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
 test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
 async function tool(page: Page, name: string) {
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await openPane(page, name);
 }
 async function save(page: Page) {
-  await page.getByRole("button", { name: "Aktionen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Speichern", exact: true }).click();
+  await fileMenu(page, "Speichern");
 }
 async function properties(page: Page) {
   await tool(page, "Eigenschaften");
@@ -100,17 +98,18 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   const rich = page.getByRole("textbox", { name: "Formatierter Text" });
   await rich.fill("Formatted idea");
   await rich.press("Control+a");
-  await page.getByRole("button", { name: "Kursiv", exact: true }).click();
-  await page.getByRole("combobox", { name: "Schriftart", exact: true }).selectOption("georgia");
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Diagramm hinzufügen" }).hover();
+  const pane = page.locator("[data-workspace-panel]");
+  await pane.getByRole("button", { name: "Kursiv", exact: true }).click();
+  await pane.getByRole("combobox", { name: "Schriftart", exact: true }).selectOption("georgia");
+  await page.getByRole("tab", { name: "Einfügen", exact: true }).click();
+  await page.getByRole("button", { name: "Diagramm", exact: true }).click();
   await page.getByRole("menuitem", { name: "Balkendiagramm", exact: true }).click();
   // Below the two texts: the viewport centre depends on the app chrome and may cover them.
   await placeInFrame(page, 450, 360);
   await page.getByRole("textbox", { name: "Diagrammtitel" }).fill("Revenue");
   await page.getByRole("combobox", { name: "Diagrammtyp" }).selectOption("pie");
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).hover();
+  await page.getByRole("tab", { name: "Einfügen", exact: true }).click();
+  await page.getByRole("button", { name: "Piktogramme", exact: true }).click();
   await page.getByRole("menuitem", { name: "Ziel", exact: true }).click();
   await placeInFrame(page, 110, 330);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
@@ -226,7 +225,7 @@ test("company themes, templates and object comments are usable from the inspecto
   await expect(page.getByRole("button", { name: "Wieder öffnen", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Kommentar bearbeiten", exact: true }).click();
   await page.getByRole("textbox", { name: "Kommentar bearbeiten" }).fill("Updated feedback");
-  await page.getByRole("button", { name: "Speichern", exact: true }).click();
+  await page.locator("[data-workspace-panel]").getByRole("button", { name: "Speichern", exact: true }).click();
   await expect(page.getByText("Updated feedback", { exact: true })).toBeVisible();
   page.once("dialog", (dialog) => void dialog.dismiss());
   await page.getByRole("button", { name: "Kommentar löschen", exact: true }).click();
@@ -404,7 +403,7 @@ test("selection tools expose connectors and contextual editing sections", async 
   await expect(page.locator("#presentation-tool-appearance")).not.toHaveAttribute("open", "");
   await expect(tools.getByRole("button", { name: "Format kopieren", exact: true })).toHaveCount(0);
   await page.screenshot({ path: info.outputPath("simplified-inspector.png") });
-  await page.getByRole("combobox", { name: "Editor-Bereiche" }).selectOption("comments");
+  await openPane(page, "Kommentare");
   await b.click();
   await expect(tools).toBeHidden();
   await b.click();
@@ -478,7 +477,7 @@ test("presentation double Shift commands preserve selection and respect typing",
   const title = page.getByRole("textbox", { name: "Titel der Präsentation", exact: true });
   await title.focus(); await taps();
   await expect(palette).toBeHidden();
-  await page.getByRole("button", { name: "Präsentationsbefehle", exact: true }).click();
+  await page.getByRole("button", { name: "Befehl suchen", exact: true }).click();
   await expect(search).toBeFocused();
   await page.keyboard.press("Escape");
 });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { placeAtCenter } from "./helpers/presentation-fixture";
+import { placeAtCenter, openPane } from "./helpers/presentation-fixture";
 
 test.use({ actionTimeout: 25_000, viewport: { width: 1440, height: 1000 } });
 test.describe.configure({ timeout: 240_000 });
@@ -11,8 +11,7 @@ async function login(page: Page) {
   expect(response.ok()).toBe(true);
 }
 async function tool(page: Page, name: string) {
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await openPane(page, name);
 }
 async function closePanel(page: Page) {
   await page.getByRole("button", { name: "Seitenbereich schließen", exact: true }).click();
@@ -77,7 +76,7 @@ test("presentation panels preserve pending edits, playback order, previews, and 
   await expect(page.locator("html")).toHaveClass(/dark/);
   await screenshot(page, "presentation-library-english-dark");
   await page.getByRole("link", { name: title, exact: true }).click();
-  await expect(page.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Home", exact: true })).toBeVisible();
   await page.evaluate(() => document.documentElement.classList.add("dark"));
   await screenshot(page, "presentation-english-dark");
 });

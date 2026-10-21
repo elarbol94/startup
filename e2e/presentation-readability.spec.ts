@@ -25,13 +25,13 @@ test("uncoloured text on a white slide is dark, also while it is edited", async 
   await expect(surface).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
 });
 
-test("the grid is drawn over the slide and the View menu shows real key names", async ({ page }) => {
+test("the grid is drawn over the slide and the View tab shows real key names", async ({ page }) => {
   await seed(page, false, false, [slide, plain]);
   await page.getByTestId("presentation-view-menu").click();
-  const menu = page.getByRole("menu");
-  await expect(menu).toContainText("Umschalt+F9");
-  await expect(menu).toContainText("Alt+F9");
-  await expect(menu).not.toContainText("shortcuts.");
+  const show = page.getByRole("group", { name: "Anzeigen" });
+  await expect(show.locator("label").filter({ has: page.getByTestId("view-gridlines") })).toHaveAttribute("title", /Umschalt\+F9/);
+  await expect(show.locator("label").filter({ has: page.getByTestId("view-guides") })).toHaveAttribute("title", /Alt\+F9/);
+  await expect(show).not.toContainText("shortcuts.");
   await page.getByTestId("view-gridlines").click();
   const overlay = page.getByTestId("presentation-grid-overlay");
   await expect(overlay).toBeVisible();

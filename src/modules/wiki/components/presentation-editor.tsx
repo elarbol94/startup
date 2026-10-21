@@ -31,25 +31,22 @@ import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
+import { Copy, History, Loader2, Lock, Maximize2, Play, RotateCw, Save, Square, Trash2, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuShortcut, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
 import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, moveStep, presentationShapeKinds, rotateElements, scaleElements, unionBounds, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
 import { usePresentationShapeEdits } from "./presentation-editor/use-presentation-shape-edits";
-import { PresentationShapeGallery } from "./presentation-editor/presentation-shape-gallery";
 import { PresentationDrawOverlay, type DrawGlue } from "./presentation-editor/presentation-draw-overlay";
 import type { PresetGalleryEntry } from "../lib/preset-shapes/preset-gallery";
 import { setLineEnd } from "../lib/presentation-connectors";
 import { ROTATE_STEP, formatTextHosts, keyboardResize, nudge, type ArrowKey } from "../lib/presentation-keyboard-edits";
 import { rotateElementsIndividually, textFormatKey } from "./presentation-editor/presentation-shortcuts";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { nextFrameBounds } from "../lib/presentation-frame-rail";
 import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
@@ -61,7 +58,7 @@ import { DraftInput } from "./presentation-editor/draft-fields";
 import { GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
 import { PresentationMiniMap, PresentationMiniMapToggle } from "./presentation-editor/presentation-minimap";
 import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
-import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, toolShortcut, withToolKey } from "./presentation-editor/presentation-shortcuts";
+import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, toolShortcut } from "./presentation-editor/presentation-shortcuts";
 import { SelectionOverlay } from "./presentation-editor/selection-overlay";
 import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
 import { PresentationAppearanceInspector } from "./presentation-editor/presentation-appearance-inspector";
@@ -85,7 +82,9 @@ import { isTextHost, textHostContent, withHostText } from "../lib/presentation-t
 import { applySelectChanges, dragTargetId, parentSelection, selectionPath, selectionTargetId } from "../lib/presentation-selection";
 import { usePresentationFormatting } from "./presentation-editor/use-presentation-formatting";
 import { usePresentationViewSettings } from "./presentation-editor/use-presentation-view-settings";
-import { FormatRibbon } from "./presentation-editor/format-pane/format-ribbon";
+import { PresentationRibbon } from "./presentation-editor/ribbon/presentation-ribbon";
+import { useRibbonState } from "./presentation-editor/ribbon/use-ribbon-state";
+import type { RibbonModel, RibbonPanel } from "./presentation-editor/ribbon/ribbon-model";
 import { FormatShapePane } from "./presentation-editor/format-pane/format-shape-pane";
 import { CanvasGuides } from "./presentation-editor/canvas-guides";
 import { CanvasRulers, RULER_SIZE } from "./presentation-editor/canvas-rulers";
@@ -321,6 +320,7 @@ function Editor({
   const formatting = usePresentationFormatting({ elements, selection, selectedIds, settings, dispatch, updateSettings, setSelectedIds, disabled, editingId: textEditing.editingId,
     onEditorReady: textEditing.onEditorReady, startGesture, endGesture, presentationId: presentation.id, t });
   const onTextEditorReady = formatting.onTextEditorReady;
+  const ribbon = useRibbonState({ contextual: formatting.shapes.length > 0 || formatting.texts.length > 0, onSearch: openCommands });
   const editOnClick = useCallback((id: string, point: { x: number; y: number }) => {
     const element = elements.find((element) => element.id === id);
     if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point, textHostContent(element).text);
@@ -640,6 +640,8 @@ function Editor({
       return [...current, next];
     }, t));
     setSelectedIds([element.id]);
+    // A drawn shape brings Formformat forward, as in PowerPoint.
+    if (element.type === "shape") ribbon.showContextual();
     if (element.type === "text" && !drawLock) textEditing.startEditing(element.id);
   };
   const pathPanel = (<PresentationPathPanel presentation={presentation} steps={steps} elements={elements} selected={selected}
@@ -650,6 +652,11 @@ function Editor({
   const openHistory = useCallback(async () => {
     if (await flush()) { router.refresh(); setWorkspaceDialog("history"); }
   }, [flush, router]);
+  // Below the docking width a side pane is a drawer over the canvas, so only one shows at a time.
+  const narrow = () => !window.matchMedia("(min-width: 1280px)").matches;
+  const togglePath = () => { setPathOpen(value => !value); if (narrow()) setActivePanel(null); };
+  const openPanel = (panel: RibbonPanel) => { setActivePanel(panel); if (narrow()) setPathOpen(false); };
+  const togglePanel = (panel: RibbonPanel) => { if (activePanel === panel) setActivePanel(null); else openPanel(panel); };
   const commandText = t("presentations.commands.title");
   const unavailable = t("presentations.commands.unavailable");
   const insertReason = disabled ? unavailable : elements.length >= 500 ? t("presentations.elementLimit") : undefined;
@@ -667,11 +674,15 @@ function Editor({
     { id: "undo", label: t("editor.toolbar.undo"), execute: () => dispatch({ type: "undo" }), disabledReason: disabled || !(undo ? undo.canUndo() : canvas.past.length) ? unavailable : undefined, group: commandText },
     { id: "redo", label: t("editor.toolbar.redo"), execute: () => dispatch({ type: "redo" }), disabledReason: disabled || !(undo ? undo.canRedo() : canvas.future.length) ? unavailable : undefined, group: commandText },
     { id: "overview", label: t("presentations.overview"), execute: () => { void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION }); }, group: commandText },
-    { id: "path", label: t("presentations.path"), execute: () => { setPathOpen(value => !value); if (!window.matchMedia("(min-width: 1280px)").matches) setActivePanel(null); }, group: commandText },
-    ...(["properties", "design", "assets", "comments"] as const).map(panel => ({ id: panel, label: t(`workspace.${panel}`), execute: () => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }, group: commandText })),
+    { id: "path", label: t("presentations.path"), execute: togglePath, active: pathOpen, group: commandText },
+    ...(["properties", "design", "assets", "comments"] as const).map(panel => ({ id: panel, label: t(`workspace.${panel}`), execute: () => openPanel(panel), active: activePanel === panel, group: commandText })),
     { id: "save", label: t("presentations.save"), execute: () => { void flush(); }, disabledReason: disabled ? unavailable : undefined, group: commandText },
+    { id: "share", label: t("workspace.share"), execute: () => setWorkspaceDialog("sharing"), group: commandText },
+    { id: "exportPdf", label: t("presentations.exportPdf"), execute: () => flushThen(printHref, true), disabledReason: !steps.length || restoring !== null || uploading ? unavailable : undefined, group: commandText },
+    { id: "exportPptx", label: `${t("presentations.ribbon.exportAs")} ${t("presentations.exportPptx")}`, execute: () => void downloadPresentationPptx(presentation.id, flush, { saveFailed: t("presentations.leaveSaveFailed"), failed: t("presentations.exportPptxFailed"), placeholders: t("presentations.exportPptxPlaceholders") }), disabledReason: restoring !== null || uploading ? unavailable : undefined, group: commandText },
     { id: "history", label: t("presentations.history"), execute: openHistory, group: commandText },
     { id: "playback", label: t("presentations.playbackSettings"), execute: () => setWorkspaceDialog("playback"), group: commandText },
+    { id: "toggleMiniMap", label: t("presentations.ribbon.miniMap"), execute: () => setMiniMapVisible(value => !value), active: miniMapVisible, disabledReason: elements.length ? undefined : unavailable, group: commandText },
   ];
   const duplicateDrag = (event: React.PointerEvent<HTMLDivElement>) => startDuplicateDrag(event, {
     disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel, setSelectedIds, dispatch,
@@ -679,7 +690,7 @@ function Editor({
   const selectedRoots = selectionRoots(elements, selectedIds);
   const canMutate = !disabled && mutableSelection(elements, selectedIds);
   function interact(key: string) { return t(`presentations.interactions.${key}`); }
-  const shortcutLabels = presentationShortcutLabels(isMac, { ctrl: tShortcuts("ctrl"), delete: t("shortcuts.keys.delete"), enter: t("shortcuts.keys.enter") });
+  const shortcutLabels = presentationShortcutLabels(isMac, { ctrl: tShortcuts("ctrl"), delete: t("shortcuts.keys.delete"), enter: t("shortcuts.keys.enter"), shift: tShortcuts("shift"), alt: tShortcuts("alt") });
   const executeCommand = (id: string) => { const command = commands.find(c => c.id === id); if (command && !command.disabledReason) command.execute(); };
   const { groupSelection, ungroupSelection, editText, setSelectionLocked } = usePresentationSelectionCommands({
     selected, selectedIds, selectedRoots, canMutate, elements, steps, dispatch, setSelectedIds, startTextEditing: textEditing.startEditing, t,
@@ -711,9 +722,9 @@ function Editor({
     { id: "setDefault", label: t(`presentations.formatPane.defaults.${selected?.type === "text" ? "textBox" : selected?.type === "shape" && isLinearShape(selected) ? "line" : "shape"}`), execute: formatting.setAsDefault, group: commandText, disabledReason: formatting.canSetDefault ? undefined : unavailable },
     { id: "editPoints", label: t("presentations.formatPane.editShape.editPoints"), execute: formatting.startEditPoints, group: commandText, disabledReason: formatting.canEditPoints ? undefined : unavailable },
     ...(["union", "combine", "fragment", "intersect", "subtract"] as const).map(op => ({ id: `merge-${op}`, label: `${t("presentations.formatPane.merge.title")}: ${t(`presentations.formatPane.merge.${op}`)}`, execute: () => formatting.mergeSelection(op), group: commandText, disabledReason: formatting.canMerge ? undefined : unavailable })),
-    { id: "toggleRuler", label: t("presentations.gridGuides.ruler"), execute: view.toggleRuler, group: commandText },
-    { id: "toggleGrid", label: t("presentations.gridGuides.gridlines"), execute: view.toggleGrid, group: commandText },
-    { id: "toggleGuides", label: t("presentations.gridGuides.guides"), execute: view.toggleGuides, group: commandText },
+    { id: "toggleRuler", label: t("presentations.gridGuides.ruler"), execute: view.toggleRuler, active: settings.ruler, group: commandText },
+    { id: "toggleGrid", label: t("presentations.gridGuides.gridlines"), execute: view.toggleGrid, active: settings.grid.show, group: commandText },
+    { id: "toggleGuides", label: t("presentations.gridGuides.guides"), execute: view.toggleGuides, active: settings.guides.show, group: commandText },
     { id: "gridGuides", label: t("presentations.gridGuides.title"), execute: () => setGridDialog(true), group: commandText },
   ];
 
@@ -781,6 +792,40 @@ function Editor({
     }
   });
   useEffect(() => { const key = (event: KeyboardEvent) => handleKeyboard(event); window.addEventListener("keydown", key, true); return () => window.removeEventListener("keydown", key, true); }, []);
+  const ribbonModel: RibbonModel = {
+    state: ribbon, commands, run: executeCommand, shortcuts: shortcutLabels, disabled, insertDisabled: disabled || elements.length >= 500, uploading,
+    title: <>
+      <PresentationDocumentTitle title={title} />
+      <Link href={listHref} className="shrink-0 text-sm text-muted-foreground hover:text-foreground" onClick={(event) => leaveVia(event, listHref)} onAuxClick={(event) => auxFlush(event, listHref)}>
+        {t("presentations.title")}
+      </Link>
+      <span className="text-muted-foreground">/</span>
+      <DraftInput value={title} maxLength={200} disabled={disabled} aria-label={t("presentations.presentationTitle")}
+        className="h-8 min-w-0 flex-1 border-transparent bg-transparent font-medium shadow-none hover:border-input sm:max-w-md"
+        normalise={(raw) => raw.trim() || title} onCommit={(next) => dispatch({ type: "touch", title: next })} />
+    </>,
+    saveStatus: <>
+      <span role="status" aria-live="polite"><PresentationSaveIndicator state={saveState} /></span>
+      {(saveState === "error" || saveState === "offline") && <Button size="sm" variant="ghost" onClick={() => void flush()} disabled={disabled}><Save className="size-3.5" />{t("presentations.save")}</Button>}
+    </>,
+    // The player is server-rendered from the saved canvas, so the navigation waits for the
+    // write rather than presenting a stale canvas. A modifier click still means "new tab" --
+    // it just gets one with the edit in it.
+    present: (variant) => <Button type="button" size="sm" variant={variant === "ribbon" ? "ghost" : "default"} disabled={!steps.length || restoring !== null || uploading} nativeButton={false} role="link"
+      className={variant === "ribbon" ? "h-[70px] flex-col justify-start gap-1 px-2 pt-1.5 text-xs font-normal [&_svg]:size-6!" : undefined}
+      title={variant === "ribbon" ? t("presentations.ribbon.fromStartTip") : undefined}
+      render={<Link href={presentHref} onClick={(event) => leaveVia(event, presentHref)} onAuxClick={(event) => auxFlush(event, presentHref)} />}>
+      <Play className="size-3.5" />{variant === "ribbon" ? t("presentations.ribbon.fromStart") : t("presentations.present")}
+    </Button>,
+    onLeave: () => flushThen(listHref, false), onSearch: openCommands,
+    pathOpen, togglePath, activePanel, togglePanel,
+    shapeGallery: { open: galleryOpen, setOpen: setGalleryOpen, armed: Boolean(drawTool), onPick: (entry, options) => { setGalleryOpen(false); setPendingElement(null); setDrawLock(Boolean(options?.lock)); setDrawTool(entry); canvasRef.current?.focus(); } },
+    addStudio: (kind, choice) => addStudioElement(kind, choice),
+    background, setBackground: (color) => dispatch({ type: "touch", background: color }),
+    formatting,
+    onTextKey: (key) => { if (canMutate && selectedRoots.length) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => formatTextHosts(current, new Set(selectedRoots.map(e => e.id)), key) }); },
+    onOpenPane: (group) => { formatting.openPane(group); openPanel("properties"); },
+  };
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="presentation-editor" data-presentation-workspace data-wiki-command-scope ref={commandRoot} tabIndex={-1}
       onPointerDownCapture={event => { if (commandRoot.current?.contains(event.target as Node) && !(event.target as HTMLElement).closest('button, a, input, textarea, select, [contenteditable=true]')) (canvasRef.current?.contains(event.target as Node) ? canvasRef.current : commandRoot.current)?.focus({ preventScroll: true }); }}>
@@ -790,143 +835,10 @@ function Editor({
       <PresentationShortcutHelp open={shortcutHelp} onOpenChange={setShortcutHelp} title={interact("shortcutHelp")} help={interact("gestureHelp")} commands={commands} shortcutLabels={shortcutLabels} />
       <Dialog open={Boolean(insertPicker)} onOpenChange={open => { if (!open) setInsertPicker(null); }}><DialogContent finalFocus={placementFocus}><DialogHeader><DialogTitle>{interact("choose")}</DialogTitle></DialogHeader><div className="grid grid-cols-3 gap-2">{(insertPicker === "shape" ? presentationShapeKinds : insertPicker === "chart" ? ["bar", "line", "pie"] : insertPicker === "icon" ? presentationIconNames : []).map(choice => <Button key={choice} variant="outline" onClick={() => { if (insertPicker === "shape") addShape(choice as PresentationShapeKind); else if (insertPicker) addStudioElement(insertPicker, choice); setInsertPicker(null); }}>{insertPicker === "shape" ? t(`presentations.shapeKinds.${choice}`) : interact(insertPicker === "icon" ? `icons.${choice}` : choice)}</Button>)}</div></DialogContent></Dialog>
       {collaboration && <CollaborationStatus provider={collaboration} className="sr-only" />}
-      <header className="flex flex-wrap items-center gap-2 border-b border-border/60 bg-background px-4 py-3">
-        <PresentationDocumentTitle title={title} />
-        <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto sm:flex-1">
-        <Link
-          href={listHref}
-          className="text-sm text-muted-foreground hover:text-foreground"
-          onClick={(event) => leaveVia(event, listHref)}
-          onAuxClick={(event) => auxFlush(event, listHref)}
-        >
-          {t("presentations.title")}
-        </Link>
-        <span className="text-muted-foreground">/</span>
-        <DraftInput
-          value={title}
-          maxLength={200}
-          disabled={disabled}
-          aria-label={t("presentations.presentationTitle")}
-          className="h-8 min-w-0 flex-1 border-transparent bg-transparent font-medium shadow-none hover:border-input sm:w-auto sm:max-w-xl sm:flex-1"
-          normalise={(raw) => raw.trim() || title}
-          onCommit={(next) => dispatch({ type: "touch", title: next })}
-        />
-        </div>
-        <div className="flex w-full items-center justify-end gap-2 text-xs sm:ml-auto sm:w-auto">
-          <span role="status" aria-live="polite" className="mr-auto sm:mr-0"><PresentationSaveIndicator state={saveState} /></span>
-          {(saveState === "error" || saveState === "offline") && <Button size="sm" variant="ghost" onClick={() => void flush()} disabled={disabled}><Save className="size-3.5" />{t("presentations.save")}</Button>}
-          <Button size="sm" variant="ghost" aria-label={t("workspace.share")} onClick={() => setWorkspaceDialog("sharing")}><Share2 className="size-4" /><span className="hidden sm:inline">{t("workspace.share")}</span></Button>
-          <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.actions")} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
-            <DropdownMenuItem disabled={!steps.length || restoring !== null || uploading} onClick={() => flushThen(printHref, true)}><FileDown />{t("presentations.exportPdf")}</DropdownMenuItem>
-            <DropdownMenuItem disabled={restoring !== null || uploading} onClick={() => void downloadPresentationPptx(presentation.id, flush, { saveFailed: t("presentations.leaveSaveFailed"), failed: t("presentations.exportPptxFailed"), placeholders: t("presentations.exportPptxPlaceholders") })}><FileDown />{t("presentations.exportPptx")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => executeCommand("history")}><History />{t("presentations.history")}</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setWorkspaceDialog("playback")}><Settings />{t("presentations.playbackSettings")}</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem disabled={disabled} onClick={() => void flush()}><Save />{t("presentations.save")}</DropdownMenuItem>
-          </DropdownMenuContent></DropdownMenu>
-          <Button
-            type="button"
-            size="sm"
-            disabled={!steps.length || restoring !== null || uploading}
-            nativeButton={false}
-            role="link"
-            // The player is server-rendered from the saved canvas, so the navigation waits
-            // for the write, rather than presenting a stale canvas. A modifier click still
-            // means "new tab" -- it just gets one with the edit in it.
-            render={(
-              <Link
-                href={presentHref}
-                onClick={(event) => leaveVia(event, presentHref)}
-                onAuxClick={(event) => auxFlush(event, presentHref)}
-              />
-            )}
-          >
-            <Play className="size-3.5" />{t("presentations.present")}
-          </Button>
-        </div>
-      </header>
-      <div data-testid="presentation-toolbar" className="flex flex-wrap items-center gap-1 border-b border-border/60 bg-background px-3 py-2">
-        <Button size="sm" variant="ghost" aria-label={commandText} onClick={openCommands}><Search className="size-4" /><span>{commandText}</span><kbd className="text-xs text-muted-foreground">&#8679; &#8679;</kbd></Button>
-        <Button size="sm" variant={pathOpen ? "secondary" : "ghost"} aria-expanded={pathOpen} onClick={() => { setPathOpen((value) => !value); if (!window.matchMedia("(min-width: 1280px)").matches) setActivePanel(null); }}><PanelLeft className="size-4" />{t("presentations.path")}</Button>
-        <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} />
-        <span className="mx-1 h-5 w-px bg-border/60" />
-        <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} title={withToolKey(t("presentations.addText"), "addText", shortcutLabels)} onClick={addText}><Type className="size-3.5" />{t("presentations.addText")}</Button>
-        <Popover open={galleryOpen} onOpenChange={setGalleryOpen}>
-          <PopoverTrigger render={<Button type="button" variant={drawTool ? "secondary" : "ghost"} size="sm" disabled={disabled || elements.length >= 500} data-testid="presentation-shapes-button" />}>
-            <Shapes className="size-3.5" />{t("presentations.shapeGallery.title")}
-          </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto"><PresentationShapeGallery allowLock onPick={(entry, options) => { setGalleryOpen(false); setPendingElement(null); setDrawLock(Boolean(options?.lock)); setDrawTool(entry); canvasRef.current?.focus(); }} /></PopoverContent>
-        </Popover>
-        <Button type="button" variant="ghost" size="sm" disabled={uploading || disabled || elements.length >= 500} onClick={() => imageInputRef.current?.click()}>
-          {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
-          {t("presentations.addImage")}
-        </Button>
-        <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} title={withToolKey(t("presentations.addFrame"), "addFrame", shortcutLabels)} onClick={addFrame}><Square className="size-3.5" />{t("presentations.addFrame")}</Button>
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={disabled || uploading || elements.length >= 500} />}>{t("editor.toolbar.insert")}</DropdownMenuTrigger><DropdownMenuContent finalFocus={placementFocus}>
-          <DropdownMenuItem onClick={addFrame}><Square />{t("presentations.addFrame")}<DropdownMenuShortcut aria-hidden>{shortcutLabels.addFrame}</DropdownMenuShortcut></DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setGalleryOpen(true)}><Shapes />{t("presentations.addShape")}</DropdownMenuItem>
-          <DropdownMenuSub><DropdownMenuSubTrigger>{studio("addChart")}</DropdownMenuSubTrigger><DropdownMenuSubContent>{["bar", "line", "pie"].map(kind => <DropdownMenuItem key={kind} onClick={() => addStudioElement("chart", kind)}>{interact(kind)}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
-          <DropdownMenuSub><DropdownMenuSubTrigger>{studio("addIcon")}</DropdownMenuSubTrigger><DropdownMenuSubContent>{presentationIconNames.map(name => <DropdownMenuItem key={name} onClick={() => addStudioElement("icon", name)}>{interact(`icons.${name}`)}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
-          <DropdownMenuItem onClick={() => mediaInputRef.current?.click()}>{studio("uploadMedia")}</DropdownMenuItem>
-        </DropdownMenuContent></DropdownMenu>
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={arrangementDisabled} />}>{t("presentations.layout.arrange")}</DropdownMenuTrigger><DropdownMenuContent>
-          {presentationAlignments.map(mode => <DropdownMenuItem key={mode} disabled={arrangementRoots.length < ((mode === "horizontal" || mode === "vertical") ? 3 : 2)} onClick={() => executeCommand(`align-${mode}`)}>{t(`presentations.layout.${mode}`)}</DropdownMenuItem>)}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={arrangementRoots.length !== 2 || elements.length >= 500} onClick={connectSelection}>{t("presentations.layout.connect")}</DropdownMenuItem>
-        </DropdownMenuContent></DropdownMenu>
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" data-testid="presentation-view-menu" />}>{t("presentations.gridGuides.menu")}</DropdownMenuTrigger><DropdownMenuContent className="w-auto min-w-56">
-          <DropdownMenuItem data-testid="view-ruler" onClick={view.toggleRuler}>{settings.ruler ? "✓ " : ""}{t("presentations.gridGuides.ruler")}</DropdownMenuItem>
-          <DropdownMenuItem data-testid="view-gridlines" onClick={view.toggleGrid}>{settings.grid.show ? "✓ " : ""}{t("presentations.gridGuides.gridlines")}<DropdownMenuShortcut aria-hidden>{isMac ? "⇧" : tShortcuts("shift")}+F9</DropdownMenuShortcut></DropdownMenuItem>
-          <DropdownMenuItem data-testid="view-guides" onClick={view.toggleGuides}>{settings.guides.show ? "✓ " : ""}{t("presentations.gridGuides.guides")}<DropdownMenuShortcut aria-hidden>{isMac ? "⌥" : tShortcuts("alt")}+F9</DropdownMenuShortcut></DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem data-testid="view-grid-settings" onClick={() => setGridDialog(true)}>{t("presentations.gridGuides.title")}…</DropdownMenuItem>
-        </DropdownMenuContent></DropdownMenu>
-        <input ref={mediaInputRef} aria-label={studio("uploadMedia")} hidden type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file); event.target.value = ""; }} />
-        <input
-          ref={imageInputRef}
-          aria-label={t("presentations.uploadImage")}
-          hidden
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/svg+xml"
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            event.target.value = "";
-            if (file) void uploadImage(file);
-          }}
-        />
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("presentations.undo")}
-          title={t("presentations.undo")}
-          disabled={disabled || !(undo ? undo.canUndo() : canvas.past.length)}
-          onClick={() => dispatch({ type: "undo" })}
-        >
-          <Undo2 className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t("presentations.redo")}
-          title={t("presentations.redo")}
-          disabled={disabled || !(undo ? undo.canRedo() : canvas.future.length)}
-          onClick={() => dispatch({ type: "redo" })}
-        >
-          <Redo2 className="size-4" />
-        </Button>
-
-        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant={activePanel ? "secondary" : "ghost"} className="ml-auto" />}><PanelRight className="size-4" />{t("workspace.tools")}</DropdownMenuTrigger><DropdownMenuContent align="end">
-          {(["properties", "design", "assets", "comments"] as const).map((panel) => <DropdownMenuItem key={panel} onClick={() => { setActivePanel(panel); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }}>{t(`workspace.${panel}`)}</DropdownMenuItem>)}
-        </DropdownMenuContent></DropdownMenu>
-      </div>
-
-      {/* The row is always there, so selecting an object never moves the canvas under the pointer. */}
-      {!disabled && <div className="h-10 shrink-0 border-b border-border/60 bg-background">{(formatting.shapes.length > 0 || formatting.texts.length > 0) && <FormatRibbon shapes={formatting.shapes} texts={formatting.texts} format={formatting.format}
-        updateShapes={formatting.updateShapes} updateTexts={formatting.updateTexts} onChangeShape={formatting.changeShape} onMerge={formatting.mergeSelection} canMerge={formatting.canMerge}
-        onEditPoints={formatting.canEditPoints ? formatting.startEditPoints : undefined} onEyedropper={formatting.requestColor} disabled={disabled}
-        onOpenPane={(group) => { formatting.openPane(group); setActivePanel("properties"); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }} />}</div>}
+      <PresentationRibbon model={ribbonModel} />
+      <input ref={mediaInputRef} aria-label={studio("uploadMedia")} hidden type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file); event.target.value = ""; }} />
+      <input ref={imageInputRef} aria-label={t("presentations.uploadImage")} hidden type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+        onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadImage(file); }} />
       {conflict && (
         <div role="alert" className="flex flex-wrap items-center gap-2 border-b bg-destructive/10 px-3 py-2 text-sm">
           <TriangleAlert className="size-4 shrink-0" />
@@ -1052,9 +964,6 @@ function Editor({
         </div>
 
         <WorkspacePanel title={t(`workspace.${activePanel ?? "properties"}`)} open={activePanel !== null} onClose={() => setActivePanel(null)} className="h-full max-h-full overflow-y-auto">
-          <select aria-label={t("presentations.selectionTools.panels")} value={activePanel ?? "properties"} onChange={event => setActivePanel(event.target.value as Exclude<typeof activePanel, null>)} className="mb-5 h-10 w-full rounded-lg border bg-background px-3 text-sm">
-            {(["properties", "design", "assets", "comments"] as const).map(panel => <option key={panel} value={panel}>{t(`workspace.${panel}`)}</option>)}
-          </select>
           <div hidden={!["design", "assets", "comments"].includes(activePanel ?? "")}>{libraryPanel}</div>
           <div hidden={activePanel !== "properties"}>
           {selection.length > 0 && <PresentationSelectionTools key={selectionKey} elements={elements} selection={selection}

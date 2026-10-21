@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation as seed } from "./helpers/presentation-fixture";
+import { seedPresentation as seed, openPane } from "./helpers/presentation-fixture";
 test.use({ viewport: { width: 1440, height: 1000 } });
 test.setTimeout(180_000);
 const node = (page: Page, id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
@@ -27,8 +27,8 @@ test("insertion follows the cursor, commits only on click, and cancels with Esca
   await page.getByRole("button", { name: "Rahmen", exact: true }).click(); await expect(preview).toBeVisible();
   await canvas(page).focus(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
   await page.keyboard.press("Control+z"); await expect(page.locator(".react-flow__node")).toHaveCount(4);
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
+  await page.getByRole("tab", { name: "Einfügen", exact: true }).click();
+  await page.getByRole("button", { name: "Neuer Rahmen", exact: true }).click();
   await expect(canvas(page)).toBeFocused(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
 });
 
@@ -96,7 +96,7 @@ test("rotation magnetically stops on vertical without requiring exact pointer pl
 
 test("font and sentence edits grow text boxes, preserve formatting, and sync their geometry", async ({ page, context }) => {
   const id = await seed(page); const other = await context.newPage(); await other.goto(`/wiki/presentations/${id}`); await expect(node(other, "a")).toBeVisible();
-  await node(page, "a").click(); await page.getByRole("button", { name: "Werkzeuge", exact: true }).click(); await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await node(page, "a").click(); await openPane(page, "Eigenschaften");
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("128"); await page.keyboard.press("Tab");
   // Like PowerPoint, a larger font keeps the chosen box width and grows the box downwards.
   const element = async () => (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a");

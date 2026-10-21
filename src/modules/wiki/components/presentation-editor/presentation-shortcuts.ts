@@ -27,11 +27,11 @@ export function toolShortcut(event: KeyboardEvent): string | undefined {
   return presentationToolKeys[event.key.toLowerCase()];
 }
 
-/** Key words that differ by locale ("Strg"/"Ctrl", "Entf"/"Del", "Eingabe"/"Enter"); from messages. */
-export type PresentationKeyLabels = { ctrl: string; delete: string; enter: string };
+/** Key words that differ by locale ("Strg"/"Ctrl", "Entf"/"Del", "Eingabe"/"Enter", "Umschalt"/"Shift"); from messages. */
+export type PresentationKeyLabels = { ctrl: string; delete: string; enter: string; shift?: string; alt?: string };
 
 export function presentationShortcutLabels(isMac: boolean, keys: PresentationKeyLabels): Record<string, string> {
-  const modifier = isMac ? "⌘" : keys.ctrl, alt = isMac ? "⌥" : "Alt", shift = isMac ? "⇧" : "Shift";
+  const modifier = isMac ? "⌘" : keys.ctrl, alt = isMac ? "⌥" : keys.alt ?? "Alt", shift = isMac ? "⇧" : keys.shift ?? "Shift";
   return {
     copy: `${modifier}+C`, cut: `${modifier}+X`, paste: `${modifier}+V`, duplicateSelection: `${modifier}+D`, selectAll: `${modifier}+A`,
     group: `${modifier}+G`, ungroup: `${modifier}+${shift}+G`, undo: `${modifier}+Z`, redo: `${modifier}+${shift}+Z / ${modifier}+Y`, save: `${modifier}+S`,
@@ -39,6 +39,9 @@ export function presentationShortcutLabels(isMac: boolean, keys: PresentationKey
     // Ctrl+]/[ change the font size, as in PowerPoint; layers keep the Shift variants.
     front: `${modifier}+${shift}+]`, back: `${modifier}+${shift}+[`,
     copyFormat: `${modifier}+${shift}+C / ${modifier}+${alt}+C`, pasteFormat: `${modifier}+${shift}+V / ${modifier}+${alt}+V`,
+    // The ribbon's tooltips: text keys (textFormatKey) and the View toggles.
+    bold: `${modifier}+B`, italic: `${modifier}+I`, underline: `${modifier}+U`, alignLeft: `${modifier}+L`, alignCenter: `${modifier}+E`, alignRight: `${modifier}+R`,
+    toggleGrid: `${shift}+F9`, toggleGuides: `${alt}+F9`,
     ...Object.fromEntries(Object.entries(presentationToolKeys).map(([key, id]) => [id, key.toUpperCase()])),
   };
 }
@@ -49,11 +52,6 @@ export function presentationShapeToolCommands({ addShape, label, disabledReason,
 }): EditorSearchCommand[] {
   return ([["addRect", "rect"], ["addEllipse", "ellipse"], ["addLine", "line"]] as const)
     .map(([id, shape]) => ({ id, label: label(shape), execute: () => addShape(shape), disabledReason, group }));
-}
-
-/** "Text (T)": a toolbar tooltip naming the key that does the same. */
-export function withToolKey(label: string, id: string, labels: Record<string, string>) {
-  return labels[id] ? `${label} (${labels[id]})` : label;
 }
 
 /** The key shown next to a shape in the "Einfügen" menu. */

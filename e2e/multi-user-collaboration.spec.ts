@@ -1,3 +1,4 @@
+import { openPane } from "./helpers/presentation-fixture";
 import { test, expect, type Page, type Browser } from "@playwright/test";
 import Database from "better-sqlite3";
 import path from "node:path";
@@ -44,8 +45,7 @@ test("three accounts edit the same presentation text and see collaborators", asy
     for (const peer of peers) {
       await expect(peer.getByRole("button", { name: "Text", exact: true })).toBeEnabled({ timeout: 120_000 });
       await peer.locator('[data-testid="rf__node-shared-text"]').click();
-      await peer.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-      await peer.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+      await openPane(peer, "Eigenschaften");
       await peer.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
     }
     const editors = peers.map(peer => peer.getByRole("textbox", { name: "Formatierter Text" }));

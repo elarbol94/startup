@@ -1,13 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation } from "./helpers/presentation-fixture";
+import { seedPresentation, openPane } from "./helpers/presentation-fixture";
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 test.setTimeout(180_000);
 const node = (page: Page, id: string) => page.locator(`.react-flow__node[data-id="${id}"]`);
 const canvas = (page: Page) => page.locator("[data-presentation-canvas]");
 async function properties(page: Page) {
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await openPane(page, "Eigenschaften");
 }
 async function saved(page: Page, id: string) {
   await canvas(page).focus();

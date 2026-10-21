@@ -1,6 +1,25 @@
 import { expect, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
+const PANES = { Eigenschaften: "properties", Design: "design", Medien: "assets", Kommentare: "comments" } as const;
+/**
+ * Opens a side pane the way an author finds it: the ribbon's Ansicht tab, Bereiche group. Returns to
+ * Start -- dispatched, because below 1280 px the open pane is a drawer over the ribbon.
+ */
+export async function openPane(page: Page, name: string) {
+  await page.getByRole("tab", { name: "Ansicht", exact: true }).click();
+  const button = page.getByTestId(`ribbon-panel-${PANES[name as keyof typeof PANES]}`);
+  if (await button.getAttribute("aria-pressed") !== "true") await button.click();
+  // By id: a modal drawer hides the ribbon from role queries.
+  await page.locator("#ribbon-tab-home").dispatchEvent("click");
+}
+
+/** Runs an item of the ribbon's Datei menu. */
+export async function fileMenu(page: Page, name: string) {
+  await page.getByTestId("presentation-file-menu").click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
 /** `options.steps` replaces the default single stop; `options.waitFor` is the node id awaited after load (null waits for nothing). */
 export async function seedPresentation(page: Page, withMedia = false, authenticated = false, customElements?: unknown[], options: { steps?: unknown[]; waitFor?: string | null } = {}) {
   if (!authenticated) {

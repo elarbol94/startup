@@ -1,14 +1,12 @@
-import { placeAtCenter } from "./helpers/presentation-fixture";
+import { placeAtCenter, openPane, fileMenu } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
 async function action(page: Page, name: string) {
-  await page.getByRole("button", { name: "Aktionen", exact: true }).click();
-  await page.getByRole("menuitem", { name, exact: true }).click();
+  await fileMenu(page, name);
 }
 async function properties(page: Page) {
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await openPane(page, "Eigenschaften");
 }
 async function pathPanel(page: Page) {
   const button = page.getByRole("button", { name: "Weg", exact: true });

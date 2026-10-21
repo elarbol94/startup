@@ -23,6 +23,7 @@ const find = (elements: Element[], id: string) => elements.find((element) => ele
 test("Quick Styles and the Format pane give a shape PowerPoint's gradient, shadow and pattern fills", async ({ page }) => {
   const id = await seed(page, false, false, [preset("a", 0, 0)], { steps: [], waitFor: "a" });
   await node(page, "a").click();
+  await page.getByRole("tab", { name: "Formformat", exact: true }).click();
   await expect(page.getByTestId("presentation-format-ribbon")).toBeVisible();
   await page.getByTestId("quick-styles-button").click();
   // "Intensiver Effekt – Orange, Akzent 2": the gradient with an outer shadow, read back from PowerPoint.
@@ -91,6 +92,7 @@ test("Merge Shapes unites two overlapping shapes into one freeform with the firs
   // Click where only that shape is: the second one covers the first's centre.
   await node(page, "a").click({ position: { x: 20, y: 20 } });
   await node(page, "b").click({ modifiers: ["Shift"], position: { x: 180, y: 100 } });
+  await page.getByRole("tab", { name: "Formformat", exact: true }).click();
   await page.getByTestId("merge-shapes-button").click();
   await page.getByTestId("merge-union").click();
   await expect(page.locator(".react-flow__node-shape")).toHaveCount(1);
@@ -121,6 +123,7 @@ test("Lock Drawing Mode keeps the tool armed, Set as Default Shape formats the n
   await expect.poll(async () => (await deck(page, id)).elements.filter((e) => e.content.preset === "ellipse").map((e) => e.content.fill)).toEqual(["#A02B93", "#A02B93"]);
 
   await node(page, "a").click();
+  await page.getByRole("tab", { name: "Formformat", exact: true }).click();
   await page.getByTestId("edit-points-button").click();
   await expect(page.getByTestId("presentation-edit-points")).toBeVisible();
   await page.keyboard.press("Escape");

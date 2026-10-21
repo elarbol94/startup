@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { placeAtCenter, seedPresentation } from "./helpers/presentation-fixture";
+import { placeAtCenter, seedPresentation, openPane } from "./helpers/presentation-fixture";
 
 /** Frames as containers and stops: membership, naming, the path, placement and presenting. */
 test.use({ viewport: { width: 1440, height: 1000 } });
@@ -142,8 +142,8 @@ test("new frames become named stops, never land on each other, and undo removes 
 
 test("frames from Einfügen and duplicates become stops in one undo step each", async ({ page }) => {
   const id = await seedPresentation(page, false, false, [], { steps: [], waitFor: null });
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
+  await page.getByRole("tab", { name: "Einfügen", exact: true }).click();
+  await page.getByRole("button", { name: "Neuer Rahmen", exact: true }).click();
   await placeAtCenter(page);
   await expect(frames(page)).toHaveCount(1);
   const stops = async () => (await saved(page, id)).steps.length;
@@ -193,8 +193,7 @@ test("frame size presets keep the width and undo in one step", async ({ page }) 
   const id = await seedPresentation(page, false, false, [frame("f", 0, 0, "Rahmen 1")], { steps: [{ id: "s1", elementId: "f" }], waitFor: "f" });
   const b = await box(page, "f");
   await page.mouse.click(b.x + 2, b.y + b.height / 2);
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await openPane(page, "Eigenschaften");
   await page.getByRole("button", { name: "Seitenverhältnis 4:3", exact: true }).click();
   const size = async () => { const f = (await saved(page, id)).elements[0]; return [f.width, f.height]; };
   await expect.poll(size).toEqual([960, 720]);

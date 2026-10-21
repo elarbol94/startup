@@ -67,7 +67,7 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
   // PowerPoint: Arrow moves 0.72 pt; Shift+Down shrinks the height by 10 % around the centre.
   await page.keyboard.press("ArrowRight"); await page.keyboard.press("Shift+ArrowDown");
   await expect.poll(async () => { const a = (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a"); return [Math.round(a.x * 100) / 100, Math.round(a.y * 100) / 100, a.height]; }).toEqual([100.72, 104.5, 81]);
-  await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click(); await page.getByRole("menuitem", { name: "Sperren", exact: true }).click();
+  await page.keyboard.press("Shift+F10"); await page.getByRole("menuitem", { name: "Sperren", exact: true }).click();
   await page.locator("[data-presentation-canvas]").focus(); await page.keyboard.press("Delete"); await expect(node(page, "a")).toBeVisible();
   await page.keyboard.press("Shift+F10"); await expect(page.getByRole("menuitem", { name: "Entsperren", exact: true })).toBeEnabled(); await page.getByRole("menuitem", { name: "Entsperren", exact: true }).click();
   await node(page, "a").dblclick(); await expect(node(page, "a").locator(".ProseMirror")).toBeFocused(); await page.keyboard.press("Control+a"); await page.keyboard.type("Typing still works"); await page.keyboard.press("Escape");
@@ -84,7 +84,7 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
   const canvas = (await page.locator("[data-presentation-canvas]").boundingBox())!;
   await page.keyboard.down("Space"); await page.mouse.move(canvas.x + 30, canvas.y + 30); await page.mouse.down(); await page.mouse.move(canvas.x + 100, canvas.y + 90, { steps: 10 }); await page.mouse.up(); await page.keyboard.up("Space");
   await expect.poll(() => viewport.getAttribute("style")).not.toBe(before);
-  await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click(); await page.getByRole("menuitem", { name: "Tastenkürzel", exact: true }).click();
+  await page.getByRole("tab", { name: "Überprüfen", exact: true }).click(); await page.getByRole("button", { name: "Tastenkürzel", exact: true }).click();
   await expect(page.getByRole("dialog")).toContainText("Strg+G");
   await page.screenshot({ path: "output/playwright/presentation-shortcuts.png" });
 });
@@ -101,7 +101,7 @@ test("new shapes sync to a second editor and render in print and offline HTML", 
   expect(offline.ok(), await offline.text()).toBe(true); expect(await offline.text()).toMatch(/<path d="M/);
   await other.close(); await print.close();
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click();
+  await page.locator("[data-presentation-canvas]").focus(); await page.keyboard.press("Shift+F10");
   await expect(page.getByRole("menuitem", { name: /Kopieren/ }).first()).toBeVisible();
   await page.screenshot({ path: "output/playwright/presentation-mobile-actions.png" });
 });

@@ -150,8 +150,8 @@ test("placing from the insert menu takes focus to the canvas: Enter places, Esca
   await seed(page);
   const shapes = page.locator(".react-flow__node-frame");
   const insert = async () => {
-    await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
+    await page.getByRole("tab", { name: "Einfügen", exact: true }).click();
+    await page.getByRole("button", { name: "Neuer Rahmen", exact: true }).click();
     await expect(page.getByTestId("presentation-placement-preview")).toBeAttached();
     await expect(canvas(page)).toBeFocused();
   };

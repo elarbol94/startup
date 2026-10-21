@@ -31,6 +31,8 @@ describe("tool keys", () => {
   it("shows localised key names", () => {
     const de = presentationShortcutLabels(false, { ctrl: "Strg", delete: "Entf", enter: "Eingabe" });
     expect(de).toMatchObject({ group: "Strg+G", deleteSelection: "Entf", editText: "Eingabe" });
+    const umschalt = presentationShortcutLabels(false, { ctrl: "Strg", delete: "Entf", enter: "Eingabe", shift: "Umschalt", alt: "Alt" });
+    expect(umschalt).toMatchObject({ ungroup: "Strg+Umschalt+G", toggleGrid: "Umschalt+F9", toggleGuides: "Alt+F9" });
     const mac = presentationShortcutLabels(true, { ctrl: "Ctrl", delete: "Del", enter: "Enter" });
     expect(mac).toMatchObject({ group: "⌘+G", ungroup: "⌘+⇧+G", copyFormat: "⌘+⇧+C / ⌘+⌥+C" });
   });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { drawShape, seedPresentation as seed } from "./helpers/presentation-fixture";
+import { drawShape, seedPresentation as seed, openPane } from "./helpers/presentation-fixture";
 
 /** PowerPoint-style shapes and connectors: the larger gallery, adjustment handles, glued and routed lines. */
 test.use({ viewport: { width: 1440, height: 1000 } });
@@ -64,8 +64,7 @@ test("line ends glue to connection sites, follow their shapes, route as elbows a
 
   // Elbow routing from the inspector.
   await node(page, "line").click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await openPane(page, "Eigenschaften");
   await page.getByTestId("presentation-line-route").selectOption("elbow");
   await save(page);
   await expect.poll(async () => { const line = find((await deck(page, id)).elements, "line"); return [line.content.route, (line.content.points ?? []).length >= 3]; }).toEqual(["elbow", true]);

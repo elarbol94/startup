@@ -1,5 +1,5 @@
 import { expect, test, type Frame, type Page } from "@playwright/test";
-import { placeAtCenter, seedPresentation } from "./helpers/presentation-fixture";
+import { placeAtCenter, seedPresentation, openPane } from "./helpers/presentation-fixture";
 
 test.use({ actionTimeout: 30_000, navigationTimeout: 60_000 });
 test.setTimeout(180_000);
@@ -40,8 +40,7 @@ for (const viewport of [{ width: 1920, height: 855 }, { width: 900, height: 575 
     await expectZoomControlsVisible(page);
 
     await page.locator('.react-flow__node[data-id="a"]').click();
-    await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-    await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+    await openPane(page, "Eigenschaften");
     await expect(page.getByRole("textbox", { name: "Text", exact: true })).toBeVisible();
     await expectFits(page);
     await closePanel(page);
@@ -100,8 +99,7 @@ test("the header save state follows the collaboration transport and beforeunload
   });
 
   await page.locator('.react-flow__node[data-id="a"]').click();
-  await page.getByRole("button", { name: "Werkzeuge", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
+  await openPane(page, "Eigenschaften");
   const text = page.getByRole("textbox", { name: "Text", exact: true });
   await text.fill(`Saved edit ${Date.now()}`);
   await expect(header).toHaveText("Gespeichert", { timeout: 2_000 });

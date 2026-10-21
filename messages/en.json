@@ -2788,7 +2788,6 @@
     "movePages": {"title":"{count, plural, one {Move document} other {Move # documents}}","description":"Choose the new parent. Subpages move along.","search":"Search documents…","targets":"Possible parents","topLevel":"Top level","current":"current","submit":"Move here","noTargets":"No matching documents"},
     "workspace": {
       "share": "Share",
-      "tools": "Tools",
       "closePanel": "Close panel",
       "textStyle": "Text style",
       "actions": "Actions",
@@ -3701,6 +3700,7 @@
     "editors": "Editors",
     "editorsHelp": "One person per line, as above. Leave empty if there are none.",
     "presentations": {
+      "ribbon": {"label": "Ribbon", "quickAccess": "Quick Access Toolbar", "undo": "Undo", "redo": "Redo", "search": "Search", "searchLabel": "Search commands", "searchTip": "Search commands (Alt+Q or Shift twice)", "file": "File", "back": "Back to presentations", "exportPptx": "PowerPoint (.pptx)", "exportAs": "Export as", "tabs": {"home": "Home", "insert": "Insert", "design": "Design", "slideShow": "Slide Show", "review": "Review", "view": "View", "shapeFormat": "Shape Format"}, "tabTip": "Double-click to collapse the ribbon", "collapsedTabTip": "Double-click to pin the ribbon", "pin": "Pin the ribbon (Ctrl+F1)", "collapse": "Collapse the ribbon (Ctrl+F1)", "groups": {"clipboard": "Clipboard", "frames": "Frames", "font": "Font", "paragraph": "Paragraph", "drawing": "Drawing", "editing": "Editing", "panes": "Panes", "images": "Images", "illustrations": "Illustrations", "text": "Text", "media": "Media", "themes": "Themes", "customize": "Customize", "startShow": "Start Slide Show", "setUp": "Set Up", "export": "Export", "comments": "Comments", "versions": "Versions", "help": "Help", "show": "Show", "zoom": "Zoom", "insertShapes": "Insert Shapes", "shapeStyles": "Shape Styles", "format": "Format"}, "fonts": {"sans": "System font", "serif": "Serif", "mono": "Monospace", "arial": "Arial", "georgia": "Georgia", "aptos": "Aptos"}, "growFont": "Increase Font Size", "shrinkFont": "Decrease Font Size", "bold": "Bold", "italic": "Italic", "underline": "Underline", "wordArt": "Text Styles", "find": "Find", "newFrame": "New Frame", "icons": "Icons", "chart": "Chart", "textBox": "Text Box", "video": "Video or Audio", "mediaLibrary": "Media library", "themes": "Themes and templates", "background": "Background color", "align": "Align", "fitToWindow": "Fit to Window", "miniMap": "Minimap", "fromStart": "From Beginning", "fromStartTip": "Present from the first stop"},
       "rename": "Rename",
       "renameTitle": "Rename presentation",
       "renameLocked": "Someone is editing this presentation right now. Try again later.",
@@ -3989,8 +3989,7 @@
         "noTargets": "Add another object to create a connection.",
         "twoObjects": "Select exactly two independent objects to connect them.",
         "multiSelectHint": "Shift- or Ctrl/Cmd-click more objects (click again to remove them) to reveal alignment controls. Select three or more for equal spacing.",
-        "emptySelectionHint": "Click an object or drag a selection box on empty space. Shift- or Ctrl/Cmd-click adds or removes objects; clicking inside a frame selects the frame.",
-        "panels": "Editor panels"
+        "emptySelectionHint": "Click an object or drag a selection box on empty space. Shift- or Ctrl/Cmd-click adds or removes objects; clicking inside a frame selects the frame."
       },
       "format": {
         "copy": "Copy formatting",
