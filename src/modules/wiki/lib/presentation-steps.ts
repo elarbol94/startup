@@ -135,9 +135,13 @@ export function stepLabel(element: PresentationElement, index: number): string {
     element.type === "frame" ? element.content.label
       : element.type === "text" ? element.content.text
         : element.type === "image" ? element.content.alt
-          // A shape has no words of its own, so it is named by its position in the path.
-          : "";
-  const trimmed = raw.trim().replace(/\s+/g, " ");
+          : element.type === "shape" ? element.content.text ?? ""
+            : element.type === "icon" ? element.content.label ?? ""
+              : element.type === "chart" ? element.content.title
+                // Anything without words is named by its position in the path.
+                : "";
+  // "Gegenstands-" and "verleih" written across two lines read as one word again.
+  const trimmed = raw.replace(/-\s*\n\s*/g, "").trim().replace(/\s+/g, " ");
   return trimmed ? trimmed.slice(0, 60) : `${index + 1}`;
 }
 

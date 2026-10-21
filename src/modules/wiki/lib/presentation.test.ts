@@ -302,6 +302,14 @@ describe("presentation step labels", () => {
     expect(stepLabel(shape, 2)).toBe("3");
   });
 
+  it("names a shape by the text written in it", () => {
+    const shape: PresentationElement = {
+      id: "s", type: "shape", x: 0, y: 0, width: 200, height: 120, rotation: 0,
+      content: { shape: "roundedRect", fill: "", stroke: "", strokeWidth: 2, opacity: 1, text: "Gegenstands-\nverleih" },
+    };
+    expect(stepLabel(shape, 1)).toBe("Gegenstandsverleih");
+  });
+
   it("collapses whitespace in a text element's own content", () => {
     expect(stepLabel(text("a", "Zwei\n  Zeilen"), 0)).toBe("Zwei Zeilen");
   });
