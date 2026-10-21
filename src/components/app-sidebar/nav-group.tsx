@@ -3,14 +3,13 @@
 import type { ReactNode } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ChevronDown, GripVertical } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ModuleNavGroup } from "@/modules/registry";
 import { NavGroupLabel } from "./nav-items";
 
 /**
- * One sidebar group. Expanded, its heading has a grip to drag the group and a toggle to collapse it;
+ * One sidebar group. Expanded, its heading both collapses the group on click and drags it;
  * in the icon rail it is only a divider and always shows its icons.
  */
 export function SortableNavGroup({
@@ -30,7 +29,6 @@ export function SortableNavGroup({
   onToggle: () => void;
   children: ReactNode;
 }) {
-  const t = useTranslations("nav");
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: group });
   const labelId = `${navigationId}-group-${group}`;
   const contentId = `${navigationId}-group-${group}-items`;
@@ -47,25 +45,18 @@ export function SortableNavGroup({
       {compact ? (
         <NavGroupLabel id={labelId} label={label} compact />
       ) : (
-        <div className="flex shrink-0 items-center gap-0.5 pt-4 pb-1.5">
-          <button
-            type="button"
-            ref={setActivatorNodeRef}
-            aria-label={t("moveSection")}
-            title={t("moveSection")}
-            className="grid size-5 shrink-0 cursor-grab place-items-center rounded text-text-tertiary opacity-60 outline-none hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing"
-            {...attributes}
-            {...listeners}
-          >
-            <GripVertical className="size-3.5" />
-          </button>
+        <div className="flex shrink-0 items-center pt-4 pb-1.5">
+          {/* The heading is the drag handle as well as the toggle: a click collapses, a drag moves the group. */}
           <button
             type="button"
             id={labelId}
+            ref={setActivatorNodeRef}
             aria-expanded={!collapsed}
             aria-controls={contentId}
             onClick={onToggle}
-            className="flex min-w-0 flex-1 items-center gap-1 rounded px-1 py-0.5 text-left text-[10.5px] font-semibold tracking-[0.14em] text-text-tertiary uppercase outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+            className="flex min-w-0 flex-1 cursor-grab items-center gap-1 rounded px-1 py-0.5 text-left text-[10.5px] font-semibold tracking-[0.14em] text-text-tertiary uppercase outline-none hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring active:cursor-grabbing"
+            {...attributes}
+            {...listeners}
           >
             <span className="min-w-0 flex-1 truncate">{label}</span>
             <ChevronDown className={cn("size-3.5 shrink-0 transition-transform", collapsed && "-rotate-90")} aria-hidden />
