@@ -2,6 +2,7 @@
 // canvas. Re-exported by presentation.ts.
 import { presentationCameraBounds, unionBounds } from "./presentation-geometry";
 import type { PresentationElement, PresentationFrameElement } from "./presentation-model";
+import { remapConnection } from "./presentation-connectors";
 
 /**
  * Z-order is the order of the array: the last element of its band paints on top. Frames
@@ -20,7 +21,8 @@ export function reorderElement(
 }
 
 /** Offset so the copy is visibly its own element rather than hiding under the original. */
-export const PRESENTATION_DUPLICATE_OFFSET = 24;
+/** Where Ctrl+D puts a copy: 12 pt right and down, as in PowerPoint. */
+export const PRESENTATION_DUPLICATE_OFFSET = 12;
 
 export function duplicateElement(
   elements: PresentationElement[],
@@ -89,13 +91,38 @@ export function ungroupPresentationElements(elements: PresentationElement[], id:
   return elements.filter((element) => element.id !== id).map((element) => element.parentId === id ? { ...element, parentId: group.parentId } : element);
 }
 
-export function duplicatePresentationTree(elements: PresentationElement[], ids: Set<string>, idMap: Map<string, string>): PresentationElement[] {
+/**
+ * The offset for the next Ctrl+D. Duplicating the copies a previous duplicate made -- after the
+ * author moved them -- repeats that move, PowerPoint's "smart duplicate"; anything else gets
+ * the standard nudge.
+ */
+export function smartDuplicateOffset(
+  elements: PresentationElement[],
+  rootIds: string[],
+  last: { sources: string[]; copies: string[] } | null,
+): { x: number; y: number } {
+  const fallback = { x: PRESENTATION_DUPLICATE_OFFSET, y: PRESENTATION_DUPLICATE_OFFSET };
+  if (!last || last.copies.length !== rootIds.length || !rootIds.every((id, index) => last.copies[index] === id)) return fallback;
+  const source = elements.find((element) => element.id === last.sources[0]);
+  const copy = elements.find((element) => element.id === last.copies[0]);
+  if (!source || !copy) return fallback;
+  const offset = { x: copy.x - source.x, y: copy.y - source.y };
+  return offset.x || offset.y ? offset : fallback;
+}
+
+export function duplicatePresentationTree(
+  elements: PresentationElement[],
+  ids: Set<string>,
+  idMap: Map<string, string>,
+  offset = { x: PRESENTATION_DUPLICATE_OFFSET, y: PRESENTATION_DUPLICATE_OFFSET },
+): PresentationElement[] {
   const included = presentationDescendants(elements, ids);
   const copies = elements.filter((element) => included.has(element.id)).map((element) => ({
     ...element, id: idMap.get(element.id)!, locked: false,
     parentId: element.parentId ? idMap.get(element.parentId) ?? element.parentId : undefined,
-    x: element.x + PRESENTATION_DUPLICATE_OFFSET, y: element.y + PRESENTATION_DUPLICATE_OFFSET,
-    ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: { fromId: idMap.get(element.content.connection.fromId) ?? element.content.connection.fromId, toId: idMap.get(element.content.connection.toId) ?? element.content.connection.toId } } } : {}),
+    x: element.x + offset.x, y: element.y + offset.y,
+    // A copy stays glued to originals it was not copied with.
+    ...(element.type === "shape" && element.content.connection ? { content: { ...element.content, connection: remapConnection(element.content.connection, (id) => idMap.get(id) ?? id, offset) } } : {}),
   } as PresentationElement));
   return elements.length + copies.length <= 500 ? [...elements, ...copies] : elements;
 }

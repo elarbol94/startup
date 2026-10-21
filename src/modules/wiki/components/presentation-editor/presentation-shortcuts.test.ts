@@ -23,17 +23,14 @@ describe("tool keys", () => {
   const press = (eventKey: string, modifiers: Partial<KeyboardEvent> = {}) =>
     ({ key: eventKey, ctrlKey: false, metaKey: false, shiftKey: false, altKey: false, ...modifiers }) as unknown as KeyboardEvent;
 
-  it("uses German mnemonics: Text, Viereck, Ellipse, Linie, Rahmen", () => {
-    expect(["t", "v", "e", "l", "r"].map((letter) => toolShortcut(press(letter)))).toEqual(["addText", "addRect", "addEllipse", "addLine", "addFrame"]);
-    expect(toolShortcut(press("o"))).toBeUndefined();
-    expect(toolShortcut(press("f"))).toBeUndefined();
-    expect(toolShortcut(press("v", { ctrlKey: true }))).toBeUndefined();
-    expect([shapeToolKey("rect"), shapeToolKey("ellipse"), shapeToolKey("line")]).toEqual(["V", "E", "L"]);
+  it("has no single-letter tools, like PowerPoint", () => {
+    expect(["t", "v", "e", "l", "r"].map((letter) => toolShortcut(press(letter)))).toEqual([undefined, undefined, undefined, undefined, undefined]);
+    expect([shapeToolKey("rect"), shapeToolKey("ellipse"), shapeToolKey("line")]).toEqual([undefined, undefined, undefined]);
   });
 
   it("shows localised key names", () => {
     const de = presentationShortcutLabels(false, { ctrl: "Strg", delete: "Entf", enter: "Eingabe" });
-    expect(de).toMatchObject({ group: "Strg+G", deleteSelection: "Entf", editText: "Eingabe", addRect: "V", addFrame: "R" });
+    expect(de).toMatchObject({ group: "Strg+G", deleteSelection: "Entf", editText: "Eingabe" });
     const mac = presentationShortcutLabels(true, { ctrl: "Ctrl", delete: "Del", enter: "Enter" });
     expect(mac).toMatchObject({ group: "⌘+G", ungroup: "⌘+⇧+G", copyFormat: "⌘+⇧+C / ⌘+⌥+C" });
   });

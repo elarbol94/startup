@@ -159,7 +159,7 @@ describe("presentation duplication", () => {
 
   it("offsets the copy so it does not hide under the original", () => {
     const { element } = duplicateElement([original], "a", "copy");
-    expect(element).toMatchObject({ id: "copy", x: original.x + 24, y: original.y + 24 });
+    expect(element).toMatchObject({ id: "copy", x: original.x + 12, y: original.y + 12 });
   });
 
   it("appends the copy so it lands on top, and does not touch the original", () => {

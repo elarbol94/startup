@@ -15,6 +15,14 @@ async function properties(page: Page) {
   await tool(page, "Eigenschaften");
 
 }
+/** Clicks a pending insertion into place at a point of the seeded 900×500 frame, given in frame coordinates. */
+async function placeInFrame(page: Page, x: number, y: number) {
+  await expect(page.getByTestId("presentation-placement-preview")).toBeAttached();
+  const frame = (await page.locator('[data-testid="rf__node-frame"]').boundingBox())!, zoom = frame.width / 900;
+  const point = { x: frame.x + x * zoom, y: frame.y + y * zoom };
+  await page.mouse.move(point.x, point.y); await page.mouse.click(point.x, point.y);
+  await expect(page.getByTestId("presentation-placement-preview")).toHaveCount(0);
+}
 
 async function login(page: Page) {
   const credentials = { username: "admin", password: "super-secret-1" };
@@ -97,13 +105,14 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Diagramm hinzufügen" }).hover();
   await page.getByRole("menuitem", { name: "Balkendiagramm", exact: true }).click();
-  await placeAtCenter(page);
+  // Below the two texts: the viewport centre depends on the app chrome and may cover them.
+  await placeInFrame(page, 450, 360);
   await page.getByRole("textbox", { name: "Diagrammtitel" }).fill("Revenue");
   await page.getByRole("combobox", { name: "Diagrammtyp" }).selectOption("pie");
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
   await page.getByRole("menuitem", { name: "Symbol hinzufügen" }).hover();
   await page.getByRole("menuitem", { name: "Ziel", exact: true }).click();
-  await placeAtCenter(page);
+  await placeInFrame(page, 110, 330);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator("summary").filter({ hasText: /^Animation$/ }).click();
   await page.getByRole("button", { name: "Einblenden", exact: true }).click();
@@ -419,7 +428,8 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await properties(page);
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("48");
   await page.keyboard.press("Tab");
-  await a.click();
+  // Back to the canvas with a still selected; clicking the selected box again would edit its text.
+  await page.locator("[data-presentation-canvas]").focus();
   await page.keyboard.press("Control+Shift+C");
   await expect(page.getByText("Format kopiert.", { exact: true })).toBeVisible();
   await b.click();
@@ -427,7 +437,7 @@ test("format shortcuts copy appearance without replacing target text", async ({ 
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(48);
   expect((await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.text).toBe("Second idea");
-  await b.click();
+  await page.locator("[data-presentation-canvas]").focus();
   await page.keyboard.press("Control+z");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "b").content.fontSize, { timeout: 120_000 }).toBe(32);

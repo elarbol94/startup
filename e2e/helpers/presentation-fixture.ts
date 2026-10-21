@@ -44,3 +44,21 @@ export async function placeAtCenter(page: Page) {
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("presentation-placement-preview")).toHaveCount(0);
 }
+
+/**
+ * Draws a shape from PowerPoint's gallery the way an author does: open "Formen", pick the
+ * entry by its PowerPoint name, then click on the canvas (default size, top-left at the
+ * click) or drag from `at` to `to`.
+ */
+export async function drawShape(page: Page, label: string, at?: { x: number; y: number }, to?: { x: number; y: number }) {
+  await page.getByTestId("presentation-shapes-button").click();
+  await page.getByTestId("presentation-shape-gallery").getByRole("button", { name: label, exact: true }).first().click();
+  const layer = page.getByTestId("presentation-draw-layer");
+  await expect(layer).toBeVisible();
+  const box = (await layer.boundingBox())!;
+  const start = at ?? { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(start.x, start.y); await page.mouse.down();
+  if (to) await page.mouse.move(to.x, to.y, { steps: 8 });
+  await page.mouse.up();
+  await expect(layer).toHaveCount(0);
+}

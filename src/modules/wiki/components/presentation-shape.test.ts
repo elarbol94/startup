@@ -7,9 +7,10 @@ it("renders every shape through the shared export-safe SVG renderer", () => {
   for (const shape of presentationShapeKinds) {
     const element: Extract<PresentationElement, { type: "shape" }> = { id: shape, type: "shape", x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { shape, fill: "#ffffff", stroke: "#123456", strokeWidth: 3, opacity: 0.5, dash: "dash", headSize: 20 } };
     const html = renderToStaticMarkup(createElement(PresentationShape, { element }));
-    expect(html).toContain('<svg'); expect(html).toMatch(/<(rect|ellipse|polygon|line)/);
+    expect(html).toContain('<svg'); expect(html).toMatch(/<(rect|ellipse|polygon|line|path)/);
     expect(html).toContain('stroke="#123456"'); expect(html).toContain('stroke-dasharray="12 9"');
-    if (shape === "doubleArrow") expect(html.match(/<polygon/g)).toHaveLength(2);
-    if (shape === "roundedRect") expect(html).toContain('rx="20"');
+    // Both arrowheads are filled paths in the line colour.
+    if (shape === "doubleArrow") expect(html.match(/<path d="[^"]*Z" fill="#123456"/g)).toHaveLength(2);
+    if (shape === "roundedRect") expect(html).toContain("a20,20 0 0 1");
   }
 });

@@ -177,7 +177,7 @@ describe("presentation studio access and collaboration", () => {
       { id: "pie", type: "chart", x: 0, y: 200, width: 300, height: 200, rotation: 0, content: { kind: "pie", title: "Empty", data: [{ label: "Zero", value: 0 }, { label: "Negative", value: -10 }], color: "#6366f1" } },
     ];
     const html = renderPresentationHtml(source, (id) => `/media/${id}`, { previous: "Previous", next: "Next", overview: "Overview", play: "Play", pause: "Pause", fullscreen: "Fullscreen", noSteps: "Empty" }, "en");
-    expect(html).toContain('font-weight:700'); expect(html).toContain('• ');
+    expect(html).toContain('font-weight:700'); expect(html).toMatch(/>•<\/span>/);
     expect(html).not.toContain('<path'); expect(html).toContain('Negative');
   });
 });

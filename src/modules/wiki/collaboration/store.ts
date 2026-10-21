@@ -1,3 +1,4 @@
+import { presentationMedia } from "../lib/presentation-media";
 import * as Y from "yjs";
 import { and, eq, isNull } from "drizzle-orm";
 import { db, sqlite } from "@/db";
@@ -89,11 +90,11 @@ function project(kind: Kind, id: string, doc: Y.Doc, viewer: Viewer) {
   } else {
     const snapshot = presentationSnapshotSchema.parse(presentationJSON(doc));
     const current = db.select().from(wikiPresentations).where(eq(wikiPresentations.id, id)).get()!;
-    const previousMedia = new Set(parsePresentationCanvas(current.elementsJson).elements.flatMap(element => "attachmentId" in element.content ? [`${element.type}:${element.content.attachmentId}`] : []));
-    for (const element of snapshot.elements) {
-      if (!("attachmentId" in element.content) || previousMedia.has(`${element.type}:${element.content.attachmentId}`)) continue;
-      const attachment = getAttachment(element.content.attachmentId);
-      if (!attachment || !(attachment.entityType === "wikiPage" || attachment.entityType === "wikiPresentationLibrary" || attachment.entityType === "wikiPresentation" && attachment.entityId === id) || !attachment.mimeType.startsWith(`${element.type}/`)) throw new Error("Presentation media unavailable");
+    const previousMedia = new Set(presentationMedia(parsePresentationCanvas(current.elementsJson).elements).map(ref => `${ref.kind}:${ref.attachmentId}`));
+    for (const ref of presentationMedia(snapshot.elements)) {
+      if (previousMedia.has(`${ref.kind}:${ref.attachmentId}`)) continue;
+      const attachment = getAttachment(ref.attachmentId);
+      if (!attachment || !(attachment.entityType === "wikiPage" || attachment.entityType === "wikiPresentationLibrary" || attachment.entityType === "wikiPresentation" && attachment.entityId === id) || !attachment.mimeType.startsWith(`${ref.kind}/`)) throw new Error("Presentation media unavailable");
     }
     const recent = sqlite.prepare("SELECT 1 FROM wiki_presentation_revisions WHERE presentation_id = ? AND created_at > ? LIMIT 1").get(id, Date.now() - 60_000);
     if (!recent) db.insert(wikiPresentationRevisions).values({ presentationId: id, title: current.title, elementsJson: current.elementsJson, pathJson: current.pathJson, createdBy: viewer.id }).run();

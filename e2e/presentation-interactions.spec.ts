@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation as seed, placeAtCenter } from "./helpers/presentation-fixture";
+import { seedPresentation as seed, drawShape } from "./helpers/presentation-fixture";
 
 test.use({ viewport: { width: 1440, height: 1000 }, permissions: ["clipboard-read", "clipboard-write"] });
 test.setTimeout(180_000);
@@ -45,9 +45,7 @@ test("Ctrl-drag copies once, preserves originals, supports cancellation and undo
 
 test("shape choices, endpoint handles, adaptive grid, and clipboard round trip", async ({ page }) => {
   const id = await seed(page);
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await expect(page.getByRole("menuitem", { name: "Doppelpfeil", exact: true })).toBeVisible();
-  await page.getByRole("menuitem", { name: "Doppelpfeil", exact: true }).click(); await placeAtCenter(page); await expect(page.locator(".react-flow__node-shape")).toHaveCount(2);
+  await drawShape(page, "Linienpfeil: Doppelpfeil"); await expect(page.locator(".react-flow__node-shape")).toHaveCount(2);
   await node(page, "line").click(); await expect(page.getByRole("button", { name: "Startpunkt" })).toBeVisible();
   await expect(node(page, "line").locator(".react-flow__resize-control")).toHaveCount(0);
   const end = (await page.getByRole("button", { name: "Endpunkt" }).boundingBox())!;
@@ -66,8 +64,9 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
   await page.keyboard.down("Shift"); await page.mouse.move(b.x - 15, b.y - 15); await page.mouse.down(); await page.mouse.move(b.x + b.width + 15, b.y + b.height + 15, { steps: 10 }); await page.mouse.up(); await page.keyboard.up("Shift");
   await expect(selected(page)).toHaveCount(2);
   await node(page, "a").click(); await page.locator("[data-presentation-canvas]").focus();
+  // PowerPoint: Arrow moves 0.72 pt; Shift+Down shrinks the height by 10 % around the centre.
   await page.keyboard.press("ArrowRight"); await page.keyboard.press("Shift+ArrowDown");
-  await expect.poll(async () => (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a")).toMatchObject({ x: 101, y: 110 });
+  await expect.poll(async () => { const a = (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a"); return [Math.round(a.x * 100) / 100, Math.round(a.y * 100) / 100, a.height]; }).toEqual([100.72, 104.5, 81]);
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click(); await page.getByRole("menuitem", { name: "Sperren", exact: true }).click();
   await page.locator("[data-presentation-canvas]").focus(); await page.keyboard.press("Delete"); await expect(node(page, "a")).toBeVisible();
   await page.keyboard.press("Shift+F10"); await expect(page.getByRole("menuitem", { name: "Entsperren", exact: true })).toBeEnabled(); await page.getByRole("menuitem", { name: "Entsperren", exact: true }).click();
@@ -93,13 +92,13 @@ test("keyboard scope, additive marquee, locks, and panning keep selection predic
 test("new shapes sync to a second editor and render in print and offline HTML", async ({ page, context }) => {
   const id = await seed(page); const other = await context.newPage(); await other.goto(`/wiki/presentations/${id}`);
   await expect(other.getByRole("button", { name: "Text", exact: true })).toBeEnabled();
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover(); await page.getByRole("menuitem", { name: "Raute", exact: true }).click(); await placeAtCenter(page);
+  await drawShape(page, "Raute");
   await expect(other.locator(".react-flow__node-shape")).toHaveCount(2);
   await save(page);
   const print = await context.newPage(); await print.goto(`/print/presentations/${id}`);
-  await expect(print.locator("svg polygon").first()).toBeAttached();
+  await expect(print.locator(".react-flow__node-shape svg path, svg path").first()).toBeAttached();
   const offline = await page.request.get(`/api/wiki/presentations/${id}/offline`);
-  expect(offline.ok(), await offline.text()).toBe(true); expect(await offline.text()).toContain("<polygon");
+  expect(offline.ok(), await offline.text()).toBe(true); expect(await offline.text()).toMatch(/<path d="M/);
   await other.close(); await print.close();
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click();

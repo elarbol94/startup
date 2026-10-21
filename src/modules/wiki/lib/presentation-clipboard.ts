@@ -1,12 +1,12 @@
 import type { PresentationElement } from "./presentation";
 
-/** Canvas distance (x and y) between repeated pastes of the same content. */
-export const PRESENTATION_PASTE_OFFSET = 24;
+/** Canvas distance (x and y) between repeated pastes of the same content: PowerPoint's 12 pt. */
+export const PRESENTATION_PASTE_OFFSET = 12;
 
 /** Where the previous paste went, so the next paste of the same content lands beside it. */
 export type PresentationPasteRecord = { source: string; target: string; center: { x: number; y: number } };
 
-function contentCenter(elements: PresentationElement[]) {
+export function contentCenter(elements: PresentationElement[]) {
   const left = Math.min(...elements.map((e) => e.x)), top = Math.min(...elements.map((e) => e.y));
   const right = Math.max(...elements.map((e) => e.x + e.width)), bottom = Math.max(...elements.map((e) => e.y + e.height));
   return { x: (left + right) / 2, y: (top + bottom) / 2 };

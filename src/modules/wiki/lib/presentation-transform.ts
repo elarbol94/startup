@@ -4,6 +4,7 @@ import { equalSpacing } from "./presentation-smart-guides";
 import { normalizeRotation, presentationCameraBounds, unionBounds } from "./presentation-geometry";
 import { isPresentationElementLocked, presentationAncestors, presentationDescendants } from "./presentation-hierarchy";
 import type { PresentationBounds, PresentationElement } from "./presentation-model";
+import { snapBoxToGrid, type PresentationSnapOptions } from "./presentation-grid";
 
 /** Smallest box an element may be dragged or scaled down to, shared with the canvas resizer. */
 export const PRESENTATION_MIN_ELEMENT_SIZE = 40;
@@ -78,12 +79,19 @@ export function snapBounds(
   threshold: number,
   resizing = Math.abs(next.width - prev.width) > 0.01 || Math.abs(next.height - prev.height) > 0.01,
   previousGuides: SnapGuide[] = [],
+  /** View → Grid and Guides. Absent: element (smart) snapping only, as before it existed. */
+  snap?: PresentationSnapOptions,
 ): { bounds: PresentationBounds; guides: SnapGuide[] } {
   if (threshold <= 0) return { bounds: { ...next }, guides: [] };
+  // The grid goes first and always lands; guides and other elements may then pull further.
+  if (snap?.grid) next = snapBoxToGrid(prev, next, snap.grid, resizing);
+  if (snap?.smart === false) targets = [];
+  // A drawing guide is a zero-size target: all three of its "lines" are the guide itself.
+  const lines = (axis: "x" | "y") => (snap?.guides?.[axis] ?? []).map(start => ({ start, size: 0 }));
   const horizontal = snapAxis(
     { start: prev.x, size: prev.width },
     { start: next.x, size: next.width },
-    targets.map((target) => ({ start: target.x, size: target.width })),
+    [...targets.map((target) => ({ start: target.x, size: target.width })), ...lines("x")],
     threshold,
     resizing,
     previousGuides.find(g => !g.kind && g.axis === "x")?.position,
@@ -91,7 +99,7 @@ export function snapBounds(
   const vertical = snapAxis(
     { start: prev.y, size: prev.height },
     { start: next.y, size: next.height },
-    targets.map((target) => ({ start: target.y, size: target.height })),
+    [...targets.map((target) => ({ start: target.y, size: target.height })), ...lines("y")],
     threshold,
     resizing,
     previousGuides.find(g => !g.kind && g.axis === "y")?.position,
@@ -117,7 +125,7 @@ export function snapBounds(
       end: Math.max(bounds.x + bounds.width, ...matched.map((target) => target.x + target.width)),
     });
   }
-  if (!resizing) {
+  if (!resizing && snap?.smart !== false) {
     const spacing = equalSpacing(next, targets, threshold);
     for (const axis of ["x", "y"] as const) {
       const distanceGuides = spacing.guides.filter(g => g.axis === (axis === "x" ? "y" : "x"));
@@ -161,6 +169,8 @@ export function applyGeometryChanges(
   tolerance: number,
   previousGuides: SnapGuide[] = [],
   geometryEpsilon = GEOMETRY_EPSILON,
+  /** Grid, drawing guides and the smart-guide switch; a zero `tolerance` still turns all of it off. */
+  snap?: PresentationSnapOptions,
 ): { elements: PresentationElement[]; guides: SnapGuide[] } {
   const requested = new Set(changes.map((change) => change.id));
   const byId = new Map(changes.filter((change) => !isPresentationElementLocked(elements, change.id)
@@ -187,7 +197,7 @@ export function applyGeometryChanges(
     || Math.abs(after.width - before.width) > 0.01 || Math.abs(after.height - before.height) > 0.01);
   const visibleBefore = resizing ? before : unionBounds(elements.filter(e => moving.has(e.id)).map(presentationCameraBounds))!;
   const visibleAfter = resizing ? after : unionBounds(elements.filter(e => moving.has(e.id)).map(e => presentationCameraBounds({ ...e, ...moving.get(e.id)! })))!;
-  const snapped = snapBounds(visibleBefore, visibleAfter, targets, tolerance, resizing, previousGuides);
+  const snapped = snapBounds(visibleBefore, visibleAfter, targets, tolerance, resizing, previousGuides, snap);
   // Only a resize changes the box's size, and a canvas resizes one element at a time, so
   // the snapped union *is* that element's box. A move shifts every mover by the same amount.
   const dx = snapped.bounds.x - visibleAfter.x;
@@ -206,6 +216,12 @@ export function applyGeometryChanges(
       && Math.abs(target.height - element.height) < geometryEpsilon
     ) return element;
     touched = true;
+    // A connector's free ends are canvas points: moving the line carries them along.
+    const connection = element.type === "shape" ? element.content.connection : undefined;
+    if (element.type === "shape" && connection && (connection.from || connection.to)) {
+      const dx = target.x - element.x, dy = target.y - element.y, move = (p?: { x: number; y: number }) => p && { x: p.x + dx, y: p.y + dy };
+      return { ...element, x: target.x, y: target.y, width: target.width, height: target.height, content: { ...element.content, connection: { ...connection, from: move(connection.from), to: move(connection.to) } } };
+    }
     return { ...element, x: target.x, y: target.y, width: target.width, height: target.height };
   });
   if (!touched) return { elements, guides: snapped.guides };

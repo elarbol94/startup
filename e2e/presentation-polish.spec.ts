@@ -113,7 +113,7 @@ test("reloading does not show my previous load as a collaborator", async ({ page
   await expect(status.getByText("E2E Admin")).toHaveCount(0);
 });
 
-test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arrow", async ({ page }) => {
+test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+]/[", async ({ page }) => {
   const id = await seedPresentation(page);
   await node(page, "a").click(); await canvas(page).focus();
   await page.keyboard.press("Control+Shift+C");
@@ -129,17 +129,17 @@ test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+Arro
   await expect(page.locator(".react-flow__node")).toHaveCount(count);
   const order = async () => (await saved(page, id)).elements.map((e: { id: string }) => e.id) as string[];
   await node(page, "a").click(); await canvas(page).focus();
-  await page.keyboard.press("Control+Shift+ArrowUp");
+  await page.keyboard.press("Control+Shift+BracketRight");
   let ids = await order(); expect(ids.indexOf("a")).toBeGreaterThan(ids.indexOf("line"));
   const before = (await saved(page, id)).elements.find((e: { id: string }) => e.id === "a");
-  await page.keyboard.press("Control+Shift+ArrowDown");
+  await page.keyboard.press("Control+Shift+BracketLeft");
   ids = await order(); expect(ids.indexOf("a")).toBeLessThan(ids.indexOf("b"));
   const after = (await saved(page, id)).elements.find((e: { id: string }) => e.id === "a");
   expect({ x: after.x, y: after.y }).toEqual({ x: before.x, y: before.y });
   await node(page, "a").click({ button: "right" });
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: /Format kopieren/ })).toContainText("Strg+Alt+C");
-  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+↑");
+  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+]");
 });
 
 test("file pickers are styled and labelled in German", async ({ page }) => {
@@ -156,29 +156,15 @@ test("file pickers are styled and labelled in German", async ({ page }) => {
   await expect(input).toHaveClass(/sr-only/);
 });
 
-test("T, V, E, L and R (German mnemonics) start placement but not while editing text", async ({ page }) => {
+test("like PowerPoint there are no letter tools: letters type into the selected box, nothing is placed", async ({ page }) => {
   const id = await seedPresentation(page);
   await canvas(page).focus();
-  for (const key of ["t", "e", "l", "r"]) {
-    await page.keyboard.press(key); await expect(preview(page)).toBeAttached();
-    await page.keyboard.press("Escape"); await expect(preview(page)).toHaveCount(0);
-  }
-  await page.keyboard.press("v"); await expect(preview(page)).toBeAttached();
-  await page.keyboard.press("Enter"); await expect(preview(page)).toHaveCount(0);
-  await expect.poll(async () => (await saved(page, id)).elements.filter((e: { type: string; content: { shape?: string } }) => e.type === "shape" && e.content.shape === "rect").length).toBe(1);
-  await expect(page.getByRole("button", { name: "Text", exact: true })).toHaveAttribute("title", "Text (T)");
-  await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await expect(page.getByRole("menuitem", { name: /Rechteck/ }).first()).toContainText("V");
-  await page.keyboard.press("Escape"); await page.keyboard.press("Escape");
-  // Letters typed right after Enter go into the text, not to the tools.
+  for (const key of ["t", "v", "e", "l", "r"]) { await page.keyboard.press(key); await expect(preview(page)).toHaveCount(0); }
+  await expect(page.getByRole("button", { name: "Text", exact: true })).not.toHaveAttribute("title", /\(T\)/);
+  // A selected box takes the letters at the end of its text.
   await node(page, "b").click(); await canvas(page).focus();
-  await page.keyboard.press("Enter"); await page.keyboard.type("tvelr");
+  await page.keyboard.type("tvelr");
   await expect(preview(page)).toHaveCount(0);
-  await expect(node(page, "b")).toContainText("tvelr");
   await page.keyboard.press("Escape");
-  await page.getByRole("button", { name: "Auswahlaktionen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Tastenkürzel" }).click();
-  const help = page.getByRole("dialog");
-  for (const [label, key] of [["Rechteck", "V"], ["Ellipse", "E"], ["Linie", "L"], ["Rahmen", "R"], ["Text", "T"]]) await expect(help.locator("div.justify-between").filter({ has: page.locator("span").getByText(label, { exact: true }) }).locator("kbd")).toHaveText(key);
+  await expect.poll(async () => (await saved(page, id)).elements.find((e: { id: string }) => e.id === "b").content.text).toBe("Second ideatvelr");
 });

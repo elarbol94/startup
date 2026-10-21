@@ -1,3 +1,4 @@
+import { mapElementMedia } from "@/modules/wiki/lib/presentation-media";
 import { getSession } from "@/lib/auth";
 import { limitedRequest } from "@/lib/request-body";
 import { db } from "@/db";
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       media.set(item.key, attachment.id);
     }
     const { snapshot } = imported;
-    snapshot.elements = snapshot.elements.map((element) => element.type === "image" ? { ...element, content: { ...element.content, attachmentId: media.get(element.content.attachmentId)! } } : element);
+    snapshot.elements = snapshot.elements.map((element) => mapElementMedia(element, (key) => media.get(key) ?? key));
     db.insert(wikiPresentations).values({ id, title: snapshot.title, elementsJson: JSON.stringify({ elements: snapshot.elements, background: snapshot.background, settings: snapshot.settings }), pathJson: JSON.stringify(snapshot.steps), createdBy: session.user.id, updatedBy: session.user.id }).run();
     revalidatePath("/wiki/presentations");
     return Response.json({ id, warnings: imported.warnings });

@@ -9,15 +9,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import type { useCollaborationContext } from "../../collaboration/ui";
 import { isLinearShape } from "../../lib/presentation-interactions";
 import { presentationTextFits } from "../../lib/presentation-layout";
-import { presentationFrameShapes, presentationShapeKinds, type PresentationElement } from "../../lib/presentation";
+import { presentationFrameShapes, type PresentationElement } from "../../lib/presentation";
 import { PresentationRichText } from "../presentation-rich-text";
 import { DraftInput, DraftTextarea } from "./draft-fields";
+import { PresentationShapeTextInspector } from "./presentation-shape-text-inspector";
+import { isTextHost } from "../../lib/presentation-text-host";
 import { parseNumberInput } from "./presentation-editor-utils";
 
 export function PresentationAppearanceInspector({
   selected, disabled, selectedLocked, collaboration, updateElement, reorderSelected, duplicateSelection, deleteSelection,
-  onRichTextChange, onTextChange, colorField, colorSwatches, interact,
+  onRichTextChange, onTextChange, colorField, colorSwatches, interact, onRouteChange,
 }: {
+  onRouteChange: (id: string, route: "straight" | "elbow" | "curve") => void;
   selected: PresentationElement;
   disabled: boolean;
   selectedLocked: boolean;
@@ -203,55 +206,11 @@ export function PresentationAppearanceInspector({
 
       {selected.type === "shape" && <div className="mt-3 space-y-2">
         {selected.content.shape === "roundedRect" && <label className="block text-xs">{interact("cornerRadius")}<DraftInput type="number" min={0} max={1000} value={String(selected.content.cornerRadius ?? 20)} normalise={raw => String(Math.max(0, Math.min(1000, Number(raw) || 0)))} onCommit={value => updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, cornerRadius: Number(value) } } : e)} /></label>}
-        <label className="block text-xs">{interact("dashPattern")}<select className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={selected.content.dash ?? "solid"} onChange={event => { const dash = event.target.value as "solid" | "dash" | "dot"; updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, dash } } : e); }}>{["solid", "dash", "dot"].map(value => <option key={value} value={value}>{interact(value)}</option>)}</select></label>
-        {isLinearShape(selected) && <>{(["startHead", "endHead"] as const).map(field => <label key={field} className="block text-xs">{interact(field)}<select className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={selected.content[field] ?? (field === "startHead" ? selected.content.shape === "doubleArrow" ? "triangle" : "none" : selected.content.shape === "line" ? "none" : "triangle")} onChange={event => { const value = event.target.value as "none" | "triangle" | "open"; updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, [field]: value } } : e); }}>{["none", "triangle", "open"].map(value => <option key={value} value={value}>{interact(value)}</option>)}</select></label>)}<label className="block text-xs">{interact("headSize")}<DraftInput type="number" min={1} max={1000} value={String(selected.content.headSize ?? Math.max(10, selected.content.strokeWidth * 3))} normalise={raw => String(Math.max(1, Math.min(1000, Number(raw) || 1)))} onCommit={value => updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, headSize: Number(value) } } : e)} /></label></>}
+        {isLinearShape(selected) && <label className="block text-xs">{interact("route")}<select data-testid="presentation-line-route" className="mt-1 h-9 w-full rounded-md border bg-background px-2" value={selected.content.route ?? "straight"} onChange={event => onRouteChange(selected.id, event.target.value as "straight" | "elbow" | "curve")}>{(["straight", "elbow", "curve"] as const).map(route => <option key={route} value={route}>{interact(`route${route[0].toUpperCase()}${route.slice(1)}`)}</option>)}</select></label>}
       </div>}
       {selected.type === "shape" && (
         <div className="mt-3 space-y-3">
-          <div className="flex flex-wrap gap-1.5">
-            {presentationShapeKinds.filter(shape => !selected.content.connection || shape === "arrow" || shape === "doubleArrow" || shape === "line").map((shape) => (
-              <Button
-                key={shape}
-                type="button"
-                variant={selected.content.shape === shape ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  updateElement(selected.id, (element) =>
-                    element.type === "shape" ? { ...element, content: { ...element.content, shape } } : element,
-                  )
-                }
-              >
-                {t(`presentations.shapeKinds.${shape}`)}
-              </Button>
-            ))}
-          </div>
-          {!isLinearShape(selected) && colorField(t("presentations.fill"), selected.content.fill, (fill) =>
-            updateElement(selected.id, (element) =>
-              element.type === "shape" ? { ...element, content: { ...element.content, fill } } : element,
-            ),
-          )}
-          {colorField(t("presentations.stroke"), selected.content.stroke, (stroke) =>
-            updateElement(selected.id, (element) =>
-              element.type === "shape" ? { ...element, content: { ...element.content, stroke } } : element,
-            ),
-          )}
-          <label className="block text-xs text-muted-foreground">
-            {t("presentations.strokeWidth")}
-            <DraftInput
-              type="number"
-              min={0}
-              max={200}
-              className="mt-1 h-8"
-              key={`${selected.id}-stroke-width`}
-              value={String(selected.content.strokeWidth)}
-              normalise={(raw) => String(parseNumberInput(raw, 0, 200) ?? selected.content.strokeWidth)}
-              onCommit={(next) =>
-                updateElement(selected.id, (element) =>
-                  element.type === "shape" ? { ...element, content: { ...element.content, strokeWidth: Number(next) } } : element,
-                )
-              }
-            />
-          </label>
+          {/* Fill, line and effects are in the Format Shape pane below; Change Shape is on the format ribbon. */}
           <label className="block text-xs text-muted-foreground">
             {t("presentations.opacity")}
             <input
@@ -269,6 +228,7 @@ export function PresentationAppearanceInspector({
               }}
             />
           </label>
+          {isTextHost(selected) && <PresentationShapeTextInspector selected={selected} updateElement={updateElement} colorSwatches={colorSwatches} />}
         </div>
       )}
       </fieldset>

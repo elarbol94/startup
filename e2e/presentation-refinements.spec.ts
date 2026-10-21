@@ -28,8 +28,7 @@ test("insertion follows the cursor, commits only on click, and cancels with Esca
   await canvas(page).focus(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
   await page.keyboard.press("Control+z"); await expect(page.locator(".react-flow__node")).toHaveCount(4);
   await page.getByRole("button", { name: "Einfügen", exact: true }).click();
-  await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-  await page.getByRole("menuitem", { name: "Raute", exact: true }).click();
+  await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
   await expect(canvas(page)).toBeFocused(); await page.keyboard.press("Escape"); await expect(preview).toHaveCount(0);
 });
 
@@ -99,14 +98,17 @@ test("font and sentence edits grow text boxes, preserve formatting, and sync the
   const id = await seed(page); const other = await context.newPage(); await other.goto(`/wiki/presentations/${id}`); await expect(node(other, "a")).toBeVisible();
   await node(page, "a").click(); await page.getByRole("button", { name: "Werkzeuge", exact: true }).click(); await page.getByRole("menuitem", { name: "Eigenschaften", exact: true }).click();
   await page.getByRole("spinbutton", { name: "Schriftgröße", exact: true }).fill("128"); await page.keyboard.press("Tab");
-  const enlarged = (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a");
-  expect(enlarged.width).toBeGreaterThan(260); expect(enlarged.height).toBeGreaterThan(140); expect(enlarged.content.runs[0].bold).toBe(true);
+  // Like PowerPoint, a larger font keeps the chosen box width and grows the box downwards.
+  const element = async () => (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a");
+  await expect.poll(async () => (await element()).height).toBeGreaterThan(140);
+  const enlarged = await element();
+  expect(enlarged.width).toBe(260); expect(enlarged.content.fontSize).toBe(128); expect(enlarged.content.runs[0].bold).toBe(true);
   await page.getByRole("button", { name: "Seitenbereich schließen" }).click(); await node(page, "a").dblclick();
   const editor = node(page, "a").locator(".ProseMirror"); await expect(editor).toBeFocused();
   const sentence = "This longer sentence should wrap naturally and keep every word visible as the text box grows.";
   await editor.fill(sentence); await page.keyboard.press("Escape");
   const grown = (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "a");
-  expect(grown.height).toBeGreaterThan(enlarged.height); expect(grown.width).toBeLessThanOrEqual(720);
+  expect(grown.height).toBeGreaterThan(enlarged.height); expect(grown.width).toBe(260);
   await expect(node(other, "a")).toContainText(sentence);
   await expect.poll(() => node(other, "a").evaluate(el => Number.parseFloat((el as HTMLElement).style.height))).toBe(grown.height);
   await page.reload(); await expect(node(page, "a")).toContainText(sentence); await other.close();

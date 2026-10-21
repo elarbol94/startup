@@ -7,8 +7,8 @@ import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { EditorCommandSearch, type EditorSearchCommand } from "./editor-command-search";
 import { PresentationActionMenu, PresentationShortcutHelp } from "./presentation-action-menu";
+import { downloadPresentationPptx } from "./presentation-pptx-download";
 import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection, reorderSelection } from "../lib/presentation-interactions";
-import { PresentationShape } from "./presentation-shape";
 import { presentationIconNames, type PresentationShapeKind } from "../lib/presentation";
 
 import "@xyflow/react/dist/style.css";
@@ -25,10 +25,10 @@ import { CollaborationContext, CollaborationStatus, useCollaboration, useCollabo
 import { presentationJSON, decode, REMOTE } from "../collaboration/codec";
 import type { PresentationFormat } from "../lib/presentation-format";
 import { arrangePresentation, layoutRoots, presentationAlignments } from "../lib/presentation-layout";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
+import { Background, BackgroundVariant, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { Copy, FileDown, History, ImagePlus, Loader2, Lock, Maximize2, PanelRight, PanelLeft, MoreHorizontal, Share2, Play, Redo2, RotateCw, Save, Search, Settings, Shapes, Square, Trash2, TriangleAlert, Type, Undo2 } from "lucide-react";
@@ -42,6 +42,15 @@ import { restorePresentationRevision } from "../presentation-actions";
 import type { PresentationRecord, PresentationRevisionItem } from "../presentation-queries";
 import { PRESENTATION_CAMERA_PADDING, PRESENTATION_SNAP_TOLERANCE, presentationDescendants, presentationAncestors, isPresentationElementLocked, applyGeometryChanges, normalizeRotation, initialPresentationCanvasState, presentationCanvasReducer, presentationCameraBounds, moveStep, presentationShapeKinds, rotateElements, scaleElements, unionBounds, type PresentationCanvasState, type PresentationElement, type PresentationGeometryChange, type PresentationSettings, type PresentationStep, type SnapGuide } from "../lib/presentation";
 import { elementsToNodes, presentationNodeTypes, type PresentationNode } from "./presentation-canvas";
+import { usePresentationShapeEdits } from "./presentation-editor/use-presentation-shape-edits";
+import { PresentationShapeGallery } from "./presentation-editor/presentation-shape-gallery";
+import { PresentationDrawOverlay, type DrawGlue } from "./presentation-editor/presentation-draw-overlay";
+import type { PresetGalleryEntry } from "../lib/preset-shapes/preset-gallery";
+import { setLineEnd } from "../lib/presentation-connectors";
+import { ROTATE_STEP, formatTextHosts, keyboardResize, nudge, type ArrowKey } from "../lib/presentation-keyboard-edits";
+import { rotateElementsIndividually, textFormatKey } from "./presentation-editor/presentation-shortcuts";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { nextFrameBounds } from "../lib/presentation-frame-rail";
 import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
 import { PresentationSelectionTools } from "./presentation-selection-tools";
@@ -52,7 +61,7 @@ import { DraftInput } from "./presentation-editor/draft-fields";
 import { SnapGuides } from "./presentation-editor/canvas-decorations";
 import { PresentationMiniMap, PresentationMiniMapToggle } from "./presentation-editor/presentation-minimap";
 import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
-import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, shapeToolKey, toolShortcut, withToolKey } from "./presentation-editor/presentation-shortcuts";
+import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, toolShortcut, withToolKey } from "./presentation-editor/presentation-shortcuts";
 import { SelectionOverlay } from "./presentation-editor/selection-overlay";
 import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
 import { PresentationAppearanceInspector } from "./presentation-editor/presentation-appearance-inspector";
@@ -72,10 +81,26 @@ import { usePresentationClipboard } from "./presentation-editor/use-presentation
 import { usePresentationClickSelection } from "./presentation-editor/use-presentation-click-selection";
 import { usePlacementFocus } from "./presentation-editor/use-placement-focus";
 import { isControlKey, isModifierShortcut, presentationKeyScope } from "./presentation-editor/presentation-keyboard-scope";
-import { applySelectChanges } from "../lib/presentation-selection";
+import { isTextHost, textHostContent, withHostText } from "../lib/presentation-text-host";
+import { applySelectChanges, dragTargetId, parentSelection, selectionPath, selectionTargetId } from "../lib/presentation-selection";
+import { usePresentationFormatting } from "./presentation-editor/use-presentation-formatting";
+import { usePresentationViewSettings } from "./presentation-editor/use-presentation-view-settings";
+import { FormatRibbon } from "./presentation-editor/format-pane/format-ribbon";
+import { FormatShapePane } from "./presentation-editor/format-pane/format-shape-pane";
+import { CanvasGuides } from "./presentation-editor/canvas-guides";
+import { CanvasRulers } from "./presentation-editor/canvas-rulers";
+import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
+import { EditPointsOverlay, type EditPointsLabels } from "./presentation-editor/edit-points-overlay";
+import { formatCentimetres, gridDisplayGap } from "../lib/presentation-grid";
+import { applyDefaults } from "../lib/presentation-shape-defaults";
 
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
+/** Whether this viewer last left the frame rail open -- a per-browser convenience only. */
+const RAIL_KEY = "presentation-frame-rail-open";
+const subscribeRail = () => () => {};
+// Only where the rail docks beside the canvas: on small screens it is a drawer over it.
+const getRailOpen = () => { try { return window.localStorage.getItem(RAIL_KEY) === "1" && window.matchMedia("(min-width: 1280px)").matches; } catch { return false; } };
 const CAMERA_DURATION = 700;
 
 async function requestEditLease(id: string, sessionId: string, action: "acquire" | "takeover" | "heartbeat" | "release"): Promise<{ editable?: boolean; holderName?: string }> {
@@ -112,6 +137,12 @@ function Editor({
   const [shortcutHelp, setShortcutHelp] = useState(false);
   const [miniMapVisible, setMiniMapVisible] = useState(false);
   const [insertPicker, setInsertPicker] = useState<"shape" | "chart" | "icon" | null>(null);
+  /** PowerPoint's Shapes gallery, and the drawing tool armed from it. */
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [drawTool, setDrawTool] = useState<PresetGalleryEntry | null>(null);
+  /** Lock Drawing Mode: the armed tool stays armed after each object until Escape. */
+  const [drawLock, setDrawLock] = useState(false);
+  const [gridDialog, setGridDialog] = useState(false);
   const isMac = useSyncExternalStore(subscribePlatform, getMacPlatform, () => false);
   const placementClick = useRef(false);
   const [pendingElement, setPendingElement] = useState<PresentationElement | null>(null);
@@ -127,6 +158,13 @@ function Editor({
     return () => { window.removeEventListener("keydown", key); window.removeEventListener("keyup", key); };
   }, []);
   useEffect(() => () => dragCancel.current?.(), []);
+  // An Escape-cancelled gesture ignores the rest of that gesture; any new press, wherever it
+  // lands (an overlay handle included), starts a fresh one.
+  useEffect(() => {
+    const press = () => { cancelledGesture.current = false; };
+    window.addEventListener("pointerdown", press, true);
+    return () => window.removeEventListener("pointerdown", press, true);
+  }, []);
   const commandRoot = useRef<HTMLDivElement>(null);
   const { commandsOpen, setCommandsOpen, openCommands, restoreCommandFocus } = usePresentationCommandPalette(commandRoot);
 
@@ -139,7 +177,16 @@ function Editor({
   const leaseReady = !canEdit || !!collaboration?.ready;
   const [conflict] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "design" | "assets" | "comments" | null>(null);
-  const [pathOpen, setPathOpen] = useState(false);
+  // The frame rail stays open for authors who keep it open, like PowerPoint's slide pane:
+  // the last choice in this browser is the starting state.
+  const railRemembered = useSyncExternalStore(subscribeRail, getRailOpen, () => false);
+  const [pathChoice, setPathChoice] = useState<boolean | null>(null);
+  const pathOpen = pathChoice ?? railRemembered;
+  const setPathOpen = useCallback((next: boolean | ((open: boolean) => boolean)) => {
+    const open = typeof next === "function" ? next(pathOpen) : next;
+    setPathChoice(open);
+    try { window.localStorage.setItem(RAIL_KEY, open ? "1" : "0"); } catch { /* storage unavailable: the choice lasts for this visit */ }
+  }, [pathOpen]);
   const [workspaceDialog, setWorkspaceDialog] = useState<"sharing" | "history" | "playback" | null>(null);
   const mediaInputRef = useRef<HTMLInputElement>(null);
   const [restoring, setRestoring] = useState<string | null>(null);
@@ -192,7 +239,10 @@ function Editor({
   // The property panel edits exactly one element; two or more are handled as a group.
   const selected = selection.length === 1 ? selection[0] : null;
   const selectedLocked = Boolean(selected && isPresentationElementLocked(elements, selected.id));
-  const selectionBounds = useMemo(() => unionBounds(selection.map(presentationCameraBounds)), [selection]);
+  // A single object's handles sit on its own (rotated) box; several share the box around them all.
+  const selectionBounds = useMemo(() => selection.length === 1
+    ? { x: selection[0].x, y: selection[0].y, width: selection[0].width, height: selection[0].height }
+    : unionBounds(selection.map(presentationCameraBounds)), [selection]);
   const rotationReferences = useMemo(() => {
     const moving = presentationDescendants(elements, selectedSet);
     return elements.filter(element => !moving.has(element.id)).map(element => element.rotation);
@@ -251,25 +301,39 @@ function Editor({
 
   const { startGesture, endGesture } = usePresentationGestureBoundaries(dispatch);
 
-  const onEndpointChange = useCallback((next: PresentationElement) => {
-    dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => current.map(e => e.id === next.id && !isPresentationElementLocked(current, e.id) ? { ...e, x: next.x, y: next.y, width: next.width, rotation: next.rotation } : e) });
-  }, [dispatch]);
-  const onRichTextChange = useCallback((id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => updateElement(id, element => element.type === "text" ? { ...element, content } : element), [updateElement]);
+  const { onLineEndDrop, onRouteChange, onAdjust } = usePresentationShapeEdits(dispatch);
+  const locale = useLocale();
+  const view = usePresentationViewSettings({ settings, update: updateSettings, elements, createId: () => createId(), viewportCenter: () => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    return rect ? reactFlow.screenToFlowPosition({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }) : { x: 0, y: 0 };
+  } });
+  const snapOptions = view.snapOptions;
+  const onRichTextChange = useCallback((id: string, content: Extract<PresentationElement, { type: "text" }>["content"]) => updateElement(id, element => element.type === "text" ? { ...element, content } : withHostText(element, content)), [updateElement]);
   const onResizeChange = useCallback((next: PresentationElement, free: boolean) => {
-    dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true });
-  }, [dispatch, reactFlow]);
+    dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true, snap: free ? undefined : snapOptions() });
+  }, [dispatch, reactFlow, snapOptions]);
   const collaboratorPresence = collaboration?.people;
   const { dropTargetId, trackDrag, clearPlacement, reveal, openedWithElements } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
   const textEditing = usePresentationTextEditing();
-  const clickSelection = usePresentationClickSelection({ elements, reactFlow, setSelectedIds, isMac });
+  // The text being edited can disappear under the editor (delete, undo, a collaborator). Edit
+  // mode ends with it, so restoring an element with the same id never reopens it mid-edit.
+  if (textEditing.editingId && !elements.some((element) => element.id === textEditing.editingId)) textEditing.stopEditing();
+  const formatting = usePresentationFormatting({ elements, selection, selectedIds, settings, dispatch, updateSettings, setSelectedIds, disabled, editingId: textEditing.editingId,
+    onEditorReady: textEditing.onEditorReady, startGesture, endGesture, presentationId: presentation.id, t });
+  const onTextEditorReady = formatting.onTextEditorReady;
+  const editOnClick = useCallback((id: string, point: { x: number; y: number }) => {
+    const element = elements.find((element) => element.id === id);
+    if (!disabled && isTextHost(element) && !isPresentationElementLocked(elements, id)) textEditing.startEditing(id, point, textHostContent(element).text);
+  }, [elements, disabled, textEditing]);
+  const clickSelection = usePresentationClickSelection({ elements, reactFlow, selectedIds, setSelectedIds, isMac, onClickSelected: editOnClick });
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...elements, ...dragPreview] : elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
-      onRichTextChange, onEndpointChange, onResizeChange, editingId: textEditing.editingId, onEditingChange: textEditing.onEditingChange, onTextEditorReady: textEditing.onEditorReady,
+      onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady,
       onGestureStart: startGesture, onGestureEnd: endGesture, dropTargetId }).map(node => {
       const collaborators = collaboratorPresence?.filter(person => person.selectedIds?.includes(node.id)) ?? [];
       return collaborators.length ? { ...node, style: { ...node.style, outline: `2px solid ${userIdentityColor(collaborators[0].userId)}`, outlineOffset: 3 }, ariaLabel: collaborators.map(person => person.name).join(", ") } : node;
     }),
-    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onEndpointChange, onResizeChange, dropTargetId, textEditing.editingId, textEditing.onEditingChange, textEditing.onEditorReady],
+    [elements, dragPreview, selectedSet, onTextChange, disabled, startGesture, endGesture, collaboratorPresence, onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, dropTargetId, textEditing.editingId, textEditing.deferredId, textEditing.onEditingChange, onTextEditorReady],
   );
 
   /**
@@ -290,11 +354,14 @@ function Editor({
       let gesture = false;
       for (const change of changes) {
         if (change.type === "position" && change.position) {
+          // A press on a group member moves the nearest selected level around it: the whole
+          // group, or the member itself once the author has drilled into the group.
           const element = elements.find((element) => element.id === change.id);
-          const group = presentationAncestors(elements, change.id).findLast((element) => element.type === "frame" && element.content.isGroup);
-          if (group && element) geometry.set(group.id, { id: group.id, x: group.x + change.position.x - element.x, y: group.y + change.position.y - element.y });
+          const targetId = dragTargetId(elements, change.id, selectedSet);
+          const target = elements.find((element) => element.id === targetId);
+          if (targetId !== change.id && target && element) geometry.set(targetId, { id: targetId, x: target.x + change.position.x - element.x, y: target.y + change.position.y - element.y });
           else geometry.set(change.id, { ...geometry.get(change.id), id: change.id, x: change.position.x, y: change.position.y });
-          moved.add(group?.id ?? change.id);
+          moved.add(targetId);
           if (change.dragging) gesture = true;
         } else if (change.type === "dimensions" && change.dimensions && (change.resizing || change.setAttributes)) {
           // React Flow also reports the dimensions it measured on mount; the reducer drops
@@ -324,10 +391,11 @@ function Editor({
         // The snap has to feel the same at any zoom, so the screen tolerance is converted.
         tolerance: axisDrag.current?.shift ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(),
         gesture, membership: ended && moved.size ? selectionRoots(elements, moved).map((element) => element.id) : undefined, // drop joins/leaves frames in the same undo step
+        snap: snapOptions(),
       });
       if (ended) endGesture();
     },
-    [reactFlow, disabled, elements, endGesture, dispatch, clickSelection],
+    [reactFlow, disabled, elements, endGesture, dispatch, clickSelection, selectedSet, snapOptions],
   );
 
   const rotateSelection = useCallback(
@@ -337,9 +405,20 @@ function Editor({
     [commitElements, selectedSet],
   );
 
+  /** The selection as a scale gesture started: every factor is applied to this, not to the last move. */
+  const scaleBase = useRef<PresentationElement[] | null>(null);
+  const startScale = useCallback(() => { scaleBase.current = bridge.current().elements; }, [bridge]);
   const scaleSelection = useCallback(
     (scaleX: number, scaleY: number, origin: { x: number; y: number }) => {
-      commitElements((current) => scaleElements(current, selectedSet, origin, scaleX, scaleY));
+      const base = scaleBase.current;
+      if (!base) return;
+      const scaled = new Map(scaleElements(base, selectedSet, origin, scaleX, scaleY).map((element) => [element.id, element]));
+      const moving = presentationDescendants(base, selectedSet);
+      // Only the selection takes its geometry from the snapshot; everything else stays live.
+      commitElements((current) => current.map((element) => {
+        const next = moving.has(element.id) ? scaled.get(element.id) : undefined;
+        return next ? { ...element, x: next.x, y: next.y, width: next.width, height: next.height } : element;
+      }));
     },
     [commitElements, selectedSet],
   );
@@ -535,10 +614,39 @@ function Editor({
             onAsset={(attachmentId, alt) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "image", x, y, width: 360, height: 240, rotation: 0, content: { attachmentId, alt } }); }}
             onIcon={(name) => { const { x, y } = viewportCenter(); addElement({ id: createId(), type: "icon", x, y, width: 100, height: 100, rotation: 0, content: { name, color: "#6366f1" } }); }} />
 );
+  const scene = useMemo(() => ({ title, elements, steps, background, settings }), [title, elements, steps, background, settings]);
+  /** The rail's "New frame": the next frame beside the last one on the path, like a new slide. */
+  const addFrameAtEnd = () => {
+    if (disabled || elements.length >= 500) return;
+    const frame: PresentationElement = { id: createId(), type: "frame", ...nextFrameBounds(elements, steps), rotation: 0, content: { label: "", shape: "rect", color: "" } };
+    dispatch(frameInsertionEdit([frame], current => [...current, frame], t));
+    setSelectedIds([frame.id]);
+    flyTo(frame);
+  };
+  /** What a gallery tool drew: inserted like any new object, glued where it was drawn, selected. */
+  const createDrawn = (drawn: PresentationElement, glue: DrawGlue) => {
+    if (!drawLock) setDrawTool(null);
+    canvasRef.current?.focus();
+    if (disabled || elements.length >= 500) return;
+    // New objects start in the presentation's default format (Set as Default Shape / Line / Text Box).
+    const element = applyDefaults(drawn, settings.defaults);
+    dispatch(frameInsertionEdit([element], current => {
+      const byId = new Map(current.map(e => [e.id, e]));
+      let next = element;
+      for (const [end, target] of [[0, glue.from], [1, glue.to]] as const) {
+        const glued = target && byId.get(target.elementId);
+        if (next.type === "shape" && glued) next = setLineEnd(next, end, { element: glued, site: target.site }, byId);
+      }
+      return [...current, next];
+    }, t));
+    setSelectedIds([element.id]);
+    if (element.type === "text" && !drawLock) textEditing.startEditing(element.id);
+  };
   const pathPanel = (<PresentationPathPanel presentation={presentation} steps={steps} elements={elements} selected={selected}
     activeStep={activeStep} activeStepId={activeStepId} setActiveStepId={setActiveStepId} setSelectedIds={setSelectedIds} flyTo={flyTo}
     commitSteps={commitSteps} addStep={addStep} disabled={disabled} readOnly={readOnly} sensors={sensors} onStepDragEnd={onStepDragEnd}
-    settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch} />);
+    settings={settings} updateStepDuration={updateStepDuration} updateStepNotes={updateStepNotes} collaboration={collaboration} dispatch={dispatch}
+    scene={scene} onNewFrame={addFrameAtEnd} />);
   const openHistory = useCallback(async () => {
     if (await flush()) { router.refresh(); setWorkspaceDialog("history"); }
   }, [flush, router]);
@@ -548,7 +656,7 @@ function Editor({
   const baseCommands: EditorSearchCommand[] = [
     { id: "addText", label: t("presentations.addText"), execute: addText, disabledReason: insertReason, group: commandText },
     { id: "addFrame", label: t("presentations.addFrame"), execute: addFrame, disabledReason: insertReason, group: commandText },
-    { id: "addShape", label: t("presentations.addShape"), execute: () => setInsertPicker("shape"), disabledReason: insertReason, group: commandText },
+    { id: "addShape", label: t("presentations.addShape"), execute: () => setGalleryOpen(true), disabledReason: insertReason, group: commandText },
     ...presentationShapeToolCommands({ addShape, label: shape => t(`presentations.shapeKinds.${shape}`), disabledReason: insertReason, group: commandText }),
     { id: "addChart", label: studio("addChart"), execute: () => setInsertPicker("chart"), disabledReason: insertReason, group: commandText },
     { id: "addIcon", label: studio("addIcon"), execute: () => setInsertPicker("icon"), disabledReason: insertReason, group: commandText },
@@ -589,7 +697,7 @@ function Editor({
     { id: "selectAll", label: interact("selectAll"), execute: () => setSelectedIds(selectionRoots(elements, elements.map(e => e.id)).map(e => e.id)), group: commandText, disabledReason: (elements.length > 0) ? undefined : unavailable },
     { id: "group", label: interact("group"), execute: groupSelection, group: commandText, disabledReason: (canMutate && selectedRoots.length >= 2 && elements.length < 500) ? undefined : unavailable },
     { id: "ungroup", label: interact("ungroup"), execute: ungroupSelection, group: commandText, disabledReason: (canMutate && selectedRoots.some(e => e.type === "frame" && e.content.isGroup)) ? undefined : unavailable },
-    { id: "editText", label: interact("editText"), execute: editText, group: commandText, disabledReason: (canMutate && selected?.type === "text") ? undefined : unavailable },
+    { id: "editText", label: interact("editText"), execute: editText, group: commandText, disabledReason: (canMutate && isTextHost(selected)) ? undefined : unavailable },
     { id: "copyFormat", label: interact("copyFormat"), execute: copyObjectFormat, group: commandText, disabledReason: (selection.length === 1) ? undefined : unavailable },
     { id: "pasteFormat", label: interact("pasteFormat"), execute: pasteObjectFormat, group: commandText, disabledReason: (canMutate && Boolean(formatClipboard) && selection.some(e => e.type === formatClipboard?.type)) ? undefined : unavailable },
     { id: "lock", label: interact("lock"), execute: () => setSelectionLocked(true), group: commandText, disabledReason: (canMutate) ? undefined : unavailable },
@@ -599,19 +707,34 @@ function Editor({
     { id: "connect", label: interact("connect"), execute: connectSelection, group: commandText, disabledReason: (!arrangementDisabled && selectedRoots.length === 2 && elements.length < 500) ? undefined : unavailable },
     { id: "detach", label: interact("detach"), execute: () => { if (selected?.type === "shape") updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, connection: undefined } } : e); }, group: commandText, disabledReason: (canMutate && selected?.type === "shape" && Boolean(selected.content.connection)) ? undefined : unavailable },
     { id: "shortcutHelp", label: interact("shortcutHelp"), execute: () => setShortcutHelp(true), group: commandText },
+    { id: "formatShape", label: t(formatting.shapes.length ? "presentations.formatPane.title" : "presentations.formatPane.titleText"), execute: () => { formatting.openPane(formatting.shapes.length ? "shape" : "text"); setActivePanel("properties"); }, group: commandText, disabledReason: (formatting.shapes.length || formatting.texts.length) ? undefined : unavailable },
+    { id: "setDefault", label: t(`presentations.formatPane.defaults.${selected?.type === "text" ? "textBox" : selected?.type === "shape" && isLinearShape(selected) ? "line" : "shape"}`), execute: formatting.setAsDefault, group: commandText, disabledReason: formatting.canSetDefault ? undefined : unavailable },
+    { id: "editPoints", label: t("presentations.formatPane.editShape.editPoints"), execute: formatting.startEditPoints, group: commandText, disabledReason: formatting.canEditPoints ? undefined : unavailable },
+    ...(["union", "combine", "fragment", "intersect", "subtract"] as const).map(op => ({ id: `merge-${op}`, label: `${t("presentations.formatPane.merge.title")}: ${t(`presentations.formatPane.merge.${op}`)}`, execute: () => formatting.mergeSelection(op), group: commandText, disabledReason: formatting.canMerge ? undefined : unavailable })),
+    { id: "toggleRuler", label: t("presentations.gridGuides.ruler"), execute: view.toggleRuler, group: commandText },
+    { id: "toggleGrid", label: t("presentations.gridGuides.gridlines"), execute: view.toggleGrid, group: commandText },
+    { id: "toggleGuides", label: t("presentations.gridGuides.guides"), execute: view.toggleGuides, group: commandText },
+    { id: "gridGuides", label: t("presentations.gridGuides.title"), execute: () => setGridDialog(true), group: commandText },
   ];
 
   const showMenuCommand = (id: string) => Boolean(selection.length ?
-    ["copy", "cut", "paste", "duplicateSelection", "deleteSelection", "properties", "copyFormat", "pasteFormat", "front", "back", "forward", "backward", "shortcutHelp"].includes(id)
+    ["copy", "cut", "paste", "duplicateSelection", "deleteSelection", "properties", "copyFormat", "pasteFormat", "front", "back", "forward", "backward", "shortcutHelp", "formatShape", "setDefault"].includes(id)
+      || (id === "editPoints" && formatting.canEditPoints)
       || (id === "group" && selectedRoots.length >= 2) || (id === "ungroup" && selectedRoots.some(e => e.type === "frame" && e.content.isGroup))
-      || (id === "editText" && selected?.type === "text") || (id === "lock" && selection.some(e => !e.locked)) || (id === "unlock" && selection.some(e => e.locked))
+      || (id === "editText" && isTextHost(selected)) || (id === "lock" && selection.some(e => !e.locked)) || (id === "unlock" && selection.some(e => e.locked))
       || (id.startsWith("align-") && selectedRoots.length >= 2) || (id === "connect" && !arrangementDisabled && selectedRoots.length === 2)
       || (id === "detach" && selected?.type === "shape" && selected.content.connection)
-    : ["addText", "addFrame", "addShape", "addChart", "addIcon", "addImage", "paste", "selectAll", "overview", "shortcutHelp"].includes(id));
+    : ["addText", "addFrame", "addShape", "addChart", "addIcon", "addImage", "paste", "selectAll", "overview", "toggleRuler", "toggleGrid", "toggleGuides", "gridGuides", "shortcutHelp"].includes(id));
   const handleKeyboard = useEffectEvent((event: KeyboardEvent) => {
+    // An armed drawing tool owns the keyboard (Escape cancels it, Enter finishes a freeform).
+    if (drawTool) return;
     const scope = presentationKeyScope(event, commandRoot.current);
     if (!scope) return;
+    if (formatting.picking && event.key === "Escape") { event.preventDefault(); formatting.finishPick(null); return; }
+    // Edit Points owns Escape, Delete and the arrows while it is on.
+    if (formatting.editPointsElement) return;
     const { target, typing } = scope;
+    if (!typing && view.onKeyDown(event)) return;
     const mod = isModifierShortcut(event), key = event.key.toLowerCase();
     // Only plain Mod+S saves: Mod+Shift+S stays strikethrough in the text editor.
     if (mod && key === "s" && !event.shiftKey && !event.altKey) { event.preventDefault(); executeCommand("save"); return; }
@@ -622,22 +745,39 @@ function Editor({
     if (scope.onControl && isControlKey(event)) return;
     let id: string | undefined;
     // Mod+Shift+A/D stay the app-wide "Neue Aufgabe"/"Neue Deadline".
-    if (mod) id = formatShortcut(event) ?? ({ a: event.shiftKey ? "" : "selectAll", c: event.shiftKey ? "" : "copy", x: "cut", v: event.shiftKey ? "" : "paste", d: event.shiftKey ? "" : "duplicateSelection", g: event.shiftKey ? "ungroup" : "group", z: event.shiftKey ? "redo" : "undo", y: "redo", "]": event.shiftKey ? "front" : "forward", "[": event.shiftKey ? "back" : "backward", "}": "front", "{": "back", arrowup: event.shiftKey ? "front" : "", arrowdown: event.shiftKey ? "back" : "" } as Record<string, string>)[key];
+    // PowerPoint's text keys on a selected box or shape format all of its text.
+    const textFormat = mod && !event.altKey ? textFormatKey(event) : undefined;
+    if (textFormat) { event.preventDefault(); event.stopPropagation(); if (canMutate && selectedRoots.length) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => formatTextHosts(current, new Set(selectedRoots.map(e => e.id)), textFormat) }); return; }
+    if (mod) id = formatShortcut(event) ?? ({ a: event.shiftKey ? "" : "selectAll", c: event.shiftKey ? "" : "copy", x: "cut", v: event.shiftKey ? "" : "paste", d: event.shiftKey ? "" : "duplicateSelection", g: event.shiftKey ? "ungroup" : "group", z: event.shiftKey ? "redo" : "undo", y: "redo", "}": "front", "{": "back" } as Record<string, string>)[key];
     else if (key === "delete" || key === "backspace") id = "deleteSelection";
     else if (key === "enter") id = "editText";
+    else if (key === "f2") {
+      // F2 toggles text editing, entering with all text selected.
+      event.preventDefault(); if (canMutate && isTextHost(selected) && !selectedLocked) textEditing.startEditing(selected.id); return;
+    }
+    else if (!pendingElement && canMutate && isTextHost(selected) && !selectedLocked && event.key.length === 1 && !event.altKey && key !== " ") {
+      // Typing on a selected text box or shape adds to its text, like PowerPoint: edit mode
+      // opens with the caret at the end and this key is buffered for the editor.
+      textEditing.startEditing(selected.id, "end", textHostContent(selected).text); textEditing.captureKey(event); return;
+    }
     else if (!pendingElement) id = toolShortcut(event);
     if (id === "copy" || id === "cut" || id === "paste") return; // handled in the clipboard events these keys fire
     if (id) { event.preventDefault(); event.stopPropagation(); if (!event.repeat) executeCommand(id); return; }
     if (event.shiftKey && event.key === "F10") { event.preventDefault(); const box = canvasRef.current?.getBoundingClientRect(); if (box) setContextPosition({ x: box.left + box.width / 2, y: box.top + box.height / 2 }); return; }
-    if (key === "escape") { if (dragCancel.current) dragCancel.current(); else if (bridge.cancelGesture()) { cancelledGesture.current = true; window.dispatchEvent(new Event("presentation-cancel-gesture")); } else { setContextPosition(null); setSelectedIds([]); commandRoot.current?.focus(); } return; }
+    if (key === "escape") { if (dragCancel.current) dragCancel.current(); else if (bridge.cancelGesture()) { cancelledGesture.current = true; window.dispatchEvent(new Event("presentation-cancel-gesture")); } else { setContextPosition(null); setSelectedIds(current => parentSelection(elements, current)); commandRoot.current?.focus(); } return; }
     if (key === "tab" && canvasRef.current?.contains(target)) {
       const roots = elements.filter(e => !presentationAncestors(elements, e.id).some(parent => parent.type === "frame" && parent.content.isGroup)); if (!roots.length) return;
       event.preventDefault(); const current = roots.findIndex(e => selectedIds.includes(e.id));
       setSelectedIds([roots[(current + (event.shiftKey ? -1 : 1) + roots.length) % roots.length].id]); return;
     }
     if (["arrowup", "arrowdown", "arrowleft", "arrowright"].includes(key) && canMutate) {
-      event.preventDefault(); event.stopPropagation(); const step = event.shiftKey ? 10 : 1;
-      const nudged = selectedRoots.filter(e => !(e.type === "shape" && e.content.connection)); dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, membership: nudged.map(e => e.id), changes: nudged.map(e => ({ id: e.id, x: e.x + (key === "arrowright" ? step : key === "arrowleft" ? -step : 0), y: e.y + (key === "arrowdown" ? step : key === "arrowup" ? -step : 0) })) });
+      event.preventDefault(); event.stopPropagation();
+      const arrow = key as ArrowKey, targets = selectedRoots.filter(e => !(e.type === "shape" && e.content.connection));
+      if (!targets.length) return;
+      // PowerPoint: Alt+Left/Right turns by 15°, Shift(+Ctrl)+Arrow resizes by 10 % (1 %), Arrow moves.
+      if (event.altKey) { if (arrow === "arrowleft" || arrow === "arrowright") commitElements(current => rotateElementsIndividually(current, targets.map(e => e.id), arrow === "arrowright" ? ROTATE_STEP : -ROTATE_STEP)); return; }
+      const changes = event.shiftKey ? keyboardResize(targets, arrow, mod) : nudge(targets, arrow);
+      dispatch({ type: "geometry", at: Date.now(), tolerance: 0, gesture: false, membership: targets.map(e => e.id), changes });
     }
   });
   useEffect(() => { const key = (event: KeyboardEvent) => handleKeyboard(event); window.addEventListener("keydown", key, true); return () => window.removeEventListener("keydown", key, true); }, []);
@@ -678,6 +818,7 @@ function Editor({
           <Button size="sm" variant="ghost" aria-label={t("workspace.share")} onClick={() => setWorkspaceDialog("sharing")}><Share2 className="size-4" /><span className="hidden sm:inline">{t("workspace.share")}</span></Button>
           <DropdownMenu><DropdownMenuTrigger render={<Button size="icon-sm" variant="ghost" aria-label={t("workspace.actions")} />}><MoreHorizontal className="size-4" /></DropdownMenuTrigger><DropdownMenuContent align="end">
             <DropdownMenuItem disabled={!steps.length || restoring !== null || uploading} onClick={() => flushThen(printHref, true)}><FileDown />{t("presentations.exportPdf")}</DropdownMenuItem>
+            <DropdownMenuItem disabled={restoring !== null || uploading} onClick={() => void downloadPresentationPptx(presentation.id, flush, { saveFailed: t("presentations.leaveSaveFailed"), failed: t("presentations.exportPptxFailed"), placeholders: t("presentations.exportPptxPlaceholders") })}><FileDown />{t("presentations.exportPptx")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => executeCommand("history")}><History />{t("presentations.history")}</DropdownMenuItem>
             <DropdownMenuItem onClick={() => setWorkspaceDialog("playback")}><Settings />{t("presentations.playbackSettings")}</DropdownMenuItem>
             <DropdownMenuSeparator />
@@ -710,6 +851,12 @@ function Editor({
         <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} />
         <span className="mx-1 h-5 w-px bg-border/60" />
         <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} title={withToolKey(t("presentations.addText"), "addText", shortcutLabels)} onClick={addText}><Type className="size-3.5" />{t("presentations.addText")}</Button>
+        <Popover open={galleryOpen} onOpenChange={setGalleryOpen}>
+          <PopoverTrigger render={<Button type="button" variant={drawTool ? "secondary" : "ghost"} size="sm" disabled={disabled || elements.length >= 500} data-testid="presentation-shapes-button" />}>
+            <Shapes className="size-3.5" />{t("presentations.shapeGallery.title")}
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-auto"><PresentationShapeGallery allowLock onPick={(entry, options) => { setGalleryOpen(false); setPendingElement(null); setDrawLock(Boolean(options?.lock)); setDrawTool(entry); canvasRef.current?.focus(); }} /></PopoverContent>
+        </Popover>
         <Button type="button" variant="ghost" size="sm" disabled={uploading || disabled || elements.length >= 500} onClick={() => imageInputRef.current?.click()}>
           {uploading ? <Loader2 className="size-3.5 animate-spin" /> : <ImagePlus className="size-3.5" />}
           {t("presentations.addImage")}
@@ -717,9 +864,7 @@ function Editor({
         <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} title={withToolKey(t("presentations.addFrame"), "addFrame", shortcutLabels)} onClick={addFrame}><Square className="size-3.5" />{t("presentations.addFrame")}</Button>
         <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={disabled || uploading || elements.length >= 500} />}>{t("editor.toolbar.insert")}</DropdownMenuTrigger><DropdownMenuContent finalFocus={placementFocus}>
           <DropdownMenuItem onClick={addFrame}><Square />{t("presentations.addFrame")}<DropdownMenuShortcut aria-hidden>{shortcutLabels.addFrame}</DropdownMenuShortcut></DropdownMenuItem>
-          <DropdownMenuSub><DropdownMenuSubTrigger><Shapes />{t("presentations.addShape")}</DropdownMenuSubTrigger><DropdownMenuSubContent>
-            {presentationShapeKinds.map(shape => <DropdownMenuItem key={shape} onClick={() => addShape(shape)}><span className="h-5 w-8"><PresentationShape element={{ id: "preview", type: "shape", x: 0, y: 0, width: 80, height: 40, rotation: 0, content: { shape, fill: "", stroke: "", strokeWidth: 3, opacity: 1 } }} /></span>{t(`presentations.shapeKinds.${shape}`)}{shapeToolKey(shape) && <DropdownMenuShortcut aria-hidden>{shapeToolKey(shape)}</DropdownMenuShortcut>}</DropdownMenuItem>)}
-          </DropdownMenuSubContent></DropdownMenuSub>
+          <DropdownMenuItem onClick={() => setGalleryOpen(true)}><Shapes />{t("presentations.addShape")}</DropdownMenuItem>
           <DropdownMenuSub><DropdownMenuSubTrigger>{studio("addChart")}</DropdownMenuSubTrigger><DropdownMenuSubContent>{["bar", "line", "pie"].map(kind => <DropdownMenuItem key={kind} onClick={() => addStudioElement("chart", kind)}>{interact(kind)}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
           <DropdownMenuSub><DropdownMenuSubTrigger>{studio("addIcon")}</DropdownMenuSubTrigger><DropdownMenuSubContent>{presentationIconNames.map(name => <DropdownMenuItem key={name} onClick={() => addStudioElement("icon", name)}>{interact(`icons.${name}`)}</DropdownMenuItem>)}</DropdownMenuSubContent></DropdownMenuSub>
           <DropdownMenuItem onClick={() => mediaInputRef.current?.click()}>{studio("uploadMedia")}</DropdownMenuItem>
@@ -728,6 +873,13 @@ function Editor({
           {presentationAlignments.map(mode => <DropdownMenuItem key={mode} disabled={arrangementRoots.length < ((mode === "horizontal" || mode === "vertical") ? 3 : 2)} onClick={() => executeCommand(`align-${mode}`)}>{t(`presentations.layout.${mode}`)}</DropdownMenuItem>)}
           <DropdownMenuSeparator />
           <DropdownMenuItem disabled={arrangementRoots.length !== 2 || elements.length >= 500} onClick={connectSelection}>{t("presentations.layout.connect")}</DropdownMenuItem>
+        </DropdownMenuContent></DropdownMenu>
+        <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" data-testid="presentation-view-menu" />}>{t("presentations.gridGuides.menu")}</DropdownMenuTrigger><DropdownMenuContent>
+          <DropdownMenuItem data-testid="view-ruler" onClick={view.toggleRuler}>{settings.ruler ? "✓ " : ""}{t("presentations.gridGuides.ruler")}</DropdownMenuItem>
+          <DropdownMenuItem data-testid="view-gridlines" onClick={view.toggleGrid}>{settings.grid.show ? "✓ " : ""}{t("presentations.gridGuides.gridlines")}<DropdownMenuShortcut aria-hidden>{tShortcuts("shift")}+F9</DropdownMenuShortcut></DropdownMenuItem>
+          <DropdownMenuItem data-testid="view-guides" onClick={view.toggleGuides}>{settings.guides.show ? "✓ " : ""}{t("presentations.gridGuides.guides")}<DropdownMenuShortcut aria-hidden>{tShortcuts("alt")}+F9</DropdownMenuShortcut></DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem data-testid="view-grid-settings" onClick={() => setGridDialog(true)}>{t("presentations.gridGuides.title")}…</DropdownMenuItem>
         </DropdownMenuContent></DropdownMenu>
         <input ref={mediaInputRef} aria-label={studio("uploadMedia")} hidden type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file); event.target.value = ""; }} />
         <input
@@ -770,6 +922,11 @@ function Editor({
         </DropdownMenuContent></DropdownMenu>
       </div>
 
+      {/* The row is always there, so selecting an object never moves the canvas under the pointer. */}
+      {!disabled && <div className="h-10 shrink-0 border-b border-border/60 bg-background">{(formatting.shapes.length > 0 || formatting.texts.length > 0) && <FormatRibbon shapes={formatting.shapes} texts={formatting.texts} format={formatting.format}
+        updateShapes={formatting.updateShapes} updateTexts={formatting.updateTexts} onChangeShape={formatting.changeShape} onMerge={formatting.mergeSelection} canMerge={formatting.canMerge}
+        onEditPoints={formatting.canEditPoints ? formatting.startEditPoints : undefined} onEyedropper={formatting.requestColor} disabled={disabled}
+        onOpenPane={(group) => { formatting.openPane(group); setActivePanel("properties"); if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false); }} />}</div>}
       {conflict && (
         <div role="alert" className="flex flex-wrap items-center gap-2 border-b bg-destructive/10 px-3 py-2 text-sm">
           <TriangleAlert className="size-4 shrink-0" />
@@ -791,13 +948,15 @@ function Editor({
 
       <div className="flex min-h-0 flex-1">
         <WorkspacePanel title={t("presentations.path")} open={pathOpen} onClose={() => setPathOpen(false)} side="left" narrow className="h-full max-h-full overflow-y-auto"><fieldset disabled={disabled} className="min-w-0">{pathPanel}</fieldset></WorkspacePanel>
-        <div ref={canvasRef} data-presentation-canvas tabIndex={0} onPointerMove={event => { if (pendingElement && !disabled) { const point = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); setPendingElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }); } }} onPointerDownCapture={event => { if (pendingElement && !disabled && event.button === 0 && !(event.target as HTMLElement).closest("button, .react-flow__minimap, .react-flow__controls")) { event.preventDefault(); event.stopPropagation(); placementClick.current = true; placePending(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })); return; } cancelledGesture.current = false; clickSelection.onPointerDown(event); const target = event.target as HTMLElement; marqueeBase.current = event.shiftKey && target.classList.contains("react-flow__pane") ? selectedIds : []; duplicateDrag(event); }} className="relative min-h-40 min-w-0 flex-1 bg-muted/30 outline-none"
+        <div ref={canvasRef} data-presentation-canvas tabIndex={0} onPointerMove={event => { if (pendingElement && !disabled) { const point = reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }); setPendingElement({ ...pendingElement, x: point.x - pendingElement.width / 2, y: point.y - pendingElement.height / 2 }); } }} onPointerDownCapture={event => { if (formatting.picking) { event.preventDefault(); event.stopPropagation(); formatting.pickAt(event.clientX, event.clientY); return; } if ((event.target as HTMLElement).closest("[data-presentation-overlay]")) return; if (pendingElement && !disabled && event.button === 0 && !(event.target as HTMLElement).closest("button, .react-flow__minimap, .react-flow__controls")) { event.preventDefault(); event.stopPropagation(); placementClick.current = true; placePending(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY })); return; } cancelledGesture.current = false; clickSelection.onPointerDown(event); const target = event.target as HTMLElement; marqueeBase.current = event.shiftKey && target.classList.contains("react-flow__pane") ? selectedIds : []; clickSelection.pressGroupMember(event); duplicateDrag(event); }} className={`relative min-h-40 min-w-0 flex-1 bg-muted/30 outline-none ${formatting.picking ? "cursor-crosshair [&_*]:!cursor-crosshair" : ""}`}
           onClickCapture={event => {
             if (placementClick.current) { placementClick.current = false; event.preventDefault(); event.stopPropagation(); return; }
             clickSelection.onClickCapture(event);
           }}
-          onDoubleClick={event => { if (!pendingElement && !disabled && elements.length < 500) textEditing.onCanvasDoubleClick(event, () => addTextAt(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))); }}
-          onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const group = presentationAncestors(elements, node.dataset.id).findLast(e => e.type === "frame" && e.content.isGroup); const id = group?.id ?? node.dataset.id; if (!selectedIds.includes(id)) setSelectedIds([id]); } else clickSelection.onPaneContextMenu(event); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
+          onDoubleClick={event => { const editedNode = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node")?.dataset.id; if (editedNode && editedNode === textEditing.editingId) { textEditing.onEditingDoubleClick(editedNode); return; } if (!pendingElement && !disabled && elements.length < 500) textEditing.onCanvasDoubleClick(event, () => addTextAt(reactFlow.screenToFlowPosition({ x: event.clientX, y: event.clientY }))); }}
+          onContextMenu={event => { if ((event.target as HTMLElement).closest("input, textarea, [contenteditable=true]")) return; event.preventDefault(); const node = (event.target as HTMLElement).closest<HTMLElement>(".react-flow__node"); if (node?.dataset.id) { const id = node.dataset.id; if (!selectionPath(elements, id).some(level => selectedIds.includes(level))) setSelectedIds([selectionTargetId(elements, id, selectedIds)]); } else clickSelection.onPaneContextMenu(event); setContextPosition({ x: event.clientX, y: event.clientY }); }}>
+          {drawTool && !disabled && <PresentationDrawOverlay tool={drawTool} reactFlow={reactFlow} lookup={(id) => elements.find((element) => element.id === id)}
+            onCreate={createDrawn} onCancel={() => { setDrawTool(null); setDrawLock(false); canvasRef.current?.focus(); }} label={t(`presentations.shapeGallery.shapes.${drawTool.id}`)} />}
           {contextPosition && <PresentationActionMenu shortcutLabels={shortcutLabels} commands={commands} showCommand={showMenuCommand} label={interact("actions")} position={contextPosition} onClose={() => { setContextPosition(null); canvasRef.current?.focus(); }} />}
           <div className="absolute right-3 bottom-3 z-10 flex rounded-lg border bg-background shadow-sm">{elements.length > 0 && <PresentationMiniMapToggle visible={miniMapVisible} onToggle={() => setMiniMapVisible(value => !value)} showLabel={interact("minimapShow")} hideLabel={interact("minimapHide")} />}        <Button type="button" variant="ghost" size="sm" onClick={() => void reactFlow.fitView({ padding: 0.15, duration: CAMERA_DURATION })}>
           <Maximize2 className="size-3.5" />{t("presentations.overview")}
@@ -811,6 +970,7 @@ function Editor({
             onNodeDoubleClick={(_event, node) => {
               setSelectedIds([node.id]);
               if (node.type === "text") return;
+              if (!disabled && isTextHost(node.data.element) && !isPresentationElementLocked(elements, node.id)) { textEditing.startEditing(node.id); return; }
               setActivePanel("properties");
               if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false);
             }}
@@ -844,27 +1004,39 @@ function Editor({
             onPaneClick={event => { endGesture(); clickSelection.onPaneClick(event); }}
             proOptions={{ hideAttribution: false }}
           >
-            <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />
+            {settings.grid.show
+              ? <Background id="presentation-grid" variant={BackgroundVariant.Dots} gap={gridDisplayGap(settings.grid.spacing, canvasZoom)} size={1.5 / canvasZoom} color="#94a3b8" />
+              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />}
             <Controls position="bottom-left" showInteractive={false} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
             <SnapGuides guides={dragPreview ? previewGuides : guides} />
+            {settings.guides.show && <CanvasGuides guides={settings.guides.list} onChange={view.setGuides} createId={() => createId()} elements={elements} rulers={settings.ruler} disabled={disabled}
+              format={cm => formatCentimetres(cm, locale)} labels={{ guide: t("presentations.gridGuides.guide"), addVertical: t("presentations.gridGuides.addVertical"), addHorizontal: t("presentations.gridGuides.addHorizontal"), delete: t("presentations.gridGuides.delete") }} />}
+            {formatting.editPointsElement && !disabled && <EditPointsOverlay element={formatting.editPointsElement} labels={t.raw("presentations.editPoints") as EditPointsLabels}
+              onChange={formatting.replaceElement} onCommitStart={startGesture} onCommitEnd={endGesture} onExit={formatting.stopEditPoints} />}
             {pendingElement && !disabled && <ViewportPortal><div data-testid="presentation-placement-preview" className="pointer-events-none absolute border border-dashed border-indigo-500 opacity-60" style={{ left: pendingElement.x, top: pendingElement.y, width: pendingElement.width, height: pendingElement.height }}><PresentationContent element={pendingElement} /></div></ViewportPortal>}
-            {!disabled && selectionBounds && !(selection.length === 1 && isLinearShape(selection[0])) && !selection.some((element) => isPresentationElementLocked(elements, element.id)) && (
+            {!disabled && !formatting.editPointsElement && selectionBounds && !(selection.length === 1 && isLinearShape(selection[0])) && !selection.some((element) => isPresentationElementLocked(elements, element.id)) && (
               <SelectionOverlay
-                bounds={selectionBounds}
-                rotation={selection[0]?.rotation ?? 0}
+                box={selectionBounds}
+                rotation={selection.length === 1 ? selection[0].rotation : 0}
+                startAngle={selection[0]?.rotation ?? 0}
+                outlines={selection}
                 referenceAngles={rotationReferences}
-                // Individual objects use local-axis handles; a group scales as a whole.
+                // Individual objects use local-axis handles; several scale together.
                 scalable={selection.length > 1}
                 rotateLabel={t("presentations.rotateHandle")}
                 scaleLabel={t("presentations.scaleHandle")}
                 onRotate={rotateSelection}
+                onScaleStart={startScale}
                 onScale={scaleSelection}
                 onGestureStart={startGesture}
                 onGestureEnd={endGesture}
               />
             )}
           </ReactFlow>
+          {settings.ruler && <CanvasRulers elements={elements} selection={selectionBounds ?? undefined} onAddGuide={view.addGuide} disabled={disabled}
+            format={cm => formatCentimetres(cm, locale)} labels={{ horizontal: t("presentations.gridGuides.horizontalRuler"), vertical: t("presentations.gridGuides.verticalRuler") }} />}
+          {formatting.picking && <div role="status" data-testid="eyedropper-hint" className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2 rounded bg-background px-3 py-2 text-xs shadow">{t("presentations.formatPane.colors.eyedropperHint")}</div>}
           {pendingElement && !disabled && <div role="status" className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded bg-background px-3 py-2 text-xs shadow">{interact("placeHint")}</div>}
           {!elements.length && (
             <div className="pointer-events-none absolute inset-0 grid place-items-center p-6 text-center">
@@ -920,8 +1092,11 @@ function Editor({
           {selected && (
             <PresentationAppearanceInspector selected={selected} disabled={disabled} selectedLocked={selectedLocked} collaboration={collaboration}
               updateElement={updateElement} reorderSelected={reorderSelected} duplicateSelection={duplicateSelection} deleteSelection={deleteSelection}
-              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} />
+              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} onRouteChange={onRouteChange} />
           )}
+          {selected && (selected.type === "shape" || selected.type === "text") && <FormatShapePane key={`${selected.id}-${formatting.pane.key}`} element={selected} updateContent={formatting.updateContent}
+            format={formatting.format} disabled={disabled || selectedLocked} onEyedropper={formatting.requestColor} uploadPicture={formatting.uploadPicture}
+            initialTab={formatting.pane.key ? formatting.pane.group : undefined} />}
 
           <PresentationStudioInspector elements={elements} selectedIds={selectedIds} activeStep={activeStep}
             onGroup={() => executeCommand("group")} onUngroup={() => executeCommand("ungroup")} canGroup={canMutate && selectedRoots.length >= 2 && elements.length < 500}
@@ -941,6 +1116,7 @@ function Editor({
           </div>
         </WorkspacePanel>
       </div>
+      <GridGuidesDialog open={gridDialog} onOpenChange={setGridDialog} settings={settings} update={updateSettings} toggleGuides={view.toggleGuides} disabled={disabled} />
       <Dialog open={workspaceDialog !== null} onOpenChange={(open) => { if (!open) setWorkspaceDialog(null); }}>
         <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-lg" aria-describedby={undefined}>
           <DialogHeader><DialogTitle>{workspaceDialog === "sharing" ? studio("sharing") : workspaceDialog === "history" ? t("presentations.history") : t("presentations.playbackSettings")}</DialogTitle></DialogHeader>

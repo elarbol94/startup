@@ -9,6 +9,16 @@ const deck: PresentationSnapshot = { ...empty, title: "Shared", elements: [{ id:
 function seeded() { const doc = new Y.Doc(); patchPresentation(doc, empty, deck); return doc; }
 
 describe("shared document state", () => {
+  it("gives settings saved before the grid, guides and defaults existed their defaults", () => {
+    const doc = seeded();
+    // A deck shared before those settings existed: only the original playback fields.
+    doc.getMap("settings").set("settings", { defaultStepDurationMs: 4000, loop: false, cameraTransitionMs: 700, cameraEasing: "ease-in-out" });
+    const { settings } = presentationJSON(doc);
+    expect(settings.grid).toEqual(defaultPresentationSettings.grid);
+    expect(settings.guides).toEqual(defaultPresentationSettings.guides);
+    expect(settings.defaults).toEqual({});
+    expect(settings.defaultStepDurationMs).toBe(4000);
+  });
   it("preserves adjacent marks, custom nodes and attributes when seeding", () => {
     const doc = new Y.Doc(); const content = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "plain " }, { type: "text", text: "bold", marks: [{ type: "bold", attrs: {} }] }, { type: "text", text: " tail" }] }, { type: "citation", attrs: { items: [{ sourceId: "s" }], label: "[1]" } }] };
     seedPage(doc, content, true, {});
@@ -86,4 +96,26 @@ it("preserves images, tables, references and comment marks during document initi
   ] };
   const doc = new Y.Doc(); seedPage(doc, document, true, {});
   expect(documentJSON(clone(doc))).toEqual(document);
+});
+describe("text inside shapes", () => {
+  const shape = { id: "s", type: "shape" as const, x: 0, y: 0, width: 200, height: 100, rotation: 0, content: { shape: "rect" as const, fill: "#fff", stroke: "", strokeWidth: 2, opacity: 1 } };
+  it("leaves a shape without text untouched", () => {
+    const doc = new Y.Doc(); const next = { ...empty, elements: [shape] };
+    patchPresentation(doc, empty, next);
+    expect(presentationJSON(doc).elements[0]).toEqual(shape);
+  });
+  it("round-trips shape text and its runs through the shared rich-text fragment, and drops emptied text", () => {
+    const doc = new Y.Doc(); const plain = { ...empty, elements: [shape] };
+    patchPresentation(doc, empty, plain);
+    const withText = { ...empty, elements: [{ ...shape, content: { ...shape.content, text: "Hi there", runs: [{ text: "Hi", bold: true }, { text: " there" }] } }] };
+    patchPresentation(doc, plain, withText);
+    expect(presentationJSON(doc).elements[0]).toMatchObject({ content: { text: "Hi there", runs: [{ text: "Hi", bold: true }, { text: " there" }] } });
+    // A collaborator typing straight into the fragment, as the inline editor does.
+    ((doc.getXmlFragment("rich:s").get(0) as Y.XmlElement).get(0) as Y.XmlText).insert(8, "!");
+    expect((presentationJSON(doc).elements[0].content as { text?: string }).text).toBe("Hi there!");
+    const cleared = presentationJSON(doc);
+    patchPresentation(doc, cleared, { ...empty, elements: [shape] });
+    const result = presentationJSON(doc).elements[0].content as { text?: string; runs?: unknown };
+    expect(result.text).toBeUndefined(); expect(result.runs).toBeUndefined();
+  });
 });

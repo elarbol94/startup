@@ -1,7 +1,9 @@
 // Zod schemas, types and defaults for presentation elements, steps, playback settings and
 // the stored canvas envelope. Re-exported by presentation.ts.
 import { z } from "zod";
+import { presetShapeNameList } from "./preset-shapes/preset-shape-names";
 import { isSourcePassageHref } from "./source-passage";
+import { arrowHeads, lineDashes, presentationViewSettingsFields, runFormatFields, shapeFormatFields, textFormatFields } from "./presentation-format-model";
 
 export const presentationFrameShapes = ["rect", "circle", "none"] as const;
 export type PresentationFrameShape = (typeof presentationFrameShapes)[number];
@@ -9,7 +11,7 @@ export type PresentationFrameShape = (typeof presentationFrameShapes)[number];
 export const presentationElementTypes = ["text", "image", "frame", "shape", "video", "audio", "chart", "icon"] as const;
 export type PresentationElementType = (typeof presentationElementTypes)[number];
 
-export const presentationShapeKinds = ["rect", "roundedRect", "ellipse", "triangle", "diamond", "arrow", "doubleArrow", "line"] as const;
+export const presentationShapeKinds = ["rect", "roundedRect", "ellipse", "triangle", "diamond", "pentagon", "hexagon", "star", "parallelogram", "trapezoid", "chevron", "callout", "plus", "arrow", "doubleArrow", "line"] as const;
 export type PresentationShapeKind = (typeof presentationShapeKinds)[number];
 
 const geometrySchema = {
@@ -26,12 +28,13 @@ const geometrySchema = {
   source: z.object({ pageId: z.string().min(1).max(64), sectionId: z.string().max(200), reviewedFingerprint: z.string().regex(/^[a-f0-9]{64}$/).optional(), syncHeading: z.boolean().optional(), syncSubsections: z.boolean().optional(), knownSectionIds: z.array(z.string().min(1).max(200)).max(5000).optional(), approvedStructure: z.object({ level: z.number().int().min(1).max(6), parentSectionId: z.string().min(1).max(200).nullable() }).optional() }).nullable().optional(),
 };
 
-export const presentationFonts = ["sans", "serif", "mono", "arial", "georgia"] as const;
-export const presentationFontFamilies = { sans: "system-ui, sans-serif", serif: "Georgia, serif", mono: "ui-monospace, monospace", arial: "Arial, sans-serif", georgia: "Georgia, serif" };
+export const presentationFonts = ["sans", "serif", "mono", "arial", "georgia", "aptos"] as const;
+export const presentationFontFamilies = { sans: "system-ui, sans-serif", serif: "Georgia, serif", mono: "ui-monospace, monospace", arial: "Arial, sans-serif", georgia: "Georgia, serif", aptos: "Aptos, 'Segoe UI', system-ui, sans-serif" };
 export const presentationLinkSchema = z.string().max(2000).refine((value) => !value || isSourcePassageHref(value) || /^(https?:\/\/|mailto:)/i.test(value), "Use an http, https or mailto link");
 export const presentationTextRunSchema = z.object({
   text: z.string().max(5000), bold: z.boolean().optional(), italic: z.boolean().optional(),
   underline: z.boolean().optional(), color: z.string().max(32).optional(), href: presentationLinkSchema.optional(),
+  ...runFormatFields,
 });
 
 const textElementSchema = z.object({
@@ -50,6 +53,7 @@ const textElementSchema = z.object({
     underline: z.boolean().optional(),
     list: z.enum(["none", "bullet", "number"]).optional(),
     runs: presentationTextRunSchema.array().max(200).optional(),
+    ...textFormatFields,
   }),
 });
 
@@ -89,6 +93,11 @@ const chartElementSchema = z.object({ ...geometrySchema, type: z.literal("chart"
 export const presentationIconNames = ["target", "lightbulb", "users", "rocket", "heart", "globe", "check", "star", "calendar", "chart", "briefcase", "leaf"] as const;
 const iconElementSchema = z.object({ ...geometrySchema, type: z.literal("icon"), content: z.object({ name: z.enum(presentationIconNames), color: z.string().max(32).optional(), label: z.string().max(200).optional() }) });
 
+const pointSchema = z.object({ x: z.number().finite().min(-1_000_000).max(1_000_000), y: z.number().finite().min(-1_000_000).max(1_000_000) });
+const connectionSiteNames = ["top", "right", "bottom", "left"] as const;
+/** A side of the box, or the index of one of a preset shape's own connection sites. */
+const connectionSiteSchema = z.union([z.enum(connectionSiteNames), z.number().int().min(0).max(64)]);
+
 /** Empty `fill`/`stroke` mean "no fill" and "follow the theme", so shapes read on both. */
 const shapeElementSchema = z.object({
   ...geometrySchema,
@@ -100,13 +109,52 @@ const shapeElementSchema = z.object({
     strokeWidth: z.number().finite().min(0).max(200).default(2),
     opacity: z.number().finite().min(0).max(1).default(1),
     cornerRadius: z.number().finite().min(0).max(1000).optional(),
-    dash: z.enum(["solid", "dash", "dot"]).optional(),
-    startHead: z.enum(["none", "triangle", "open"]).optional(),
-    endHead: z.enum(["none", "triangle", "open"]).optional(),
+    dash: z.enum(lineDashes).optional(),
+    startHead: z.enum(arrowHeads).optional(),
+    endHead: z.enum(arrowHeads).optional(),
+    ...shapeFormatFields,
     headSize: z.number().finite().min(1).max(1000).optional(),
-    connection: z.object({ fromId: z.string().min(1).max(64), toId: z.string().min(1).max(64) }).optional(),
+    /** 0..1 setting of the yellow adjustment handle (slant, notch, inner radius...); see presentation-shape-geometry. */
+    adjust: z.number().finite().min(0).max(1).optional(),
+    /**
+     * A PowerPoint (DrawingML) preset this shape draws instead of `shape`, with its
+     * adjustment values in DrawingML units; see lib/preset-shapes. `shape` stays a legacy
+     * kind for older readers.
+     */
+    preset: z.enum(presetShapeNameList).optional(),
+    adjustments: z.record(z.string().max(16), z.number().finite().min(-100_000_000).max(100_000_000)).optional(),
+    /** A freeform, curve or scribble: its path drawn in a `w` × `h` box, scaled to the shape. */
+    freeform: z.object({ d: z.string().max(60_000), w: z.number().positive().max(20_000), h: z.number().positive().max(20_000), closed: z.boolean() }).optional(),
+    /**
+     * A connector: each end is glued to an element (at a connection site, or where the line
+     * meets its outline) or free at a canvas point. At least one end is glued.
+     */
+    connection: z.object({
+      fromId: z.string().min(1).max(64).optional(), toId: z.string().min(1).max(64).optional(),
+      fromSite: connectionSiteSchema.optional(), toSite: connectionSiteSchema.optional(),
+      from: pointSchema.optional(), to: pointSchema.optional(),
+    }).refine((connection) => Boolean(connection.fromId || connection.toId)).optional(),
+    /** How a line runs between its ends. Elbow and curved lines keep their computed path in `points`. */
+    route: z.enum(["straight", "elbow", "curve"]).optional(),
+    points: pointSchema.array().min(2).max(8).optional(),
+    // Text inside the shape, as in PowerPoint. Same names and limits as a text element's
+    // content, so the rich-text editor, its shared fragment and the renderer are reused.
+    text: z.string().max(5_000).optional(),
+    runs: presentationTextRunSchema.array().max(200).optional(),
+    fontSize: z.number().int().min(8).max(400).optional(),
+    color: z.string().max(32).optional(),
+    align: z.enum(["left", "center", "right"]).optional(),
+    bold: z.boolean().optional(),
+    italic: z.boolean().optional(),
+    underline: z.boolean().optional(),
+    font: z.enum(presentationFonts).optional(),
+    ...textFormatFields,
   }),
 });
+
+/** What "Set as Default Shape" keeps: a shape's formatting without its geometry, text or glue. */
+export const presentationShapeDefaultsSchema = shapeElementSchema.shape.content.omit({ shape: true, preset: true, adjustments: true, adjust: true, freeform: true, connection: true, route: true, points: true, text: true, runs: true, paragraphs: true }).partial();
+export type PresentationShapeDefaults = z.infer<typeof presentationShapeDefaultsSchema>;
 
 export const presentationElementSchema = z.discriminatedUnion("type", [
   textElementSchema,
@@ -163,6 +211,9 @@ export const presentationSettingsSchema = z.object({
   loop: z.boolean().default(false),
   cameraTransitionMs: z.number().int().min(100).max(5_000).default(700),
   cameraEasing: z.enum(presentationCameraEasings).default("ease-in-out"),
+  ...presentationViewSettingsFields,
+  /** Set as Default Shape / Line / Text Box: the format new objects of that kind start with. */
+  defaults: z.object({ shape: presentationShapeDefaultsSchema.optional(), line: presentationShapeDefaultsSchema.optional(), textBox: presentationShapeDefaultsSchema.optional() }).default({}),
 });
 export type PresentationSettings = z.infer<typeof presentationSettingsSchema>;
 export const defaultPresentationSettings: PresentationSettings = presentationSettingsSchema.parse({});

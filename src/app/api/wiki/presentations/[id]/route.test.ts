@@ -8,6 +8,7 @@ vi.mock("@/modules/wiki/presentation-access", () => ({ PresentationAccessError: 
 import { getSession } from "@/lib/auth";
 import { savePresentation } from "@/modules/wiki/presentation-actions";
 import { PATCH } from "./route";
+import { defaultPresentationSettings } from "@/modules/wiki/lib/presentation-model";
 
 const params = Promise.resolve({ id: "presentation" });
 const data = { elements: [], steps: [], sessionId: "test-session", expectedUpdatedAt: 123 };
@@ -18,7 +19,7 @@ const request = (body: unknown = data, headers: Record<string, string> = {}) => 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.mocked(getSession).mockResolvedValue({ user: { id: "author" } } as Awaited<ReturnType<typeof getSession>>);
-  vi.mocked(savePresentation).mockResolvedValue({ locked: false, conflict: false, savedAt: 124, snapshot: { elements: [], steps: [], background: "", title: "Test", settings: { defaultStepDurationMs: 4000, cameraTransitionMs: 700, cameraEasing: "ease-in-out", loop: false } } });
+  vi.mocked(savePresentation).mockResolvedValue({ locked: false, conflict: false, savedAt: 124, snapshot: { elements: [], steps: [], background: "", title: "Test", settings: defaultPresentationSettings } });
 });
 
 it("requires authentication and rejects cross-site requests", async () => {

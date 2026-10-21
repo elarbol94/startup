@@ -67,12 +67,12 @@ test("Shift- and Ctrl-click add and remove objects, groups included, and a plain
   await node(page, "a").click({ modifiers: ["Control"] }); await expect(node(page, group!)).not.toHaveClass(/selected/);
 });
 
-test("frames are selected from their interior and label, moved by label and edge, and marqueed inside", async ({ page }) => {
+test("frames behave like slides: empty inside deselects, label and edge select and move, marquee inside", async ({ page }) => {
   const id = await seed(page);
   const interior = await screen(page, { x: 800, y: 500 });
-  await page.mouse.click(interior.x, interior.y); await expect(node(page, "frame")).toHaveClass(/selected/); await expect(selected(page)).toHaveCount(1);
+  await node(page, "a").click(); await expect(selected(page)).toHaveCount(1);
+  await page.mouse.click(interior.x, interior.y); await expect(selected(page)).toHaveCount(0);
   await node(page, "a").click(); await node(page, "b").click({ modifiers: ["Shift"] });
-  await shiftClick(page, interior.x, interior.y); await expect(selected(page)).toHaveCount(3);
   await shiftClick(page, interior.x, interior.y); await expect(selected(page)).toHaveCount(2);
 
   await page.keyboard.press("Escape"); await expect(selected(page)).toHaveCount(0);
@@ -148,10 +148,10 @@ test("the wheel pans, Ctrl+wheel zooms", async ({ page }) => {
 
 test("placing from the insert menu takes focus to the canvas: Enter places, Escape cancels", async ({ page }) => {
   await seed(page);
-  const shapes = page.locator(".react-flow__node-shape");
+  const shapes = page.locator(".react-flow__node-frame");
   const insert = async () => {
-    await page.getByRole("button", { name: "Einfügen", exact: true }).click(); await page.getByRole("menuitem", { name: "Form", exact: true }).hover();
-    await page.getByRole("menuitem", { name: "Rechteck", exact: true }).click();
+    await page.getByRole("button", { name: "Einfügen", exact: true }).click();
+    await page.getByRole("menuitem", { name: "Rahmen", exact: true }).click();
     await expect(page.getByTestId("presentation-placement-preview")).toBeAttached();
     await expect(canvas(page)).toBeFocused();
   };
@@ -176,8 +176,9 @@ test("copy and repeated paste work at once without clipboard permission, each pa
   expect(pasted).toHaveLength(3);
   expect(pasted.some((e) => e.x === original.x && e.y === original.y)).toBe(false);
   for (let index = 1; index < pasted.length; index++) {
-    expect(pasted[index].x - pasted[index - 1].x).toBeCloseTo(24, 5);
-    expect(pasted[index].y - pasted[index - 1].y).toBeCloseTo(24, 5);
+    // PowerPoint pastes in place, 12 pt down and right of the previous copy.
+    expect(pasted[index].x - pasted[index - 1].x).toBeCloseTo(12, 5);
+    expect(pasted[index].y - pasted[index - 1].y).toBeCloseTo(12, 5);
   }
 
   // A clipboard that holds no presentation objects is reported, in German, and changes nothing.

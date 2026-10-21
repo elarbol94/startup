@@ -1,6 +1,9 @@
 import { PresentationShape } from "./presentation-shape";
 import type { CSSProperties, SVGProps, ReactElement } from "react";
 import { presentationFontFamilies, presentationIconNames, type PresentationElement } from "../lib/presentation";
+import { shapeShrinkScale, shapeTextBox, shapeTextContent, textBodyDefaults } from "../lib/presentation-text-host";
+import { effectiveParagraphs, paragraphMarkers } from "../lib/presentation-paragraphs";
+import { paragraphCss, runCss, textBoxCss, wordArtCss } from "../lib/presentation-text-style";
 
 // Pure vectors, with no client-component or hook dependency: authored icons must
 // also render in downloadable HTML outside Next.js's client-component protocol.
@@ -29,34 +32,56 @@ export const presentationIcons = Object.fromEntries(presentationIconNames.map((n
  * Typography of a text element's box. The inline rich-text editor uses the same values, so
  * entering and leaving edit mode does not shift the text.
  */
-export function presentationTextStyle(c: Extract<PresentationElement, { type: "text" }>["content"]): CSSProperties {
-  return { fontFamily: presentationFontFamilies[c.font ?? "sans"], fontSize: c.fontSize,
+export function presentationTextStyle(c: TextContent, scale = 1): CSSProperties {
+  return { fontFamily: presentationFontFamilies[c.font ?? "sans"], fontSize: c.fontSize * scale,
     fontWeight: c.bold ? 700 : 400, fontStyle: c.italic ? "italic" : undefined, textDecoration: c.underline ? "underline" : undefined,
-    boxSizing: "border-box", padding: c.padding ?? 0, textAlign: c.align, color: c.color || "inherit", whiteSpace: "pre-wrap", overflowWrap: "break-word", lineHeight: 1.15 };
+    textAlign: c.align, color: c.color || "inherit", overflowWrap: "break-word", lineHeight: 1.15, ...wordArtCss(c.textStyle) };
+}
+
+type TextContent = Extract<PresentationElement, { type: "text" }>["content"];
+type Run = NonNullable<TextContent["runs"]>[number];
+
+/**
+ * The typeset text of a text element, or of a shape seen as one (see `shapeTextContent`):
+ * its box layout (anchor, insets, direction, columns), paragraphs with their list markers,
+ * and runs with their character formatting.
+ */
+export function PresentationTextBody({ content: c, interactive, style: extra, defaults = { anchor: "top", insets: { left: c.padding ?? 0, top: c.padding ?? 0, right: c.padding ?? 0, bottom: c.padding ?? 0 } }, scale = 1 }: {
+  content: TextContent; interactive: boolean; style?: CSSProperties; scale?: number;
+  defaults?: { anchor: "top" | "middle" | "bottom"; insets: { left: number; top: number; right: number; bottom: number } };
+}) {
+  const box = textBoxCss(c.body, defaults);
+  const runs = c.runs ?? [{ text: c.text }];
+  const lines: Run[][] = [[]];
+  for (const run of runs) run.text.split("\n").forEach((text, index) => {
+    if (index) lines.push([]);
+    if (text) lines[lines.length - 1].push({ ...run, text });
+  });
+  const paragraphs = effectiveParagraphs(lines.length, c.paragraphs, c.list);
+  const markers = paragraphMarkers(paragraphs);
+  const renderRun = (run: Run, i: number) => {
+    const child = <span style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, color: run.color || undefined, ...runCss(run, scale) }}>{run.text}</span>;
+    return run.href && interactive ? <a key={i} href={run.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{child}</a> : <span key={i}>{child}</span>;
+  };
+  return <div style={{ ...presentationTextStyle(c, scale), ...box.outer, ...extra }}>
+    <div style={box.inner}>
+      {lines.map((line, i) => {
+        const marker = markers[i], p = paragraphs[i];
+        const hang = marker ? -(paragraphCss(p, scale).textIndent as number | undefined ?? 0) : 0;
+        return <div key={i} style={paragraphCss(p, scale)}>
+          {marker && <span aria-hidden style={{ display: "inline-block", minWidth: hang || undefined, paddingRight: hang ? undefined : "0.3em", textIndent: 0, fontFamily: marker.font }}>{marker.text}</span>}
+          {line.length ? line.map(renderRun) : "\u200b"}
+        </div>;
+      })}
+    </div>
+  </div>;
 }
 
 /** Shared by the editor, presenter previews, print, public and offline delivery. */
 export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${id}`, interactive = true }: {
   element: PresentationElement; mediaUrl?: (id: string) => string; interactive?: boolean;
 }) {
-  if (element.type === "text") {
-    const c = element.content;
-    const style: CSSProperties = { ...presentationTextStyle(c), height: "100%", overflow: "hidden" };
-    const runs = c.runs ?? [{ text: c.text }];
-    const renderRuns = (entries: typeof runs) => entries.map((run, i) => {
-      const child = <span style={{ fontWeight: run.bold ? 700 : undefined, fontStyle: run.italic ? "italic" : undefined, textDecoration: run.underline ? "underline" : undefined, color: run.color || undefined }}>{run.text}</span>;
-      return run.href && interactive ? <a key={i} href={run.href} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "underline" }}>{child}</a> : <span key={i}>{child}</span>;
-    });
-    if (c.list && c.list !== "none") {
-      const lines: Array<typeof runs> = [[]];
-      for (const run of runs) run.text.split("\n").forEach((text, index) => {
-        if (index) lines.push([]);
-        lines[lines.length - 1].push({ ...run, text });
-      });
-      return <div style={style}>{lines.map((line, i) => <div key={i}>{c.list === "bullet" ? "• " : `${i + 1}. `}{renderRuns(line)}</div>)}</div>;
-    }
-    return <div style={style}>{renderRuns(runs)}</div>;
-  }
+  if (element.type === "text") return <PresentationTextBody content={element.content} interactive={interactive} defaults={textBodyDefaults(element)} />;
   if (element.type === "image") {
     const c = element.content;
     return <div style={{ width: "100%", height: "100%", overflow: "hidden", borderRadius: c.mask === "circle" ? "50%" : c.mask === "rounded" ? "10%" : undefined, clipPath: c.mask === "diamond" ? "polygon(50% 0,100% 50%,50% 100%,0 50%)" : undefined }}>
@@ -107,5 +132,12 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
   if (element.type === "frame") return <div style={{ height: "100%", border: element.content.shape === "none" ? undefined : `2px solid ${element.content.color || "currentColor"}`, borderRadius: element.content.shape === "circle" ? "50%" : 12 }}>
     {element.content.label && <span style={{ position: "absolute", top: -24, fontSize: 14, color: element.content.color || "inherit" }}>{element.content.label}</span>}
   </div>;
-  return <PresentationShape element={element} />;
+  if (!element.content.text) return <PresentationShape element={element} mediaUrl={mediaUrl} />;
+  // Text sits in the preset's text rectangle; the body decides where in it (middle by default).
+  return <div style={{ position: "relative", width: "100%", height: "100%" }}>
+    <PresentationShape element={element} mediaUrl={mediaUrl} />
+    <div style={{ position: "absolute", ...shapeTextBox(element) }}>
+      <PresentationTextBody content={shapeTextContent(element.content)} interactive={interactive} defaults={textBodyDefaults(element)} scale={shapeShrinkScale(element)} />
+    </div>
+  </div>;
 }

@@ -4,6 +4,7 @@
 // through the copy/cut/paste events of the keyboard shortcuts, which need no permission.
 // navigator.clipboard is only used by menu commands and never delays an internal paste.
 // Used by presentation-editor.tsx.
+import { mapElementMedia, presentationMedia } from "../../lib/presentation-media";
 import { useEffect, useEffectEvent, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import type { useTranslations } from "next-intl";
 import type { useReactFlow } from "@xyflow/react";
@@ -11,7 +12,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import { mutableSelection, parsePresentationClipboard, pastePresentationObjects, serializeSelection } from "../../lib/presentation-interactions";
 import { presentationDescendants, type PresentationCanvasAction, type PresentationCanvasState, type PresentationElement } from "../../lib/presentation";
-import { planPaste, type PresentationPasteRecord } from "../../lib/presentation-clipboard";
+import { contentCenter, planPaste, type PresentationPasteRecord } from "../../lib/presentation-clipboard";
 import type { PresentationRecord } from "../../presentation-queries";
 import type { PresentationNode } from "../presentation-canvas";
 import { frameInsertionEdit } from "./use-presentation-frames";
@@ -51,7 +52,7 @@ async function copyAttachments(ids: string[], presentationId: string) {
 }
 
 export function usePresentationClipboard({
-  selection, selectedIds, canMutate, elements, disabled, contextPosition, reactFlow, viewportCenter,
+  selection, selectedIds, canMutate, elements, disabled, contextPosition, reactFlow,
   presentation, dispatch, setSelectedIds, deleteSelection, latest, t, commandRoot, canvasRef,
 }: {
   selection: PresentationElement[];
@@ -61,7 +62,8 @@ export function usePresentationClipboard({
   disabled: boolean;
   contextPosition: { x: number; y: number } | null;
   reactFlow: ReturnType<typeof useReactFlow<PresentationNode>>;
-  viewportCenter: () => { x: number; y: number };
+  /** Unused since Ctrl+V pastes in place; kept so callers need not change. */
+  viewportCenter?: () => { x: number; y: number };
   presentation: PresentationRecord;
   dispatch: (action: PresentationCanvasAction) => void;
   setSelectedIds: Dispatch<SetStateAction<string[]>>;
@@ -72,17 +74,7 @@ export function usePresentationClipboard({
   canvasRef: RefObject<HTMLElement | null>;
 }) {
   const failed = () => toast.error(t("presentations.interactions.clipboardError"));
-  /** The cursor while it is over the canvas: a keyboard paste lands there. */
-  const pointer = useRef<{ x: number; y: number } | null>(null);
   const lastPaste = useRef<PresentationPasteRecord | null>(null);
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const move = (event: PointerEvent) => { pointer.current = { x: event.clientX, y: event.clientY }; };
-    const leave = () => { pointer.current = null; };
-    canvas.addEventListener("pointermove", move); canvas.addEventListener("pointerdown", move); canvas.addEventListener("pointerleave", leave);
-    return () => { canvas.removeEventListener("pointermove", move); canvas.removeEventListener("pointerdown", move); canvas.removeEventListener("pointerleave", leave); };
-  }, [canvasRef]);
 
   /** Puts the selection on the internal clipboard (cut removes it) and returns what the system clipboard should hold. */
   const take = (cut: boolean) => {
@@ -113,19 +105,19 @@ export function usePresentationClipboard({
   const paste = (source: string, copied: PresentationElement[], fromDeck?: string) => {
     if (disabled) return;
     if (!copied.length || elements.length + copied.length > 500) { failed(); return; }
-    const screen = contextPosition ?? pointer.current;
-    const point = screen ? reactFlow.screenToFlowPosition(screen) : viewportCenter();
+    // A context-menu paste lands where it was asked for; Ctrl+V pastes in place, 12 pt down and
+    // right of the copied objects and cascading, like PowerPoint on the same slide.
+    const point = contextPosition ? reactFlow.screenToFlowPosition(contextPosition) : contentCenter(copied);
     const record = planPaste(copied, { source, target: `${Math.round(point.x)},${Math.round(point.y)}`, point }, lastPaste.current);
     lastPaste.current = record;
-    const present = new Set(elements.flatMap(e => "attachmentId" in e.content ? [e.content.attachmentId] : []));
-    const foreign = fromDeck === presentation.id ? [] : [...new Set(copied.flatMap(e => "attachmentId" in e.content && !present.has(e.content.attachmentId) ? [e.content.attachmentId] : []))];
+    const present = new Set(presentationMedia(elements).map(ref => ref.attachmentId));
+    const foreign = fromDeck === presentation.id ? [] : [...new Set(presentationMedia(copied).map(ref => ref.attachmentId).filter(id => !present.has(id)))];
     if (!foreign.length) {
       try { insert(copied, record.center); } catch { failed(); }
       return;
     }
     void copyAttachments(foreign, presentation.id).then(replacements => {
-      const next = copied.map(element => "attachmentId" in element.content && replacements.has(element.content.attachmentId)
-        ? { ...element, content: { ...element.content, attachmentId: replacements.get(element.content.attachmentId)! } } as PresentationElement : element);
+      const next = copied.map(element => mapElementMedia(element, id => replacements.get(id) ?? id));
       insert(next, record.center);
     }).catch(failed);
   };

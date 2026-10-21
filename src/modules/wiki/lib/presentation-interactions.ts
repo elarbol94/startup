@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isPresentationElementLocked, presentationAncestors, presentationDescendants, presentationElementsSchema, type PresentationElement, type PresentationStep } from "./presentation";
+import { remapConnection } from "./presentation-connectors";
 // Hit-testing for section frames lives with the frame hierarchy; re-exported for canvas interactions.
 export { frameAtPoint } from "./presentation-hierarchy";
 
@@ -45,10 +46,11 @@ export function pastePresentationObjects(copied: PresentationElement[], current:
   const ids = new Map(copied.map(e => [e.id, id()]));
   const left = Math.min(...copied.map(e => e.x)), top = Math.min(...copied.map(e => e.y));
   const right = Math.max(...copied.map(e => e.x + e.width)), bottom = Math.max(...copied.map(e => e.y + e.height));
+  const shift = { x: point.x - (left + right) / 2, y: point.y - (top + bottom) / 2 };
   const next = copied.map(e => ({ ...structuredClone(e), id: ids.get(e.id)!,
     parentId: e.parentId ? ids.get(e.parentId) : undefined,
-    x: e.x + point.x - (left + right) / 2, y: e.y + point.y - (top + bottom) / 2,
-    ...(e.type === "shape" && e.content.connection ? { content: { ...e.content, connection: ids.has(e.content.connection.fromId) && ids.has(e.content.connection.toId) ? { fromId: ids.get(e.content.connection.fromId)!, toId: ids.get(e.content.connection.toId)! } : undefined } } : {}),
+    x: e.x + shift.x, y: e.y + shift.y,
+    ...(e.type === "shape" && e.content.connection ? { content: { ...e.content, connection: remapConnection(e.content.connection, (id) => ids.get(id), shift) } } : {}),
   } as PresentationElement));
   return { elements: presentationElementsSchema.parse([...current, ...next]), selectedIds: next.filter(e => !e.parentId).map(e => e.id) };
 }

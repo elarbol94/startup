@@ -1,3 +1,4 @@
+import { presentationMedia } from "./lib/presentation-media";
 import { withoutPresentationSources } from "./lib/presentation-source";
 import fs from "node:fs/promises";
 import { gunzipSync } from "node:zlib";
@@ -10,7 +11,7 @@ import { parsePresentationCanvas, parsePresentationSteps, normalizeSteps, presen
 import { PresentationContent } from "./components/presentation-content";
 import { presentationIdForToken } from "./presentation-access";
 
-export const presentationMediaIds = (snapshot: PresentationSnapshot) => new Set(snapshot.elements.flatMap((element) => "attachmentId" in element.content ? [element.content.attachmentId] : []));
+export const presentationMediaIds = (snapshot: PresentationSnapshot) => new Set(presentationMedia(snapshot.elements).map((ref) => ref.attachmentId));
 export function publicPresentation(token: string): PresentationSnapshot | null {
   const id = presentationIdForToken(token);
   const row = id ? db.select().from(wikiPresentations).where(eq(wikiPresentations.id, id)).get() : null;
