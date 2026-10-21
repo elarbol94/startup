@@ -324,7 +324,8 @@
     "newContact": "Neuer Kontakt",
     "draft": "Entwurf",
     "groups": { "work": "Arbeit", "finance": "Finanzen", "knowledge": "Wissen" },
-    "toggleTheme": "Farbmodus wechseln"
+    "toggleTheme": "Farbmodus wechseln",
+    "openInNewTab": "In neuem Tab öffnen"
   },
   "cloud": {
     "title": "Cloud",

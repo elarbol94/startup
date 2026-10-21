@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -8,6 +8,7 @@ import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { NAVIGATION_SHORTCUTS } from "@/lib/app-shortcuts";
 import { cn } from "@/lib/utils";
 import type { ModuleNavItem } from "@/modules/registry";
+import { NavContextMenu } from "./nav-context-menu";
 
 export function navItemClass(active: boolean, compact: boolean) {
   return cn(
@@ -87,58 +88,69 @@ export function SortableNavLink({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.key });
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const pointerMovedRef = useRef(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const closeContextMenu = useCallback(() => setContextMenu(null), []);
   const Icon = item.icon;
 
   return (
-    <ShortcutTooltip label={label} shortcut={NAVIGATION_SHORTCUTS[item.key]} side="right" disabled={isDragging}>
-      <Link
-        href={item.href}
-        ref={setNodeRef}
-        draggable={false}
-        data-navigation-key={item.key}
-        style={{ transform: CSS.Transform.toString(transform), transition }}
-        aria-label={compact ? label : undefined}
-        aria-current={active ? "page" : undefined}
-        className={cn(navItemClass(active, compact), isDragging && "z-10 opacity-45")}
-        onPointerDownCapture={(event) => {
-          pointerStartRef.current = { x: event.clientX, y: event.clientY };
-          pointerMovedRef.current = false;
-        }}
-        onPointerMoveCapture={(event) => {
-          const start = pointerStartRef.current;
-          if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
-          pointerMovedRef.current = true;
-          suppressNavigationUntilRef.current = Number.POSITIVE_INFINITY;
-        }}
-        onPointerCancelCapture={() => {
-          pointerStartRef.current = null;
-          pointerMovedRef.current = false;
-          suppressNavigationUntilRef.current = Date.now() + 500;
-        }}
-        onPointerUpCapture={() => {
-          if (pointerMovedRef.current) {
-            suppressNavigationUntilRef.current = Date.now() + 500;
-          }
-          pointerStartRef.current = null;
-        }}
-        onClick={(event) => {
-          if (pointerMovedRef.current || Date.now() < suppressNavigationUntilRef.current) {
+    <>
+      <ShortcutTooltip label={label} shortcut={NAVIGATION_SHORTCUTS[item.key]} side="right" disabled={isDragging}>
+        <Link
+          href={item.href}
+          ref={setNodeRef}
+          draggable={false}
+          data-navigation-key={item.key}
+          style={{ transform: CSS.Transform.toString(transform), transition }}
+          aria-label={compact ? label : undefined}
+          aria-current={active ? "page" : undefined}
+          className={cn(navItemClass(active, compact), isDragging && "z-10 opacity-45")}
+          onContextMenu={(event) => {
             event.preventDefault();
-            event.stopPropagation();
+            setContextMenu({ x: event.clientX, y: event.clientY });
+          }}
+          onPointerDownCapture={(event) => {
+            pointerStartRef.current = { x: event.clientX, y: event.clientY };
             pointerMovedRef.current = false;
-            return;
-          }
-          // Modified and middle clicks keep the browser's link behaviour (open in a new tab or window).
-          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          onActivate();
-        }}
-        {...attributes}
-        {...listeners}
-      >
-        <Icon className="size-[18px] shrink-0" />
-        <NavLabel label={label} compact={compact} />
-      </Link>
-    </ShortcutTooltip>
+          }}
+          onPointerMoveCapture={(event) => {
+            const start = pointerStartRef.current;
+            if (!start || Math.hypot(event.clientX - start.x, event.clientY - start.y) < 5) return;
+            pointerMovedRef.current = true;
+            suppressNavigationUntilRef.current = Number.POSITIVE_INFINITY;
+          }}
+          onPointerCancelCapture={() => {
+            pointerStartRef.current = null;
+            pointerMovedRef.current = false;
+            suppressNavigationUntilRef.current = Date.now() + 500;
+          }}
+          onPointerUpCapture={() => {
+            if (pointerMovedRef.current) {
+              suppressNavigationUntilRef.current = Date.now() + 500;
+            }
+            pointerStartRef.current = null;
+          }}
+          onClick={(event) => {
+            if (pointerMovedRef.current || Date.now() < suppressNavigationUntilRef.current) {
+              event.preventDefault();
+              event.stopPropagation();
+              pointerMovedRef.current = false;
+              return;
+            }
+            // Modified and middle clicks keep the browser's link behaviour (open in a new tab or window).
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            onActivate();
+          }}
+          {...attributes}
+          {...listeners}
+        >
+          <Icon className="size-[18px] shrink-0" />
+          <NavLabel label={label} compact={compact} />
+        </Link>
+      </ShortcutTooltip>
+      {contextMenu && (
+        <NavContextMenu x={contextMenu.x} y={contextMenu.y} href={item.href} title={label} onClose={closeContextMenu} />
+      )}
+    </>
   );
 }
