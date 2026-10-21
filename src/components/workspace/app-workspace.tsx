@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { moduleNav } from "@/modules/registry";
+import { moduleNav, moduleNavItemForPath } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
@@ -103,13 +103,18 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     return () => cancelAnimationFrame(frame);
   }, [href]);
 
-  // Titles follow the actual page, including client-side navigation inside panes.
+  // Titles follow the actual page, including client-side navigation inside panes. A module's root page
+  // (e.g. /chat) is labelled by its section name, since its heading can still be the previous page's
+  // while the new route loads; deeper pages use their heading and fall back to the section name.
+  const sectionName = moduleNavItemForPath(pathname);
+  const sectionTitle = sectionName ? nav(sectionName.key) : "";
+  const onSectionRoot = sectionName !== undefined && sectionName.href !== "/" && pathname === sectionName.href;
   useEffect(() => {
     const element = primary.current;
     if (!element) return;
     const update = () => {
       const heading = element.querySelector("h1");
-      const next = heading?.textContent?.trim().slice(0, 160) || "";
+      const next = (onSectionRoot ? sectionTitle : heading?.textContent?.trim().slice(0, 160)) || sectionTitle;
       setTitle(previous => previous === next ? previous : next);
       if (embedded) window.parent.postMessage({ type: "app-workspace-location", href: window.location.pathname + window.location.search + window.location.hash, title: next }, window.location.origin);
     };
@@ -117,7 +122,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     const observer = new MutationObserver(update);
     observer.observe(element, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [href, embedded]);
+  }, [href, embedded, pathname, onSectionRoot, sectionTitle]);
 
   useEffect(() => {
     if (embedded) return;

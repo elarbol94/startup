@@ -12,9 +12,10 @@ const keysOf = (groups: ReturnType<typeof groupedNavigationItems>) =>
   groups.map(({ group, items }) => [group, items.map((item) => item.key)]);
 
 describe("sidebar navigation model", () => {
-  it("groups modules into work, finance and knowledge in registry order", () => {
+  it("groups modules into work, communication, finance and knowledge in registry order", () => {
     expect(keysOf(groupedNavigationItems(parseNavigationOrder(null)))).toEqual([
-      ["work", ["dashboard", "calendar", "projects", "time", "meetings", "chat", "mail", "cloud"]],
+      ["work", ["dashboard", "calendar", "projects", "time"]],
+      ["communication", ["meetings", "chat", "mail", "cloud"]],
       ["finance", ["accounting", "personnel"]],
       ["knowledge", ["wiki", "municipalities", "network"]],
     ]);
@@ -24,7 +25,8 @@ describe("sidebar navigation model", () => {
     const order = parseNavigationOrder(JSON.stringify(["wiki", "calendar", "personnel", "removed-module"]));
     expect(order).toHaveLength(moduleNav.length);
     expect(keysOf(groupedNavigationItems(order))).toEqual([
-      ["work", ["calendar", "dashboard", "projects", "time", "meetings", "chat", "mail", "cloud"]],
+      ["work", ["calendar", "dashboard", "projects", "time"]],
+      ["communication", ["meetings", "chat", "mail", "cloud"]],
       ["finance", ["personnel", "accounting"]],
       ["knowledge", ["wiki", "municipalities", "network"]],
     ]);
@@ -38,7 +40,7 @@ describe("sidebar navigation model", () => {
   it("reorders only within a group", () => {
     const order = parseNavigationOrder(null);
     const moved = reorderWithinGroup(order, "projects", "calendar");
-    expect(moved && keysOf(groupedNavigationItems(moved))[0]).toEqual(["work", ["dashboard", "projects", "calendar", "time", "meetings", "chat", "mail", "cloud"]]);
+    expect(moved && keysOf(groupedNavigationItems(moved))[0]).toEqual(["work", ["dashboard", "projects", "calendar", "time"]]);
     expect(reorderWithinGroup(order, "wiki", "calendar")).toBeNull();
     expect(reorderWithinGroup(order, "wiki", "wiki")).toBeNull();
     expect(reorderWithinGroup(order, "unknown", "wiki")).toBeNull();

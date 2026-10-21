@@ -9,6 +9,7 @@ import { Suspense } from "react";
 import { connection } from "next/server";
 import { requireUser } from "@/lib/auth";
 import { AppSidebar } from "@/components/app-sidebar";
+import { getSidebarGroupLayoutForUser } from "@/components/app-sidebar/sidebar-layout.server";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TaskCreateProvider } from "@/modules/tasks/components/task-create-provider";
 import { DeadlineCreateProvider } from "@/modules/tasks/components/deadline-create-provider";
@@ -40,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 async function AuthenticatedSidebar() {
   const user = await requireUser();
-  return <AppSidebar userId={user.id} userName={user.name} userEmail={user.email} companyName={companyDisplayName()} />;
+  return <AppSidebar userId={user.id} userName={user.name} userEmail={user.email} companyName={companyDisplayName()} groupLayout={getSidebarGroupLayoutForUser(user.id)} />;
 }
 
 function SidebarFallback() {

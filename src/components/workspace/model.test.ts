@@ -28,6 +28,7 @@ describe("workspace destinations", () => {
   it("keeps deep links and query state inside the app", () => {
     expect(workspaceHref("/projects/project-0?view=knowledge#context", "https://app.test")).toBe("/projects/project-0?view=knowledge#context");
     expect(workspaceHref("/municipalities", "https://app.test")).toBe("/municipalities");
+    for (const href of ["/meetings", "/chat", "/mail", "/cloud"]) expect(workspaceHref(href, "https://app.test")).toBe(href);
   });
   it("rejects external, executable and non-page destinations", () => {
     for (const href of ["https://other.test/wiki", "//other.test/wiki", "javascript:alert(1)", "/api/auth/sign-out", "/login", "/wiki-evil", "https://name:pass@app.test/wiki"])

@@ -32,20 +32,20 @@ export type ModuleNavItem = {
   group: ModuleNavGroup;
 };
 
-export type ModuleNavGroup = "work" | "finance" | "knowledge";
+export type ModuleNavGroup = "work" | "communication" | "finance" | "knowledge";
 
 /** Sidebar group order. Settings is not part of a group; it sits in the sidebar footer. */
-export const moduleNavGroups: ModuleNavGroup[] = ["work", "finance", "knowledge"];
+export const moduleNavGroups: ModuleNavGroup[] = ["work", "communication", "finance", "knowledge"];
 
 export const moduleNav: ModuleNavItem[] = [
   { key: "dashboard", href: "/", icon: LayoutDashboard, group: "work" },
   { key: "calendar", href: "/calendar", icon: CalendarDays, group: "work" },
   { key: "projects", href: "/projects", icon: KanbanSquare, group: "work" },
   { key: "time", href: "/time", icon: Timer, group: "work" },
-  { key: "meetings", href: "/meetings", icon: Video, group: "work" },
-  { key: "chat", href: "/chat", icon: MessagesSquare, group: "work" },
-  { key: "mail", href: "/mail", icon: Mail, group: "work" },
-  { key: "cloud", href: "/cloud", icon: Cloud, group: "work" },
+  { key: "meetings", href: "/meetings", icon: Video, group: "communication" },
+  { key: "chat", href: "/chat", icon: MessagesSquare, group: "communication" },
+  { key: "mail", href: "/mail", icon: Mail, group: "communication" },
+  { key: "cloud", href: "/cloud", icon: Cloud, group: "communication" },
   { key: "accounting", href: "/accounting", icon: Calculator, group: "finance" },
   { key: "personnel", href: "/personnel", icon: UserRoundCog, group: "finance" },
   { key: "wiki", href: "/wiki", icon: BookOpen, group: "knowledge" },

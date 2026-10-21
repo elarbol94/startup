@@ -11,7 +11,7 @@ export function workspaceHref(value: string, origin: string): string | null {
   try {
     const url = new URL(value, origin);
     if (url.origin !== origin || url.username || url.password) return null;
-    if (!/^\/(?:$|(?:wiki|municipalities|projects|calendar|accounting|personnel|time|network|documents|settings)(?:\/|$))/.test(url.pathname)) return null;
+    if (!/^\/(?:$|(?:wiki|municipalities|projects|calendar|accounting|personnel|time|network|documents|settings|meetings|chat|mail|cloud)(?:\/|$))/.test(url.pathname)) return null;
     return url.pathname + url.search + url.hash;
   } catch { return null; }
 }

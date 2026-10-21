@@ -49,7 +49,7 @@ export function getMyProfilePreferences(userId: string) {
   const markColor = ensureUserMarkColor(userId);
   return db.select().from(userProfilePreferences)
     .where(eq(userProfilePreferences.userId, userId)).get()
-    ?? { userId, markColor, wikiTypographyJson: "", updatedAt: new Date() };
+    ?? { userId, markColor, wikiTypographyJson: "", sidebarLayoutJson: "", updatedAt: new Date() };
 }
 
 export function listMarkColorAvailability(userId: string) {
