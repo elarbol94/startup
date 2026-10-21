@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation, openPane } from "./helpers/presentation-fixture";
+import { seedPresentation, openPane, propertiesTab } from "./helpers/presentation-fixture";
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 test.setTimeout(240_000);
@@ -46,7 +46,7 @@ test("a group is labelled Gruppe and stays selected after dragging it", async ({
   await node(page, "a").click(); await node(page, "b").click({ modifiers: ["Shift"] });
   await canvas(page).focus(); await page.keyboard.press("Control+g");
   await properties(page);
-  const heading = page.locator("#presentation-tool-appearance h2");
+  const heading = page.getByTestId("properties-title");
   await expect(heading).toHaveText("Gruppe");
   const b = (await node(page, "b").boundingBox())!;
   await page.mouse.move(b.x + 20, b.y + b.height / 2); await page.mouse.down();
@@ -59,7 +59,7 @@ test("inspector rounds geometry and untouched fields do not move the element", a
   const id = await seedPresentation(page, false, false, [
     { id: "a", type: "shape", x: 100.123456, y: 50.987654, width: 200.04, height: 120.55, rotation: 0, content: { shape: "rect", fill: "#6366f1", stroke: "", strokeWidth: 0, opacity: 1 } },
   ], { steps: [], waitFor: "a" });
-  await node(page, "a").click(); await properties(page);
+  await node(page, "a").click(); await properties(page); await propertiesTab(page, "Größe und Position");
   const x = page.getByRole("spinbutton", { name: "X-Position", exact: true });
   await expect(x).toHaveValue("100.1");
   await expect(page.getByRole("spinbutton", { name: "Y-Position", exact: true })).toHaveValue("51");
@@ -138,7 +138,7 @@ test("format shortcuts use Ctrl+Shift+C/V (and Ctrl+Alt), layers Ctrl+Shift+]/["
   await node(page, "a").click({ button: "right" });
   const menu = page.getByRole("menu");
   await expect(menu.getByRole("menuitem", { name: /Format kopieren/ })).toContainText("Strg+Alt+C");
-  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Shift+]");
+  await expect(menu.getByRole("menuitem", { name: "In den Vordergrund" }).first()).toContainText("Strg+Umschalt+]");
 });
 
 test("file pickers are styled and labelled in German", async ({ page }) => {

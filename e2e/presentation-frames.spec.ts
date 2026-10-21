@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { placeAtCenter, seedPresentation, openPane } from "./helpers/presentation-fixture";
+import { placeAtCenter, seedPresentation, openPane, propertiesTab } from "./helpers/presentation-fixture";
 
 /** Frames as containers and stops: membership, naming, the path, placement and presenting. */
 test.use({ viewport: { width: 1440, height: 1000 } });
@@ -193,7 +193,7 @@ test("frame size presets keep the width and undo in one step", async ({ page }) 
   const id = await seedPresentation(page, false, false, [frame("f", 0, 0, "Rahmen 1")], { steps: [{ id: "s1", elementId: "f" }], waitFor: "f" });
   const b = await box(page, "f");
   await page.mouse.click(b.x + 2, b.y + b.height / 2);
-  await openPane(page, "Eigenschaften");
+  await openPane(page, "Eigenschaften"); await propertiesTab(page, "Größe und Position");
   await page.getByRole("button", { name: "Seitenverhältnis 4:3", exact: true }).click();
   const size = async () => { const f = (await saved(page, id)).elements[0]; return [f.width, f.height]; };
   await expect.poll(size).toEqual([960, 720]);

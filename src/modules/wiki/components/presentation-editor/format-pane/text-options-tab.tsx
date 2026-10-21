@@ -66,7 +66,8 @@ export function TextBoxTab({ element, set, format, disabled }: { element: TextHo
         options={(["horizontal", "vertical", "vertical270", "stacked"] as const).map((value) => ({ value, label: t(`directions.${value}`) }))} onChange={(direction) => putBody({ direction })} />
       <RadioList name={`autofit-${element.id}`} value={autofit} disabled={disabled} options={(["none", "shrink", "resize"] as const).map((value) => ({ value, label: t(`autofit.${value}`) }))}
         onChange={(next) => set((c) => {
-          const text = element.type === "text" && "autoFit" in c ? { autoFit: next === "shrink" ? { minFontSize: Math.min(12, c.fontSize ?? 18), maxFontSize: c.fontSize ?? 18 } : undefined } : {};
+          // A text box that never had an auto-fit setting has no `autoFit` key yet; it still gets one.
+          const text = element.type === "text" ? { autoFit: next === "shrink" ? { minFontSize: Math.min(12, c.fontSize ?? 18), maxFontSize: c.fontSize ?? 18 } : undefined } : {};
           return { ...c, ...text, body: { ...c.body, autofit: next } };
         })} />
       {(["left", "right", "top", "bottom"] as const).map((side) => <NumberField key={side} label={t(`margins.${side}`)} value={insets[side] / 28.35} min={0} max={35} step={0.01} unit="cm" disabled={disabled}

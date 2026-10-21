@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation as seed, openPane } from "./helpers/presentation-fixture";
+import { seedPresentation as seed, openPane, propertiesTab } from "./helpers/presentation-fixture";
 
 /** PowerPoint-style text: click into a selected box, type over a selection, text inside shapes. */
 test.use({ viewport: { width: 1440, height: 1000 } });
@@ -58,6 +58,7 @@ test("shapes take text: type on a selected shape, double-click to edit, Escape s
 
   // Bold from the inspector reaches the shape's text.
   await openPane(page, "Eigenschaften");
+  await propertiesTab(page, "Text");
   await page.getByTestId("presentation-shape-text").getByRole("button", { name: "Fett", exact: true }).click();
   const deck = await saved(page, id);
   expect(deck.elements.find((element) => element.id === "box")!.content).toMatchObject({ text: "Hello world", bold: true });

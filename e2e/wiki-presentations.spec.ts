@@ -1,4 +1,4 @@
-import { placeAtCenter, openPane, fileMenu } from "./helpers/presentation-fixture";
+import { placeAtCenter, openPane, fileMenu, propertiesTab } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 
 test.use({ actionTimeout: 30_000, viewport: { width: 1440, height: 1000 } });
@@ -257,7 +257,7 @@ test("rotation keeps an element in place and Save commits the currently focused 
   await openNewPitchEditor(page, `E2E Geometry ${Date.now()}`);
   const node = page.getByTestId("rf__node-pitch-title");
   await node.click();
-  await properties(page);
+  await properties(page); await propertiesTab(page, "Größe und Position");
   const before = await node.evaluate((element) => {
     const box = element.getBoundingClientRect();
     return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
@@ -272,6 +272,7 @@ test("rotation keeps an element in place and Save commits the currently focused 
   expect(after.x).toBeCloseTo(before.x, 0);
   expect(after.y).toBeCloseTo(before.y, 0);
   const text = "Saved directly from the focused property field";
+  await propertiesTab(page, "Text");
   await page.getByRole("textbox", { name: "Text", exact: true }).fill(text);
   await action(page, "Speichern");
   await expect(page.getByTestId("collaboration-status").getByText("Gespeichert", { exact: true })).toBeVisible();

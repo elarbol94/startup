@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { seedPresentation, openPane } from "./helpers/presentation-fixture";
+import { seedPresentation, openPane, propertiesTab } from "./helpers/presentation-fixture";
 
 test.use({ viewport: { width: 1440, height: 1000 } });
 test.setTimeout(180_000);
@@ -19,7 +19,7 @@ test("exact geometry supports cancel, validation, undo, collaboration and saved 
   const id = await seedPresentation(page);
   const other = await context.newPage(); await other.goto(`/wiki/presentations/${id}`);
   await expect(node(other, "a")).toBeVisible();
-  await node(page, "a").click(); await properties(page);
+  await node(page, "a").click(); await properties(page); await propertiesTab(page, "Größe und Position");
   const x = page.getByRole("spinbutton", { name: "X-Position", exact: true });
   await x.fill("100.125"); await x.press("Enter");
   expect((await saved(page, id)).elements.find((e: { id: string }) => e.id === "a").x).toBe(100.125);
@@ -37,7 +37,7 @@ test("exact geometry supports cancel, validation, undo, collaboration and saved 
   await rotation.fill("12.75"); await rotation.press("Enter");
   const document = await saved(page, id);
   expect(document.elements.find((e: { id: string }) => e.id === "a")).toMatchObject({ x: 100.125, width: 520, height: 180, rotation: 12.75 });
-  await page.reload(); await node(page, "a").click(); await properties(page);
+  await page.reload(); await node(page, "a").click(); await properties(page); await propertiesTab(page, "Größe und Position");
   await expect(page.getByRole("spinbutton", { name: "Drehung (Grad)", exact: true })).toHaveValue("12.75");
   await page.screenshot({ path: "output/playwright/presentation-precision.png", animations: "disabled" });
   await other.close();
@@ -45,18 +45,19 @@ test("exact geometry supports cancel, validation, undo, collaboration and saved 
 
 test("parent alignment persists and locked objects disable precise edits", async ({ page }) => {
   const id = await seedPresentation(page);
-  await node(page, "a").click(); await properties(page);
+  await node(page, "a").click(); await properties(page); await propertiesTab(page, "Größe und Position");
   const align = page.getByRole("group", { name: "Im übergeordneten Rahmen ausrichten" });
   await align.getByRole("button", { name: "Horizontal zentrieren", exact: true }).click();
   expect((await saved(page, id)).elements.find((e: { id: string }) => e.id === "a").x).toBe(370);
   await page.keyboard.press("Control+z");
   await expect(page.getByRole("spinbutton", { name: "X-Position", exact: true })).toHaveValue("100");
-  await page.getByRole("button", { name: "Struktur", exact: true }).click();
-  await page.getByRole("button", { name: "Objekt sperren", exact: true }).click();
+  await page.getByTestId("presentation-properties").getByRole("button", { name: "Sperren", exact: true }).click();
+  // A locked object says so and offers to unlock.
+  await expect(page.getByTestId("presentation-properties").getByRole("status")).toContainText("Gesperrt");
   await expect(page.getByRole("spinbutton", { name: "X-Position", exact: true })).toBeDisabled();
   await expect(align.getByRole("button").first()).toBeDisabled();
-  await page.getByRole("button", { name: "Aussehen", exact: true }).click();
+  await propertiesTab(page, "Text");
   await expect(page.getByRole("textbox", { name: "Text", exact: true })).toHaveAttribute("contenteditable", "false");
-  await saved(page, id); await page.reload(); await node(page, "a").click(); await properties(page);
+  await saved(page, id); await page.reload(); await node(page, "a").click(); await properties(page); await propertiesTab(page, "Größe und Position");
   await expect(page.getByRole("spinbutton", { name: "X-Position", exact: true })).toBeDisabled();
 });

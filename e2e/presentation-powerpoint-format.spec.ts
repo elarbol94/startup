@@ -34,7 +34,7 @@ test("Quick Styles and the Format pane give a shape PowerPoint's gradient, shado
   await expect.poll(async () => find((await deck(page, id)).elements, "a").content).toMatchObject({ fillStyle: { type: "gradient" }, effects: { shadow: { type: "outer" } }, strokeWidth: 0 });
 
   await page.getByTestId("format-pane-button").click();
-  const pane = page.getByTestId("format-shape-pane");
+  const pane = page.getByTestId("presentation-properties");
   await expect(pane).toBeVisible();
   await pane.getByRole("radio", { name: "Musterfüllung" }).check();
   await pane.getByTestId("format-patterns").getByRole("option", { name: "Zickzack" }).click();
