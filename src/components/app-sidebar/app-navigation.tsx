@@ -16,6 +16,8 @@ import {
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { PanelLeftOpen, Search, Settings } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
+import { ShareMenu } from "@/components/share/share-menu";
+import { currentPageShareTarget } from "@/components/share/share-target";
 import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
@@ -54,6 +56,7 @@ export function AppNavigation({
   onOpenSearch,
   onExpand,
   onDragStateChange,
+  showShare = true,
 }: {
   compact: boolean;
   pathname: string;
@@ -65,9 +68,12 @@ export function AppNavigation({
   /** Shown in the icon rail to widen the sidebar again. */
   onExpand?: () => void;
   onDragStateChange?: (dragging: boolean) => void;
+  /** The phone header has its own share button, so the phone sheet leaves it out. */
+  showShare?: boolean;
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const tShare = useTranslations("share");
   const router = useRouter();
   const suppressNavigationUntilRef = useRef(0);
   const [navigationOrder, setNavigationOrder] = useState<string[]>(loadNavigationOrder);
@@ -121,6 +127,16 @@ export function AppNavigation({
                 <Search className="size-4" />
               </Button>
             </ShortcutTooltip>
+            {showShare && (
+              <ShareMenu
+                target={currentPageShareTarget}
+                label={tShare("sharePage")}
+                size="icon-lg"
+                className={cn("bg-transparent text-text-secondary", compact && "w-full")}
+                align="start"
+                side={compact ? "right" : "bottom"}
+              />
+            )}
           </div>
           <DndContext
             id="app-sidebar-navigation"

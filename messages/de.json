@@ -1335,6 +1335,7 @@
     "newsActivity": { "mention": "hat dich erwähnt", "reply": "hat geantwortet", "assignment": "hat dir etwas zugewiesen", "resolved": "hat einen Kommentar erledigt" }
   },
   "calendar": {
+    "sharedItemUnavailable": "Der geteilte Eintrag ist nicht in deinem Kalender oder für dich nicht sichtbar.",
     "hintPrevious": "Zeigt den vorherigen Tag, die vorherige Woche oder den vorherigen Monat.",
     "hintNext": "Zeigt den nächsten Tag, die nächste Woche oder den nächsten Monat.",
     "hintToday": "Springt zurück zum heutigen Tag.",
@@ -5255,6 +5256,20 @@
       "too_large": "Die Nachricht ist zu groß (Anhänge höchstens 20 MB).",
       "unknown": "Etwas ist schiefgelaufen."
     }
+  },
+  "share": {
+    "share": "Teilen",
+    "sharePage": "Seite teilen",
+    "shareTask": "Aufgabe teilen",
+    "shareItem": "Eintrag teilen",
+    "copyLink": "Link kopieren",
+    "copyTitledLink": "Link mit Titel kopieren",
+    "shareVia": "Teilen über …",
+    "shareInChat": "Im Chat teilen",
+    "linkCopied": "Link kopiert",
+    "linkCopiedForChat": "Link kopiert – in einem Raum einfügen",
+    "copyFailed": "Der Link konnte nicht kopiert werden",
+    "fallbackTitle": "Seite"
   },
   "chat": {
     "title": "Chat",

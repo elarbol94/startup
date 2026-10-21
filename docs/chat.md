@@ -36,6 +36,12 @@ container.
 Accounts are created on the homeserver (invitation links or the Synapse admin
 tools), not in the platform.
 
+## Sharing platform links
+
+Pages and items are shared into rooms with the share button (see
+`docs/sharing.md`). Inside the Chat section, a click on such a link opens the
+page in the app window instead of a new tab.
+
 ## Deploying and upgrading
 
 ```bash

@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ShareMenu } from "@/components/share/share-menu";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export function ItemDetails({ title, description, origin, href, fields, children, className, onEdit, onOpen }: {
@@ -35,6 +36,7 @@ export function ItemDetails({ title, description, origin, href, fields, children
       <DialogFooter className="flex-wrap">
         <Button variant="ghost" onClick={() => setOpen(false)}>{t("close")}</Button>
         {onEdit && <Button variant="outline" onClick={() => { setOpen(false); onEdit(); }}>{t("edit")}</Button>}
+        {href && <ShareMenu target={{ href, title }} size="icon" side="top" />}
         {href && <Button nativeButton={false} render={<Link href={href} onClick={() => setOpen(false)} />}>{t("openOrigin")}<ArrowRight /></Button>}
       </DialogFooter>
     </DialogContent>

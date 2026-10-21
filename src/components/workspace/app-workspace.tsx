@@ -17,6 +17,8 @@ import { APP_NAVIGATION_EVENT, requestAppNavigation, type AppNavigationRequest }
 import { FocusPill } from "@/components/focus/focus-pill";
 import { WorkspaceTab } from "./workspace-tab";
 import { useFocusMode } from "@/components/focus-mode";
+import { useSharePageShortcut } from "@/components/share/use-share-page-shortcut";
+import { setWorkspaceShareResolver } from "@/components/share/share-target";
 import { MAX_WORKSPACE_TABS, MIN_SPLIT_WIDTH, splitRatio, workspaceHref, restoreWorkspace, workspaceDestinationKey, touchTabHistory, tabCycleOrder, cycleTarget, isTabSwitchShortcut, isEditableTarget, isWorkspaceFrame, workspaceNavigationTarget, WORKSPACE_OPEN_TAB_EVENT, type WorkspaceTabRequest } from "./model";
 
 type Tab = { id: string; href: string; title: string };
@@ -134,6 +136,20 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
     };
     window.addEventListener("message", receive);
     return () => window.removeEventListener("message", receive);
+  }, [embedded]);
+
+  // "Share page" shares the tab in front, at the address its pane has navigated to.
+  useSharePageShortcut();
+  const shareState = useRef({ active, tabs });
+  useEffect(() => { shareState.current = { active, tabs }; });
+  useEffect(() => {
+    if (embedded) return;
+    setWorkspaceShareResolver(() => {
+      const { active: id, tabs: open } = shareState.current;
+      const tab = id === "primary" ? undefined : open.find(item => item.id === id);
+      return tab ? { href: frames.current.get(tab.id)?.dataset.currentHref || tab.href, title: tab.title } : null;
+    });
+    return () => setWorkspaceShareResolver(null);
   }, [embedded]);
 
   // Sidebar, search and shortcut navigation goes to the visible tab, not the hidden main page.

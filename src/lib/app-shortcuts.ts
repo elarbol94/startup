@@ -28,6 +28,8 @@ export const GLOBAL_SHORTCUTS = {
   switchTab: "Alt+Q",
   /** Fokusmodus */
   focusMode: "Mod+Shift+F",
+  /** Link der Seite kopieren */
+  copyPageLink: "Mod+Shift+L",
 } as const;
 
 /** "G" = "Gehe zu", followed by the first letter of the German section name. */

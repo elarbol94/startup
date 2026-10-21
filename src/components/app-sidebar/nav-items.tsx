@@ -91,9 +91,10 @@ export function SortableNavLink({
 
   return (
     <ShortcutTooltip label={label} shortcut={NAVIGATION_SHORTCUTS[item.key]} side="right" disabled={isDragging}>
-      <button
-        type="button"
+      <Link
+        href={item.href}
         ref={setNodeRef}
+        draggable={false}
         data-navigation-key={item.key}
         style={{ transform: CSS.Transform.toString(transform), transition }}
         aria-label={compact ? label : undefined}
@@ -127,6 +128,9 @@ export function SortableNavLink({
             pointerMovedRef.current = false;
             return;
           }
+          // Modified and middle clicks keep the browser's link behaviour (open in a new tab or window).
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
           onActivate();
         }}
         {...attributes}
@@ -134,7 +138,7 @@ export function SortableNavLink({
       >
         <Icon className="size-[18px] shrink-0" />
         <NavLabel label={label} compact={compact} />
-      </button>
+      </Link>
     </ShortcutTooltip>
   );
 }

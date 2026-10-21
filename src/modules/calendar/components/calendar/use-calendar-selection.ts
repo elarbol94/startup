@@ -17,14 +17,17 @@ export function useCalendarSelection({
   router,
   confirm,
   openEditEvent,
+  initialSelectedId = null,
 }: {
   items: CalendarItem[];
   t: ReturnType<typeof useTranslations<"calendar">>;
   router: ReturnType<typeof useRouter>;
   confirm: CalendarConfirm;
   openEditEvent: (item: CalendarItem) => void;
+  /** Selected on first render, for links shared to one item. */
+  initialSelectedId?: string | null;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId);
   const selected = selectedId ? (items.find((item) => item.id === selectedId) ?? null) : null;
 
   async function deleteItem(item: CalendarItem) {

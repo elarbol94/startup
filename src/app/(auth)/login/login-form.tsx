@@ -16,7 +16,8 @@ import {
 
 const subscribeToHydration = () => () => {};
 
-export function LoginForm() {
+/** `returnTo` is already validated by safeReturnPath on the server. */
+export function LoginForm({ returnTo = "/" }: { returnTo?: string }) {
   const t = useTranslations("auth");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -38,7 +39,7 @@ export function LoginForm() {
       }
 
       // Discard the previous account's client-side route cache after authentication.
-      window.location.replace("/");
+      window.location.replace(returnTo);
     } catch {
       setError(t("invalidCredentials"));
     } finally {
