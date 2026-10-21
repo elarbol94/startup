@@ -13,7 +13,7 @@ import type { PresentationNode } from "../presentation-canvas";
  * every pointer event through. Dots fall on multiples of the spacing from the canvas origin,
  * the points snapping uses.
  */
-export function GridOverlay({ spacing }: { spacing: number }) {
+export function GridOverlay({ spacing, transparency = 0 }: { spacing: number; transparency?: number }) {
   const { x, y, zoom } = useViewport();
   const gap = gridDisplayGap(spacing, zoom) * zoom;
   const offset = (value: number) => ((value % gap) + gap) % gap;
@@ -24,7 +24,7 @@ export function GridOverlay({ spacing }: { spacing: number }) {
         <circle cx={0.75} cy={0.75} r={1.5} fill="#f8fafc" fillOpacity={0.5} />
         <circle cx={0.75} cy={0.75} r={0.9} fill="#475569" fillOpacity={0.85} />
       </pattern>
-      <rect width="100%" height="100%" fill="url(#presentation-grid-overlay)" />
+      <rect width="100%" height="100%" fill="url(#presentation-grid-overlay)" opacity={1 - transparency} />
     </svg>
   );
 }

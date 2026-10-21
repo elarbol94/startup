@@ -114,3 +114,20 @@ describe("snap options in canvas geometry", () => {
     expect(snapBounds({ x: 0, y: 0, width: 10, height: 10 }, { x: 3, y: 3, width: 10, height: 10 }, [], 0, false, [], { grid: 20 }).bounds.x).toBe(3);
   });
 });
+
+describe("grid transparency", () => {
+  it("defaults to a 15 % transparent grid, and keeps that for decks saved before the setting", async () => {
+    const { presentationSettingsSchema, defaultPresentationSettings } = await import("./presentation-model");
+    expect(defaultPresentationSettings.grid.transparency).toBe(0.15);
+    const saved = presentationSettingsSchema.parse({ grid: { spacing: 28.35, snap: false, show: true } });
+    expect(saved.grid.transparency).toBe(0.15);
+  });
+  it("accepts 0 (opaque) and 1 (invisible) and rejects values outside 0..1", async () => {
+    const { presentationSettingsSchema } = await import("./presentation-model");
+    const parse = (transparency: number) => presentationSettingsSchema.safeParse({ grid: { spacing: 28.35, snap: false, show: true, transparency } }).success;
+    expect(parse(0)).toBe(true);
+    expect(parse(1)).toBe(true);
+    expect(parse(1.2)).toBe(false);
+    expect(parse(-0.1)).toBe(false);
+  });
+});

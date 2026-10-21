@@ -115,7 +115,7 @@ describe("Quick Styles, WordArt and the model", () => {
     });
     expect(parsed.type).toBe("shape");
     const settings = presentationSettingsSchema.parse({ defaultStepDurationMs: 4000 });
-    expect(settings.grid).toEqual({ spacing: 28.35, snap: false, show: false });
+    expect(settings.grid).toEqual({ spacing: 28.35, snap: false, show: false, transparency: 0.15 });
     expect(settings.guides.smart).toBe(true);
   });
   it("turns WordArt into CSS", () => {

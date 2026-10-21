@@ -136,7 +136,8 @@ export const presentationGuideSchema = z.object({ id: z.string().min(1).max(64),
 export type PresentationGuide = z.infer<typeof presentationGuideSchema>;
 export const PRESENTATION_GRID_SPACING = 28.35;
 export const presentationViewSettingsFields = {
-  grid: z.object({ spacing: z.number().finite().min(1).max(1000), snap: z.boolean(), show: z.boolean() }).default({ spacing: PRESENTATION_GRID_SPACING, snap: false, show: false }),
+  /** `transparency` 0..1 of the gridline dots over the slide; 0 is fully opaque. */
+  grid: z.object({ spacing: z.number().finite().min(1).max(1000), snap: z.boolean(), show: z.boolean(), transparency: share.default(0.15) }).default({ spacing: PRESENTATION_GRID_SPACING, snap: false, show: false, transparency: 0.15 }),
   guides: z.object({ show: z.boolean(), smart: z.boolean(), list: presentationGuideSchema.array().max(200) }).default({ show: false, smart: true, list: [] }),
   ruler: z.boolean().default(false),
 };

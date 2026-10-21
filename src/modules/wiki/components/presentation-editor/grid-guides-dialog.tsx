@@ -89,6 +89,19 @@ export function GridGuidesDialog({ open, onOpenChange, settings, update, toggleG
               )}
             </div>
             {check(t("presentations.gridGuides.showGrid"), grid.show, show => update({ grid: { ...grid, show } }))}
+            <label className="block text-xs text-muted-foreground">
+              {t("presentations.gridGuides.transparency", { percent: Math.round(grid.transparency * 100) })}
+              <input
+                type="range"
+                data-testid="presentation-grid-transparency"
+                min={0}
+                max={100}
+                step={5}
+                className="mt-1 w-full accent-primary"
+                value={Math.round(grid.transparency * 100)}
+                onChange={event => update({ grid: { ...grid, transparency: Number(event.target.value) / 100 } })}
+              />
+            </label>
           </section>
           <section className="space-y-3">
             <h3 className="text-xs font-semibold text-muted-foreground">{t("presentations.gridGuides.guideSettings")}</h3>

@@ -56,3 +56,16 @@ test("the zoom buttons move clear of the vertical ruler", async ({ page }) => {
   const controls = await page.locator(".react-flow__controls").boundingBox();
   expect(ruler && controls && controls.x >= ruler.x + ruler.width).toBe(true);
 });
+
+test("the grid's transparency slider changes how strongly the dots show", async ({ page }) => {
+  await seed(page, false, false, [slide, plain]);
+  await page.getByTestId("presentation-view-menu").click();
+  await page.getByTestId("view-gridlines").click();
+  await page.getByTestId("presentation-view-menu").click();
+  await page.getByTestId("view-grid-settings").click();
+  const slider = page.getByTestId("presentation-grid-transparency");
+  await expect(slider).toHaveValue("15");
+  await slider.fill("50");
+  const dots = page.getByTestId("presentation-grid-overlay").locator("rect");
+  await expect(dots).toHaveAttribute("opacity", "0.5");
+});
