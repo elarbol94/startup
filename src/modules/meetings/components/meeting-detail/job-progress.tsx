@@ -28,6 +28,17 @@ export function JobProgressBar({ progress }: { progress: Progress }) {
       }
       break;
     }
+    case "local": {
+      if (progress.phase === "queued") {
+        label = progress.position ? t("localQueued", { position: progress.position }) : t("localStarting");
+        break;
+      }
+      label = t(progress.phase === "diarizing" ? "localDiarizing" : "localTranscribing");
+      if (progress.remainingMs != null) {
+        label += ` · ${progress.remainingMs < 60_000 ? t("almostDone") : t("remaining", { minutes: Math.ceil(progress.remainingMs / 60_000) })}`;
+      }
+      break;
+    }
     case "writing": {
       const index = protocolSections.indexOf(progress.section ?? "summary");
       label = t("writing", { section: t(`sections.${progress.section ?? "summary"}`), number: index + 1, count: protocolSections.length });
