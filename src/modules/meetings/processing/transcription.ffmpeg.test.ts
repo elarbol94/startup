@@ -71,7 +71,7 @@ describe.skipIf(!hasFfmpeg)("transcription with real ffmpeg", () => {
       return new Response(JSON.stringify({ segments }));
     }));
 
-    const result = await transcribeAudio({ file, durationMs: 300_000, language: "de", signal: new AbortController().signal, beforeRequest: () => {} });
+    const result = await transcribeAudio({ file, durationMs: 300_000, language: "de", prompt: "", diarize: true, key: "k", signal: new AbortController().signal, beforeRequest: () => {} });
 
     // The two long gaps (60 s and 110 s, minus 1 s padding each side) are left out; chunks are at most 60 s.
     expect(Math.abs(result.skippedMs - 166_000)).toBeLessThan(2_000);
@@ -95,7 +95,7 @@ describe.skipIf(!hasFfmpeg)("transcription with real ffmpeg", () => {
     const file = path.join(dir, "bursts.ogg");
     makeTrack(file, "lt(mod(t,14),2)", 4200);
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ segments: [] }))));
-    const result = await transcribeAudio({ file, durationMs: 4_200_000, language: "de", signal: new AbortController().signal, beforeRequest: () => {} });
+    const result = await transcribeAudio({ file, durationMs: 4_200_000, language: "de", prompt: "", diarize: true, key: "k", signal: new AbortController().signal, beforeRequest: () => {} });
     expect(result.engine).toBe("openai");
     expect(result.skippedMs).toBeGreaterThan(0);
   }, 300_000);
@@ -105,7 +105,7 @@ describe.skipIf(!hasFfmpeg)("transcription with real ffmpeg", () => {
     makeTrack(file, [], 120);
     const fetch = vi.fn();
     vi.stubGlobal("fetch", fetch);
-    const result = await transcribeAudio({ file, durationMs: 120_000, language: "de", signal: new AbortController().signal, beforeRequest: () => {} });
+    const result = await transcribeAudio({ file, durationMs: 120_000, language: "de", prompt: "", diarize: true, key: "k", signal: new AbortController().signal, beforeRequest: () => {} });
     expect(result).toMatchObject({ engine: "silence", segments: [] });
     expect(fetch).not.toHaveBeenCalled();
   }, 60_000);

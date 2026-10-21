@@ -19,6 +19,11 @@ export const jobProgressSchema = z.discriminatedUnion("step", [
     step: z.literal("transcribing"), part: count, parts: count, doneMs: count, partMs: count, totalMs: count,
     startedAt: time, partStartedAt: time,
   }),
+  /** At the homeserver transcriber: waiting at `position` in its queue, or running with its own measure. */
+  z.object({
+    step: z.literal("local"), phase: z.enum(["queued", "transcribing", "diarizing"]), fraction: z.number().min(0).max(1),
+    position: count, startedAt: time,
+  }),
   /** The transcript is sent; the model has not written any output yet. */
   z.object({ step: z.literal("analysing"), at: time }),
   /** The model is writing `protocolSections[section]`. */
@@ -39,6 +44,8 @@ export type JobProgressView = {
   /** Only once finished parts give a speed to extrapolate from. */
   remainingMs?: number | null;
   section?: ProtocolSection;
+  phase?: "queued" | "transcribing" | "diarizing";
+  position?: number;
 };
 
 export function parseJobProgress(raw: string | null): JobProgress | null {
@@ -68,6 +75,18 @@ export function jobProgressView(progress: JobProgress, now: number): JobProgress
         elapsedMs: Math.max(0, now - progress.at),
         section: protocolSections[progress.section],
       };
+    case "local": {
+      const elapsedMs = Math.max(0, now - progress.startedAt);
+      if (progress.phase === "queued") {
+        return { step: "local", phase: "queued", fraction: null, elapsedMs, position: progress.position, remainingMs: null };
+      }
+      // The service's own measure; time left is extrapolated once it is past the first few percent.
+      const fraction = progress.fraction;
+      return {
+        step: "local", phase: progress.phase, fraction, elapsedMs,
+        remainingMs: fraction >= 0.05 ? Math.round(elapsedMs * (1 - fraction) / fraction) : null,
+      };
+    }
     case "transcribing": {
       const { doneMs, partMs, totalMs, startedAt, partStartedAt } = progress;
       // Wall-clock time per audio millisecond, measured over the finished parts.

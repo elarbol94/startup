@@ -1,0 +1,21 @@
+# Runs on the homeserver, not in the platform's stack. See README.md.
+services:
+  transcriber:
+    build: .
+    image: meeting-transcriber
+    restart: unless-stopped
+    # Only on the Tailscale address: the platform on banond reaches it over the tailnet.
+    ports:
+      - "${TRANSCRIBER_BIND:?set TRANSCRIBER_BIND to the Tailscale IPv4}:8790:8790"
+    devices:
+      - nvidia.com/gpu=all
+    cpus: 8
+    environment:
+      TRANSCRIBER_TOKEN_FILE: /secrets/transcriber_token
+      HF_TOKEN_FILE: /secrets/hf_token
+      EMB_BATCH: "8"
+      SEG_BATCH: "8"
+    volumes:
+      - ./secrets:/secrets:ro
+      - ./models:/models
+      - ./data:/data

@@ -15,7 +15,10 @@ vi.mock("./media-tools", () => media);
 import { transcribeAudio } from "./transcription";
 
 const min = 60_000;
-const input = (durationMs: number) => ({ file: "", durationMs, language: "de", signal: new AbortController().signal, beforeRequest: vi.fn() });
+const input = (durationMs: number) => ({
+  file: "", durationMs, language: "de", prompt: "Besprechung: Test.", diarize: true, key: "transcribe:r1:1",
+  signal: new AbortController().signal, beforeRequest: vi.fn(),
+});
 let dir: string;
 let file: string;
 
@@ -63,5 +66,51 @@ describe("transcribeAudio without silence", () => {
       { startMs: 1000, endMs: 3000, speakerKey: "SPK1", text: "Hallo zusammen" },
       { startMs: 29 * min, endMs: 29 * min + 2000, speakerKey: "SPK1", text: "Bis morgen" },
     ]);
+  });
+});
+
+describe("transcribeAudio with the homeserver transcriber", () => {
+  const speechAtEnds = () => media.detectSilences.mockResolvedValue([{ startMs: min, endMs: 29 * min }]);
+  const openAiAnswer = () => new Response(JSON.stringify({ segments: [{ start: 1, end: 3, speaker: "A", text: "Von OpenAI" }] }));
+
+  beforeEach(() => {
+    vi.stubEnv("MEETINGS_TRANSCRIBER_URL", "http://transcriber.test:8790");
+    vi.stubEnv("MEETINGS_TRANSCRIBER_TOKEN", "secret");
+  });
+
+  it("uses the homeserver for the whole recording and maps its timestamps back", async () => {
+    speechAtEnds();
+    const fetch = vi.fn(async (url: string) => url.includes("transcriber.test")
+      ? new Response(JSON.stringify({
+        id: "j1", status: "done", phase: "done", progress: 1,
+        result: { model: "large-v3-turbo+pyannote-3.1", language: "de", segments: [{ start: 62, end: 64, speaker: "SPEAKER_01", text: "Bis morgen" }] },
+      }))
+      : openAiAnswer());
+    vi.stubGlobal("fetch", fetch);
+    const result = await transcribeAudio({ ...input(30 * min), file });
+    expect(result).toMatchObject({ engine: "local", model: "large-v3-turbo+pyannote-3.1", fallbackReason: null });
+    expect(result.segments).toEqual([{ startMs: 29 * min, endMs: 29 * min + 2000, speakerKey: "SPK1", text: "Bis morgen" }]);
+    expect(fetch.mock.calls.every(([url]) => String(url).includes("transcriber.test"))).toBe(true);
+  });
+
+  it("falls back to OpenAI when the homeserver is unreachable, and says why", async () => {
+    speechAtEnds();
+    const fetch = vi.fn(async (url: string) => {
+      if (url.includes("transcriber.test")) throw new TypeError("fetch failed");
+      return openAiAnswer();
+    });
+    vi.stubGlobal("fetch", fetch);
+    const result = await transcribeAudio({ ...input(30 * min), file });
+    expect(result).toMatchObject({ engine: "openai", segments: [{ text: "Von OpenAI" }] });
+    expect(result.fallbackReason).toContain("unreachable");
+  });
+
+  it("does not fall back when the job lost its lease", async () => {
+    speechAtEnds();
+    const lost = new Error("The job lease was lost");
+    const fetch = vi.fn(async () => openAiAnswer());
+    vi.stubGlobal("fetch", fetch);
+    await expect(transcribeAudio({ ...input(30 * min), file, beforeRequest: () => { throw lost; } })).rejects.toBe(lost);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

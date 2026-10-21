@@ -35,6 +35,14 @@ describe("job progress view", () => {
     expect(jobProgressView({ step: "writing", section: 2, at: 0 }, 0)).toMatchObject({ fraction: 3 / 6, section: "decisions" });
   });
 
+  it("shows the homeserver queue, then its own measure with the time left", () => {
+    expect(jobProgressView({ step: "local", phase: "queued", fraction: 0, position: 2, startedAt: 0 }, MIN))
+      .toMatchObject({ fraction: null, position: 2, remainingMs: null });
+    expect(jobProgressView({ step: "local", phase: "transcribing", fraction: 0.02, position: 0, startedAt: 0 }, MIN).remainingMs).toBeNull();
+    expect(jobProgressView({ step: "local", phase: "diarizing", fraction: 0.75, position: 0, startedAt: 0 }, 6 * MIN))
+      .toMatchObject({ fraction: 0.75, phase: "diarizing", remainingMs: 2 * MIN });
+  });
+
   it("ignores unreadable stored progress", () => {
     expect(parseJobProgress(null)).toBeNull();
     expect(parseJobProgress("{")).toBeNull();
