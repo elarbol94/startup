@@ -55,20 +55,22 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(page.getByRole("status").filter({ hasText: "/" })).toHaveText("1 / 1");
   await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
   await expect(page.getByTestId("presentation-detail-back")).toContainText("Gegenstandsverleih");
 
-  // Past the page's last stop the card turns back, and the box is marked as shown.
+  // Past the page's last stop the card turns back. The slide carries no badges: the box only
+  // lifts under the pointer.
   await page.keyboard.press("ArrowRight");
   await expect(player).toHaveAttribute("data-scene", "overview");
-  await expect(page.locator('[data-detail-badge="visited"][data-element-id="lend"]')).toBeVisible();
+  await expect(page.locator("[data-detail-badge]")).toHaveCount(0);
+  await expect(page.locator('.react-flow__node[data-id="lend"]')).toHaveClass(/presentation-opener/);
   // Input during a turn is dropped; the next click comes once the card has landed.
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(player).not.toHaveAttribute("data-turning");
 
   // Escape leaves a page first and only then the presentation.
-  await page.locator('[data-detail-badge="visited"][data-element-id="lend"]').click();
+  await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present$`));
@@ -94,32 +96,30 @@ test("a clicker takes the detour on the path, animated even when the system redu
   await expect(page.locator(".react-flow__attribution")).toHaveCount(0);
 
   // "Next" on a clicker arrives at the box and turns its page over -- with the card turn.
-  // The turn is short, so its layers are counted as they come rather than polled for.
-  type Counted = Window & { flipLayers?: number };
+  // The turn is short, so it is counted as it starts rather than polled for.
+  type Counted = Window & { turns?: number };
   await player.evaluate((root) => {
-    (window as Counted).flipLayers = 0;
-    new MutationObserver((records) => {
-      for (const record of records) for (const node of record.addedNodes) if ((node as HTMLElement).dataset?.detailFlip !== undefined) (window as Counted).flipLayers! += 1;
-    }).observe(root, { childList: true });
+    (window as Counted).turns = 0;
+    new MutationObserver(() => { if (root.dataset.turning) (window as Counted).turns! += 1; }).observe(root, { attributes: true, attributeFilter: ["data-turning"] });
   });
   await page.keyboard.press("PageDown");
   await expect(player).toHaveAttribute("data-scene", "page");
-  await expect.poll(() => page.evaluate(() => (window as Counted).flipLayers)).toBeGreaterThan(0);
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => (window as Counted).turns)).toBeGreaterThan(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
 
   // The page's last "next" turns back to the box's stop; the overview goes on from there.
   await page.keyboard.press("PageDown");
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(status).toHaveText("2 / 2");
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
 
   // On that stop, Down opens the page again and Up closes it.
   await page.keyboard.press("ArrowDown");
   await expect(player).toHaveAttribute("data-scene", "page");
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
   await page.keyboard.press("ArrowUp");
   await expect(player).toHaveAttribute("data-scene", "overview");
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
 
   // A window that stops painting freezes animations; a turn still completes and keys keep working.
   await page.evaluate(() => {
@@ -128,8 +128,8 @@ test("a clicker takes the detour on the path, animated even when the system redu
   });
   await page.keyboard.press("ArrowDown");
   await expect(player).toHaveAttribute("data-scene", "page");
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
   await page.keyboard.press("ArrowUp");
   await expect(player).toHaveAttribute("data-scene", "overview");
-  await expect(page.locator("[data-detail-flip]")).toHaveCount(0);
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
 });

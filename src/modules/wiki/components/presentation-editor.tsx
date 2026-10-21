@@ -333,6 +333,17 @@ function Editor({
   const detail = useDetailScene({ elements, steps, dispatch, disabled, setSelectedIds, reactFlow });
   const [wikiImportOpen, setWikiImportOpen] = useState(false);
   const tDetails = useTranslations("wiki.presentations.details");
+  // The detail page handle shows on the element under the pointer (and on the selection). It
+  // sits just outside the element, so leaving the element waits a moment for the pointer to
+  // reach the handle instead of hiding it on the way.
+  const [hoveredBadge, setHoveredBadge] = useState<string | null>(null);
+  const badgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (badgeTimer.current) clearTimeout(badgeTimer.current); }, []);
+  const hoverBadge = useCallback((id: string | null) => {
+    if (badgeTimer.current) clearTimeout(badgeTimer.current);
+    if (id) setHoveredBadge(id); else badgeTimer.current = setTimeout(() => setHoveredBadge(null), 350);
+  }, []);
+  const badgeIds = useMemo(() => new Set([...selectedIds, ...(hoveredBadge ? [hoveredBadge] : [])]), [selectedIds, hoveredBadge]);
   const nodes = useMemo(
     () => elementsToNodes(dragPreview ? [...detail.elements, ...dragPreview] : detail.elements, { editable: !disabled, selectedIds: dragPreview ? new Set(dragPreview.filter(e => !dragPreview.some(p => p.id === e.parentId)).map(e => e.id)) : selectedSet, onTextChange,
       onRichTextChange, onLineEndDrop, onAdjust, onResizeChange, editingId: textEditing.editingId, deferredId: textEditing.deferredId, onEditingChange: textEditing.onEditingChange, onTextEditorReady,
@@ -879,6 +890,8 @@ function Editor({
             edges={[]}
             nodeTypes={presentationNodeTypes}
             onNodesChange={onNodesChange}
+            onNodeMouseEnter={(_event, node) => hoverBadge(node.id)}
+            onNodeMouseLeave={() => hoverBadge(null)}
             onNodeDoubleClick={(_event, node) => {
               setSelectedIds([node.id]);
               if (node.type === "text") return;
@@ -925,7 +938,7 @@ function Editor({
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
             <SnapGuides guides={dragPreview ? previewGuides : guides} />
-            <PresentationDetailBadges elements={detail.elements} frameByBox={detail.frameByBox} onOpen={detail.open}
+            <PresentationDetailBadges elements={detail.elements} frameByBox={detail.frameByBox} onOpen={detail.open} showFor={badgeIds} onHover={hoverBadge}
               createFor={!disabled && selection.length === 1 && !dragPreview && !(selected?.type === "shape" && selected.content.connection) && !(selected?.type === "frame" && detail.sceneId === selected.id) ? selected : null}
               openLabel={box => tDetails("openNamed", { name: presentationElementCaption(box) || tDetails("group") })} createLabel={tDetails("create")} />
             {settings.guides.show && <CanvasGuides guides={settings.guides.list} onChange={view.setGuides} createId={() => createId()} elements={elements} rulers={settings.ruler} disabled={disabled}

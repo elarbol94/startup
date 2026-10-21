@@ -325,6 +325,26 @@ html[data-app-rail="collapsed"] {
   }
 }
 
+/* Presentation player: an element that opens a detail page answers the pointer by lifting a
+   little -- the only hint it is there, so the slide itself stays clean. The node wrapper holds
+   React Flow's position transform, so the lift goes on its content. */
+.presentation-opener {
+  cursor: pointer;
+}
+.presentation-opener > * {
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), filter 220ms ease;
+}
+.presentation-opener:hover > * {
+  transform: translateY(-3px) scale(1.025);
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 0.18));
+}
+/* While a detail page turns, the element is the card itself: no lift on top of the turn. */
+[data-turning] .presentation-opener > * {
+  transform: none;
+  filter: none;
+  transition: none;
+}
+
 /* Presentation player: autoplay progress hint fills over a step's effective duration. */
 @keyframes presentation-step-progress {
   from {

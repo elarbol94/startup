@@ -33,7 +33,6 @@ import {
   type PresentationPosition,
   type PresentationStop,
 } from "../lib/presentation";
-import { PresentationDetailBadges } from "./presentation-detail-badges";
 import { PRESENTATION_DARK_INK, inkOn, presentationSurface } from "../lib/presentation-ink";
 import { useDetailFlip } from "./presentation-player/use-detail-flip";
 import { parsePresenterMessage, presenterChannelName } from "../lib/presenter";
@@ -68,6 +67,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // the stops of the open scene and remembers where each open detail page was entered from.
   const stops = useMemo(() => presentationStops(elements, steps), [elements, steps]);
   const details = presentationDetails(elements);
+  const openerIds = useMemo(() => new Set(details.frameByBox.keys()), [details]);
   const [position, setPosition] = useState<PresentationPosition>(() => {
     const first = stops.findIndex((stop) => stop.sceneId === null);
     return { index: follow ? clampStop(follow.stepIndex ?? 0, stops) : Math.max(first, 0), returns: [] };
@@ -75,7 +75,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   const index = position.index;
   const scene = sceneOfStop(stops, index);
   const sceneElements = useMemo(() => presentationSceneElements(elements, scene), [elements, scene]);
-  const [visited, setVisited] = useState<Set<string>>(() => new Set());
+  /** The stop a detail page turn landed on: its elements are already there, so they do not fade in again. */
+  const [quietIndex, setQuietIndex] = useState<number | null>(null);
   const [presenterSession] = useState(() => clientUUID());
   const [systemReducedMotion, setReducedMotion] = useState(false);
   // The presenter's deck animates unless its settings defer to the system; a follower's own
@@ -98,28 +99,31 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // Elements that belong to the current step's target: what fades in as it arrives.
   // Derived straight from the index, so re-arriving at a step re-plays the entrance.
   const enteringIds = useMemo(() => {
+    if (quietIndex === index) return new Set<string>();
     const step = stops[index]?.step;
     const target = step ? stepTarget(step, sceneElements) : null;
     return target ? new Set(elementsWithinStep(target, sceneElements).map((element) => element.id)) : new Set<string>();
-  }, [index, stops, sceneElements]);
+  }, [index, quietIndex, stops, sceneElements]);
 
   const hiddenIds = useMemo(() => presentationHiddenIds(elements, steps, stops[index]?.stepIndex ?? -1), [elements, steps, stops, index]);
   const animationMs = reducedMotion ? 0 : stops[index]?.step.animationMs ?? 300;
-  const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: surface }), [surface, sceneElements, enteringIds, hiddenIds, animationMs, reducedMotion]);
+  const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: surface, openerIds: follow ? undefined : openerIds }), [surface, sceneElements, enteringIds, hiddenIds, animationMs, reducedMotion, follow, openerIds]);
 
   const overview = useCallback(
-    (duration = cameraDuration) => void reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
+    (duration = cameraDuration) => reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
     [reactFlow, cameraDuration, cameraEase],
   );
 
   /** Fits a stop with the usual padding, plus the control bar's height at the bottom so the
    * bar never covers it. */
   const store = useStoreApi<PresentationNode>();
-  const fitStop = useCallback((bounds: PresentationBounds, duration: number) => {
+  const fitStop = useCallback((bounds: PresentationBounds, duration: number, fill = false) => {
     const { width, height, minZoom, maxZoom } = store.getState();
-    const inset = Math.floor((height - height / (1 + PRESENTATION_CAMERA_PADDING)) / 2);
-    const padding = { x: PRESENTATION_CAMERA_PADDING, top: `${inset}px`, bottom: `${inset + (controlsRef.current?.offsetHeight ?? 0)}px` } as const;
-    void reactFlow.setViewport(getViewportForBounds(bounds, width, height, minZoom, maxZoom, padding), { duration, ease: cameraEase });
+    // `fill`: the element nearly fills the screen, the moment before a detail page turns over.
+    const share = fill ? 0.04 : PRESENTATION_CAMERA_PADDING;
+    const inset = Math.floor((height - height / (1 + share)) / 2);
+    const padding = { x: share, top: `${inset}px`, bottom: `${inset + (fill ? 0 : controlsRef.current?.offsetHeight ?? 0)}px` } as const;
+    return reactFlow.setViewport(getViewportForBounds(bounds, width, height, minZoom, maxZoom, padding), { duration, ease: cameraEase });
   }, [store, reactFlow, cameraEase]);
 
   /**
@@ -131,7 +135,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       const step = cameraStop(stops, stepIndex, details.frameByBox);
       const target = step ? stepTarget(step, elements) : null;
       if (!target) return overview(duration);
-      fitStop(presentationCameraBounds(target), duration);
+      return fitStop(presentationCameraBounds(target), duration);
     },
     [elements, overview, stops, details, cameraDuration, fitStop],
   );
@@ -197,19 +201,22 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
   // Every change of position goes through here, so turning into or out of a detail page
   // looks the same whether the presenter, autoplay, the presenter view or a live host moved.
   const stageRef = useRef<HTMLDivElement>(null);
-  const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, getZoom: reactFlow.getZoom, background: surface,
-    durationMs: reducedMotion ? 0 : Math.max(500, settings.cameraTransitionMs) });
   const positionRef = useRef(position);
   useEffect(() => { positionRef.current = position; }, [position]);
+  const focusElement = useCallback((id: string, duration: number) => {
+    const element = elements.find((candidate) => candidate.id === id);
+    return element ? fitStop(presentationCameraBounds(element), duration, true) : Promise.resolve(false);
+  }, [elements, fitStop]);
+  const frameCurrent = useCallback((duration: number) => flyTo(positionRef.current.index, duration), [flyTo]);
+  const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, surface, backdrop: inkOn(surface) === PRESENTATION_DARK_INK ? "#c3cad4" : "#020306",
+    durationMs: reducedMotion ? 0 : Math.max(600, settings.cameraTransitionMs), focusElement, frameCurrent });
   const go = useCallback((next: PresentationPosition) => {
     if (isFlipping()) return;
     const from = sceneOfStop(stops, positionRef.current.index), to = sceneOfStop(stops, next.index);
-    const commit = () => { positionRef.current = next; setPosition(next); };
+    const commit = () => { positionRef.current = next; setPosition(next); setQuietIndex(to !== from ? next.index : null); };
     const opener = to ? details.boxByFrame.get(to) : undefined, closer = from ? details.boxByFrame.get(from) : undefined;
-    if (to && opener && details.sceneOf(opener) === from) {
-      setVisited((current) => new Set(current).add(opener));
-      void flip("in", opener, commit);
-    } else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit);
+    if (to && opener && details.sceneOf(opener) === from) void flip("in", opener, commit);
+    else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit);
     else commit();
   }, [details, flip, isFlipping, stops]);
 
@@ -367,9 +374,11 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
     if (!viewportSized) return;
     const instant = firstFlight.current || framedScene.current !== scene;
     framedScene.current = scene;
+    // A detail page turn frames the scenes itself, in step with the card.
+    if (isFlipping()) return;
     const frame = requestAnimationFrame(() => { flyTo(index, instant ? 0 : undefined); firstFlight.current = false; });
     return () => cancelAnimationFrame(frame);
-  }, [index, scene, flyTo, viewportSized]);
+  }, [index, scene, flyTo, viewportSized, isFlipping]);
 
   // Entering fullscreen or resizing changes what "fits" means, so the current step is
   // re-framed instantly rather than left half off-screen.
@@ -476,7 +485,8 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
       data-testid="presentation-player"
       // Covers the wiki rail and the app chrome: presenting owns the whole viewport.
       className="fixed inset-0 z-50 bg-background"
-      style={{ backgroundColor: surface }}
+      // Depth for the detail page turn, which rotates the stage below in 3D.
+      style={{ backgroundColor: surface, perspective: "2200px" }}
     >
       <div ref={stageRef} className="absolute inset-0" data-testid="presentation-stage" data-scene={scene ?? "overview"}>
       <ReactFlow
@@ -512,11 +522,7 @@ function Player({ presentation, follow }: { presentation: PresentationRecord; fo
         preventScrolling
         // The audience sees the deck, not the library drawing it (the editor keeps the credit).
         proOptions={{ hideAttribution: true }}
-      >
-        <PresentationDetailBadges elements={sceneElements} frameByBox={details.frameByBox} visited={visited} hiddenIds={hiddenIds}
-          onOpen={following ? undefined : openDetail}
-          openLabel={(box) => t(visited.has(box.id) ? "presentations.details.visitedNamed" : "presentations.details.openNamed", { name: presentationElementCaption(box) || t("presentations.details.group") })} />
-      </ReactFlow>
+      />
       </div>
 
       {spotlight && (

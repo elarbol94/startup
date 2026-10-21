@@ -1,26 +1,12 @@
-// The card turn between an element and its detail page. React Flow draws one scene at a time,
-// so each half of the turn shows a still copy of what is leaving (the element, or the page)
-// while the live canvas already shows what arrives:
-//   in:  the element's copy turns edge-on while growing, then the live page turns face-on to
-//        full size over a still copy of the overview;
-//   out: a still copy of the page turns edge-on while shrinking over the live overview, then
-//        the element's copy turns face-on back into its place.
+// The turn between an element and its detail page, drawn with the live canvas only (nothing is
+// copied, so text stays sharp and nothing pops):
+//   in:  the camera glides into the element until it fills the screen, then the whole slide
+//        turns over like a card, and its back is the detail page;
+//   out: the page turns back over, landing on the element filling the screen, and the camera
+//        glides out to where the talk was.
+// While the slide is edge-on the scene underneath is switched, so each half shows one scene.
 import { useCallback, useRef, type RefObject } from "react";
 import { flushSync } from "react-dom";
-
-type Rect = { x: number; y: number; width: number; height: number };
-
-const PERSPECTIVE = "perspective(1600px)";
-
-const lerp = (a: Rect, b: Rect, t: number): Rect => ({
-  x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, width: a.width + (b.width - a.width) * t, height: a.height + (b.height - a.height) * t,
-});
-
-/** Transform that makes an element laid out at `from` appear at `to`, turned by `angle` around its vertical axis. */
-function toRect(from: Rect, to: Rect, angle: number): string {
-  const dx = to.x + to.width / 2 - (from.x + from.width / 2), dy = to.y + to.height / 2 - (from.y + from.height / 2);
-  return `${PERSPECTIVE} translate(${dx}px, ${dy}px) scale(${to.width / from.width}, ${to.height / from.height}) rotateY(${angle}deg)`;
-}
 
 /**
  * A browser that stops painting (a hidden or covered window, a projector that just took the
@@ -29,125 +15,67 @@ function toRect(from: Rect, to: Rect, angle: number): string {
  */
 const timeout = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 const nextFrame = () => Promise.race([new Promise<void>((resolve) => requestAnimationFrame(() => resolve())), timeout(100)]);
-const settle = (animation: Animation, ms: number) => Promise.race([animation.finished.then(() => undefined, () => undefined), timeout(ms + 250)]);
+const settle = (done: Promise<unknown>, ms: number) => Promise.race([done.then(() => undefined, () => undefined), timeout(ms + 250)]);
 
-export function useDetailFlip({ containerRef, stageRef, getZoom, background, durationMs }: {
+/** How far the card sinks back while it is edge-on: enough to read as depth, not as a zoom. */
+const EDGE_SCALE = 0.86;
+const pose = (angle: number) => `rotateY(${angle}deg) scale(${1 - (1 - EDGE_SCALE) * Math.abs(angle) / 90})`;
+
+export function useDetailFlip({ containerRef, stageRef, surface, backdrop, durationMs, focusElement, frameCurrent }: {
   containerRef: RefObject<HTMLDivElement | null>;
   stageRef: RefObject<HTMLDivElement | null>;
-  getZoom: () => number;
-  background: string;
+  /** The slide colour: the card's face while it turns. */
+  surface: string;
+  /** What shows behind the turning card: a little darker (or lighter) than the slide. */
+  backdrop: string;
   durationMs: number;
+  /** Fills the screen with an element, over `duration` ms. */
+  focusElement: (id: string, duration: number) => Promise<unknown>;
+  /** Frames the current stop, over `duration` ms. */
+  frameCurrent: (duration: number) => Promise<unknown>;
 }) {
   const busy = useRef(false);
 
-  const nodeOf = useCallback((id: string) => stageRef.current?.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(id)}"]`) ?? null, [stageRef]);
-
-  /** An absolutely placed layer inside the player, in container coordinates. */
-  const layer = useCallback((rect: Rect, container: DOMRect, zIndex: number) => {
-    const element = document.createElement("div");
-    element.setAttribute("aria-hidden", "true");
-    element.dataset.detailFlip = "";
-    Object.assign(element.style, { position: "absolute", left: `${rect.x - container.left}px`, top: `${rect.y - container.top}px`, width: `${rect.width}px`,
-      height: `${rect.height}px`, zIndex: String(zIndex), pointerEvents: "none", transformOrigin: "center center", backfaceVisibility: "hidden", overflow: "hidden" });
-    containerRef.current?.appendChild(element);
-    return element;
-  }, [containerRef]);
-
-  /** A still copy of the whole canvas as it is drawn now. */
-  const snapshot = useCallback((container: DOMRect, zIndex: number, hideId?: string) => {
-    const flow = stageRef.current?.querySelector<HTMLElement>(".react-flow");
-    const viewport = flow?.querySelector<HTMLElement>(".react-flow__viewport");
-    const copy = layer({ x: container.left, y: container.top, width: container.width, height: container.height }, container, zIndex);
-    copy.style.background = background || getComputedStyle(containerRef.current!).backgroundColor;
-    if (flow && viewport) {
-      const frame = document.createElement("div");
-      frame.className = flow.className;
-      Object.assign(frame.style, { position: "absolute", inset: "0", background: "transparent" });
-      const clone = viewport.cloneNode(true) as HTMLElement;
-      if (hideId) clone.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(hideId)}"]`)?.style.setProperty("visibility", "hidden");
-      frame.appendChild(clone);
-      copy.appendChild(frame);
-    }
-    return copy;
-  }, [background, containerRef, layer, stageRef]);
-
-  /** A still copy of one element at its place on screen. */
-  const card = useCallback((node: HTMLElement, rect: Rect, container: DOMRect, zIndex: number) => {
-    const flow = stageRef.current?.querySelector<HTMLElement>(".react-flow");
-    const copy = layer(rect, container, zIndex);
-    copy.style.overflow = "visible";
-    const frame = document.createElement("div");
-    frame.className = flow?.className ?? "";
-    Object.assign(frame.style, { position: "absolute", inset: "0", background: "transparent", overflow: "visible" });
-    const clone = node.cloneNode(true) as HTMLElement;
-    Object.assign(clone.style, { position: "absolute", left: "0", top: "0", transform: `scale(${getZoom()})`, transformOrigin: "0 0", visibility: "visible", opacity: "1", animation: "none" });
-    frame.appendChild(clone);
-    copy.appendChild(frame);
-    return copy;
-  }, [getZoom, layer, stageRef]);
-
   /**
-   * Turns the card while `commit` switches the scene. `commit` runs synchronously inside the
-   * turn; without an element to turn (it is off screen, or motion is reduced) it just runs.
+   * Turns over to the detail page of `boxId` (in) or back to it (out); `commit` switches the
+   * scene while the card is edge-on. Without motion it only switches, and the player frames it.
    */
   const flip = useCallback(async (direction: "in" | "out", boxId: string, commit: () => void) => {
-    const container = containerRef.current?.getBoundingClientRect();
-    const stage = stageRef.current;
     // A turn in progress finishes first; whatever asked to move meanwhile is dropped.
     if (busy.current) return;
-    if (!container || !stage || durationMs <= 0) { flushSync(commit); return; }
+    const stage = stageRef.current, container = containerRef.current;
+    if (!stage || !container || durationMs <= 0) { flushSync(commit); return; }
     busy.current = true;
-    const half = durationMs / 2;
-    const full: Rect = { x: container.left, y: container.top, width: container.width, height: container.height };
-    const cleanup: HTMLElement[] = [];
-    try {
-      if (direction === "in") {
-        const node = nodeOf(boxId);
-        const box = node?.getBoundingClientRect();
-        if (!node || !box?.width || !box.height) { flushSync(commit); return; }
-        const middle = lerp(box, full, 0.5);
-        cleanup.push(snapshot(container, 0, boxId));
-        const front = card(node, box, container, 3);
-        cleanup.push(front);
-        stage.style.opacity = "0";
-        flushSync(commit);
-        await settle(front.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(box, middle, 90) }], { duration: half, easing: "ease-in", fill: "forwards" }), half);
-        front.remove();
-        stage.style.background = background || getComputedStyle(containerRef.current!).backgroundColor;
-        stage.style.opacity = "1";
-        await settle(stage.animate([{ transform: toRect(full, middle, -90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out" }), half);
-      } else {
-        cleanup.push(snapshot(container, 3));
-        const back = cleanup[0];
-        flushSync(commit);
-        // The overview has to be drawn and framed before the element can be measured.
-        await nextFrame(); await nextFrame(); await nextFrame();
-        const node = nodeOf(boxId);
-        const box = node?.getBoundingClientRect();
-        if (!node || !box?.width || !box.height) {
-          await settle(back.animate([{ opacity: 1 }, { opacity: 0 }], { duration: half, fill: "forwards" }), half);
-          return;
-        }
-        const middle = lerp(box, full, 0.5);
-        await settle(back.animate([{ transform: `${PERSPECTIVE} rotateY(0deg)` }, { transform: toRect(full, middle, -90) }], { duration: half, easing: "ease-in", fill: "forwards" }), half);
-        back.remove();
-        const front = card(node, box, container, 3);
-        cleanup.push(front);
-        node.style.visibility = "hidden";
-        try {
-          await settle(front.animate([{ transform: toRect(box, middle, 90) }, { transform: `${PERSPECTIVE} rotateY(0deg)` }], { duration: half, easing: "ease-out", fill: "forwards" }), half);
-        } finally {
-          node.style.visibility = "";
-        }
-      }
-    } finally {
-      for (const element of cleanup) element.remove();
+    // Marks the player while it turns, for tests and for anyone inspecting it.
+    container.dataset.turning = direction;
+    const glide = Math.round(durationMs * 0.65), half = Math.round(durationMs * 0.4);
+    const turn = (from: number, to: number, easing: string) =>
+      settle(stage.animate([{ transform: pose(from) }, { transform: pose(to) }], { duration: half, easing, fill: "forwards" }).finished, half);
+    const sign = direction === "in" ? 1 : -1;
+    const restore = () => {
       stage.getAnimations().forEach((animation) => animation.cancel());
-      stage.style.opacity = "";
-      stage.style.background = "";
+      Object.assign(stage.style, { background: "", boxShadow: "" });
+      container.style.background = "";
+    };
+    try {
+      if (direction === "in") await settle(focusElement(boxId, glide), glide);
+      // The card has a face and a shadow while it turns; the room behind it shows.
+      Object.assign(stage.style, { background: surface, boxShadow: "0 30px 80px -20px rgb(0 0 0 / 0.45)", transformOrigin: "50% 50%" });
+      container.style.background = backdrop;
+      await turn(0, 90 * sign, "cubic-bezier(0.55, 0, 0.9, 0.45)");
+      flushSync(commit);
+      await nextFrame();
+      await settle(direction === "in" ? frameCurrent(0) : focusElement(boxId, 0), 0);
+      await nextFrame();
+      await turn(-90 * sign, 0, "cubic-bezier(0.1, 0.55, 0.45, 1)");
+      restore();
+      if (direction === "out") await settle(frameCurrent(glide), glide);
+    } finally {
+      restore();
+      delete container.dataset.turning;
       busy.current = false;
     }
-  }, [background, card, containerRef, durationMs, nodeOf, snapshot, stageRef]);
+  }, [backdrop, containerRef, durationMs, focusElement, frameCurrent, stageRef, surface]);
 
   const isFlipping = useCallback(() => busy.current, []);
   return { flip, isFlipping };

@@ -312,6 +312,8 @@ export function elementsToNodes(
     dropTargetId?: string | null;
     /** The presentation background, which text on the bare canvas reads against. */
     background?: string;
+    /** Elements that open a detail page while presenting: they lift under the pointer. */
+    openerIds?: Set<string>;
   },
 ): PresentationNode[] {
   const byId = new Map(elements.map((element) => [element.id, element]));
@@ -354,6 +356,7 @@ export function elementsToNodes(
       connectable: false,
       deletable: options.editable && !isPresentationElementLocked(elements, element.id),
       zIndex: (element.type === "frame" ? 0 : FRONT_BAND) + index,
+      className: options.openerIds?.has(element.id) ? "presentation-opener" : undefined,
       style: Object.keys(style).length ? style : undefined,
       data: {
         element,
