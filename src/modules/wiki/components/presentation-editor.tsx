@@ -1004,8 +1004,10 @@ function Editor({
             onPaneClick={event => { endGesture(); clickSelection.onPaneClick(event); }}
             proOptions={{ hideAttribution: false }}
           >
-            <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />
-            {settings.grid.show && <GridOverlay spacing={settings.grid.spacing} />}
+            {/* Shown gridlines replace the background dots: the overlay draws them over the slide. */}
+            {settings.grid.show
+              ? <GridOverlay spacing={settings.grid.spacing} />
+              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} />}
             {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}

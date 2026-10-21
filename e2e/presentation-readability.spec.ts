@@ -35,6 +35,8 @@ test("the grid is drawn over the slide and the View menu shows real key names", 
   await page.getByTestId("view-gridlines").click();
   const overlay = page.getByTestId("presentation-grid-overlay");
   await expect(overlay).toBeVisible();
+  // One grid only: the shown gridlines replace React Flow's background dots.
+  await expect(page.locator(".react-flow__background")).toHaveCount(0);
   // Above the slide's node layer, not React Flow's background under it.
   const layers = await overlay.evaluate((svg) => ({
     grid: Number(getComputedStyle(svg).zIndex),
