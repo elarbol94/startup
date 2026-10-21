@@ -29,6 +29,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EvidencePanel } from "@/modules/wiki/components/evidence-panel";
 import { ContextPanel } from "@/modules/context/components/context-panel";
 import { canonicalTaskHref } from "@/modules/context/routes";
+import { ShareMenu } from "@/components/share/share-menu";
 import type { ReportKind } from "@/modules/projects/bugs/kinds";
 import {
   Dialog,
@@ -114,6 +115,7 @@ export function TaskDialog({
   readOnly?: boolean;
 }) {
   const t = useTranslations("projects");
+  const tShare = useTranslations("share");
   const tCommon = useTranslations("common");
   const router = useRouter();
 
@@ -396,10 +398,17 @@ export function TaskDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>
+        <DialogHeader className="flex-row items-center gap-2 pr-8">
+          <DialogTitle className="min-w-0 flex-1">
             {task ? t("editTask") : isSubtask ? t("newSubtask") : t("newTask")}
           </DialogTitle>
+          {task && (
+            <ShareMenu
+              target={{ href: canonicalTaskHref(task.id, task.projectId), title: task.title }}
+              label={tShare("shareTask")}
+              variant="ghost"
+            />
+          )}
         </DialogHeader>
         <form onSubmit={onSubmit} className="flex flex-col gap-4">
           {readOnly && (

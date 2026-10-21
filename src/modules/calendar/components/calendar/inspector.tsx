@@ -13,13 +13,16 @@ import {
   MapPin,
   Pencil,
   Repeat2,
+  Share2,
   Trash2,
   Video,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
+import { ShareMenu } from "@/components/share/share-menu";
 import type { CalendarItem } from "../../types";
+import { calendarItemShareHref } from "../../share-href";
 import { ProjectChip } from "@/modules/projects/components/project-chip";
 import { SourceIcon } from "./source-icon";
 import { CalendarShortcutKeys } from "./calendar-shortcuts-help";
@@ -69,6 +72,7 @@ export function Inspector({
   /** Feed host when the item belongs to a read-only subscribed calendar. */
   syncedFrom?: string | null;
 }) {
+  const tShare = useTranslations("share");
   const isEvent = item.kind === "event" || item.kind === "focus";
   const canEdit = isEvent && item.editable;
   const joinUrl = detectJoinUrl(item.location);
@@ -191,6 +195,17 @@ export function Inspector({
                 {t("openSource")}
               </Button>
             </ShortcutTooltip>
+          )}
+          {!item.detailsHidden && (
+            <ShareMenu
+              target={{ href: calendarItemShareHref(item, timezone), title: item.title }}
+              label={tShare("shareItem")}
+              size="sm"
+              align="start"
+            >
+              <Share2 />
+              {tShare("share")}
+            </ShareMenu>
           )}
           {onDelete && canEdit && (
             <ShortcutTooltip label={t("delete")} hint={t("hintDelete")}>

@@ -23,6 +23,8 @@ export default async function CalendarPage({
     query?: string;
     new?: string;
     project?: string;
+    /** A shared link to one item (modules/calendar/share-href.ts). */
+    item?: string;
   }>;
 }) {
   const [currentUser, query, requestHeaders] = await Promise.all([
@@ -69,6 +71,7 @@ export default async function CalendarPage({
       }}
       openNewEvent={query.new === "event"}
       presetProjectId={query.new === "event" ? query.project ?? null : null}
+      initialSelectedId={query.item ?? null}
     />
   );
 }

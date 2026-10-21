@@ -2,7 +2,7 @@
 
 // Calendar page client: wires the page hooks (URL state, dialogs, selection, time changes,
 // shortcuts) to the toolbar, sidebar, active view, detail panel and dialogs from ./calendar/.
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { useTextPrompt } from "@/components/ui/text-prompt-dialog";
@@ -48,6 +48,7 @@ export function CalendarClient({
   initialFilters,
   openNewEvent: shouldOpenNewEvent = false,
   presetProjectId = null,
+  initialSelectedId = null,
 }: {
   currentUser: { id: string; name: string };
   workspace: CalendarWorkspace;
@@ -61,6 +62,8 @@ export function CalendarClient({
   openNewEvent?: boolean;
   /** Project a new event opened from a project page starts linked to. */
   presetProjectId?: string | null;
+  /** Item a shared link opens (`?item=`, see ../share-href.ts). */
+  initialSelectedId?: string | null;
 }) {
   const t = useTranslations("calendar");
   const locale = useLocale();
@@ -97,7 +100,16 @@ export function CalendarClient({
   });
   const settings = useCalendarSettingsState({ t, router, startTransition });
   const feeds = useCalendarFeeds({ calendars: workspace.calendars, refresh: () => router.refresh(), t });
-  const selection = useCalendarSelection({ items: workspace.items, t, router, confirm, openEditEvent: events.openEditEvent });
+  const selection = useCalendarSelection({ items: workspace.items, t, router, confirm, openEditEvent: events.openEditEvent, initialSelectedId });
+  // A shared link selects its item once; the address then drops `item` so reloading or
+  // moving through weeks behaves as usual. Someone without access just sees the calendar.
+  const sharedItemHandled = useRef(false);
+  useEffect(() => {
+    if (!initialSelectedId || sharedItemHandled.current) return;
+    sharedItemHandled.current = true;
+    window.history.replaceState(window.history.state, "", nav.buildUrl({}));
+    if (!workspace.items.some((item) => item.id === initialSelectedId)) toast.info(t("sharedItemUnavailable"));
+  }, [initialSelectedId, nav, workspace.items, t]);
   const timeChange = useEventTimeChange({ t, router, confirm, openRecurring: events.openEditEvent });
   const { dropOnDay, dropOnTime } = createCalendarDropHandlers({ workspace, defaultCalendarId, router, t, setDraggingId, confirm });
 

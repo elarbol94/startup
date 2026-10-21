@@ -4,8 +4,10 @@ import { useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Menu, PanelLeftClose, Search, X } from "lucide-react";
+import { Menu, PanelLeftClose, Search, Share2, X } from "lucide-react";
 import { UserMenu } from "@/components/user-menu";
+import { ShareMenu } from "@/components/share/share-menu";
+import { currentPageShareTarget } from "@/components/share/share-target";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -48,6 +50,7 @@ export function AppSidebar({
 }) {
   const t = useTranslations("nav");
   const tCommon = useTranslations("common");
+  const tShare = useTranslations("share");
   const productName = companyName?.trim() || tCommon("appName");
   const pathname = usePathname();
   const { collapsed, setCollapsed } = useSidebarRail(userId);
@@ -82,6 +85,9 @@ export function AppSidebar({
           <Menu className="size-5" />
         </Button>
         <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">{mobileTitle}</span>
+        <ShareMenu target={currentPageShareTarget} label={tShare("sharePage")} variant="ghost" size="icon">
+          <Share2 className="size-5" />
+        </ShareMenu>
         <Button type="button" variant="ghost" size="icon" aria-label={tCommon("search")} onClick={() => setSearchOpen(true)}>
           <Search className="size-5" />
         </Button>
@@ -114,6 +120,7 @@ export function AppSidebar({
             userEmail={userEmail}
             onNavigate={() => setMobileOpen(false)}
             onOpenSearch={() => setSearchOpen(true)}
+            showShare={false}
           />
         </SheetContent>
       </Sheet>

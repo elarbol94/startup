@@ -11,6 +11,7 @@ import { count, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { ensureUserMarkColor } from "@/lib/user-mark-colors.server";
+import { loginHref, RETURN_PATH_HEADER } from "@/lib/return-path";
 
 function userCount(): number {
   return db.select({ value: count() }).from(schema.user).get()?.value ?? 0;
@@ -137,10 +138,13 @@ export async function getSessionFromHeaders(requestHeaders: Headers) {
   return auth.api.getSession({ headers: requestHeaders });
 }
 
-/** Redirects to /login when unauthenticated. Use in pages/layouts. */
+/**
+ * Redirects to /login when unauthenticated, remembering the requested page (set by src/proxy.ts)
+ * so a shared link opens its item after sign-in. Use in pages/layouts.
+ */
 export async function requireUser(): Promise<SessionUser> {
   const session = await getSession();
-  if (!session) redirect("/login");
+  if (!session) redirect(loginHref((await headers()).get(RETURN_PATH_HEADER)));
   return session.user;
 }
 

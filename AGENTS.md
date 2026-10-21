@@ -73,6 +73,8 @@ SQLite database. Stop the normal development server before running it.
 - `docs/push-notifications.md`: installable app, Web Push (VAPID keys), what is pushed.
 - `docs/chat.md`: Chat section, Element Web on `/element/`, Matrix homeserver.
 - `docs/mail.md`: Mail section, per-user IMAP/SMTP accounts, encryption, limits.
+- `docs/sharing.md`: sharing pages and items as links (share menu, deep links,
+  sign-in return path, links clicked in Element).
 
 ## Development and deployment workflow
 

@@ -10,7 +10,9 @@ export async function GET() {
   await connection();
   const common = await getTranslations("common");
   const name = getAppSettings().companyName.trim() || common("appName");
-  const manifest: MetadataRoute.Manifest = {
+  // Link capturing (Chromium): platform links opened from Element or another app go to the
+  // installed app, which reuses its open window instead of starting a second one.
+  const manifest: MetadataRoute.Manifest & { handle_links: "auto" | "preferred" | "not-preferred" } = {
     id: "/",
     name,
     short_name: name.length > 12 ? common("appShortName") : name,
@@ -18,6 +20,8 @@ export async function GET() {
     start_url: "/",
     scope: "/",
     display: "standalone",
+    handle_links: "preferred",
+    launch_handler: { client_mode: ["navigate-existing", "auto"] },
     background_color: "#f5f7f6",
     theme_color: "#087970",
     icons: [

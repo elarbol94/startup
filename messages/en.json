@@ -1335,6 +1335,7 @@
     "newsActivity": { "mention": "mentioned you", "reply": "replied", "assignment": "assigned something to you", "resolved": "resolved a comment" }
   },
   "calendar": {
+    "sharedItemUnavailable": "The shared entry is not in your calendar or you cannot see it.",
     "hintPrevious": "Shows the previous day, week or month.",
     "hintNext": "Shows the next day, week or month.",
     "hintToday": "Jumps back to today.",
@@ -5253,6 +5254,20 @@
       "too_large": "The message is too large (attachments up to 20 MB).",
       "unknown": "Something went wrong."
     }
+  },
+  "share": {
+    "share": "Share",
+    "sharePage": "Share page",
+    "shareTask": "Share task",
+    "shareItem": "Share entry",
+    "copyLink": "Copy link",
+    "copyTitledLink": "Copy link with title",
+    "shareVia": "Share via…",
+    "shareInChat": "Share in Chat",
+    "linkCopied": "Link copied",
+    "linkCopiedForChat": "Link copied – paste it into a room",
+    "copyFailed": "The link could not be copied",
+    "fallbackTitle": "Page"
   },
   "chat": {
     "title": "Chat",
