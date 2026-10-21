@@ -1,4 +1,4 @@
-import { placeAtCenter, openPane, fileMenu } from "./helpers/presentation-fixture";
+import { placeAtCenter, openPane, fileMenu, propertiesTab } from "./helpers/presentation-fixture";
 import { expect, test, type Page } from "@playwright/test";
 import { zipSync, strToU8 } from "fflate";
 
@@ -72,21 +72,20 @@ test("nested groups persist, transform descendants, lock and ungroup", async ({ 
   await login(page); const id = await seed(page); await open(page, id);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
   await page.locator('[data-testid="rf__node-b"]').click({ modifiers: ["Shift"] });
-  await page.locator("summary").filter({ hasText: /^Struktur$/ }).click();
-  await page.getByRole("button", { name: "Auswahl gruppieren", exact: true }).click();
-  await page.getByRole("button", { name: "Aussehen", exact: true }).click();
+  await page.getByTestId("presentation-properties").getByRole("button", { name: "Gruppieren", exact: true }).click();
+  await propertiesTab(page, "Größe und Position");
   await page.getByRole("spinbutton", { name: "Drehung (Grad)" }).fill("30");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((element: { id: string }) => element.id === "a").rotation).toBe(30);
-  await page.locator("summary").filter({ hasText: /^Struktur$/ }).click();
-  await page.getByRole("button", { name: "Objekt sperren", exact: true }).click();
+  await page.getByTestId("presentation-properties").getByRole("button", { name: "Sperren", exact: true }).click();
   await save(page);
   const saved = await documentOf(page, id);
   const group = saved.elements.find((element: { content: { isGroup?: boolean } }) => element.content.isGroup);
   expect(group.locked).toBe(true);
   await page.screenshot({ path: info.outputPath("groups-editor.png") });
-  await page.getByRole("button", { name: "Objekt entsperren" }).click();
-  await page.getByRole("button", { name: "Gruppierung aufheben" }).click();
+  await page.getByTestId("presentation-properties").getByRole("button", { name: "Entsperren", exact: true }).click();
+  await propertiesTab(page, "Rahmen");
+  await page.getByTestId("presentation-properties").getByRole("button", { name: "Gruppierung aufheben", exact: true }).click();
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((element: { id: string }) => element.id === "a").parentId).toBe("frame");
 });
@@ -94,8 +93,8 @@ test("nested groups persist, transform descendants, lock and ungroup", async ({ 
 test("rich text, charts, icons and reveal/hide playback survive saving", async ({ page }, info) => {
   await login(page); const id = await seed(page); await open(page, id);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
-  await page.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
-  const rich = page.getByRole("textbox", { name: "Formatierter Text" });
+  // A text opens on its Text tab, content first.
+  const rich = page.getByRole("textbox", { name: "Text", exact: true });
   await rich.fill("Formatted idea");
   await rich.press("Control+a");
   const pane = page.locator("[data-workspace-panel]");
@@ -113,7 +112,7 @@ test("rich text, charts, icons and reveal/hide playback survive saving", async (
   await page.getByRole("menuitem", { name: "Ziel", exact: true }).click();
   await placeInFrame(page, 110, 330);
   await page.locator('[data-testid="rf__node-a"]').click({ position: { x: 5, y: 5 } });
-  await page.locator("summary").filter({ hasText: /^Animation$/ }).click();
+  await propertiesTab(page, "Animation");
   await page.getByRole("button", { name: "Einblenden", exact: true }).click();
   await page.getByRole("button", { name: "Ausblenden", exact: true }).click();
   await save(page);
@@ -304,7 +303,6 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   expect((await page.request.patch(`/api/wiki/presentations/${id}`, { data: { ...source, elements: [...source.elements, image], expectedUpdatedAt: source.updatedAt, sessionId: "studio-fixture-session" } })).ok()).toBe(true);
   await open(page, id);
   await page.locator('[data-testid="rf__node-image"]').click();
-  await page.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
   await page.getByRole("combobox", { name: "Bildmaske" }).selectOption("circle");
   await page.getByRole("combobox", { name: "Bildanpassung" }).selectOption("cover");
   const wave = Buffer.alloc(1644);
@@ -313,7 +311,6 @@ test("cropped images and uploaded audio play publicly and offline with scoped me
   await page.getByLabel("Video oder Audio hochladen").setInputFiles({ name: "Voice.wav", mimeType: "audio/wav", buffer: wave });
   await placeAtCenter(page);
   await properties(page);
-  await page.getByRole("button", { name: "Inhalt & Medien", exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Medientitel" })).toHaveValue("Voice.wav");
   await save(page);
   const saved = await documentOf(page, id); expect(saved.elements.find((element: { id: string }) => element.id === "image").content).toMatchObject({ mask: "circle", fit: "cover" });
@@ -363,7 +360,8 @@ test("layout tools align objects, fit text and keep connectors attached", async 
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === before.id).width).not.toBe(before.width);
   await a.click();
-  await page.getByRole("checkbox", { name: "Text automatisch einpassen" }).check();
+  // PowerPoint's Textfeld options: shrink text on overflow.
+  await page.getByRole("radio", { name: "Text bei Überlauf verkleinern" }).check();
   await page.getByRole("textbox", { name: "Text", exact: true }).fill("A longer heading with supporting information and more detail to fit inside the existing text box.");
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.find((e: { id: string }) => e.id === "a").content.fontSize).toBeLessThan(32);
@@ -382,26 +380,27 @@ test("selection tools expose connectors and contextual editing sections", async 
   const a = page.locator('[data-testid="rf__node-a"]'), b = page.locator('[data-testid="rf__node-b"]');
   await a.click();
   await expect(a).toHaveClass(/selected/);
-  const tools = page.getByRole("region", { name: "Werkzeuge für die Auswahl" });
+  const tools = page.getByTestId("presentation-properties");
   await expect(tools).toBeHidden();
   await a.click();
   await properties(page);
   await expect(tools).toBeVisible();
-  await tools.locator("summary").filter({ hasText: "Bereiche verbinden" }).click();
+  // A text opens on its own tab; connecting lives with its position.
+  await expect(tools.getByRole("tab", { name: "Text", exact: true })).toHaveAttribute("aria-selected", "true");
+  await propertiesTab(page, "Größe und Position");
+  await tools.getByRole("button", { name: "Bereiche verbinden", exact: true }).click();
   await page.getByRole("combobox", { name: "Verbinden mit", exact: true }).selectOption("b");
   await tools.getByRole("button", { name: "Verbindung hinzufügen", exact: true }).click();
-  await expect(tools.getByRole("button", { name: "Inhalt & Medien", exact: true })).toHaveCount(0);
-  await expect(tools.locator("summary").filter({ hasText: "Bereiche verbinden" })).toHaveCount(0);
+  // The new connector is selected: a line, which cannot connect again.
+  await expect(tools.getByTestId("properties-title")).toHaveText("Form");
+  await expect(tools.getByTestId("properties-connect")).toHaveCount(0);
   await save(page);
   await expect.poll(async () => (await documentOf(page, id)).elements.some((e: { content: { connection?: { fromId: string; toId: string } } }) => e.content.connection?.fromId === "a" && e.content.connection.toId === "b")).toBe(true);
   await a.click();
-  await tools.getByRole("button", { name: "Inhalt & Medien", exact: true }).click();
-  await expect(page.locator('#presentation-tool-content')).toHaveAttribute("open", "");
-  await tools.getByRole("button", { name: "Animation", exact: true }).click();
-  await expect(page.locator('#presentation-tool-animation')).toHaveAttribute("open", "");
-  await expect(page.locator("#presentation-tool-content")).not.toHaveAttribute("open", "");
-  await expect(page.locator("#presentation-tool-appearance")).not.toHaveAttribute("open", "");
-  await expect(tools.getByRole("button", { name: "Format kopieren", exact: true })).toHaveCount(0);
+  // The tab last used for texts comes back.
+  await expect(tools.getByRole("tab", { name: "Größe und Position", exact: true })).toHaveAttribute("aria-selected", "true");
+  await propertiesTab(page, "Animation");
+  await expect(tools.getByTestId("properties-animation")).toBeVisible();
   await page.screenshot({ path: info.outputPath("simplified-inspector.png") });
   await openPane(page, "Kommentare");
   await b.click();
@@ -410,9 +409,7 @@ test("selection tools expose connectors and contextual editing sections", async 
   await properties(page);
   await expect(tools).toBeVisible();
   await a.click({ modifiers: ["Shift"] });
-  await expect(tools.getByRole("button", { name: "Animation", exact: true })).toHaveCount(0);
-  await expect(tools.getByRole("button", { name: "Aussehen", exact: true })).toHaveCount(0);
-  await tools.locator("summary").filter({ hasText: /^Anordnen$/ }).click();
+  await expect(tools.getByTestId("properties-title")).toHaveText("2 Objekte ausgewählt");
   await expect(tools.getByRole("button", { name: "Links ausrichten", exact: true })).toBeEnabled();
   await expect(tools.getByRole("button", { name: "Gleiche horizontale Abstände", exact: true })).toBeDisabled();
 });

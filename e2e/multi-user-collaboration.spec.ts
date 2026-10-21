@@ -46,9 +46,8 @@ test("three accounts edit the same presentation text and see collaborators", asy
       await expect(peer.getByRole("button", { name: "Text", exact: true })).toBeEnabled({ timeout: 120_000 });
       await peer.locator('[data-testid="rf__node-shared-text"]').click();
       await openPane(peer, "Eigenschaften");
-      await peer.locator("summary").filter({ hasText: /^Inhalte$/ }).click();
     }
-    const editors = peers.map(peer => peer.getByRole("textbox", { name: "Formatierter Text" }));
+    const editors = peers.map(peer => peer.getByRole("textbox", { name: "Text", exact: true }));
     await Promise.all(editors.map(async (editor, index) => { await editor.click(); await editor.press("Control+End"); await peers[index].keyboard.insertText(` writer${index}`); }));
     for (const editor of editors) for (let index = 0; index < 3; index++) await expect(editor).toContainText(`writer${index}`);
     await editors[0].press("Control+End");

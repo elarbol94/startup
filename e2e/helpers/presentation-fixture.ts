@@ -14,6 +14,11 @@ export async function openPane(page: Page, name: string) {
   await page.locator("#ribbon-tab-home").dispatchEvent("click");
 }
 
+/** Shows a tab of the Eigenschaften pane by its name ("Größe und Position", "Animation", ...). */
+export async function propertiesTab(page: Page, name: string) {
+  await page.getByTestId("presentation-properties").getByRole("tab", { name, exact: true }).click();
+}
+
 /** Runs an item of the ribbon's Datei menu. */
 export async function fileMenu(page: Page, name: string) {
   await page.getByTestId("presentation-file-menu").click();

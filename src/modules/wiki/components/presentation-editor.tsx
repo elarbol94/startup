@@ -31,9 +31,8 @@ import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Copy, History, Loader2, Lock, Maximize2, Play, RotateCw, Save, Square, Trash2, TriangleAlert } from "lucide-react";
+import { History, Loader2, Lock, Maximize2, Play, Save, Square, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
-import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -48,10 +47,7 @@ import { setLineEnd } from "../lib/presentation-connectors";
 import { ROTATE_STEP, formatTextHosts, keyboardResize, nudge, type ArrowKey } from "../lib/presentation-keyboard-edits";
 import { rotateElementsIndividually, textFormatKey } from "./presentation-editor/presentation-shortcuts";
 import { nextFrameBounds } from "../lib/presentation-frame-rail";
-import { PresentationPrecisionControls } from "./presentation-precision-controls";
 import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentation-precision";
-import { PresentationSelectionTools } from "./presentation-selection-tools";
-import { PresentationStudioInspector } from "./presentation-studio-inspector";
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import type { SaveState } from "./presentation-editor/presentation-editor-utils";
 import { DraftInput } from "./presentation-editor/draft-fields";
@@ -61,7 +57,6 @@ import { PresentationDocumentTitle } from "./presentation-editor/presentation-do
 import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabels, toolShortcut } from "./presentation-editor/presentation-shortcuts";
 import { SelectionOverlay } from "./presentation-editor/selection-overlay";
 import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
-import { PresentationAppearanceInspector } from "./presentation-editor/presentation-appearance-inspector";
 import { PresentationPlaybackSettings } from "./presentation-editor/presentation-playback-settings";
 import { startDuplicateDrag } from "./presentation-editor/presentation-duplicate-drag";
 import { usePresentationCommandPalette } from "./presentation-editor/use-presentation-command-palette";
@@ -85,7 +80,7 @@ import { usePresentationViewSettings } from "./presentation-editor/use-presentat
 import { PresentationRibbon } from "./presentation-editor/ribbon/presentation-ribbon";
 import { useRibbonState } from "./presentation-editor/ribbon/use-ribbon-state";
 import type { RibbonModel, RibbonPanel } from "./presentation-editor/ribbon/ribbon-model";
-import { FormatShapePane } from "./presentation-editor/format-pane/format-shape-pane";
+import { PresentationPropertiesPane, type PropertiesRequest } from "./presentation-editor/properties/properties-pane";
 import { CanvasGuides } from "./presentation-editor/canvas-guides";
 import { CanvasRulers, RULER_SIZE } from "./presentation-editor/canvas-rulers";
 import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
@@ -181,6 +176,8 @@ function Editor({
   const leaseReady = !canEdit || !!collaboration?.ready;
   const [conflict] = useState(false);
   const [activePanel, setActivePanel] = useState<"properties" | "design" | "assets" | "comments" | null>(null);
+  /** Which Eigenschaften tab to bring forward: a double-click asks for the object's own tab, a ribbon launcher for its group. */
+  const [paneRequest, setPaneRequest] = useState<PropertiesRequest>({ tab: "primary", key: 0 });
   // The frame rail stays open for authors who keep it open, like PowerPoint's slide pane:
   // the last choice in this browser is the starting state.
   const railRemembered = useSyncExternalStore(subscribeRail, getRailOpen, () => false);
@@ -470,16 +467,8 @@ function Editor({
   const connectSelection = () => {
     if (!arrangementDisabled && arrangementRoots.length === 2) connectObjects(arrangementRoots[0].id, arrangementRoots[1].id);
   };
-  const jumpToSelectionTool = (section: "appearance" | "content" | "structure" | "animation") => {
-    const target = document.getElementById(`presentation-tool-${section}`);
-    if (!target) return;
-    document.querySelectorAll<HTMLDetailsElement>('details[name="presentation-inspector"]').forEach(panel => { panel.open = panel === target; });
-    target.scrollIntoView({ block: "start" });
-    const focusTarget = target.querySelector<HTMLElement>("summary") ?? target;
-    focusTarget.focus({ preventScroll: true });
-  };
 
-  const { deleteSelection, duplicateSelection, reorderSelected, copyObjectFormat, pasteObjectFormat } = usePresentationSelectionEdits({
+  const { deleteSelection, duplicateSelection, copyObjectFormat, pasteObjectFormat } = usePresentationSelectionEdits({
     elements, dispatch, disabled, t, commitElements, selection, formatClipboard, setFormatClipboard, setSelectedIds,
   });
 
@@ -600,16 +589,6 @@ function Editor({
     flushThen(href, true);
   };
 
-  const colorSwatches = (value: string, onPick: (color: string) => void) => (
-    <ColorPicker aria-label={studio("color")} value={value} onChange={onPick} disabled={disabled || Boolean(selected?.locked)} clearLabel={t("presentations.colorDefault")} />
-  );
-
-  const colorField = (label: string, value: string, onPick: (color: string) => void) => (
-    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <ColorPicker aria-label={label} value={value} onChange={onPick} disabled={disabled} clearLabel={t("presentations.clearColor")} />
-    </div>
-  );
 
   const libraryPanel = (          <PresentationLibraryPanel section={activePanel === "assets" ? "assets" : activePanel === "comments" ? "comments" : "design"} id={presentation.id} selectedId={selected?.id} canEdit={canEdit && !disabled} onSelect={(id) => { setSelectedIds([id]); const element = elements.find((element) => element.id === id); if (element) flyTo(element); }} flush={flush}
             onTheme={(theme) => { commitElements((current) => current.map((element) => element.type === "text" ? { ...element, content: { ...element.content, color: theme.foreground, font: theme.font } } : element.type === "frame" ? { ...element, content: { ...element.content, color: theme.accent } } : element)); dispatch({ type: "touch", background: theme.background }); }}
@@ -668,6 +647,7 @@ function Editor({
   const togglePath = () => { setPathOpen(value => !value); if (narrow()) setActivePanel(null); };
   const openPanel = (panel: RibbonPanel) => { setActivePanel(panel); if (narrow()) setPathOpen(false); };
   const togglePanel = (panel: RibbonPanel) => { if (activePanel === panel) setActivePanel(null); else openPanel(panel); };
+  const requestProperties = (tab: PropertiesRequest["tab"]) => { setPaneRequest((current) => ({ tab, key: current.key + 1 })); openPanel("properties"); };
   const commandText = t("presentations.commands.title");
   const unavailable = t("presentations.commands.unavailable");
   const insertReason = disabled ? unavailable : elements.length >= 500 ? t("presentations.elementLimit") : undefined;
@@ -733,7 +713,7 @@ function Editor({
     { id: "connect", label: interact("connect"), execute: connectSelection, group: commandText, disabledReason: (!arrangementDisabled && selectedRoots.length === 2 && elements.length < 500) ? undefined : unavailable },
     { id: "detach", label: interact("detach"), execute: () => { if (selected?.type === "shape") updateElement(selected.id, e => e.type === "shape" ? { ...e, content: { ...e.content, connection: undefined } } : e); }, group: commandText, disabledReason: (canMutate && selected?.type === "shape" && Boolean(selected.content.connection)) ? undefined : unavailable },
     { id: "shortcutHelp", label: interact("shortcutHelp"), execute: () => setShortcutHelp(true), group: commandText },
-    { id: "formatShape", label: t(formatting.shapes.length ? "presentations.formatPane.title" : "presentations.formatPane.titleText"), execute: () => { formatting.openPane(formatting.shapes.length ? "shape" : "text"); setActivePanel("properties"); }, group: commandText, disabledReason: (formatting.shapes.length || formatting.texts.length) ? undefined : unavailable },
+    { id: "formatShape", label: t(formatting.shapes.length ? "presentations.formatPane.title" : "presentations.formatPane.titleText"), execute: () => { formatting.openPane(formatting.shapes.length ? "shape" : "text"); requestProperties(formatting.shapes.length ? "fill" : "text"); }, group: commandText, disabledReason: (formatting.shapes.length || formatting.texts.length) ? undefined : unavailable },
     { id: "setDefault", label: t(`presentations.formatPane.defaults.${selected?.type === "text" ? "textBox" : selected?.type === "shape" && isLinearShape(selected) ? "line" : "shape"}`), execute: formatting.setAsDefault, group: commandText, disabledReason: formatting.canSetDefault ? undefined : unavailable },
     { id: "editPoints", label: t("presentations.formatPane.editShape.editPoints"), execute: formatting.startEditPoints, group: commandText, disabledReason: formatting.canEditPoints ? undefined : unavailable },
     ...(["union", "combine", "fragment", "intersect", "subtract"] as const).map(op => ({ id: `merge-${op}`, label: `${t("presentations.formatPane.merge.title")}: ${t(`presentations.formatPane.merge.${op}`)}`, execute: () => formatting.mergeSelection(op), group: commandText, disabledReason: formatting.canMerge ? undefined : unavailable })),
@@ -840,7 +820,7 @@ function Editor({
     background, setBackground: (color) => dispatch({ type: "touch", background: color }),
     formatting,
     onTextKey: (key) => { if (canMutate && selectedRoots.length) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => formatTextHosts(current, new Set(selectedRoots.map(e => e.id)), key) }); },
-    onOpenPane: (group) => { formatting.openPane(group); openPanel("properties"); },
+    onOpenPane: (group) => { formatting.openPane(group); requestProperties(group === "shape" ? "fill" : "text"); },
   };
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col" data-testid="presentation-editor" data-presentation-workspace data-wiki-command-scope ref={commandRoot} tabIndex={-1}
@@ -900,8 +880,8 @@ function Editor({
               setSelectedIds([node.id]);
               if (node.type === "text") return;
               if (!disabled && isTextHost(node.data.element) && !isPresentationElementLocked(elements, node.id)) { textEditing.startEditing(node.id); return; }
-              setActivePanel("properties");
-              if (!window.matchMedia("(min-width: 1280px)").matches) setPathOpen(false);
+              // Like PowerPoint, a double-click opens the object's own formatting: Picture for a picture, Frame for a frame.
+              requestProperties("primary");
             }}
             zoomOnDoubleClick={false}
             onNodeDragStart={(event, _node, dragged) => { axisDrag.current = { positions: new Map(elements.map(e => [e.id, { x: e.x, y: e.y }])), shift: event.shiftKey }; trackDrag(dragged); startGesture(); }}
@@ -986,64 +966,20 @@ function Editor({
         <WorkspacePanel title={t(`workspace.${activePanel ?? "properties"}`)} open={activePanel !== null} onClose={() => setActivePanel(null)} className="h-full max-h-full overflow-y-auto">
           <div hidden={!["design", "assets", "comments"].includes(activePanel ?? "")}>{libraryPanel}</div>
           <div hidden={activePanel !== "properties"}>
-          {selection.length > 0 && <PresentationSelectionTools key={selectionKey} elements={elements} selection={selection}
-            disabled={disabled || selection.some(e => isPresentationElementLocked(elements, e.id))} arrangeDisabled={arrangementDisabled} rootCount={arrangementRoots.length}
-            onConnect={connectObjects} onArrange={mode => { if (!arrangementDisabled) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => arrangePresentation(current, selectedSet, mode) }); }} onJump={jumpToSelectionTool} />}
-          {selection.length > 0 && <PresentationPrecisionControls key={`precision-${selectionKey}`} elements={elements} selection={selection} disabled={disabled}
-            onGeometry={(id, field, value, proportional) => {
-              const next = setPreciseGeometry(elements, id, field, value, proportional);
-              if (next === elements) return elements.find(e => e.id === id)?.[field] === (field === "rotation" ? normalizeRotation(value) : value);
-              dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => setPreciseGeometry(current, id, field, value, proportional) });
-              return true;
-            }}
-            onAlign={mode => dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => alignPresentationToFrame(current, selectedSet, mode) })} />}
-          <fieldset disabled={disabled} className="min-w-0">
-          {selection.length > 1 && (
-            <section className="mt-5 border-t pt-4">
-              <div className="flex items-center justify-between gap-1">
-                <h2 className="min-w-0 truncate text-xs font-semibold tracking-wide uppercase">
-                  {t("presentations.selectionCount", { count: selection.length })}
-                </h2>
-                <div className="flex shrink-0 items-center">
-                  <Button type="button" variant="ghost" size="icon-sm" disabled={readOnly} aria-label={t("presentations.duplicateElement")} onClick={() => duplicateSelection(selectedIds)}>
-                    <Copy className="size-4" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon-sm" disabled={readOnly} aria-label={t("presentations.deleteElement")} onClick={() => deleteSelection(selectedIds)}>
-                    <Trash2 className="size-4" />
-                  </Button>
-                </div>
-              </div>
-              <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                <RotateCw className="size-3.5 shrink-0" />
-                {t("presentations.groupHint")}
-              </p>
-            </section>
-          )}
-
-          {selected && (
-            <PresentationAppearanceInspector selected={selected} disabled={disabled} selectedLocked={selectedLocked} collaboration={collaboration}
-              updateElement={updateElement} reorderSelected={reorderSelected} duplicateSelection={duplicateSelection} deleteSelection={deleteSelection}
-              onRichTextChange={onRichTextChange} onTextChange={onTextChange} colorField={colorField} colorSwatches={colorSwatches} interact={interact} onRouteChange={onRouteChange} />
-          )}
-          {selected && (selected.type === "shape" || selected.type === "text") && <FormatShapePane key={`${selected.id}-${formatting.pane.key}`} element={selected} updateContent={formatting.updateContent}
-            format={formatting.format} disabled={disabled || selectedLocked} onEyedropper={formatting.requestColor} uploadPicture={formatting.uploadPicture}
-            initialTab={formatting.pane.key ? formatting.pane.group : undefined} />}
-
-          <PresentationStudioInspector elements={elements} selectedIds={selectedIds} activeStep={activeStep}
-            onGroup={() => executeCommand("group")} onUngroup={() => executeCommand("ungroup")} canGroup={canMutate && selectedRoots.length >= 2 && elements.length < 500}
-            onElements={commitElements} onUpdate={(element) => updateElement(element.id, () => element)} onSteps={commitSteps}
-            disabled={disabled || uploading} />
-          {selection.length === 0 && <p className="text-xs text-muted-foreground">{t("presentations.selectionTools.emptySelectionHint")}</p>}
-          {selection.length === 0 && <details name="presentation-inspector" open className="mt-4 rounded-lg border p-3">
-            <summary className="cursor-pointer text-sm font-semibold">{t("presentations.canvas")}</summary>
-            <div className="mt-3">
-              {colorField(t("presentations.canvasBackground"), background, (color) => {
-                dispatch({ type: "touch", background: color });
-              })}
-            </div>
-          </details>}
-
-          </fieldset>
+            <PresentationPropertiesPane key={selection.length ? "selection" : "canvas"} elements={elements} selection={selection} disabled={disabled || uploading} collaboration={collaboration}
+              formatting={formatting} request={paneRequest} run={executeCommand} commands={commands} updateElement={updateElement}
+              onTextChange={onTextChange} onRichTextChange={onRichTextChange} onRouteChange={onRouteChange}
+              onGeometry={(id, field, value, proportional) => {
+                const next = setPreciseGeometry(elements, id, field, value, proportional);
+                if (next === elements) return elements.find(e => e.id === id)?.[field] === (field === "rotation" ? normalizeRotation(value) : value);
+                dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => setPreciseGeometry(current, id, field, value, proportional) });
+                return true;
+              }}
+              onAlignInFrame={mode => dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => alignPresentationToFrame(current, selectedSet, mode) })}
+              onArrange={mode => { if (!arrangementDisabled) dispatch({ type: "edit", at: Date.now(), separate: true, elements: current => arrangePresentation(current, selectedSet, mode) }); }}
+              arrangeDisabled={arrangementDisabled} rootCount={arrangementRoots.length} onConnect={connectObjects} onElements={commitElements}
+              onSelect={(id) => { setSelectedIds([id]); const element = elements.find((candidate) => candidate.id === id); if (element) flyTo(element); }}
+              activeStep={activeStep} onSteps={commitSteps} background={background} onBackground={(color) => dispatch({ type: "touch", background: color })} />
           </div>
         </WorkspacePanel>
       </div>
