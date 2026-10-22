@@ -76,6 +76,7 @@ import { usePresentationSelectionEdits } from "./presentation-editor/use-present
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
 import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
 import { frameInsertionEdit, usePresentationFrames } from "./presentation-editor/use-presentation-frames";
+import { isSectionFrame, nestedPresentationFrame, nextFrameNumber } from "../lib/presentation-frames";
 import { usePresentationTextEditing } from "./presentation-editor/use-presentation-text-editing";
 import { usePresentationClipboard } from "./presentation-editor/use-presentation-clipboard";
 import { usePresentationClickSelection } from "./presentation-editor/use-presentation-click-selection";
@@ -623,6 +624,20 @@ function Editor({
     setSelectedIds([frame.id]);
     flyTo(frame);
   };
+  const addNestedFrame = () => {
+    if (disabled || selectedLocked || !selected || elements.length >= 500 || steps.length >= 500) return;
+    const frame = nestedPresentationFrame(selected, createId(), t("presentations.frameName", {
+      number: nextFrameNumber(elements, number => t("presentations.frameName", { number })),
+    }));
+    if (!frame) return;
+    setPendingElement(null);
+    setDrawTool(null);
+    // Preserve the explicit parent even when other frames overlap its center.
+    const edit = frameInsertionEdit([frame], current => [...current, frame], t);
+    dispatch({ ...edit, elements: current => [...current, frame] });
+    setSelectedIds([frame.id]);
+    flyTo(frame);
+  };
   /** What a gallery tool drew: inserted like any new object, glued where it was drawn, selected. */
   const createDrawn = (drawn: PresentationElement, glue: DrawGlue) => {
     if (!drawLock) setDrawTool(null);
@@ -862,6 +877,7 @@ function Editor({
           {t("presentations.addImage")}
         </Button>
         <Button type="button" variant="ghost" size="sm" disabled={disabled || elements.length >= 500} title={withToolKey(t("presentations.addFrame"), "addFrame", shortcutLabels)} onClick={addFrame}><Square className="size-3.5" />{t("presentations.addFrame")}</Button>
+        {selected && isSectionFrame(selected) && <Button type="button" variant="ghost" size="sm" disabled={disabled || selectedLocked || elements.length >= 500 || steps.length >= 500 || selected.width < 40 || selected.height < 40} onClick={addNestedFrame}><Square className="size-3.5" />{t("presentations.addNestedFrame")}</Button>}
         <DropdownMenu><DropdownMenuTrigger render={<Button size="sm" variant="ghost" disabled={disabled || uploading || elements.length >= 500} />}>{t("editor.toolbar.insert")}</DropdownMenuTrigger><DropdownMenuContent finalFocus={placementFocus}>
           <DropdownMenuItem onClick={addFrame}><Square />{t("presentations.addFrame")}<DropdownMenuShortcut aria-hidden>{shortcutLabels.addFrame}</DropdownMenuShortcut></DropdownMenuItem>
           <DropdownMenuItem onClick={() => setGalleryOpen(true)}><Shapes />{t("presentations.addShape")}</DropdownMenuItem>

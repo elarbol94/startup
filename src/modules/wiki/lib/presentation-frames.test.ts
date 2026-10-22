@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assignFrameMembership, frameAtPoint, initialPresentationCanvasState, presentationCanvasReducer, type PresentationElement } from "./presentation";
 import { frameAtPoint as interactionFrameAtPoint } from "./presentation-interactions";
-import { adoptInsertedElements, appendFrameStops, clearFramePlacement, framePresetHeight, nextFrameNumber, presentationRemovalSet, removePresentationElements } from "./presentation-frames";
+import { adoptInsertedElements, appendFrameStops, clearFramePlacement, framePresetHeight, nestedPresentationFrame, nextFrameNumber, presentationRemovalSet, removePresentationElements } from "./presentation-frames";
 
 const frame = (id: string, x: number, y: number, width: number, height: number, extra: Partial<PresentationElement> = {}, isGroup = false): PresentationElement =>
   ({ id, type: "frame", x, y, width, height, rotation: 0, content: { label: "", shape: "rect", color: "", ...(isGroup ? { isGroup } : {}) }, ...extra } as PresentationElement);
@@ -9,6 +9,24 @@ const text = (id: string, x: number, y: number, extra: Partial<PresentationEleme
   ({ id, type: "text", x, y, width: 100, height: 40, rotation: 0, content: { text: id, fontSize: 32, bold: false, color: "", align: "left" }, ...extra } as PresentationElement);
 const parentOf = (elements: PresentationElement[], id: string) => elements.find((element) => element.id === id)?.parentId;
 const name = (number: number) => `Rahmen ${number}`;
+
+describe("nested frame creation", () => {
+  it("centers a child in a rotated parent while retaining its axes and explicit membership", () => {
+    const parent = frame("parent", 100, 200, 960, 540, { rotation: 37 });
+    expect(nestedPresentationFrame(parent, "child", "Detail")).toMatchObject({
+      id: "child", parentId: "parent", x: 340, y: 335, width: 480, height: 270,
+      rotation: 37, content: { label: "Detail" },
+    });
+  });
+  it("supports nesting again and respects minimum element dimensions", () => {
+    const child = nestedPresentationFrame(frame("p", 0, 0, 80, 80), "c", "Child")!;
+    const inner = nestedPresentationFrame(child, "i", "Inner")!;
+    expect(inner).toMatchObject({ parentId: "c", width: 20, height: 20 });
+    expect(nestedPresentationFrame(inner, "tiny", "Too small")).toBeNull();
+    expect(nestedPresentationFrame(text("t", 0, 0), "x", "Invalid")).toBeNull();
+    expect(nestedPresentationFrame(frame("g", 0, 0, 960, 540, {}, true), "x", "Group")).toBeNull();
+  });
+});
 
 describe("frameAtPoint", () => {
   const elements = [frame("big", 0, 0, 1000, 800), frame("small", 100, 100, 300, 200), frame("group", 0, 0, 50, 50, {}, true), text("t", 150, 150, { parentId: "small" })];
