@@ -11,7 +11,7 @@ import { isLinearShape, selectionRoots, mutableSelection } from "../lib/presenta
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
 
-import { useCallback, useEffect, useSyncExternalStore, useMemo, useReducer, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useSyncExternalStore, useMemo, useReducer, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -99,6 +99,9 @@ import { InsertPickerDialog, type InsertPicker } from "./presentation-editor/ins
 const subscribePlatform = () => () => {};
 const getMacPlatform = () => /Mac|iPhone|iPad/.test(navigator.platform);
 const CAMERA_DURATION = 700;
+/** Keeps its last render while `held`: the ribbon and frame rail have nothing new to show mid-drag,
+ * and their controls cannot be reached while a canvas gesture holds the pointer. */
+const Held = memo(function Held({ children }: { held: boolean; children: ReactNode }) { return children; }, (_, next) => next.held);
 
 function Editor({
   presentation,
@@ -446,7 +449,7 @@ function Editor({
       <PresentationShortcutHelp open={shortcutHelp} onOpenChange={setShortcutHelp} title={interact("shortcutHelp")} help={interact("gestureHelp")} commands={commands} shortcutLabels={shortcutLabels} />
       <InsertPickerDialog insertPicker={insertPicker} setInsertPicker={setInsertPicker} placementFocus={placementFocus} addShape={addShape} addStudioElement={addStudioElement} t={t} interact={interact} />
       {collaboration && <CollaborationStatus provider={collaboration} className="sr-only" />}
-      <PresentationRibbon model={ribbonModel} />
+      <Held held={canvas.gestureActive}><PresentationRibbon model={ribbonModel} /></Held>
       <input ref={mediaInputRef} aria-label={studio("uploadMedia")} hidden type="file" accept="video/mp4,video/webm,audio/mpeg,audio/mp4,audio/ogg,audio/wav" onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadMedia(file); event.target.value = ""; }} />
       <input ref={imageInputRef} aria-label={t("presentations.uploadImage")} hidden type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
         onChange={(event) => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void uploadImage(file); }} />
@@ -470,7 +473,7 @@ function Editor({
       )}
 
       <div className="flex min-h-0 flex-1">
-        <WorkspacePanel title={t("presentations.path")} open={pathOpen} onClose={() => setPathOpen(false)} side="left" narrow className="h-full max-h-full overflow-y-auto"><fieldset disabled={disabled} className="min-w-0">{pathPanel}</fieldset></WorkspacePanel>
+        <WorkspacePanel title={t("presentations.path")} open={pathOpen} onClose={() => setPathOpen(false)} side="left" narrow className="h-full max-h-full overflow-y-auto"><fieldset disabled={disabled} className="min-w-0"><Held held={canvas.gestureActive}>{pathPanel}</Held></fieldset></WorkspacePanel>
         {/* The detail page breadcrumb sits above the canvas, never over the slide being edited. */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <DetailSceneBar trail={detail.trail} onShow={detail.show} onClose={detail.close} onImport={() => setWikiImportOpen(true)} disabled={disabled} />
