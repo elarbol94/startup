@@ -3766,6 +3766,7 @@
       "pathDescription": "The order of the stops. Drag to reorder, click to fly the camera there.",
       "addStep": "Add selection as stop",
       "newFrame": "New frame",
+      "addNestedFrame": "Frame inside frame",
       "removeStep": "Remove stop",
       "missingStep": "Element deleted",
       "retargetStep": "Point this stop at the selection",

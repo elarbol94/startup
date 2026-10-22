@@ -68,6 +68,7 @@ import { usePresentationSelectionEdits } from "./presentation-editor/use-present
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
 import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
 import { frameInsertionEdit, usePresentationFrames } from "./presentation-editor/use-presentation-frames";
+import { isSectionFrame, nestedPresentationFrame, nextFrameNumber } from "../lib/presentation-frames";
 import { usePresentationTextEditing } from "./presentation-editor/use-presentation-text-editing";
 import { usePresentationClipboard } from "./presentation-editor/use-presentation-clipboard";
 import { usePresentationClickSelection } from "./presentation-editor/use-presentation-click-selection";
@@ -625,6 +626,23 @@ function Editor({
     setSelectedIds([frame.id]);
     flyTo(frame);
   };
+  const nestedFrameParent = selected && isSectionFrame(selected) ? selected : detail.trail.at(-1)?.frame;
+  const nestedFrameDisabled = disabled || !nestedFrameParent || isPresentationElementLocked(elements, nestedFrameParent.id)
+    || elements.length >= 500 || steps.length >= 500 || nestedFrameParent.width < 40 || nestedFrameParent.height < 40;
+  const addNestedFrame = () => {
+    if (nestedFrameDisabled || !nestedFrameParent) return;
+    const frame = nestedPresentationFrame(nestedFrameParent, createId(), t("presentations.frameName", {
+      number: nextFrameNumber(elements, number => t("presentations.frameName", { number })),
+    }));
+    if (!frame) return;
+    setPendingElement(null);
+    setDrawTool(null);
+    // Preserve the explicit parent even when other frames overlap its center.
+    const edit = frameInsertionEdit([frame], current => [...current, frame], t);
+    dispatch({ ...edit, elements: current => [...current, frame] });
+    setSelectedIds([frame.id]);
+    flyTo(frame);
+  };
   /** What a gallery tool drew: inserted like any new object, glued where it was drawn, selected. */
   const createDrawn = (drawn: PresentationElement, glue: DrawGlue) => {
     if (!drawLock) setDrawTool(null);
@@ -666,6 +684,7 @@ function Editor({
   const baseCommands: EditorSearchCommand[] = [
     { id: "addText", label: t("presentations.addText"), execute: addText, disabledReason: insertReason, group: commandText },
     { id: "addFrame", label: t("presentations.addFrame"), execute: addFrame, disabledReason: insertReason, group: commandText },
+    { id: "addNestedFrame", label: t("presentations.addNestedFrame"), execute: addNestedFrame, disabledReason: nestedFrameDisabled ? unavailable : undefined, group: commandText },
     { id: "addShape", label: t("presentations.addShape"), execute: () => setGalleryOpen(true), disabledReason: insertReason, group: commandText },
     ...presentationShapeToolCommands({ addShape, label: shape => t(`presentations.shapeKinds.${shape}`), disabledReason: insertReason, group: commandText }),
     { id: "addChart", label: studio("addChart"), execute: () => setInsertPicker("chart"), disabledReason: insertReason, group: commandText },

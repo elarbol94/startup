@@ -70,6 +70,12 @@ On desktop, the path and the active utility panel dock beside the canvas.
 
 ## Structure, animation and content
 
+- Select a frame and choose **Frame inside frame / Rahmen im Rahmen** in the
+  creation toolbar to add a centered child at half its size. The child keeps
+  the parent's rotation, joins it explicitly, and receives its own path stop.
+  Creation selects the child and supports autosave, collaboration and undo/redo.
+  Locked frames and frames too small for a valid child cannot receive one.
+
 - Select a parent frame in **Structure**, or use **Attach contained objects** to
   connect existing objects inside a frame. Parent links are saved, acyclic and
   independent of visual overlap. Moving or rotating a parent carries its descendants.

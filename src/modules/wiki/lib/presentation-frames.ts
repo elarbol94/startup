@@ -11,6 +11,20 @@ export const isSectionFrame = (element: PresentationElement): element is Present
 
 /** Default size of a new frame: a 16:9 slide. */
 export const PRESENTATION_FRAME_SIZE = { width: 960, height: 540 };
+
+/** A centered child shares its parent's axes and leaves room around its outline. */
+export function nestedPresentationFrame(parent: PresentationElement, id: string, label: string): PresentationFrameElement | null {
+  if (!isSectionFrame(parent) || parent.width < 40 || parent.height < 40) return null;
+  const width = parent.width / 2;
+  const height = parent.height / 2;
+  return {
+    id, type: "frame", parentId: parent.id,
+    x: parent.x + (parent.width - width) / 2,
+    y: parent.y + (parent.height - height) / 2,
+    width, height, rotation: parent.rotation,
+    content: { label, shape: "rect", color: "" },
+  };
+}
 export const presentationFramePresets = [["16:9", 9 / 16], ["4:3", 3 / 4], ["1:1", 1]] as const;
 export type PresentationFramePreset = (typeof presentationFramePresets)[number][0];
 
