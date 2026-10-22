@@ -526,3 +526,15 @@ pointer movements, and release when dragged away. A closer edge or centre alignm
 over a competing equal-spacing suggestion. Guides and handles retain their screen sizes
 at different zoom levels. Rotated, proportional and centred resizing bypasses edge snapping
 to preserve the fixed anchor and proportions.
+
+### Reloading playback and wide overviews
+
+The local player stores its active scene and stable stop ID in the URL. Reloading
+inside a second (or deeper) detail canvas restores that canvas and rebuilds the
+return trail, so right-click still goes up one canvas at a time. Deleted scenes
+or stops fall back to a valid scene. Live followers continue to follow their host.
+
+Overview (button or Home) fits all visible content of the current scene, including
+widely separated objects. It can zoom below the usual 2% scale so a distant object
+cannot push the remaining content outside the viewport; other detail canvases
+remain excluded. Editing content and saved camera stops are unchanged.

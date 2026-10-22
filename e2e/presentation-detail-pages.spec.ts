@@ -77,7 +77,7 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(page.locator("[data-turning]")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(player).toHaveAttribute("data-scene", "overview");
-  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present$`));
+  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present(?:[?].*)?$`));
 });
 
 test("a clicker takes the detour on the path, animated even when the system reduces motion", async ({ page }) => {

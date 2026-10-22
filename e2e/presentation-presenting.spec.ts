@@ -61,7 +61,7 @@ test("a keyboard zoom holds until Escape, which returns to the stop instead of e
   expect(await viewport(page)).toBe(zoomed);
   await page.keyboard.press("Escape");
   await expect.poll(() => viewport(page)).toBe(framed);
-  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present$`));
+  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present(?:[?].*)?$`));
   // The overview holds the same way.
   await page.keyboard.press("Home");
   await expect.poll(() => viewport(page)).not.toBe(framed);
@@ -78,7 +78,7 @@ test("B and W blank the screen, a typed number jumps, and a stop can open the sh
   await expect(blank).toHaveAttribute("data-screen", "white");
   await page.keyboard.press("Escape");
   await expect(blank).toHaveCount(0);
-  await expect(page).toHaveURL(new RegExp(`/present$`));
+  await expect(page).toHaveURL(new RegExp(`/present(?:[?].*)?$`));
   // Moving on lifts the blank screen too.
   await page.keyboard.press(".");
   await expect(blank).toBeVisible();

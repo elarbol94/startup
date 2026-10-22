@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   PRESENTATION_CAMERA_PADDING,
   presentationCameraBounds,
+  unionBounds,
   presentationAncestors,
   elementClickAction,
   elementsWithinStep,
@@ -45,6 +46,7 @@ import { BlankScreenOverlay, SpotlightOverlay, StopNumberBadge, type BlankScreen
 import { useIdle } from "./presentation-player/use-idle";
 import { usePlayerKeys } from "./presentation-player/use-player-keys";
 import { usePlayerFocus } from "./presentation-player/use-player-focus";
+import { usePlayerLocation } from "./presentation-player/use-player-location";
 
 /** Set when this player is a remote follower mirroring someone else's live session. */
 type FollowSource = { code: string; hostName: string; hostUserId?: string; stepIndex?: number; live?: boolean };
@@ -77,12 +79,7 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   const stops = useMemo(() => presentationStops(elements, steps), [elements, steps]);
   const details = presentationDetails(elements);
   const openerIds = useMemo(() => new Set(details.frameByBox.keys()), [details]);
-  const [position, setPosition] = useState<PresentationPosition>(() => {
-    if (follow) return { index: clampStop(follow.stepIndex ?? 0, stops), returns: [] };
-    // "From current stop" in the editor; a stop on a detail page leaves it towards its opener.
-    const chosen = startStepId ? stops.findIndex((stop) => stop.step.id === startStepId) : -1;
-    return { index: chosen >= 0 ? chosen : stops.findIndex((stop) => stop.sceneId === null), returns: [] };
-  });
+  const [position, setPosition] = usePlayerLocation(elements, stops, startStepId, follow);
   const index = position.index;
   const scene = sceneOfStop(stops, index);
   const { elementId: focusedElementId, getFocused, push: pushFocus, pop: popFocus, clear: clearFocus } = usePlayerFocus(scene);
@@ -122,11 +119,6 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   const animationMs = reducedMotion ? 0 : stops[index]?.step.animationMs ?? 300;
   const nodes = useMemo(() => elementsToNodes(sceneElements, { editable: false, enteringIds: reducedMotion ? undefined : enteringIds, hiddenIds, animationMs, background: surface, openerIds: follow ? undefined : openerIds }), [surface, sceneElements, enteringIds, hiddenIds, animationMs, reducedMotion, follow, openerIds]);
 
-  const overview = useCallback(
-    (duration = cameraDuration) => reactFlow.fitView({ padding: 0.15, duration, ease: cameraEase }),
-    [reactFlow, cameraDuration, cameraEase],
-  );
-
   /** Fits a stop with the usual padding, plus the control bar's height at the bottom so the
    * bar never covers it. */
   const store = useStoreApi<PresentationNode>();
@@ -138,6 +130,14 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     const padding = { x: share, top: `${inset}px`, bottom: `${inset + (fill ? 0 : controlsRef.current?.offsetHeight ?? 0)}px` } as const;
     return reactFlow.setViewport(getViewportForBounds(bounds, width, height, minZoom, maxZoom, padding), { duration, ease: cameraEase });
   }, [store, reactFlow, cameraEase]);
+
+  // Work from the actual scene model, rather than transient React Flow node measurements.
+  // Storage-band/orphan objects can make a valid scene much larger than the usual 2% zoom
+  // limit; fitting below it keeps both ends visible instead of pushing the deck off-screen.
+  const overview = useCallback((duration = cameraDuration) => {
+    const bounds = unionBounds(sceneElements.filter(element => !hiddenIds.has(element.id)).map(presentationCameraBounds));
+    return bounds ? fitStop(bounds, duration) : Promise.resolve(false);
+  }, [sceneElements, hiddenIds, fitStop, cameraDuration]);
 
   /**
    * Every step is framed by fitting its element's bounds, so a small frame nested inside
@@ -251,7 +251,7 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit).then(landed);
     else commit();
     return true;
-  }, [details, flip, isFlipping, stops, clearFocus]);
+  }, [details, flip, isFlipping, stops, clearFocus, setPosition]);
 
   // Autoplay: advance to the next stop after its effective duration elapses -- out of a
   // finished detail page too -- looping back to the start (or stopping) once the path runs out.
@@ -320,7 +320,7 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
         setPosition(next);
       }
     },
-    [following, isFlipping, stops, scene, sceneElements, index, details, clearSnapBack, getFocused, pushFocus, openDetail, elements],
+    [following, isFlipping, stops, scene, sceneElements, index, details, clearSnapBack, getFocused, pushFocus, openDetail, elements, setPosition],
   );
 
   // Remote follow (polled live session); the presenter-notes window keeps its own
@@ -511,9 +511,8 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
         colorMode={inkOn(surface) === PRESENTATION_DARK_INK ? "light" : "dark"}
         style={{ backgroundColor: surface }}
         // With stops the opening camera is stop 1 (see the first flight above).
-        fitView={!steps.length}
-        fitViewOptions={{ padding: 0.15 }}
-        minZoom={0.02}
+        fitView={false}
+        minZoom={0.000001}
         maxZoom={8}
         nodesDraggable={false}
         nodesConnectable={false}

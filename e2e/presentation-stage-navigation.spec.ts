@@ -109,3 +109,50 @@ test("right-click after choosing a sibling form returns to their containing canv
   await expect(node(page, "outer")).toBeInViewport();
   await expect(node(page, "unlisted")).toBeInViewport();
 });
+
+test("player reload twice inside the second detail level restores its scene and upward navigation", async ({ page }) => {
+  const id = await seedPresentation(page, false, false, elements, { steps, waitFor: "outer" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  await node(page, "outer").click(); await expect(player(page)).toHaveAttribute("data-focused-element", "outer");
+  await node(page, "outer").click(); await expect(player(page)).toHaveAttribute("data-scene", "page"); await settle(page);
+  await node(page, "inner").click(); await expect(player(page)).toHaveAttribute("data-focused-element", "inner");
+  await node(page, "inner").click(); await expect(player(page)).toHaveAttribute("data-scene", "nested"); await settle(page);
+  await expect(page).toHaveURL(/scene=nested/);
+  for (let i = 0; i < 2; i++) {
+    await page.reload();
+    await expect(player(page)).toHaveAttribute("data-scene", "nested");
+    await expect(node(page, "deep")).toBeInViewport();
+    await expect(node(page, "outer")).toHaveCount(0);
+    await expect(node(page, "inner")).toHaveCount(0);
+  }
+  await page.screenshot({ path: "test-results/player-second-detail-reload.png" });
+  await player(page).click({ button: "right", position: { x: 20, y: 20 } });
+  await expect(player(page)).toHaveAttribute("data-scene", "page"); await settle(page);
+  await expect(node(page, "inner")).toBeInViewport();
+  await player(page).click({ button: "right", position: { x: 20, y: 20 } });
+  await expect(player(page)).toHaveAttribute("data-scene", "overview"); await settle(page);
+  await expect(node(page, "outer")).toBeInViewport();
+  await page.goto(`/wiki/presentations/${id}/present?scene=deleted&at=stale`);
+  await expect(player(page)).toHaveAttribute("data-scene", "overview");
+  await expect(node(page, "outer")).toBeInViewport();
+  await expect(page).not.toHaveURL(/deleted|stale/);
+});
+
+test("overview fits widely separated scene content instead of leaving it outside the viewport", async ({ page }) => {
+  const wide = [...elements, frame("distant", 0, 100000)];
+  const id = await seedPresentation(page, false, false, wide, { steps, waitFor: "outer" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  await expect(node(page, "outer")).toBeInViewport();
+  await page.getByTestId("presentation-controls").getByRole("button", { name: "Übersicht", exact: true }).click();
+  await expect(node(page, "frame")).toBeInViewport();
+  await expect(node(page, "distant")).toBeInViewport();
+  await expect(node(page, "page")).toHaveCount(0);
+  await page.screenshot({ path: "test-results/player-wide-overview.png" });
+  // Home uses the same bounds in a detail canvas, without pulling other scenes into view.
+  await page.goto(`/wiki/presentations/${id}/present?scene=nested&at=nested-stop`);
+  await expect(node(page, "deep")).toBeInViewport();
+  await page.keyboard.press("Home");
+  await expect(node(page, "nested")).toBeInViewport();
+  await expect(node(page, "deep")).toBeInViewport();
+  await expect(node(page, "distant")).toHaveCount(0);
+});
