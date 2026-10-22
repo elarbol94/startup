@@ -24,7 +24,7 @@ export function DetailSceneBar({ trail, onShow, onClose, onImport, disabled }: {
     <Button type="button" variant="ghost" size="sm" onClick={onClose} title={`${t("close")} (Esc)`} aria-label={t("close")}>
       <CornerLeftUp className="size-4" />
     </Button>
-    <nav aria-label={t("trail")} className="flex min-w-0 items-center gap-0.5 text-sm">
+    <nav aria-label={t("trail")} className="flex min-w-0 flex-1 items-center gap-0.5 text-sm lg:max-w-[55%] lg:flex-none">
       <button type="button" className="shrink-0 rounded px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onShow(null, trail[0].box)}>{t("overview")}</button>
       {trail.map(({ frame, box }, index) => <span key={frame.id} className="flex min-w-0 items-center gap-0.5">
         <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />
@@ -33,7 +33,7 @@ export function DetailSceneBar({ trail, onShow, onClose, onImport, disabled }: {
           : <button type="button" className="truncate rounded px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => onShow(frame.id, trail[index + 1].box)}>{name(box, frame)}</button>}
       </span>)}
     </nav>
-    <span className="hidden min-w-0 truncate text-xs text-muted-foreground lg:inline">{t("editing", { name: name(current.box, current.frame) })}</span>
+    <span className="hidden min-w-0 flex-1 truncate text-xs text-muted-foreground lg:block">{t("editing", { name: name(current.box, current.frame) })}</span>
     <Button type="button" variant="ghost" size="sm" className="ml-auto shrink-0" disabled={disabled} onClick={onImport} data-testid="detail-import-wiki">
       <BookOpenText className="size-4" /><span className="hidden sm:inline">{t("importWiki")}</span>
     </Button>

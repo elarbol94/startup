@@ -162,6 +162,13 @@ export function presentationStops(elements: PresentationElement[], steps: Presen
   for (const frameId of boxByFrame.keys()) {
     if (!stops.some((stop) => stop.sceneId === frameId)) stops.push({ step: { id: `detail:${frameId}`, elementId: frameId }, stepIndex: null, sceneId: frameId });
   }
+  // A free-form deck can have detail canvases but no overview path. Give both the
+  // player and presenter/followers a real overview stop instead of an invalid index.
+  if (!stops.some(stop => stop.sceneId === null)) {
+    const visible = elements.filter(element => sceneOf(element.id) === null);
+    const overview = visible.find(element => element.type === "frame" && !element.parentId) ?? visible[0];
+    if (overview) stops.unshift({ step: { id: `overview:${overview.id}`, elementId: overview.id }, stepIndex: null, sceneId: null });
+  }
   return stops;
 }
 

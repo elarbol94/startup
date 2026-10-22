@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import {
   PRESENTATION_CAMERA_PADDING,
   presentationCameraBounds,
+  presentationAncestors,
   elementClickAction,
   elementsWithinStep,
   presentationCameraEasingFns,
@@ -43,6 +44,7 @@ import { PlayerControls } from "./presentation-player/player-controls";
 import { BlankScreenOverlay, SpotlightOverlay, StopNumberBadge, type BlankScreen } from "./presentation-player/player-overlays";
 import { useIdle } from "./presentation-player/use-idle";
 import { usePlayerKeys } from "./presentation-player/use-player-keys";
+import { usePlayerFocus } from "./presentation-player/use-player-focus";
 
 /** Set when this player is a remote follower mirroring someone else's live session. */
 type FollowSource = { code: string; hostName: string; hostUserId?: string; stepIndex?: number; live?: boolean };
@@ -79,10 +81,11 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     if (follow) return { index: clampStop(follow.stepIndex ?? 0, stops), returns: [] };
     // "From current stop" in the editor; a stop on a detail page leaves it towards its opener.
     const chosen = startStepId ? stops.findIndex((stop) => stop.step.id === startStepId) : -1;
-    return { index: chosen >= 0 ? chosen : Math.max(stops.findIndex((stop) => stop.sceneId === null), 0), returns: [] };
+    return { index: chosen >= 0 ? chosen : stops.findIndex((stop) => stop.sceneId === null), returns: [] };
   });
   const index = position.index;
   const scene = sceneOfStop(stops, index);
+  const { elementId: focusedElementId, getFocused, push: pushFocus, pop: popFocus, clear: clearFocus } = usePlayerFocus(scene);
   const sceneElements = useMemo(() => presentationSceneElements(elements, scene), [elements, scene]);
   /** The stop a detail page turn landed on: its elements are already there, so they do not fade in again. */
   const [quietIndex, setQuietIndex] = useState<number | null>(null);
@@ -93,6 +96,7 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   const reducedMotion = systemReducedMotion && (Boolean(follow) || settings.motion === "system");
   const [fullscreen, setFullscreen] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const heldView = useRef(false);
 
   const cameraDuration = reducedMotion ? 0 : settings.cameraTransitionMs;
   const cameraEase = presentationCameraEasingFns[settings.cameraEasing];
@@ -162,8 +166,13 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   }, []);
   const scheduleSnapBack = useCallback(() => {
     clearSnapBack();
-    snapBackTimer.current = setTimeout(() => flyTo(index), GESTURE_SNAP_BACK_MS);
-  }, [clearSnapBack, flyTo, index]);
+    snapBackTimer.current = setTimeout(() => {
+      const id = getFocused(scene);
+      const target = elements.find(element => element.id === id);
+      if (target) void fitStop(presentationCameraBounds(target), cameraDuration);
+      else void flyTo(index);
+    }, GESTURE_SNAP_BACK_MS);
+  }, [clearSnapBack, flyTo, index, getFocused, scene, elements, fitStop, cameraDuration]);
   // An element click's own mouseup reaches the pane's onMoveEnd (with a populated event,
   // same as a real gesture) BEFORE the click's onNodeClick fires — @xyflow/system defers
   // that callback to a setTimeout(..., 0) queued during mouseup, which a same-task click
@@ -216,7 +225,11 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     const element = elements.find((candidate) => candidate.id === id);
     return element ? fitStop(presentationCameraBounds(element), duration, true) : Promise.resolve(false);
   }, [elements, fitStop]);
-  const frameCurrent = useCallback((duration: number) => flyTo(positionRef.current.index, duration), [flyTo]);
+  const frameCurrent = useCallback((duration: number) => {
+    const current = positionRef.current.index;
+    const target = elements.find(element => element.id === getFocused(sceneOfStop(stops, current)));
+    return target ? fitStop(presentationCameraBounds(target), duration) : flyTo(current, duration);
+  }, [elements, getFocused, stops, fitStop, flyTo]);
   // The stop whose camera has landed: a stop's autoplay time and progress bar start there, so
   // a long flight or card turn never eats into what the audience gets to see.
   const [arrivedAt, setArrivedAt] = useState<number | null>(null);
@@ -227,9 +240,10 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   const { flip, isFlipping } = useDetailFlip({ containerRef, stageRef, surface, backdrop: inkOn(surface) === PRESENTATION_DARK_INK ? "#c3cad4" : "#020306",
     durationMs: reducedMotion ? 0 : Math.max(600, settings.cameraTransitionMs), focusElement, frameCurrent });
   /** False when a card turn is still running: the move is dropped and the caller decides what then. */
-  const go = useCallback((next: PresentationPosition) => {
+  const go = useCallback((next: PresentationPosition, preserveFocus = false) => {
     if (isFlipping()) return false;
     const from = sceneOfStop(stops, positionRef.current.index), to = sceneOfStop(stops, next.index);
+    if (!preserveFocus) clearFocus(to);
     const commit = () => { positionRef.current = next; setPosition(next); setQuietIndex(to !== from ? next.index : null); };
     const opener = to ? details.boxByFrame.get(to) : undefined, closer = from ? details.boxByFrame.get(from) : undefined;
     const landed = () => setArrivedAt(positionRef.current.index);
@@ -237,7 +251,7 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     else if (from && closer && details.sceneOf(closer) === to) void flip("out", closer, commit).then(landed);
     else commit();
     return true;
-  }, [details, flip, isFlipping, stops]);
+  }, [details, flip, isFlipping, stops, clearFocus]);
 
   // Autoplay: advance to the next stop after its effective duration elapses -- out of a
   // finished detail page too -- looping back to the start (or stopping) once the path runs out.
@@ -276,54 +290,37 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
   const closeDetail = useCallback(() => {
     if (following) return;
     const next = exitPresentationDetail(elements, stops, positionRef.current);
-    if (next) go(next);
+    if (next) go(next, true);
   }, [elements, following, go, stops]);
 
-  // The Prezi "click anything, you're there" jump: an element that some step targets goes
-  // through the normal setIndex path (status, notes, live broadcast, camera all follow); an
-  // element no step targets just gets a free fly, leaving the step index untouched. A click
-  // on the frame we are already looking inside is not a jump at all — see elementClickAction.
+  // Pointer navigation has explicit stages: focus a form, then flip its detail canvas.
+  // Form layers representing an opener resolve to that opener; unlisted forms work too.
   const onElementClick = useCallback<NodeMouseHandler<PresentationNode>>(
     (event, node) => {
       if ((event.target as HTMLElement)?.closest?.("a,video,audio,summary,details")) return;
-      // Never also register as the container's "click empty canvas" advance.
       event.stopPropagation();
-      if (following) return;
-      const target = node.data.element;
-      // Clicks resolve within the open scene: its stops, its elements. An element with a
-      // detail page -- or one standing for the frame that has it -- turns over to it.
+      if (following || isFlipping()) return;
       const local = stops.map((stop, at) => ({ stop, at })).filter(({ stop }) => stop.sceneId === scene);
-      const action = elementClickAction(local.map(({ stop }) => stop.step), sceneElements, local.findIndex(({ at }) => at === index), target.id, details.frameByBox);
-      if (action.kind === "open") { suppressSnapBack.current = true; openDetail(action.boxId); return; }
-      // Clicking the frame that fills the screen is a click "on the slide", not on an
-      // element: it advances exactly like empty canvas, which means no autoplay pause and
-      // no snap-back suppression either — the container's own advance does neither.
-      if (action.kind === "advance") {
-        move(1);
-        return;
-      }
-      // The pane's own onMoveEnd (populated event, same as any real gesture) still fires for
-      // this same click's mouseup, and it fires AFTER this handler — @xyflow/system defers it
-      // to a setTimeout(..., 0) queued during mouseup, which this same-task click handler runs
-      // ahead of. Clearing snapBackTimer here would be clearing a timer that doesn't exist yet;
-      // flip a flag instead, for onGestureEnd to consume whenever it does run.
+      const action = elementClickAction(local.map(({ stop }) => stop.step), sceneElements, local.findIndex(({ at }) => at === index), node.id, details.frameByBox);
+      const id = action.kind === "open" ? action.boxId
+        : action.kind === "jump" ? local[action.index].stop.step.elementId : node.id;
+      clearSnapBack();
       suppressSnapBack.current = true;
       setPlaying(false);
-      if (action.kind === "jump") {
-        const jump = local[action.index].at;
-        // The ref too, so a key pressed right after the click steps on from the new stop.
-        const next = { ...positionRef.current, index: jump };
-        positionRef.current = next;
-        setPosition(next);
-        // Explicit, not left to the index-driven effect: clicking the CURRENT step's element
-        // leaves index unchanged, so that effect would never re-run and the click would do
-        // nothing visible.
-        flyTo(jump);
+      heldView.current = false;
+      if (getFocused(scene) === id) {
+        if (details.frameByBox.has(id)) openDetail(id);
         return;
       }
-      fitStop(presentationCameraBounds(target), cameraDuration);
+      pushFocus(scene, id, positionRef.current, presentationAncestors(elements, id).map(element => element.id));
+      const stop = local.find(({ stop }) => stop.step.elementId === id && (!stop.step.action || stop.step.action === "camera"));
+      if (stop) {
+        const next = { ...positionRef.current, index: stop.at };
+        positionRef.current = next;
+        setPosition(next);
+      }
     },
-    [following, details, openDetail, stops, scene, sceneElements, index, move, flyTo, cameraDuration, fitStop],
+    [following, isFlipping, stops, scene, sceneElements, index, details, clearSnapBack, getFocused, pushFocus, openDetail, elements],
   );
 
   // Remote follow (polled live session); the presenter-notes window keeps its own
@@ -400,14 +397,14 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     // A detail page turn frames the scenes itself, in step with the card.
     if (isFlipping()) return;
     const duration = instant ? 0 : cameraDuration;
-    const frame = requestAnimationFrame(() => { land(flyTo(index, duration), duration, index); firstFlight.current = false; });
+    const frame = requestAnimationFrame(() => { land(frameCurrent(duration), duration, index); firstFlight.current = false; });
     return () => cancelAnimationFrame(frame);
-  }, [index, scene, flyTo, viewportSized, isFlipping, land, cameraDuration]);
+  }, [index, scene, focusedElementId, frameCurrent, viewportSized, isFlipping, land, cameraDuration]);
 
   // Entering fullscreen or resizing changes what "fits" means, so the current step is
   // re-framed instantly rather than left half off-screen.
   useEffect(() => {
-    const reframe = () => flyTo(index, 0);
+    const reframe = () => frameCurrent(0);
     const onFullscreenChange = () => {
       setFullscreen(Boolean(document.fullscreenElement));
       reframe();
@@ -418,19 +415,25 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
       window.removeEventListener("resize", reframe);
       document.removeEventListener("fullscreenchange", onFullscreenChange);
     };
-  }, [flyTo, index]);
+  }, [frameCurrent, index, focusedElementId]);
 
   // A view the presenter asked for -- the overview, a keyboard zoom -- stays until the next
   // stop or Escape, unlike a drag or pinch, which snaps back once let go.
-  const heldView = useRef(false);
   useEffect(() => { heldView.current = false; }, [index]);
   const holdView = useCallback(() => { clearSnapBack(); heldView.current = true; }, [clearSnapBack]);
   const restoreView = useCallback(() => {
-    if (!heldView.current) return false;
-    heldView.current = false;
-    void flyTo(positionRef.current.index);
+    if (isFlipping()) return true;
+    if (heldView.current) {
+      heldView.current = false;
+      void frameCurrent(cameraDuration);
+      return true;
+    }
+    const previous = popFocus(sceneOfStop(stops, positionRef.current.index));
+    if (!previous) return false;
+    clearSnapBack();
+    go(previous, true);
     return true;
-  }, [flyTo]);
+  }, [isFlipping, frameCurrent, cameraDuration, popFocus, stops, clearSnapBack, go]);
 
   // PowerPoint's B and W. Autoplay waits behind a blank screen, and moving on lifts it.
   const [blank, setBlankState] = useState<BlankScreen>(null);
@@ -482,6 +485,14 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     <div
       ref={containerRef}
       data-scene={scene ?? "overview"}
+      data-focused-element={focusedElementId ?? undefined}
+      onContextMenu={event => {
+        if ((event.target as HTMLElement).closest("a,video,audio,input,textarea,select,button,summary,details")) return;
+        event.preventDefault(); event.stopPropagation();
+        if (following || isFlipping()) return;
+        clearSnapBack(); suppressSnapBack.current = true; setPlaying(false);
+        if (!restoreView()) closeDetail();
+      }}
       data-testid="presentation-player"
       data-idle={idle || undefined}
       // Covers the wiki rail and the app chrome: presenting owns the whole viewport. A resting

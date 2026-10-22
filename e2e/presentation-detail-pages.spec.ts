@@ -54,6 +54,8 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(page.getByRole("status").filter({ hasText: "/" })).toHaveText("1 / 1");
   await page.locator('.react-flow__node[data-id="lend"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
   await expect(page.locator("[data-turning]")).toHaveCount(0);
   await expect(page.getByTestId("presentation-detail-back")).toContainText("Gegenstandsverleih");
@@ -68,6 +70,8 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(player).not.toHaveAttribute("data-turning");
 
   // Escape leaves a page first and only then the presentation.
+  await page.locator('.react-flow__node[data-id="lend"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
   await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
   await expect(page.locator("[data-turning]")).toHaveCount(0);
@@ -244,6 +248,8 @@ test("a click on a shape covering a frame stands for the frame", async ({ page }
   await expect(status).toHaveText("2 / 2");
   // A disc on a frame with a detail page turns that page over.
   await page.keyboard.press("Home");
+  await page.locator('.react-flow__node[data-id="southDisc"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
   await page.locator('.react-flow__node[data-id="southDisc"]').click();
   await expect(player).toHaveAttribute("data-scene", "page");
 });

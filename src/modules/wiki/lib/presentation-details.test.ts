@@ -159,7 +159,7 @@ describe("presenting detail pages", () => {
     expect(presentationTour(elements, stops)).toEqual([
       { index: 0, returns: [] }, { index: 1, returns: [] }, { index: 2, returns: [3] }, { index: 3, returns: [] },
     ]);
-    expect(presentationTour(elements, presentationStops(elements, []))).toEqual([]);
+    expect(presentationTour(elements, presentationStops(elements, []))).toEqual([{ index: 0, returns: [] }]);
   });
 
   it("names a stop on a frame without a label after the first words on it", () => {
@@ -196,4 +196,13 @@ it("keeps a newly nested frame in its detail scene and out of the overview bound
   expect(presentationSceneElements(next, null).some(element => element.id === child.id)).toBe(false);
   expect(presentationSceneElements(next, parent.id).some(element => element.id === child.id)).toBe(true);
   expect(next.filter(element => element.id !== child.id)).toEqual(elements);
+});
+
+it("gives a pathless deck with nested detail canvases a stable overview stop", () => {
+  const elements = deck();
+  const stops = presentationStops(elements, []);
+  expect(stops[0]).toMatchObject({ sceneId: null, stepIndex: null, step: { elementId: "overview" } });
+  const opened = enterPresentationDetail(stops, { index: 0, returns: [] }, "lendPage")!;
+  expect(opened.index).toBeGreaterThan(0);
+  expect(exitPresentationDetail(elements, stops, opened)).toEqual({ index: 0, returns: [] });
 });

@@ -45,6 +45,17 @@ the old wiki-page editor and were removed together with it (documents are now
 Word documents, see [office-documents.md](office-documents.md)). Link data that
 older presentations still carry is ignored and stripped from public copies.
 
+## Presentation pointer navigation
+
+Click a form to focus it; click the focused form again to flip into its linked
+detail canvas. Shapes or labels standing for a linked frame focus that frame.
+Forms without path stops can also be focused. Right-click the canvas to undo one
+focus stage; from an unfocused detail canvas, right-click flips back to the
+opener in its parent canvas. At the top level it stays in the presentation.
+Keyboard navigation and autoplay retain the ordered path, including its detail
+detours. Links, media controls and presentation controls keep their normal actions.
+Local pointer navigation remains disabled for live followers.
+
 ## Reloading a detail page
 
 The current detail section is kept in the editor URL as `?scene=...`, so
