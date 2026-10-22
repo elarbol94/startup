@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, type MouseEvent } from "react";
 
-const DOUBLE_RIGHT_CLICK_MS = 320;
+// Leave enough time for ordinary mouse double-clicks (including the common
+// 500ms desktop setting); otherwise the first click navigates before the second.
+const DOUBLE_RIGHT_CLICK_MS = 600;
 
 /** Defer one right-click briefly so its first half cannot leave a detail canvas before
  * a double-right-click asks to see that same canvas in full. */

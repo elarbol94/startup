@@ -17,8 +17,10 @@ const node = (page: Page, id: string) => page.getByTestId("presentation-player")
 const player = (page: Page) => page.getByTestId("presentation-player");
 const settle = (page: Page) => expect(player(page)).not.toHaveAttribute("data-turning");
 const right = (page: Page) => player(page).click({ button: "right", position: { x: 20, y: 20 } });
-const doubleRight = async (page: Page) => {
-  await player(page).click({ button: "right", position: { x: 20, y: 20 }, clickCount: 2, delay: 80 });
+const doubleRight = async (page: Page, interval = 80) => {
+  await right(page);
+  await page.waitForTimeout(interval);
+  await right(page);
 };
 async function seed(page: Page, startMode: "path" | "free" = "path") {
   return seedPresentation(page, false, false, elements, { steps, settings: { startMode }, waitFor: "outer" });
@@ -73,18 +75,18 @@ test("path mode remains the default and an explicit launch can override the save
   await expect(node(page, "first")).not.toBeInViewport();
 });
 
-test("double-right-click shows the current canvas without first leaving its detail level", async ({ page }) => {
+for (const interval of [80, 450]) test(`double-right-click (${interval}ms) shows the current canvas without first leaving its detail level`, async ({ page }) => {
   const id = await seed(page);
   await page.goto(`/wiki/presentations/${id}/present?scene=nested&at=nested-stop`);
   await expect(node(page, "deep")).toBeInViewport();
   await node(page, "deep").click();
   await expect(player(page)).toHaveAttribute("data-focused-element", "deep");
-  await doubleRight(page);
+  await doubleRight(page, interval);
   await expect(player(page)).toHaveAttribute("data-scene", "nested");
   await expect(player(page)).toHaveAttribute("data-view", "canvas");
   await expect(player(page)).not.toHaveAttribute("data-focused-element");
   await expect(node(page, "nested")).toBeInViewport({ ratio: 1 });
-  await page.waitForTimeout(600);
+  await page.waitForTimeout(800);
   await expect(player(page)).toHaveAttribute("data-scene", "nested");
   await page.reload();
   await expect(player(page)).toHaveAttribute("data-scene", "nested");
