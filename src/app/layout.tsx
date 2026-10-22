@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { NextIntlClientProvider } from "next-intl";
+import { MessagesProvider } from "@/i18n/messages-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { WebVitals } from "@/components/web-vitals";
 import { HtmlLocaleSync } from "@/components/html-locale-sync";
@@ -41,10 +41,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
-          <NextIntlClientProvider>
+          <MessagesProvider>
             <HtmlLocaleSync />
             {children}
-          </NextIntlClientProvider>
+          </MessagesProvider>
           <WebVitals />
           <Toaster />
         </ThemeProvider>
