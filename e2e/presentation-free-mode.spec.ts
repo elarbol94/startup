@@ -75,25 +75,29 @@ test("path mode remains the default and an explicit launch can override the save
   await expect(node(page, "first")).not.toBeInViewport();
 });
 
-for (const interval of [80, 450]) test(`double-right-click (${interval}ms) shows the current canvas without first leaving its detail level`, async ({ page }) => {
+for (const interval of [80, 450]) test(`double-right-click (${interval}ms) returns directly from nested details to the original canvas`, async ({ page }) => {
   const id = await seed(page);
   await page.goto(`/wiki/presentations/${id}/present?scene=nested&at=nested-stop`);
   await expect(node(page, "deep")).toBeInViewport();
   await node(page, "deep").click();
   await expect(player(page)).toHaveAttribute("data-focused-element", "deep");
   await doubleRight(page, interval);
-  await expect(player(page)).toHaveAttribute("data-scene", "nested");
+  await expect(player(page)).toHaveAttribute("data-scene", "overview");
   await expect(player(page)).toHaveAttribute("data-view", "canvas");
   await expect(player(page)).not.toHaveAttribute("data-focused-element");
-  await expect(node(page, "nested")).toBeInViewport({ ratio: 1 });
+  await expect(node(page, "first")).toBeInViewport({ ratio: 1 });
+  await expect(node(page, "second")).toBeInViewport({ ratio: 1 });
+  await expect(node(page, "nested")).toHaveCount(0);
   await page.waitForTimeout(800);
-  await expect(player(page)).toHaveAttribute("data-scene", "nested");
+  await expect(player(page)).toHaveAttribute("data-scene", "overview");
   await page.reload();
-  await expect(player(page)).toHaveAttribute("data-scene", "nested");
+  await expect(player(page)).toHaveAttribute("data-scene", "overview");
   await expect(player(page)).toHaveAttribute("data-view", "canvas");
-  await expect(node(page, "deep")).toBeInViewport();
+  await expect(node(page, "second")).toBeInViewport({ ratio: 1 });
+  // No stale detail return trail survives the jump or reload.
   await right(page);
-  await expect(player(page)).toHaveAttribute("data-scene", "detail"); await settle(page);
+  await page.waitForTimeout(800);
+  await expect(player(page)).toHaveAttribute("data-scene", "overview");
 });
 
 test("free mode preserves panning, opens both detail levels in canvas view, and survives reload", async ({ page }) => {

@@ -456,11 +456,22 @@ function Player({ presentation, follow, startStepId }: { presentation: Presentat
     void overview();
   }, [clearSnapBack, freeMode, clearFocus, stops, showCanvas, overview]);
 
+  const showRootOverview = useCallback(() => {
+    // Jump directly to the original canvas and discard the nested return trail.
+    const root = { index: Math.max(0, stops.findIndex(stop => stop.sceneId === null)), returns: [] };
+    clearFocus(null);
+    positionRef.current = root;
+    setPosition(root);
+    setQuietIndex(root.index);
+    showOverview();
+    heldView.current = false;
+  }, [stops, clearFocus, setPosition, showOverview]);
+
   const onContextMenu = usePlayerContextMenu({
     disabled: following, isFlipping,
     prepare: () => { clearSnapBack(); suppressSnapBack.current = true; setPlaying(false); },
     back: () => { if (!restoreView()) closeDetail(); },
-    overview: () => { showOverview(); heldView.current = false; },
+    overview: showRootOverview,
   });
 
   // PowerPoint's B and W. Autoplay waits behind a blank screen, and moving on lifts it.

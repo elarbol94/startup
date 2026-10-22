@@ -7,7 +7,7 @@ import { useEffect, useRef, type MouseEvent } from "react";
 const DOUBLE_RIGHT_CLICK_MS = 600;
 
 /** Defer one right-click briefly so its first half cannot leave a detail canvas before
- * a double-right-click asks to see that same canvas in full. */
+ * a double-right-click asks to return to the original canvas in full. */
 export function usePlayerContextMenu(actions: {
   disabled: boolean;
   isFlipping: () => boolean;
