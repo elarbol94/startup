@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatElapsed, parsePresenterMessage, presenterChannelName } from "./presenter";
+import { formatElapsed, formatRemaining, parsePresenterMessage, presenterChannelName } from "./presenter";
 
 describe("presenter channel naming", () => {
   it("keeps simultaneous players of the same presentation independent", () => {
@@ -21,6 +21,12 @@ describe("presenter message parsing", () => {
     expect(parsePresenterMessage({ type: "goto", index: 0 })).toEqual({ type: "goto", index: 0 });
   });
 
+  it("carries the detail pages to come back out of, so both windows walk the same path", () => {
+    expect(parsePresenterMessage({ type: "step", index: 4, returns: [1, 2] })).toEqual({ type: "step", index: 4, returns: [1, 2] });
+    expect(parsePresenterMessage({ type: "goto", index: 2, returns: [3] })).toEqual({ type: "goto", index: 2, returns: [3] });
+    expect(parsePresenterMessage({ type: "goto", index: 2, returns: [-1] })).toBeNull();
+  });
+
   it("accepts a request-step message from a freshly opened presenter window", () => {
     expect(parsePresenterMessage({ type: "request-step" })).toEqual({ type: "request-step" });
   });
@@ -31,6 +37,20 @@ describe("presenter message parsing", () => {
     expect(parsePresenterMessage("hello")).toBeNull();
     expect(parsePresenterMessage({ type: "step", index: -1 })).toBeNull();
     expect(parsePresenterMessage({ type: "step" })).toBeNull();
+  });
+});
+
+describe("countdown to a talk's target length", () => {
+  it("counts down in whole seconds, rounding up", () => {
+    expect(formatRemaining(20 * 60_000, 0)).toBe("20:00");
+    expect(formatRemaining(60_000, 500)).toBe("1:00");
+    expect(formatRemaining(60_000, 59_500)).toBe("0:01");
+    expect(formatRemaining(60_000, 60_000)).toBe("0:00");
+  });
+
+  it("shows the overrun with a minus once the target has passed", () => {
+    expect(formatRemaining(60_000, 60_001)).toBe("−0:01");
+    expect(formatRemaining(60_000, 125_000)).toBe("−1:05");
   });
 });
 

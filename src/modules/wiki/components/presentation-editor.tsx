@@ -24,7 +24,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useReactFlow, useViewport } from "@xyflow/react";
-import { Lock, Maximize2, Play, Save, Square, TriangleAlert } from "lucide-react";
+import { Lock, Maximize2, Save, Square, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -46,6 +46,7 @@ import { presentationShortcutLabels } from "./presentation-editor/presentation-s
 import { SelectionOverlay } from "./presentation-editor/selection-overlay";
 import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
 import { PresentationPlaybackSettings } from "./presentation-editor/presentation-playback-settings";
+import { PresentationStartButton } from "./presentation-editor/presentation-start-button";
 import { usePresentationCommandPalette } from "./presentation-editor/use-presentation-command-palette";
 import { usePresentationAutosave } from "./presentation-editor/use-presentation-autosave";
 import { usePresentationSaveState } from "./presentation-editor/use-presentation-save-state";
@@ -55,6 +56,7 @@ import { usePresentationSelectionEdits } from "./presentation-editor/use-present
 import { usePresentationInsertion } from "./presentation-editor/use-presentation-insertion";
 import { usePresentationSelectionCommands } from "./presentation-editor/use-presentation-selection-commands";
 import { frameInsertionEdit, usePresentationFrames } from "./presentation-editor/use-presentation-frames";
+import { isSectionFrame, nestedPresentationFrame, nextFrameNumber } from "../lib/presentation-frames";
 import { usePresentationTextEditing } from "./presentation-editor/use-presentation-text-editing";
 import { usePresentationClipboard } from "./presentation-editor/use-presentation-clipboard";
 import { usePresentationClickSelection } from "./presentation-editor/use-presentation-click-selection";
@@ -62,6 +64,7 @@ import { usePlacementFocus } from "./presentation-editor/use-placement-focus";
 import { isTextHost, textHostContent, withHostText } from "../lib/presentation-text-host";
 import { selectionPath, selectionTargetId } from "../lib/presentation-selection";
 import { usePresentationFormatting } from "./presentation-editor/use-presentation-formatting";
+import { FloatingTextToolbar } from "./presentation-editor/floating-text-toolbar";
 import { usePresentationViewSettings } from "./presentation-editor/use-presentation-view-settings";
 import { PresentationRibbon } from "./presentation-editor/ribbon/presentation-ribbon";
 import { useRibbonState } from "./presentation-editor/ribbon/use-ribbon-state";
@@ -251,7 +254,7 @@ function Editor({
     dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true, snap: free ? undefined : snapOptions() });
   }, [dispatch, reactFlow, snapOptions]);
   const collaboratorPresence = collaboration?.people;
-  const { dropTargetId, trackDrag, clearPlacement, reveal, openedWithElements } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
+  const { dropTargetId, trackDrag, clearPlacement, reveal } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
   const textEditing = usePresentationTextEditing();
   // The text being edited can disappear under the editor (delete, undo, a collaborator). Edit
   // mode ends with it, so restoring an element with the same id never reopens it mid-edit.
@@ -340,6 +343,7 @@ function Editor({
   const scene = useMemo(() => ({ title, elements, steps, background, settings }), [title, elements, steps, background, settings]);
   /** The rail's "New frame": the next frame beside the last one on the path, like a new slide. */
   const addFrameAtEnd = () => {
+    if (detail.sceneId) { addNestedFrame(); return; }
     if (disabled || elements.length >= 500) return;
     // New frames extend the overview's path, never a detail page's.
     if (detail.sceneId) detail.show(null);
@@ -349,6 +353,24 @@ function Editor({
     flyTo(frame);
   };
   const { galleryOpen, setGalleryOpen, drawTool, setDrawTool, setDrawLock, createDrawn } = usePresentationDrawTool({ disabled, elements, settings, dispatch, t, setSelectedIds, canvasRef, ribbon, textEditing });
+  const addFrame = () => { if (detail.sceneId) addNestedFrame(); else insertion.addFrame(); };
+  const nestedFrameParent = selected && isSectionFrame(selected) ? selected : detail.trail.at(-1)?.frame;
+  const nestedFrameDisabled = disabled || !nestedFrameParent || isPresentationElementLocked(elements, nestedFrameParent.id)
+    || elements.length >= 500 || steps.length >= 500 || nestedFrameParent.width < 40 || nestedFrameParent.height < 40;
+  const addNestedFrame = () => {
+    if (nestedFrameDisabled || !nestedFrameParent) return;
+    const frame = nestedPresentationFrame(nestedFrameParent, createId(), t("presentations.frameName", {
+      number: nextFrameNumber(elements, number => t("presentations.frameName", { number })),
+    }));
+    if (!frame) return;
+    setPendingElement(null);
+    setDrawTool(null);
+    // Preserve the explicit parent even when other frames overlap its center.
+    const edit = frameInsertionEdit([frame], current => [...current, frame], t);
+    dispatch({ ...edit, elements: current => [...current, frame] });
+    setSelectedIds([frame.id]);
+    flyTo(frame);
+  };
   const pathPanel = (<PresentationPathPanel presentation={presentation} steps={detail.steps} elements={elements} selected={selected}
     activeStep={activeStep} activeStepId={activeStepId} setActiveStepId={setActiveStepId} setSelectedIds={setSelectedIds} flyTo={flyTo}
     commitSteps={commitSteps} addStep={addStep} disabled={disabled} readOnly={readOnly} sensors={sensors} onStepDragEnd={onStepDragEnd}
@@ -372,7 +394,7 @@ function Editor({
   const placementFocus = usePlacementFocus(canvasRef, Boolean(pendingElement));
   const { commands, commandText, executeCommand, showMenuCommand } = usePresentationCommands({
     t, studio, tDetails, interact, disabled, elements, steps, settings, canvas, selection, selectedIds, selected, selectedSet, selectedRoots, canMutate, uploading, restoring,
-    insertion, setGalleryOpen, setInsertPicker, imageInputRef, mediaInputRef, selectionEdits, selectionCommands, clipboard, formatClipboard, dispatch, undo, reactFlow,
+    insertion: { ...insertion, addFrame }, addNestedFrame, nestedFrameDisabled, setGalleryOpen, setInsertPicker, imageInputRef, mediaInputRef, selectionEdits, selectionCommands, clipboard, formatClipboard, dispatch, undo, reactFlow,
     panels, flush, flushThen, printHref, presentationId: presentation.id, setWorkspaceDialog, openHistory, detail, setWikiImportOpen, miniMapVisible, setMiniMapVisible,
     setSelectedIds, arrangementDisabled, connectSelection, updateElement, setShortcutHelp, formatting, view, setGridDialog,
   });
@@ -399,12 +421,14 @@ function Editor({
     // The player is server-rendered from the saved canvas, so the navigation waits for the
     // write rather than presenting a stale canvas. A modifier click still means "new tab" --
     // it just gets one with the edit in it.
-    present: (variant) => <Button type="button" size="sm" variant={variant === "ribbon" ? "ghost" : "default"} disabled={!steps.length || restoring !== null || uploading} nativeButton={false} role="link"
-      className={variant === "ribbon" ? "h-[70px] flex-col justify-start gap-1 px-2 pt-1.5 text-xs font-normal [&_svg]:size-6!" : undefined}
-      title={variant === "ribbon" ? t("presentations.ribbon.fromStartTip") : undefined}
-      render={<Link href={presentHref} onClick={(event) => leaveVia(event, presentHref)} onAuxClick={(event) => auxFlush(event, presentHref)} />}>
-      <Play className="size-3.5" />{variant === "ribbon" ? t("presentations.ribbon.fromStart") : t("presentations.present")}
-    </Button>,
+    // "From current stop" opens on the stop selected in the path panel.
+    present: (variant) => {
+      const fromCurrent = variant === "ribbonCurrent", ribbon = variant !== "titleBar";
+      const href = fromCurrent && activeStep ? `${presentHref}?from=${encodeURIComponent(activeStep.id)}` : presentHref;
+      return <PresentationStartButton href={href} ribbon={ribbon} fromCurrent={fromCurrent} startMode={settings.startMode}
+        disabled={!steps.length || restoring !== null || uploading || (fromCurrent && !activeStep)}
+        leaveVia={leaveVia} auxFlush={auxFlush} />;
+    },
     onLeave: () => flushThen(listHref, false), onSearch: openCommands,
     pathOpen, togglePath, activePanel, togglePanel,
     shapeGallery: { open: galleryOpen, setOpen: setGalleryOpen, armed: Boolean(drawTool), onPick: (entry, options) => { setGalleryOpen(false); setPendingElement(null); setDrawLock(Boolean(options?.lock)); setDrawTool(entry); canvasRef.current?.focus(); } },
@@ -465,6 +489,10 @@ function Editor({
           <Maximize2 className="size-3.5" />{t("presentations.overview")}
         </Button>
 </div>
+          {selected && isTextHost(selected) && !disabled && !selectedLocked && !pendingElement && !drawTool && !contextPosition && formatting.format && (
+            <FloatingTextToolbar key={`${selected.id}:${textEditing.editingId ?? "selected"}`} element={selected} format={formatting.format}
+              canvasRef={canvasRef} updateText={formatting.updateTexts} onMore={() => requestProperties("text")} />
+          )}
           <ReactFlow
             nodes={nodes}
             edges={[]}
@@ -487,8 +515,8 @@ function Editor({
             elevateNodesOnSelect={false}
             className={styles.canvas}
             colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-            fitView={openedWithElements && !requestedElement}
-            fitViewOptions={{ padding: 0.2 }}
+            // Scene-aware camera restoration waits for the viewport controller and size.
+            fitView={false}
             minZoom={0.02}
             maxZoom={8}
             nodesConnectable={false}

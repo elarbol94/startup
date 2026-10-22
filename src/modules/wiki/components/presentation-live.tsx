@@ -1,7 +1,7 @@
 "use client";
 import { UserIdentity } from "@/components/user-identity";
 
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type Ref, type RefObject } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -240,10 +240,11 @@ export function PresentationJoinForm() {
  * running, and the way out. The exit is a link rather than a keystroke because the player
  * covers the whole viewport and Escape does not exist on a phone.
  */
-export function PresentationFollowBadge({ live, hostName, hostUserId }: { live: boolean; hostName: string; hostUserId: string | null }) {
+/** `ref`: the strip's height, which the player keeps clear of the slide like its control bar. */
+export function PresentationFollowBadge({ ref, live, hostName, hostUserId }: { ref?: Ref<HTMLDivElement>; live: boolean; hostName: string; hostUserId: string | null }) {
   const t = useTranslations("wiki");
   return (
-    <div className="absolute inset-x-0 bottom-0 flex justify-center p-4">
+    <div ref={ref} className="absolute inset-x-0 bottom-0 flex justify-center p-4">
       <div className="flex items-center gap-2 rounded-full border bg-background/90 px-3 py-1.5 text-xs shadow-sm backdrop-blur">
         <span className={`size-2 rounded-full ${live ? "bg-indigo-500" : "bg-muted-foreground"}`} />
         {/* Only the status text is the live region: an announcement should not re-read the

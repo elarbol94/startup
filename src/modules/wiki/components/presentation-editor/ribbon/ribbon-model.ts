@@ -15,7 +15,7 @@ export type RibbonModel = {
   commands: EditorSearchCommand[]; run: (id: string) => void; shortcuts: Record<string, string>;
   disabled: boolean; insertDisabled: boolean; uploading: boolean;
   /** Breadcrumb and title field, save state, and the Present link: they navigate through the editor's flush. */
-  title: ReactNode; saveStatus: ReactNode; present: (variant: "titleBar" | "ribbon") => ReactNode; onLeave: () => void;
+  title: ReactNode; saveStatus: ReactNode; present: (variant: "titleBar" | "ribbon" | "ribbonCurrent") => ReactNode; onLeave: () => void;
   onSearch: () => void;
   pathOpen: boolean; togglePath: () => void;
   activePanel: RibbonPanel | null; togglePanel: (panel: RibbonPanel) => void;

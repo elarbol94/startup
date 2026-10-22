@@ -211,6 +211,7 @@ export type PresentationCameraEasing = (typeof presentationCameraEasings)[number
 export const presentationSettingsSchema = z.object({
   defaultStepDurationMs: z.number().int().min(500).max(120_000).default(4_000),
   loop: z.boolean().default(false),
+  startMode: z.enum(["path", "free"]).default("path"),
   cameraTransitionMs: z.number().int().min(100).max(5_000).default(700),
   cameraEasing: z.enum(presentationCameraEasings).default("ease-in-out"),
   /**

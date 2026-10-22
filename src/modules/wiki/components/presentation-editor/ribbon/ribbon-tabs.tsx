@@ -77,6 +77,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
       </RibbonGroup>
       <RibbonGroup label={r("groups.frames")}>
         {button("addFrame", <Square />, { large: true })}
+        {button("addNestedFrame", <Square />, { large: true })}
         <RibbonStack>{pathButton()}</RibbonStack>
       </RibbonGroup>
       {detailGroup}
@@ -95,7 +96,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
       <RibbonGroup label={r("groups.panes")}>{panelButton("properties")}</RibbonGroup>
     </>;
     case "insert": return <>
-      <RibbonGroup label={r("groups.frames")}>{button("addFrame", <Square />, { large: true, label: r("newFrame") })}</RibbonGroup>
+      <RibbonGroup label={r("groups.frames")}>{button("addFrame", <Square />, { large: true, label: r("newFrame") })}{button("addNestedFrame", <Square />, { large: true })}</RibbonGroup>
       {detailGroup}
       <RibbonGroup label={r("groups.images")}>{imageButton(true)}</RibbonGroup>
       <RibbonGroup label={r("groups.illustrations")}>
@@ -119,7 +120,7 @@ export function RibbonTabPanel({ tab, model }: { tab: RibbonTab; model: RibbonMo
       </RibbonGroup>
     </>;
     case "slideShow": return <>
-      <RibbonGroup label={r("groups.startShow")}>{model.present("ribbon")}</RibbonGroup>
+      <RibbonGroup label={r("groups.startShow")}>{model.present("ribbon")}{model.present("ribbonCurrent")}</RibbonGroup>
       <RibbonGroup label={r("groups.setUp")}>
         {button("playback", <Settings />, { large: true })}
         {pathButton(true)}

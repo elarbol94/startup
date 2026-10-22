@@ -1,7 +1,7 @@
 // The presentation path: step parsing, ordering, targets, labels, click handling and
 // fade visibility. Re-exported by presentation.ts.
 import { elementBounds } from "./presentation-geometry";
-import { presentationDescendants } from "./presentation-hierarchy";
+import { presentationAncestors, presentationDescendants } from "./presentation-hierarchy";
 import { presentationStepsSchema, type PresentationElement, type PresentationSettings, type PresentationStep } from "./presentation-model";
 
 export function parsePresentationSteps(json: string): PresentationStep[] {
@@ -99,10 +99,16 @@ export function elementsWithinStep(
  * Prezi-style decks that wrap everything in an overview frame would otherwise lose
  * click-to-advance entirely. Anything else keeps click-to-jump ("look" when no step
  * targets it). Containment is axis-aligned, matching `elementsWithinStep`.
+ *
+ * An element that opens a detail page (`openers`) turns over to it. Something with neither a
+ * step nor a detail page of its own -- a shape filling a frame, a caption on it -- stands for
+ * the frame it sits in: the nearest such frame that opens a page or has a step decides, unless
+ * the presenter is already inside that frame, where the click only looks closer.
  */
 export type PresentationClickAction =
   | { kind: "advance" }
   | { kind: "jump"; index: number }
+  | { kind: "open"; boxId: string }
   | { kind: "look" };
 
 export function elementClickAction(
@@ -110,15 +116,23 @@ export function elementClickAction(
   elements: PresentationElement[],
   currentIndex: number,
   elementId: string,
+  openers: ReadonlySet<string> | ReadonlyMap<string, unknown> = new Set(),
 ): PresentationClickAction {
+  if (openers.has(elementId)) return { kind: "open", boxId: elementId };
   const element = elements.find((candidate) => candidate.id === elementId);
   const step = presentationCameraStep(steps, currentIndex);
   const current = element && step ? stepTarget(step, elements) : null;
-  if (element?.type === "frame" && current && elementsWithinStep(element, elements).some((within) => within.id === current.id)) {
-    return { kind: "advance" };
-  }
+  const encloses = (frame: PresentationElement) => Boolean(current && elementsWithinStep(frame, elements).some((within) => within.id === current.id));
+  if (element?.type === "frame" && encloses(element)) return { kind: "advance" };
   const matched = stepIndexForElement(steps, elementId);
-  return matched === null ? { kind: "look" } : { kind: "jump", index: matched };
+  if (matched !== null) return { kind: "jump", index: matched };
+  for (const ancestor of presentationAncestors(elements, elementId)) {
+    if (openers.has(ancestor.id)) return { kind: "open", boxId: ancestor.id };
+    if (encloses(ancestor)) break;
+    const owned = stepIndexForElement(steps, ancestor.id);
+    if (owned !== null) return { kind: "jump", index: owned };
+  }
+  return { kind: "look" };
 }
 
 /** Retargeting a step keeps its id, duration and notes — only the camera target moves. */

@@ -28,7 +28,7 @@ const CAMERA_DURATION = 700;
 
 export function usePresentationCommands({
   t, studio, tDetails, interact, disabled, elements, steps, settings, canvas, selection, selectedIds, selected, selectedSet, selectedRoots, canMutate, uploading, restoring,
-  insertion, setGalleryOpen, setInsertPicker, imageInputRef, mediaInputRef, selectionEdits, selectionCommands, clipboard, formatClipboard, dispatch, undo, reactFlow,
+  insertion, addNestedFrame, nestedFrameDisabled, setGalleryOpen, setInsertPicker, imageInputRef, mediaInputRef, selectionEdits, selectionCommands, clipboard, formatClipboard, dispatch, undo, reactFlow,
   panels, flush, flushThen, printHref, presentationId, setWorkspaceDialog, openHistory, detail, setWikiImportOpen, miniMapVisible, setMiniMapVisible,
   setSelectedIds, arrangementDisabled, connectSelection, updateElement, setShortcutHelp, formatting, view, setGridDialog,
 }: {
@@ -50,6 +50,8 @@ export function usePresentationCommands({
   uploading: boolean;
   restoring: string | null;
   insertion: Pick<ReturnType<typeof usePresentationInsertion>, "addText" | "addFrame" | "addShape">;
+  addNestedFrame: () => void;
+  nestedFrameDisabled: boolean;
   setGalleryOpen: Dispatch<SetStateAction<boolean>>;
   setInsertPicker: Dispatch<SetStateAction<"shape" | "chart" | "icon" | null>>;
   imageInputRef: RefObject<HTMLInputElement | null>;
@@ -92,6 +94,7 @@ export function usePresentationCommands({
   const baseCommands: EditorSearchCommand[] = [
     { id: "addText", label: t("presentations.addText"), execute: addText, disabledReason: insertReason, group: commandText },
     { id: "addFrame", label: t("presentations.addFrame"), execute: addFrame, disabledReason: insertReason, group: commandText },
+    { id: "addNestedFrame", label: t("presentations.addNestedFrame"), execute: addNestedFrame, disabledReason: nestedFrameDisabled ? unavailable : undefined, group: commandText },
     { id: "addShape", label: t("presentations.addShape"), execute: () => setGalleryOpen(true), disabledReason: insertReason, group: commandText },
     ...presentationShapeToolCommands({ addShape, label: shape => t(`presentations.shapeKinds.${shape}`), disabledReason: insertReason, group: commandText }),
     { id: "addChart", label: studio("addChart"), execute: () => setInsertPicker("chart"), disabledReason: insertReason, group: commandText },

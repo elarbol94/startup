@@ -54,6 +54,8 @@ test("a box gets a detail page in the editor and flips open to it while presenti
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(page.getByRole("status").filter({ hasText: "/" })).toHaveText("1 / 1");
   await page.locator('.react-flow__node[data-id="lend"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
   await expect(page.locator("[data-turning]")).toHaveCount(0);
   await expect(page.getByTestId("presentation-detail-back")).toContainText("Gegenstandsverleih");
@@ -69,11 +71,13 @@ test("a box gets a detail page in the editor and flips open to it while presenti
 
   // Escape leaves a page first and only then the presentation.
   await page.locator('.react-flow__node[data-id="lend"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await page.locator('.react-flow__node[data-id="lend"]').click();
   await expect(player).toHaveAttribute("data-scene", pageId);
   await expect(page.locator("[data-turning]")).toHaveCount(0);
   await page.keyboard.press("Escape");
   await expect(player).toHaveAttribute("data-scene", "overview");
-  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present$`));
+  await expect(page).toHaveURL(new RegExp(`/wiki/presentations/${id}/present(?:[?].*)?$`));
 });
 
 test("a clicker takes the detour on the path, animated even when the system reduces motion", async ({ page }) => {
@@ -132,4 +136,120 @@ test("a clicker takes the detour on the path, animated even when the system redu
   await page.keyboard.press("ArrowUp");
   await expect(player).toHaveAttribute("data-scene", "overview");
   await expect(page.locator("[data-turning]")).toHaveCount(0);
+});
+
+/** The overview with "lend" opening a page of its own that has no stops, and "ride" after it. */
+const detourDeck = [
+  ...elements.map((element) => element.id === "lend" ? { ...element, detailId: "page" } : element),
+  { id: "page", type: "frame", x: 0, y: 100_000, width: 960, height: 540, rotation: 0, content: { label: "Gegenstandsverleih", shape: "rect", color: "" } },
+  { id: "pageText", type: "text", parentId: "page", x: 60, y: 100_060, width: 800, height: 90, rotation: 0, content: { text: "Bohrmaschinen, Leitern", fontSize: 40, bold: true, align: "left", color: "" } },
+];
+const detourSteps = [{ id: "s1", elementId: "frame", notes: "Opening words" }, { id: "s2", elementId: "lend" }, { id: "s3", elementId: "ride" }];
+
+test("autoplay goes on through card turns that outlast a stop", async ({ page }) => {
+  // Stops shorter than the turn: each tick lands while the card is still turning.
+  const id = await seed(page, false, false, detourDeck, { steps: detourSteps, settings: { defaultStepDurationMs: 500, cameraTransitionMs: 2000 }, waitFor: "lend" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  const player = page.getByTestId("presentation-player");
+  const status = page.getByRole("status").filter({ hasText: "/" });
+  await expect(page.locator('.react-flow__node[data-id="lend"]')).toBeVisible();
+  type Seen = Window & { scenes?: string[] };
+  await player.evaluate((root) => {
+    (window as Seen).scenes = [];
+    new MutationObserver(() => (window as Seen).scenes!.push(root.dataset.scene ?? "")).observe(root, { attributes: true, attributeFilter: ["data-scene"] });
+  });
+  await page.getByRole("button", { name: "Wiedergabe" }).click();
+  // Into the page and out again, on to the last stop, where autoplay stops by itself.
+  await expect(status).toHaveText("3 / 3", { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "Wiedergabe" })).toBeVisible();
+  expect(await page.evaluate(() => (window as Seen).scenes)).toContain("page");
+});
+
+test("the presenter view walks into and out of detail pages with the player", async ({ page, context }) => {
+  const id = await seed(page, false, false, detourDeck, { steps: detourSteps, waitFor: "lend" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  const player = page.getByTestId("presentation-player");
+  const status = page.getByRole("status").filter({ hasText: "/" });
+  await expect(page.locator('.react-flow__node[data-id="lend"]')).toBeVisible();
+  const popupPromise = context.waitForEvent("page");
+  await page.getByRole("button", { name: "Präsentationsansicht öffnen" }).click();
+  const popup = await popupPromise;
+  const position = popup.getByTestId("presenter-position");
+  const next = popup.getByRole("button", { name: "Nächste Station" });
+  const notes = popup.getByRole("textbox", { name: "Sprechernotizen" });
+  // Counted like the player: within the open scene, not across every stop of every page.
+  await expect(position).toHaveText("1 / 3", { timeout: 30_000 });
+  await expect(notes).toHaveValue("Opening words");
+
+  // "Next" onto the box takes the detour, exactly as the player's own "next" would -- from a
+  // clicker too, whose keys go to this window while the presenter looks at it.
+  await popup.keyboard.press("PageDown");
+  await expect(player).toHaveAttribute("data-scene", "page");
+  await expect(position).toHaveText("Gegenstandsverleih · 1 / 1");
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
+  // The page has no step of its own, so there is nothing to keep notes on.
+  await expect(notes).toBeDisabled();
+  await expect(popup.getByText("Diese Detailseite hat keine eigene Station.", { exact: false })).toBeVisible();
+
+  await next.click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await expect(status).toHaveText("2 / 3");
+  await expect(position).toHaveText("2 / 3");
+  await expect(page.locator("[data-turning]")).toHaveCount(0);
+  await next.click();
+  await expect(status).toHaveText("3 / 3");
+  await expect(position).toHaveText("3 / 3");
+  // The end of the talk is the end for both windows.
+  await expect(next).toBeDisabled();
+  await expect(popup.getByText("Dies ist die letzte Station")).toBeVisible();
+  await popup.keyboard.press("ArrowLeft");
+  await expect(status).toHaveText("2 / 3");
+  await expect(position).toHaveText("2 / 3");
+});
+
+test("a fade-in outside the view widens it, and keys sent to the window still work", async ({ page }) => {
+  // The camera frames "start"; "ride" fades in far below it.
+  const id = await seed(page, false, false, elements, { steps: [{ id: "s1", elementId: "start" }, { id: "s2", elementId: "ride", action: "fadeIn" }], waitFor: "ride" });
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  await page.goto(`/wiki/presentations/${id}/present`);
+  const status = page.getByRole("status").filter({ hasText: "/" });
+  await expect(page.locator('.react-flow__node[data-id="start"]')).toBeVisible();
+  await expect(status).toHaveText("1 / 2");
+  // Clicker software may send its key to the window itself, which has no element to look at.
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight" })));
+  await expect(status).toHaveText("2 / 2");
+  const ride = page.locator('.react-flow__node[data-id="ride"]');
+  await expect(ride).toHaveCSS("opacity", "1");
+  await expect.poll(async () => {
+    const box = await ride.boundingBox(), viewport = page.viewportSize()!;
+    return Boolean(box && box.y >= 0 && box.y + box.height <= viewport.height && box.x >= 0 && box.x + box.width <= viewport.width);
+  }).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test("a click on a shape covering a frame stands for the frame", async ({ page }) => {
+  const cover = (id: string, parentId: string, x: number) => ({ id, type: "shape", parentId, x, y: 150, width: 300, height: 200, rotation: 0,
+    content: { shape: "ellipse", fill: "#c7e6dc", stroke: "#172033", strokeWidth: 2, opacity: 1, text: id } });
+  const area = (id: string, x: number, extra = {}) => ({ id, type: "frame", parentId: "frame", x, y: 150, width: 300, height: 200, rotation: 0, content: { label: "", shape: "rect", color: "" }, ...extra });
+  const map = [
+    elements[0],
+    area("north", 80), cover("northDisc", "north", 80),
+    area("south", 600, { detailId: "page" }), cover("southDisc", "south", 600),
+    ...detourDeck.slice(-2),
+  ];
+  const id = await seed(page, false, false, map, { steps: [{ id: "s1", elementId: "frame" }, { id: "s2", elementId: "north" }], waitFor: "northDisc" });
+  await page.goto(`/wiki/presentations/${id}/present`);
+  const player = page.getByTestId("presentation-player");
+  const status = page.getByRole("status").filter({ hasText: "/" });
+  await expect(status).toHaveText("1 / 2");
+  // The disc is all a presenter can click of the frame; it jumps to the frame's stop.
+  await page.locator('.react-flow__node[data-id="northDisc"]').click();
+  await expect(status).toHaveText("2 / 2");
+  // A disc on a frame with a detail page turns that page over.
+  await page.keyboard.press("Home");
+  await page.locator('.react-flow__node[data-id="southDisc"]').click();
+  await expect(player).toHaveAttribute("data-scene", "overview");
+  await page.locator('.react-flow__node[data-id="southDisc"]').click();
+  await expect(player).toHaveAttribute("data-scene", "page");
 });

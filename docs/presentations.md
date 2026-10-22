@@ -45,6 +45,26 @@ the old wiki-page editor and were removed together with it (documents are now
 Word documents, see [office-documents.md](office-documents.md)). Link data that
 older presentations still carry is ignored and stripped from public copies.
 
+## Presentation pointer navigation
+
+Click a form to focus it; click the focused form again to flip into its linked
+detail canvas. Shapes or labels standing for a linked frame focus that frame.
+Forms without path stops can also be focused. Right-click the canvas to undo one
+focus stage; from an unfocused detail canvas, right-click flips back to the
+opener in its parent canvas. At the top level it stays in the presentation.
+Keyboard navigation and autoplay retain the ordered path, including its detail
+detours. Links, media controls and presentation controls keep their normal actions.
+Local pointer navigation remains disabled for live followers.
+
+## Reloading a detail page
+
+The current detail section is kept in the editor URL as `?scene=...`, so
+reloading restores that section and frames its content after the canvas is
+ready. Leaving the section clears the URL value. Missing/deleted sections fall
+back to the overview. A fresh overview opens on its first camera stop (or first
+frame), so a distant unlinked frame cannot make the initial view appear empty.
+The Overview control still fits every element in the current scene.
+
 ## Editing and recovery
 
 - Live editing starts automatically for authorized editors, with no editor-count
@@ -69,6 +89,14 @@ On phones and tablets, the path and tools open as drawers over the canvas.
 On desktop, the path and the active utility panel dock beside the canvas.
 
 ## Structure, animation and content
+
+- Select a frame and choose **Frame inside frame / Rahmen im Rahmen** in the
+  creation toolbar to add a centered child at half its size. The child keeps
+  the parent's rotation, joins it explicitly, and receives its own path stop.
+  Creation selects the child and supports autosave, collaboration and undo/redo.
+  Locked frames and frames too small for a valid child cannot receive one.
+  While a detail page is open, the ordinary Frame tool and the path rail's
+  New frame action also create a child there, so it cannot leak into the overview.
 
 - Select a parent frame in **Structure**, or use **Attach contained objects** to
   connect existing objects inside a frame. Parent links are saved, acyclic and
@@ -101,6 +129,19 @@ On desktop, the path and the active utility panel dock beside the canvas.
   sound. Hidden media is paused. Files use the existing validated attachment store.
   Inline canvas editing uses the same rich-text model as the inspector and retains
   span-level formatting. Double-click selects all text once; later clicks place the caret.
+
+## Floating text toolbar
+
+Select a text box or a shape with text to show a compact toolbar beside it;
+double-click to edit and format a highlighted range. Font size, bold, italic,
+underline and color apply to the highlighted text while editing, and to the
+whole text otherwise. Font family applies to the box. Vertical alignment
+(Top, Middle, Bottom) positions text inside its shape or text box. Alignment, bullets,
+numbering and line spacing apply to the selected paragraphs. More text layout
+options opens the existing text-properties pane. The toolbar follows pan/zoom,
+stays within the canvas, and closes on deselection or its Close button.
+Locked objects and read-only presentations do not offer it. Changes use the
+existing autosave, collaboration and undo history.
 
 ## Copying object formatting
 
@@ -485,3 +526,31 @@ pointer movements, and release when dragged away. A closer edge or centre alignm
 over a competing equal-spacing suggestion. Guides and handles retain their screen sizes
 at different zoom levels. Rotated, proportional and centred resizing bypasses edge snapping
 to preserve the fixed anchor and proportions.
+
+### Reloading playback and wide overviews
+
+The local player stores its active scene and stable stop ID in the URL. Reloading
+inside a second (or deeper) detail canvas restores that canvas and rebuilds the
+return trail, so right-click still goes up one canvas at a time. Deleted scenes
+or stops fall back to a valid scene. Live followers continue to follow their host.
+
+Overview (button or Home) fits all visible content of the current scene, including
+widely separated objects. It can zoom below the usual 2% scale so a distant object
+cannot push the remaining content outside the viewport; other detail canvases
+remain excluded. Editing content and saved camera stops are unchanged.
+
+### Presentation start modes and pointer navigation
+
+The arrow beside Present offers **Focus on first path** and **Free mode** for one
+launch. Playback settings also store the default start mode for that presentation;
+older decks keep focusing their first stop. From-current-stop links remain explicit.
+
+Free mode starts with the whole current canvas in view. Background clicks do not
+advance the path, and panning or zooming stays where the presenter leaves it.
+Forms still focus on their first click and flip into linked details on the next.
+Detail canvases open in their own overview. Mode and canvas/stop view survive reload.
+
+One right-click goes back one stage. Two right-clicks in quick succession show the
+whole current canvas without first leaving it. The player waits up to 600ms for
+the second click before applying a single-click back action. The overview button
+and Home do the same; live followers keep the host-controlled camera.

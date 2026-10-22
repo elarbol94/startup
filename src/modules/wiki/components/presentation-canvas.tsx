@@ -119,7 +119,7 @@ function TextEditSurface({ element, content, data, setEditing, className, style 
     const surface = event.currentTarget;
     requestAnimationFrame(() => {
       const active = document.activeElement;
-      if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search]")) setEditing(false);
+      if (surface.isConnected && !surface.contains(active) && !active?.closest("[data-editor-command-search], [data-presentation-text-toolbar], [data-text-toolbar-popup]")) setEditing(false);
     });
   }} onKeyDown={event => {
     // Escape, and F2 as in PowerPoint, leave text editing with the object still selected.
