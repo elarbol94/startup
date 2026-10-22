@@ -3909,6 +3909,17 @@
       "playbackSettings": "Wiedergabeeinstellungen",
       "defaultStepDuration": "Standard-Stationsdauer (s)",
       "loopPlayback": "Wiederholen",
+      "startOptions": "Präsentationsstart wählen",
+      "startMode": "Präsentation starten",
+      "startModes": {
+        "path": "Erste Station fokussieren",
+        "free": "Freier Modus"
+      },
+      "startModeHints": {
+        "path": "Bei der ersten Station des Wegs beginnen.",
+        "free": "Die ganze Leinwand zeigen und frei durch Anklicken erkunden."
+      },
+      "canvasGestureHint": "Rechtsklick geht eine Stufe zurück. Doppelter Rechtsklick zeigt die ganze Leinwand.",
       "motionAlways": "Animationen immer zeigen – auch wenn der Computer Bewegungen reduziert (Zuschauer mit „Live folgen“ behalten ihre eigene Einstellung)",
       "cameraTransition": "Kamera-Übergang (s)",
       "cameraEasing": "Easing",

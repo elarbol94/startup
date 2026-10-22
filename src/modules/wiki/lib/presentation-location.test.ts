@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { presentationSettingsSchema } from "./presentation-model";
 import { restorePresentationLocation } from "./presentation-location";
 import { exitPresentationDetail, presentationStops } from "./presentation-details";
 import type { PresentationElement } from "./presentation-model";
@@ -32,5 +33,13 @@ describe("reloadable presentation locations", () => {
     const stops = presentationStops(elements, steps);
     expect(restorePresentationLocation(elements, stops, {}, "nested-stop")).toEqual({ index: 2, returns: [0, 1] });
     expect(restorePresentationLocation([], [], {})).toEqual({ index: -1, returns: [] });
+  });
+});
+
+describe("presentation start preferences", () => {
+  it("keeps legacy decks in path mode and accepts an explicit saved free mode", () => {
+    expect(presentationSettingsSchema.parse({}).startMode).toBe("path");
+    expect(presentationSettingsSchema.parse({ startMode: "free" }).startMode).toBe("free");
+    expect(presentationSettingsSchema.safeParse({ startMode: "anything" }).success).toBe(false);
   });
 });

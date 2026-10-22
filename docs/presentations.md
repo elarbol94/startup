@@ -538,3 +538,18 @@ Overview (button or Home) fits all visible content of the current scene, includi
 widely separated objects. It can zoom below the usual 2% scale so a distant object
 cannot push the remaining content outside the viewport; other detail canvases
 remain excluded. Editing content and saved camera stops are unchanged.
+
+### Presentation start modes and pointer navigation
+
+The arrow beside Present offers **Focus on first path** and **Free mode** for one
+launch. Playback settings also store the default start mode for that presentation;
+older decks keep focusing their first stop. From-current-stop links remain explicit.
+
+Free mode starts with the whole current canvas in view. Background clicks do not
+advance the path, and panning or zooming stays where the presenter leaves it.
+Forms still focus on their first click and flip into linked details on the next.
+Detail canvases open in their own overview. Mode and canvas/stop view survive reload.
+
+One right-click goes back one stage. Two right-clicks in quick succession show the
+whole current canvas without first leaving it. The overview button and Home do the
+same; live followers keep the host-controlled camera.

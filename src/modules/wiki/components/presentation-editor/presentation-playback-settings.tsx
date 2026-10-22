@@ -19,6 +19,16 @@ export function PresentationPlaybackSettings({ disabled, settings, updateSetting
   return (
           <>            <fieldset disabled={disabled} className="space-y-3">
             <label className="block text-xs text-muted-foreground">
+              {t("presentations.startMode")}
+              <select className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm outline-none dark:bg-input/30"
+                value={settings.startMode} data-testid="presentation-start-mode"
+                onChange={event => updateSettings({ startMode: event.target.value as "path" | "free" })}>
+                <option value="path">{t("presentations.startModes.path")}</option>
+                <option value="free">{t("presentations.startModes.free")}</option>
+              </select>
+              <span className="mt-1 block">{t("presentations.startModeHints." + settings.startMode)}</span>
+            </label>
+            <label className="block text-xs text-muted-foreground">
               {t("presentations.defaultStepDuration")}
               <DraftInput
                 type="number"

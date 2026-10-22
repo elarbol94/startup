@@ -70,7 +70,7 @@ export function PlayerControls({ controlsRef, hidden, playing, canPlay, onPlay, 
           <ChevronRight className="size-4" />
         </Button>
         <span className="mx-1 h-5 w-px bg-border" />
-        <Button type="button" variant="ghost" size="icon-sm" {...label(t("presentations.overview"), "Home")} onClick={onOverview}>
+        <Button type="button" variant="ghost" size="icon-sm" {...label(t("presentations.overview"), "Home · " + t("presentations.canvasGestureHint"))} onClick={onOverview}>
           <Scan className="size-4" />
         </Button>
         <Button type="button" variant={spotlight ? "secondary" : "ghost"} size="icon-sm" {...label(t("presentations.spotlight"))} aria-pressed={spotlight} onClick={onSpotlight}>

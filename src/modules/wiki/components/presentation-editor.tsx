@@ -31,7 +31,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useStore, useReactFlow, useViewport, type NodeChange } from "@xyflow/react";
 import { KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { History, Loader2, Lock, Maximize2, MonitorPlay, Play, Save, Square, TriangleAlert } from "lucide-react";
+import { History, Loader2, Lock, Maximize2, Save, Square, TriangleAlert } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
@@ -58,6 +58,7 @@ import { formatShortcut, presentationShapeToolCommands, presentationShortcutLabe
 import { SelectionOverlay } from "./presentation-editor/selection-overlay";
 import { PresentationPathPanel } from "./presentation-editor/presentation-path-panel";
 import { PresentationPlaybackSettings } from "./presentation-editor/presentation-playback-settings";
+import { PresentationStartButton } from "./presentation-editor/presentation-start-button";
 import { startDuplicateDrag } from "./presentation-editor/presentation-duplicate-drag";
 import { usePresentationCommandPalette } from "./presentation-editor/use-presentation-command-palette";
 import { usePresentationAutosave } from "./presentation-editor/use-presentation-autosave";
@@ -845,13 +846,9 @@ function Editor({
     present: (variant) => {
       const fromCurrent = variant === "ribbonCurrent", ribbon = variant !== "titleBar";
       const href = fromCurrent && activeStep ? `${presentHref}?from=${encodeURIComponent(activeStep.id)}` : presentHref;
-      return <Button type="button" size="sm" variant={ribbon ? "ghost" : "default"} disabled={!steps.length || restoring !== null || uploading || (fromCurrent && !activeStep)} nativeButton={false} role="link"
-        className={ribbon ? "h-[70px] flex-col justify-start gap-1 px-2 pt-1.5 text-xs font-normal [&_svg]:size-6!" : undefined}
-        title={ribbon ? t(fromCurrent ? "presentations.ribbon.fromCurrentTip" : "presentations.ribbon.fromStartTip") : undefined}
-        render={<Link href={href} onClick={(event) => leaveVia(event, href)} onAuxClick={(event) => auxFlush(event, href)} />}>
-        {fromCurrent ? <MonitorPlay className="size-3.5" /> : <Play className="size-3.5" />}
-        {fromCurrent ? t("presentations.ribbon.fromCurrent") : ribbon ? t("presentations.ribbon.fromStart") : t("presentations.present")}
-      </Button>;
+      return <PresentationStartButton href={href} ribbon={ribbon} fromCurrent={fromCurrent} startMode={settings.startMode}
+        disabled={!steps.length || restoring !== null || uploading || (fromCurrent && !activeStep)}
+        leaveVia={leaveVia} auxFlush={auxFlush} />;
     },
     onLeave: () => flushThen(listHref, false), onSearch: openCommands,
     pathOpen, togglePath, activePanel, togglePanel,
