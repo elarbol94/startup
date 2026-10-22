@@ -77,6 +77,7 @@ import { isControlKey, isModifierShortcut, presentationKeyScope } from "./presen
 import { isTextHost, textHostContent, withHostText } from "../lib/presentation-text-host";
 import { applySelectChanges, dragTargetId, parentSelection, selectionPath, selectionTargetId } from "../lib/presentation-selection";
 import { usePresentationFormatting } from "./presentation-editor/use-presentation-formatting";
+import { FloatingTextToolbar } from "./presentation-editor/floating-text-toolbar";
 import { usePresentationViewSettings } from "./presentation-editor/use-presentation-view-settings";
 import { PresentationRibbon } from "./presentation-editor/ribbon/presentation-ribbon";
 import { useRibbonState } from "./presentation-editor/ribbon/use-ribbon-state";
@@ -912,6 +913,10 @@ function Editor({
           <Maximize2 className="size-3.5" />{t("presentations.overview")}
         </Button>
 </div>
+          {selected && isTextHost(selected) && !disabled && !selectedLocked && !pendingElement && !drawTool && !contextPosition && formatting.format && (
+            <FloatingTextToolbar key={`${selected.id}:${textEditing.editingId ?? "selected"}`} element={selected} format={formatting.format}
+              canvasRef={canvasRef} updateText={formatting.updateTexts} onMore={() => requestProperties("text")} />
+          )}
           <ReactFlow
             nodes={nodes}
             edges={[]}

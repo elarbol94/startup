@@ -24,12 +24,12 @@ export async function pickScreenColor(fallback?: () => Promise<string | null>): 
   return fallback ? fallback() : null;
 }
 
-export function ThemeColorPicker({ value, onChange, label, noneLabel, onEyedropper, disabled, testId, icon }: {
+export function ThemeColorPicker({ value, onChange, label, noneLabel, onEyedropper, disabled, testId, icon, textToolbar }: {
   value: string; onChange: (color: string) => void; label: string;
   /** "No Fill" / "No Outline" / "Automatic": the empty value. Absent for colours that must be set. */
   noneLabel?: string; onEyedropper?: () => Promise<string | null>; disabled?: boolean; testId?: string;
   /** Ribbon style: an icon over a colour bar instead of a swatch. */
-  icon?: React.ReactNode;
+  icon?: React.ReactNode; textToolbar?: boolean;
 }) {
   const t = useTranslations("wiki.presentations.formatPane.colors");
   const [open, setOpen] = useState(false);
@@ -48,7 +48,7 @@ export function ThemeColorPicker({ value, onChange, label, noneLabel, onEyedropp
         : <span className="size-4 rounded-sm border" style={{ background: value || "repeating-linear-gradient(45deg,#fff 0 3px,#ddd 3px 6px)" }} />}
       <ChevronDown className="size-3" />
     </PopoverTrigger>
-    <PopoverContent align="start" className="w-auto space-y-2 p-2" data-testid={testId ? `${testId}-menu` : undefined}>
+    <PopoverContent data-text-toolbar-popup={textToolbar || undefined} align="start" className="w-auto space-y-2 p-2" data-testid={testId ? `${testId}-menu` : undefined}>
       {noneLabel && <button type="button" className="w-full rounded px-2 py-1 text-left text-xs hover:bg-muted" onClick={() => pick("")}>{noneLabel}</button>}
       <p className="text-xs font-semibold">{t("themeColors")}</p>
       <div className="grid grid-cols-10 gap-x-1">

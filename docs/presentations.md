@@ -110,6 +110,18 @@ On desktop, the path and the active utility panel dock beside the canvas.
   Inline canvas editing uses the same rich-text model as the inspector and retains
   span-level formatting. Double-click selects all text once; later clicks place the caret.
 
+## Floating text toolbar
+
+Select a text box or a shape with text to show a compact toolbar beside it;
+double-click to edit and format a highlighted range. Font size, bold, italic,
+underline and color apply to the highlighted text while editing, and to the
+whole text otherwise. Font family applies to the box. Alignment, bullets,
+numbering and line spacing apply to the selected paragraphs. More text layout
+options opens the existing text-properties pane. The toolbar follows pan/zoom,
+stays within the canvas, and closes on deselection or its Close button.
+Locked objects and read-only presentations do not offer it. Changes use the
+existing autosave, collaboration and undo history.
+
 ## Copying object formatting
 
 Select one object and press **Ctrl+Shift+C** (Mac: **Cmd+Shift+C**) to copy its

@@ -3767,6 +3767,7 @@
       "addStep": "Add selection as stop",
       "newFrame": "New frame",
       "addNestedFrame": "Frame inside frame",
+      "floatingText": {"title": "Text formatting", "fontSize": "Font size", "close": "Close text toolbar", "more": "More text layout options"},
       "removeStep": "Remove stop",
       "missingStep": "Element deleted",
       "retargetStep": "Point this stop at the selection",

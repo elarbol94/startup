@@ -3767,6 +3767,7 @@
       "addStep": "Auswahl als Station",
       "newFrame": "Neuer Rahmen",
       "addNestedFrame": "Rahmen im Rahmen",
+      "floatingText": {"title": "Text formatieren", "fontSize": "Schriftgröße", "close": "Textleiste schließen", "more": "Weitere Textlayout-Optionen"},
       "removeStep": "Station entfernen",
       "missingStep": "Element gelöscht",
       "retargetStep": "Station auf Auswahl setzen",
