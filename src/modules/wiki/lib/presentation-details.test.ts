@@ -1,3 +1,4 @@
+import { nestedPresentationFrame } from "./presentation-frames";
 import { describe, expect, it } from "vitest";
 import {
   createPresentationDetail,
@@ -184,4 +185,15 @@ describe("presenting detail pages", () => {
     const onlyFades = presentationStops(elements, [{ ...step("f", "lend"), action: "fadeIn" as const }]);
     expect(presentationStopBounds(elements, onlyFades, 0)).toBeNull();
   });
+});
+
+
+it("keeps a newly nested frame in its detail scene and out of the overview bounds", () => {
+  const elements = deck();
+  const parent = elements.find(element => element.id === "lendPage")!;
+  const child = nestedPresentationFrame(parent, "nested", "New frame")!;
+  const next = [...elements, child];
+  expect(presentationSceneElements(next, null).some(element => element.id === child.id)).toBe(false);
+  expect(presentationSceneElements(next, parent.id).some(element => element.id === child.id)).toBe(true);
+  expect(next.filter(element => element.id !== child.id)).toEqual(elements);
 });

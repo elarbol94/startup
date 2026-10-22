@@ -75,6 +75,8 @@ On desktop, the path and the active utility panel dock beside the canvas.
   the parent's rotation, joins it explicitly, and receives its own path stop.
   Creation selects the child and supports autosave, collaboration and undo/redo.
   Locked frames and frames too small for a valid child cannot receive one.
+  While a detail page is open, the ordinary Frame tool and the path rail's
+  New frame action also create a child there, so it cannot leak into the overview.
 
 - Select a parent frame in **Structure**, or use **Attach contained objects** to
   connect existing objects inside a frame. Parent links are saved, acyclic and

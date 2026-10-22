@@ -485,7 +485,7 @@ function Editor({
     elements, dispatch, disabled, t, commitElements, selection, formatClipboard, setFormatClipboard, setSelectedIds,
   });
 
-  const { addText, addTextAt, addFrame, addShape, addStudioElement, uploadMedia, uploadImage } = usePresentationInsertion({
+  const { addText, addTextAt, addFrame: addCanvasFrame, addShape, addStudioElement, uploadMedia, uploadImage } = usePresentationInsertion({
     addElement, viewportCenter, t, studio, presentation, disabled, uploading, setUploading,
   });
 
@@ -618,6 +618,7 @@ function Editor({
   const scene = useMemo(() => ({ title, elements, steps, background, settings }), [title, elements, steps, background, settings]);
   /** The rail's "New frame": the next frame beside the last one on the path, like a new slide. */
   const addFrameAtEnd = () => {
+    if (detail.sceneId) { addNestedFrame(); return; }
     if (disabled || elements.length >= 500) return;
     // New frames extend the overview's path, never a detail page's.
     if (detail.sceneId) detail.show(null);
@@ -626,6 +627,7 @@ function Editor({
     setSelectedIds([frame.id]);
     flyTo(frame);
   };
+  const addFrame = () => { if (detail.sceneId) addNestedFrame(); else addCanvasFrame(); };
   const nestedFrameParent = selected && isSectionFrame(selected) ? selected : detail.trail.at(-1)?.frame;
   const nestedFrameDisabled = disabled || !nestedFrameParent || isPresentationElementLocked(elements, nestedFrameParent.id)
     || elements.length >= 500 || steps.length >= 500 || nestedFrameParent.width < 40 || nestedFrameParent.height < 40;
