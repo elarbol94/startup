@@ -317,7 +317,7 @@ function Editor({
     dispatch({ type: "geometry", at: Date.now(), changes: [{ id: next.id, x: next.x, y: next.y, width: next.width, height: next.height, resizing: true }], tolerance: free ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), gesture: true, snap: free ? undefined : snapOptions() });
   }, [dispatch, reactFlow, snapOptions]);
   const collaboratorPresence = collaboration?.people;
-  const { dropTargetId, trackDrag, clearPlacement, reveal, openedWithElements } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
+  const { dropTargetId, trackDrag, clearPlacement, reveal } = usePresentationFrames({ elements, steps, reactFlow, canvasRef });
   const textEditing = usePresentationTextEditing();
   // The text being edited can disappear under the editor (delete, undo, a collaborator). Edit
   // mode ends with it, so restoring an element with the same id never reopens it mid-edit.
@@ -939,8 +939,8 @@ function Editor({
             elevateNodesOnSelect={false}
             className={styles.canvas}
             colorMode={resolvedTheme === "dark" ? "dark" : "light"}
-            fitView={openedWithElements && !requestedElement}
-            fitViewOptions={{ padding: 0.2 }}
+            // Scene-aware camera restoration waits for the viewport controller and size.
+            fitView={false}
             minZoom={0.02}
             maxZoom={8}
             nodesConnectable={false}

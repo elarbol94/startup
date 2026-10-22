@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, Bold, Italic, Underline, List, ListOrdered, Baseline, Settings2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { presentationCameraBounds, presentationFonts, type PresentationElement } from "../../lib/presentation";
+import { textBodyDefaults } from "../../lib/presentation-text-host";
 import { ThemeColorPicker } from "./format-pane/theme-color-picker";
 import type { TextFormatApi } from "./use-text-format";
 
@@ -36,9 +37,9 @@ export function FloatingTextToolbar({ element, format, canvasRef, updateText, on
   }, [canvasRef]);
   if (dismissed) return null;
   const bounds = presentationCameraBounds(element);
-  const edge = 8, gap = 12;
+  const edge = 8, gap = 12, handleClearance = 48;
   const left = Math.max(edge, Math.min(bounds.x * viewport.zoom + viewport.x, size.canvasWidth - size.width - edge));
-  const above = bounds.y * viewport.zoom + viewport.y - size.height - gap;
+  const above = bounds.y * viewport.zoom + viewport.y - size.height - handleClearance;
   const below = (bounds.y + bounds.height) * viewport.zoom + viewport.y + gap;
   const top = Math.max(edge, Math.min(above >= edge ? above : below, size.canvasHeight - size.height - edge));
   const { run, paragraph } = format;
@@ -81,6 +82,12 @@ export function FloatingTextToolbar({ element, format, canvasRef, updateText, on
         value={paragraph.lineSpacing?.rule === "multiple" ? paragraph.lineSpacing.value : ""}
         onChange={event => format.setParagraph(p => ({ ...p, lineSpacing: event.target.value ? { rule: "multiple", value: Number(event.target.value) } : undefined }))}>
         <option value="">—</option>{[1, 1.15, 1.5, 2, 2.5, 3].map(value => <option key={value} value={value}>{value.toLocaleString()}×</option>)}
+      </select>
+      <select className={inputClass + " w-24"} aria-label={t("text.alignText")} title={t("text.alignText")}
+        data-testid="floating-text-vertical-alignment"
+        value={element.content.body?.anchor ?? textBodyDefaults(element).anchor}
+        onChange={event => { const anchor = event.target.value as "top" | "middle" | "bottom"; updateText(content => ({ ...content, body: { ...content.body, anchor } })); }}>
+        {(["top", "middle", "bottom"] as const).map(anchor => <option key={anchor} value={anchor}>{t(`text.anchors.${anchor}`)}</option>)}
       </select>
       {icon(f("more"), undefined, onMore, <Settings2 className="size-4" />)}
     </div>

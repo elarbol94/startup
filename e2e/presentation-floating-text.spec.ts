@@ -75,3 +75,25 @@ test("the toolbar stays in a narrow canvas and is unavailable for locked text", 
   await page.locator('.react-flow__node[data-id="locked"]').click();
   await expect(toolbar(page)).toHaveCount(0);
 });
+
+test("the popup vertically centers text within its shape and keeps it after reload", async ({ page }) => {
+  const items = [
+    { id: "frame", type: "frame", x: 0, y: 0, width: 960, height: 540, rotation: 0, content: { label: "", shape: "rect", color: "" } },
+    { id: "a", type: "shape", parentId: "frame", x: 100, y: 100, width: 300, height: 240, rotation: 0,
+      content: { shape: "roundedRect", text: "Center this text", fontSize: 32, fill: "", stroke: "#172033", strokeWidth: 2, opacity: 1, body: { anchor: "top", autofit: "none" } } },
+  ];
+  const id = await seedPresentation(page, false, false, items);
+  await page.locator('.react-flow__node[data-id="a"]').click();
+  const alignment = toolbar(page).getByTestId("floating-text-vertical-alignment");
+  await expect(alignment).toHaveValue("top");
+  await alignment.selectOption("middle");
+  await expect.poll(async () => (await savedText(page, id, "a")).body?.anchor).toBe("middle");
+  await page.screenshot({ path: "test-results/floating-text-vertical-middle.png" });
+  await page.reload();
+  await page.locator('.react-flow__node[data-id="a"]').click();
+  await expect(toolbar(page).getByTestId("floating-text-vertical-alignment")).toHaveValue("middle");
+  await toolbar(page).getByTestId("floating-text-vertical-alignment").selectOption("bottom");
+  await expect.poll(async () => (await savedText(page, id, "a")).body?.anchor).toBe("bottom");
+  await toolbar(page).getByTestId("floating-text-vertical-alignment").selectOption("top");
+  await expect.poll(async () => (await savedText(page, id, "a")).body?.anchor).toBe("top");
+});

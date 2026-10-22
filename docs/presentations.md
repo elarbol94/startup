@@ -45,6 +45,15 @@ the old wiki-page editor and were removed together with it (documents are now
 Word documents, see [office-documents.md](office-documents.md)). Link data that
 older presentations still carry is ignored and stripped from public copies.
 
+## Reloading a detail page
+
+The current detail section is kept in the editor URL as `?scene=...`, so
+reloading restores that section and frames its content after the canvas is
+ready. Leaving the section clears the URL value. Missing/deleted sections fall
+back to the overview. A fresh overview opens on its first camera stop (or first
+frame), so a distant unlinked frame cannot make the initial view appear empty.
+The Overview control still fits every element in the current scene.
+
 ## Editing and recovery
 
 - Live editing starts automatically for authorized editors, with no editor-count
@@ -115,7 +124,8 @@ On desktop, the path and the active utility panel dock beside the canvas.
 Select a text box or a shape with text to show a compact toolbar beside it;
 double-click to edit and format a highlighted range. Font size, bold, italic,
 underline and color apply to the highlighted text while editing, and to the
-whole text otherwise. Font family applies to the box. Alignment, bullets,
+whole text otherwise. Font family applies to the box. Vertical alignment
+(Top, Middle, Bottom) positions text inside its shape or text box. Alignment, bullets,
 numbering and line spacing apply to the selected paragraphs. More text layout
 options opens the existing text-properties pane. The toolbar follows pan/zoom,
 stays within the canvas, and closes on deselection or its Close button.
