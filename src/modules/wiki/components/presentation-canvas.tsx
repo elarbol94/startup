@@ -288,6 +288,19 @@ export const presentationNodeTypes = { text: TextNode, image: ImageNode, frame: 
  */
 const FRONT_BAND = 1_000;
 
+// Nodes are rebuilt on every canvas change. Handing React Flow the previous object for an
+// element whose node did not change lets it skip that node instead of re-rendering them all.
+const nodeCache = new WeakMap<PresentationElement, PresentationNode>();
+const sameValue = (a: unknown, b: unknown) => a === b || (!!a && !!b && typeof a === "object" && typeof b === "object"
+  && Object.keys(a).length === Object.keys(b).length && Object.entries(a).every(([key, value]) => (b as Record<string, unknown>)[key] === value));
+function cachedNode(node: PresentationNode) {
+  const cached = nodeCache.get(node.data.element);
+  if (cached && Object.keys(node).length === Object.keys(cached).length
+    && Object.entries(node).every(([key, value]) => sameValue(value, cached[key as keyof PresentationNode]))) return cached;
+  nodeCache.set(node.data.element, node);
+  return node;
+}
+
 export function elementsToNodes(
   elements: PresentationElement[],
   options: {
@@ -320,11 +333,12 @@ export function elementsToNodes(
   const lookupElement = (id: string) => byId.get(id);
   const inks = presentationDefaultInks(elements, options.background);
   return elements.map((element, index) => {
+    const locked = isPresentationElementLocked(elements, element.id);
     const style: CSSProperties = element.type === "frame" ? { pointerEvents: "none" } : {};
     // Empty space and section interiors use the pane cursor; only selectable
     // object surfaces advertise selection/movement, including locked objects.
     if (options.selectedIds !== undefined) {
-      style.cursor = options.editable && !isPresentationElementLocked(elements, element.id) ? "move" : "pointer";
+      style.cursor = options.editable && !locked ? "move" : "pointer";
     }
     // Node styles override React Flow's positioning transform. Keep the translation or
     // rotating an element teleports it back to the canvas origin.
@@ -344,23 +358,23 @@ export function elementsToNodes(
       // element newly becomes part of the arriving step.
       style.animation = "presentation-element-enter 300ms ease";
     }
-    return {
+    return cachedNode({
       id: element.id,
       type: element.type,
       position: { x: element.x, y: element.y },
       width: element.width,
       height: element.height,
       selected: Boolean(options.selectedIds?.has(element.id)),
-      draggable: options.editable && !isPresentationElementLocked(elements, element.id),
+      draggable: options.editable && !locked,
       selectable: options.selectedIds !== undefined,
       connectable: false,
-      deletable: options.editable && !isPresentationElementLocked(elements, element.id),
+      deletable: options.editable && !locked,
       zIndex: (element.type === "frame" ? 0 : FRONT_BAND) + index,
       className: options.openerIds?.has(element.id) ? "presentation-opener" : undefined,
       style: Object.keys(style).length ? style : undefined,
       data: {
         element,
-        editable: options.editable && !isPresentationElementLocked(elements, element.id),
+        editable: options.editable && !locked,
         resizable: options.selectedIds?.size === 1,
         onGestureStart: options.onGestureStart,
         onGestureEnd: options.onGestureEnd,
@@ -368,7 +382,8 @@ export function elementsToNodes(
         onRichTextChange: options.onRichTextChange,
         onLineEndDrop: options.onLineEndDrop,
         onAdjust: options.onAdjust,
-        lookupElement: options.onLineEndDrop ? lookupElement : undefined,
+        // Only a selected line draws end handles; a fresh lookup there keeps them from reading stale elements.
+        lookupElement: options.onLineEndDrop && options.selectedIds?.has(element.id) ? lookupElement : undefined,
         onResizeChange: options.onResizeChange,
         mediaUrl: options.mediaUrl,
         hidden: options.hiddenIds?.has(element.id),
@@ -380,6 +395,6 @@ export function elementsToNodes(
         ink: inks.get(element.id) ?? (element.type === "frame" ? inkOn(options.background) : undefined),
         authoring: options.selectedIds !== undefined,
       },
-    };
+    });
   });
 }

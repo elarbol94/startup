@@ -74,6 +74,8 @@ function patchCollection(doc: Y.Doc, name: string, before: { id: string }[], aft
   for (const item of before) if (!next.has(item.id)) removed.set(item.id, true);
   for (const item of after) {
     if (removed.has(item.id)) continue;
+    // An untouched item has nothing to write; skipping it keeps a one-element drag O(1) per item.
+    if (old.get(item.id) === item && items.has(item.id)) continue;
     let map = items.get(item.id);
     if (!map) { map = new Y.Map(); items.set(item.id, map); }
     patchMap(map, old.get(item.id) ?? {}, item);

@@ -78,6 +78,17 @@ it("does not recover another account's pending content", async () => {
   expect(bob.doc.getText("text").toString()).toBe("Hello");
   expect(storage.size).toBe(1);
 });
+it("journals the first edit at once and a burst of edits at most every 250 ms", async () => {
+  const client = provider(); await client.start(); hold = () => {};
+  const writes = vi.spyOn(localStorage, "setItem");
+  for (let index = 0; index < 20; index++) client.doc.getText("text").insert(0, "x");
+  expect(writes).toHaveBeenCalledTimes(1);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(writes).toHaveBeenCalledTimes(2);
+  const journaled = new Y.Doc(); Y.applyUpdate(journaled, decode([...storage.values()][0]));
+  expect(journaled.getText("text").toString()).toBe(`${"x".repeat(20)}Hello`);
+  const release = hold!; hold = undefined; release();
+});
 it("reports pending changes until the server acknowledges them", async () => {
   const client = provider(); await client.start();
   expect(client.hasPendingChanges).toBe(false);

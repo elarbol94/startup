@@ -1,10 +1,19 @@
 "use client";
 // Presentation canvas decorations drawn inside React Flow: the visible grid, snap/distance
 // guides and the minimap node. Used by presentation-editor.tsx.
-import { ViewportPortal, useReactFlow, useViewport, type MiniMapNodeProps } from "@xyflow/react";
+import { Background, ViewportPortal, useReactFlow, useViewport, type MiniMapNodeProps } from "@xyflow/react";
 import type { SnapGuide } from "../../lib/presentation";
 import { gridDisplayGap } from "../../lib/presentation-grid";
+import { adaptiveGridGap } from "../../lib/presentation-interactions";
+import { PRESENTATION_DARK_INK, inkOn } from "../../lib/presentation-ink";
 import type { PresentationNode } from "../presentation-canvas";
+
+/** The background dots. They read the zoom here, so a pan or zoom re-renders the dots, not the whole editor. */
+export function CanvasDots({ surface }: { surface: string }) {
+  const { zoom } = useViewport();
+  // bgColor too: the dot layer otherwise paints the app theme's colour over the slide surface.
+  return <Background gap={adaptiveGridGap(zoom)} size={1 / zoom} bgColor={surface} color={inkOn(surface) === PRESENTATION_DARK_INK ? "#94a3b8" : "#64748b"} />;
+}
 
 /**
  * View → Gridlines. React Flow's <Background> paints under the nodes, where a filled slide

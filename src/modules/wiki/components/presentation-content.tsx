@@ -1,5 +1,5 @@
 import { PresentationShape } from "./presentation-shape";
-import type { CSSProperties, SVGProps, ReactElement } from "react";
+import { memo, type CSSProperties, type SVGProps, type ReactElement } from "react";
 import { presentationFontFamilies, presentationIconNames, type PresentationElement } from "../lib/presentation";
 import { shapeShrinkScale, shapeTextBox, shapeTextContent, textBodyDefaults } from "../lib/presentation-text-host";
 import { effectiveParagraphs, paragraphMarkers } from "../lib/presentation-paragraphs";
@@ -78,7 +78,7 @@ export function PresentationTextBody({ content: c, interactive, style: extra, de
 }
 
 /** Shared by the editor, presenter previews, print, public and offline delivery. */
-export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${id}`, interactive = true }: {
+function Content({ element, mediaUrl = (id) => `/api/files/${id}`, interactive = true }: {
   element: PresentationElement; mediaUrl?: (id: string) => string; interactive?: boolean;
 }) {
   if (element.type === "text") return <PresentationTextBody content={element.content} interactive={interactive} defaults={textBodyDefaults(element)} />;
@@ -141,3 +141,6 @@ export function PresentationContent({ element, mediaUrl = (id) => `/api/files/${
     </div>
   </div>;
 }
+// Element objects stay the same while unchanged, so canvas nodes, thumbnails and the player
+// skip every element a drag or a step did not touch.
+export const PresentationContent = memo(Content);

@@ -45,6 +45,8 @@ export class CollaborationProvider implements CollaborationClient {
   private source?: EventSource;
   private retry?: ReturnType<typeof setInterval>;
   private presenceTimer?: ReturnType<typeof setTimeout>;
+  private journalTimer?: ReturnType<typeof setTimeout>;
+  private journalDirty = false;
   private inFlight?: Promise<boolean>;
   private disposed = true;
   private generation = 0;
@@ -61,7 +63,7 @@ export class CollaborationProvider implements CollaborationClient {
     this.doc.on("update", (update: Uint8Array, origin: unknown) => {
       if (origin === REMOTE) return;
       this.pending.push(update);
-      this.journal();
+      this.journalSoon();
       // Refused transports keep the edit journaled; listeners still learn it is pending.
       if (this.status === "denied" || this.status === "error") { this.emit(); return; }
       this.setStatus("saving");
@@ -78,7 +80,19 @@ export class CollaborationProvider implements CollaborationClient {
     if (status === this.status) return;
     this.status = status; this.emit();
   }
+  /**
+   * Encoding the whole document on every update stalls drags on large documents, so the first
+   * edit is journaled at once and further ones at most every 250 ms (and on pagehide/stop).
+   * shortcut: a browser crash can lose the last 250 ms from the journal; those edits were already sent.
+   */
+  private journalSoon() {
+    this.journalDirty = true;
+    if (this.journalTimer) return;
+    this.journal();
+    this.journalTimer = setTimeout(() => { this.journalTimer = undefined; if (this.journalDirty) this.journalSoon(); }, 250);
+  }
   private journal() {
+    this.journalDirty = false;
     if (!this.key || !this.ready) return;
     try {
       if (this.pending.length) localStorage.setItem(this.key, encode(Y.encodeStateAsUpdate(this.doc)));
@@ -97,7 +111,7 @@ export class CollaborationProvider implements CollaborationClient {
       if (this.ready && !this.disposed) void this.flush();
     }, 250);
   }
-  private retire = () => setClientRetired(this.retiredKey, this.client, true);
+  private retire = () => { setClientRetired(this.retiredKey, this.client, true); if (this.journalDirty) this.journal(); };
   private revive = () => setClientRetired(this.retiredKey, this.client, false);
   async start() {
     this.disposed = false;
@@ -173,5 +187,5 @@ export class CollaborationProvider implements CollaborationClient {
   stop() {
     this.retire();
     if (typeof window !== "undefined") { window.removeEventListener("pagehide", this.retire); window.removeEventListener("pageshow", this.revive); }
-    this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); clearTimeout(this.presenceTimer); this.presenceTimer = undefined; this.journal(); }
+    this.disposed = true; this.generation++; this.source?.close(); clearInterval(this.retry); clearTimeout(this.presenceTimer); this.presenceTimer = undefined; clearTimeout(this.journalTimer); this.journalTimer = undefined; this.journal(); }
 }

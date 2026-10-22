@@ -6,6 +6,11 @@ import { presentationValuesEqual } from "../lib/presentation-merge";
 import type { CollaborationClient } from "./provider";
 
 const snapshotOf = (state: PresentationCanvasState) => ({ elements: state.elements, steps: state.steps, title: state.title, settings: state.settings, background: state.background });
+/** Keeps the old object of every unchanged item, so the canvas re-renders only what changed. */
+function keepUnchanged<T extends { id: string }>(old: T[], fresh: T[]) {
+  const byId = new Map(old.map(item => [item.id, item]));
+  return fresh.map(item => { const before = byId.get(item.id); return before && presentationValuesEqual(before, item) ? before : item; });
+}
 
 /** Imperative adapter between canvas gestures and the external shared document. */
 export class PresentationBridge {
@@ -33,9 +38,17 @@ export class PresentationBridge {
     if (!transaction.changed.size && !transaction.deleteSet.clients.size) return;
     this.sync();
   };
+  /** The document as last read, so a local edit does not read it twice. */
+  private lastRead: ReturnType<typeof presentationJSON> | null = null;
+  private read(base: PresentationCanvasState) {
+    const snapshot = presentationJSON(this.provider!.doc);
+    this.lastRead = { ...snapshot, elements: keepUnchanged(base.elements, snapshot.elements), steps: keepUnchanged(base.steps, snapshot.steps),
+      settings: presentationValuesEqual(base.settings, snapshot.settings) ? base.settings : snapshot.settings };
+    return this.lastRead;
+  }
   private sync = () => {
     if (!this.provider) return;
-    const snapshot = presentationJSON(this.provider.doc);
+    const snapshot = this.read(this.state);
     if (presentationValuesEqual(snapshotOf(this.state), snapshot)) return;
     this.state = { ...this.state, ...snapshot, dirty: false, failed: false };
     this.notify({ type: "shared", snapshot });
@@ -62,8 +75,10 @@ export class PresentationBridge {
     this.state = next;
     if (this.provider && ["edit", "touch", "geometry"].includes(action.type)) {
       if (presentationValuesEqual(snapshotOf(previous), snapshotOf(next))) { this.notify(action); return; }
+      this.lastRead = null;
+      // The patch's afterTransaction runs sync(), which reads the document already.
       patchPresentation(this.provider.doc, previous, next);
-      const snapshot = presentationJSON(this.provider.doc);
+      const snapshot = this.lastRead ?? this.read(next);
       this.state = { ...next, ...snapshot, dirty: false, failed: false };
       this.notify({ type: "shared", snapshot, guides: next.guides });
       if (action.type === "edit" && action.separate) this.undo?.stopCapturing();

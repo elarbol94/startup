@@ -6,7 +6,7 @@ import { userIdentityColor } from "@/lib/user-mark-colors";
 
 import { EditorCommandSearch } from "./editor-command-search";
 import { PresentationActionMenu, PresentationShortcutHelp } from "./presentation-action-menu";
-import { isLinearShape, adaptiveGridGap, selectionRoots, mutableSelection } from "../lib/presentation-interactions";
+import { isLinearShape, selectionRoots, mutableSelection } from "../lib/presentation-interactions";
 
 import "@xyflow/react/dist/style.css";
 import styles from "./presentation-editor.module.css";
@@ -23,7 +23,7 @@ import { arrangePresentation, layoutRoots } from "../lib/presentation-layout";
 import { useLocale, useTranslations } from "next-intl";
 import { useTheme } from "next-themes";
 import { createId } from "@paralleldrive/cuid2";
-import { Background, SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useReactFlow, useViewport } from "@xyflow/react";
+import { SelectionMode, Controls, ReactFlow, ReactFlowProvider, ViewportPortal, useReactFlow } from "@xyflow/react";
 import { Lock, Maximize2, Save, Square, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { WorkspacePanel } from "./workspace-panel";
@@ -39,7 +39,7 @@ import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentatio
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import type { SaveState } from "./presentation-editor/presentation-editor-utils";
 import { DraftInput } from "./presentation-editor/draft-fields";
-import { GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
+import { CanvasDots, GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
 import { PresentationMiniMap, PresentationMiniMapToggle } from "./presentation-editor/presentation-minimap";
 import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
 import { presentationShortcutLabels } from "./presentation-editor/presentation-shortcuts";
@@ -75,7 +75,7 @@ import { CanvasRulers, RULER_SIZE } from "./presentation-editor/canvas-rulers";
 import { GridGuidesDialog } from "./presentation-editor/grid-guides-dialog";
 import { EditPointsOverlay, type EditPointsLabels } from "./presentation-editor/edit-points-overlay";
 import { formatCentimetres } from "../lib/presentation-grid";
-import { PRESENTATION_DARK_INK, inkOn, presentationSurface } from "../lib/presentation-ink";
+import { presentationSurface } from "../lib/presentation-ink";
 import { presentationElementCaption, presentationSceneElements, presentationSceneSteps } from "../lib/presentation";
 import { useDetailScene } from "./presentation-editor/use-detail-scene";
 import { DetailSceneBar } from "./presentation-editor/detail-scene-bar";
@@ -116,7 +116,6 @@ function Editor({
   const reactFlow = useReactFlow<PresentationNode>();
   const { resolvedTheme } = useTheme();
   const canvasRef = useRef<HTMLDivElement>(null);
-  const { zoom: canvasZoom } = useViewport();
   const [contextPosition, setContextPosition] = useState<{ x: number; y: number } | null>(null);
   const [shortcutHelp, setShortcutHelp] = useState(false);
   const [miniMapVisible, setMiniMapVisible] = useState(false);
@@ -540,8 +539,7 @@ function Editor({
             {/* Shown gridlines replace the background dots: the overlay draws them over the slide. */}
             {settings.grid.show
               ? <GridOverlay spacing={settings.grid.spacing} transparency={settings.grid.transparency} />
-              // bgColor too: the dot layer otherwise paints the app theme's colour over the slide surface.
-              : <Background gap={adaptiveGridGap(canvasZoom)} size={1 / canvasZoom} bgColor={presentationSurface(background)} color={inkOn(presentationSurface(background)) === PRESENTATION_DARK_INK ? "#94a3b8" : "#64748b"} />}
+              : <CanvasDots surface={presentationSurface(background)} />}
             {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}
