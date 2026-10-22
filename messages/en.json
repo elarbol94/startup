@@ -3920,7 +3920,7 @@
         "path": "Start at the first stop of the path.",
         "free": "Show the whole canvas and explore by clicking."
       },
-      "canvasGestureHint": "Right-click to go back one stage. Double-right-click to show the whole canvas.",
+      "canvasGestureHint": "Right-click to go back one stage. Double-right-click to return to the original top-level canvas.",
       "motionAlways": "Always show animations – even when this computer reduces motion (viewers following live keep their own setting)",
       "cameraTransition": "Camera transition (s)",
       "cameraEasing": "Easing",

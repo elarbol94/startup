@@ -551,6 +551,7 @@ Forms still focus on their first click and flip into linked details on the next.
 Detail canvases open in their own overview. Mode and canvas/stop view survive reload.
 
 One right-click goes back one stage. Two right-clicks in quick succession show the
-whole current canvas without first leaving it. The player waits up to 600ms for
-the second click before applying a single-click back action. The overview button
-and Home do the same; live followers keep the host-controlled camera.
+whole original top-level canvas, leaving all nested detail levels and clearing the
+return trail. The overview button and Home still show the current canvas. The
+player waits up to 600ms for the second click before applying a single-click back
+action. Live followers keep the host-controlled camera.
