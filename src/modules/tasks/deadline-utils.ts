@@ -1,3 +1,5 @@
+import { addDays, isValidDate, localDateInZone } from "@/modules/calendar/date-utils";
+import { timeZone } from "@/i18n/config";
 import type { DeadlineWithContext, TaskOrigin } from "./types";
 import type { TaskStatus } from "./types";
 
@@ -10,28 +12,20 @@ export type DeadlineTiming = {
   status?: TaskStatus;
 };
 
+/** The app's calendar day, not the process zone (UTC in Docker) or the browser's. */
 export function todayLocal(now = new Date()) {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  return localDateInZone(now, timeZone);
 }
 
 export function addLocalDays(date: string, amount: number) {
-  if (!DATE_PATTERN.test(date)) return date;
-  const [year, month, day] = date.split("-").map(Number);
-  const value = new Date(year, month - 1, day);
-  value.setDate(value.getDate() + amount);
-  return todayLocal(value);
+  return isValidDate(date) ? addDays(date, amount) : date;
 }
 
+/** Local midnight of a valid calendar date, for formatting and `setHours`; null otherwise. */
 export function localDateValue(date: string) {
-  if (!DATE_PATTERN.test(date)) return null;
+  if (!isValidDate(date)) return null;
   const [year, month, day] = date.split("-").map(Number);
-  const value = new Date(year, month - 1, day);
-  return Number.isNaN(value.getTime()) || todayLocal(value) !== date
-    ? null
-    : value;
+  return new Date(year, month - 1, day);
 }
 
 export function localTimeFromIso(iso: string | null) {

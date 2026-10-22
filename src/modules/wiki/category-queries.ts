@@ -64,9 +64,3 @@ export function listCategoryEvidence(categoryId: string): CategoryEvidence[] {
     createdByMarkColor: resolveStoredUserMarkColor(row.createdByMarkColor),
   }));
 }
-
-export function getCategory(id: string) {
-  return sqlite.prepare(
-    "SELECT id, name, description, parent_id AS parentId FROM wiki_categories WHERE id = ?",
-  ).get(id) as { id: string; name: string; description: string; parentId: string | null } | undefined;
-}

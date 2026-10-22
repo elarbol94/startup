@@ -1,10 +1,5 @@
 import type { TiptapNode } from "./tiptap";
 
-export const FIGURE_MIME: Record<string, string> = {
-  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp",
-  svg: "image/svg+xml", svgz: "image/svg+xml",
-};
-export function figureMime(name: string) { return FIGURE_MIME[name.split(".").pop()?.toLowerCase() ?? ""] ?? ""; }
 export function removeFigureNumberPrefix(caption: string) { return caption.replace(/^\s*(?:abbildung|abb\.|figure|fig\.)\s*(?:\d+|x)(?:\s*[.:—–-]\s*|\s+|$)/i, ""); }
 export function stripFigureNumber(caption: string) { return removeFigureNumberPrefix(caption).trim(); }
 export function isFigure(type: string | undefined) { return type === "commentableImage" || type === "mermaidDiagram"; }
@@ -43,15 +38,4 @@ export function figureCrop(value: unknown): FigureCrop {
   const y = Math.max(0, Math.min(0.95, finite(input.y, 0)));
   return { x, y, width: Math.max(0.05, Math.min(1 - x, finite(input.width, 1))), height: Math.max(0.05, Math.min(1 - y, finite(input.height, 1))) };
 }
-export function cropImageStyle(value: unknown) {
-  const crop = figureCrop(value);
-  return { width: `${100 / crop.width}%`, maxWidth: "none", transform: `translate(${-crop.x * 100}%, ${-crop.y * 100}%)` };
-}
 export function figureWidth(value: unknown) { return Math.max(10, Math.min(100, finite(value, 100))); }
-
-export const FIGURE_ATTRIBUTES = {
-  nodeId: { default: "" }, assetId: { default: "" }, attachmentId: { default: "" }, src: { default: "" },
-  alt: { default: "" }, caption: { default: "" }, numbered: { default: null }, includeInFigureIndex: { default: true },
-  widthPercent: { default: 100 }, alignment: { default: "center" }, wrap: { default: "none" },
-  crop: { default: null }, aspectRatio: { default: 0 }, cropX: { default: 50 }, cropY: { default: 50 },
-};

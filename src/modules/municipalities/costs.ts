@@ -53,10 +53,6 @@ export type MunicipalityCostSeries = {
   }>;
 };
 
-export function isCostCategoryId(value: string): value is CostCategoryId {
-  return COST_CATEGORIES.some(({ id }) => id === value);
-}
-
 export function isCostTargetId(value: string): value is CostTargetId {
   return (COST_TARGETS as readonly string[]).includes(value);
 }

@@ -20,7 +20,7 @@ vi.mock("@/db", async () => {
 
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
-import { contextLinks, projectColumns, projectDependencies, projects, taskDependencies, tasks, user } from "@/db/schema";
+import { attachments, contextLinks, projectColumns, projectDependencies, projects, taskDependencies, tasks, user } from "@/db/schema";
 import { deleteColumn, moveTask, upsertColumn } from "./board-actions";
 import { deleteTask, setTaskStatus } from "./task-actions";
 import { moveDashboardTask } from "./contextual-task-actions";
@@ -37,7 +37,7 @@ function insertTask(values: Partial<typeof tasks.$inferInsert> & { id: string })
 
 beforeEach(() => {
   vi.clearAllMocks();
-  sqlite.exec("DELETE FROM context_links; DELETE FROM project_dependencies; DELETE FROM tasks; DELETE FROM project_columns; DELETE FROM projects;");
+  sqlite.exec("DELETE FROM attachments; DELETE FROM context_links; DELETE FROM project_dependencies; DELETE FROM tasks; DELETE FROM project_columns; DELETE FROM projects;");
   db.insert(user).values({ id: "actor", name: "Actor", email: "actor@example.com", createdAt: new Date(), updatedAt: new Date() }).onConflictDoNothing().run();
   db.insert(projects).values([
     { id: "p", name: "Project", createdBy: "actor" },
@@ -206,6 +206,20 @@ describe("delete side rows", () => {
     await deleteTask("parent");
     expect(db.select().from(projectDependencies).all().map((dependency) => dependency.predecessorId)).toEqual(["keep"]);
     expect(db.select().from(contextLinks).all().map((link) => link.ownerId)).toEqual(["keep"]);
+  });
+
+  it("removes the attachments of a deleted task subtree", async () => {
+    insertTask({ id: "parent" });
+    insertTask({ id: "child", parentTaskId: "parent" });
+    insertTask({ id: "keep" });
+    const file = { fileName: "a.png", mimeType: "image/png", sizeBytes: 1, sha256: "a".repeat(64), entityType: "task" as const, uploadedBy: "actor" };
+    db.insert(attachments).values([
+      { ...file, id: "f-parent", storedName: "aa/parent.png", entityId: "parent" },
+      { ...file, id: "f-child", storedName: "aa/child.png", entityId: "child" },
+      { ...file, id: "f-keep", storedName: "aa/keep.png", entityId: "keep" },
+    ]).run();
+    await deleteTask("parent");
+    expect(db.select().from(attachments).all().map((row) => row.id)).toEqual(["f-keep"]);
   });
 
   it("removes a project's polymorphic side rows", () => {

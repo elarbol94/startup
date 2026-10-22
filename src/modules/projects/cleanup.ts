@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import { contextLinks, projectDependencies, tasks } from "@/db/schema";
+import { deleteAttachmentsFor } from "@/lib/files";
 
 type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
@@ -25,13 +26,15 @@ export function taskSubtreeIds(tx: Transaction, rootTaskIds: string[]): string[]
 /**
  * Removes rows that point at tasks by a polymorphic id and therefore are not
  * covered by foreign-key cascades: project dependencies whose predecessor is
- * one of the tasks and the tasks' own context links. Call it inside the delete
- * transaction BEFORE deleting the tasks, with the root ids being deleted;
- * subtasks are included automatically because they cascade with their parent.
+ * one of the tasks, the tasks' own context links and their attachments. Call
+ * it inside the delete transaction BEFORE deleting the tasks, with the root ids
+ * being deleted; subtasks are included automatically because they cascade with
+ * their parent.
  */
 export function deleteTaskSubtreeSideRows(tx: Transaction, rootTaskIds: string[]): void {
   if (rootTaskIds.length === 0) return;
   const ids = taskSubtreeIds(tx, rootTaskIds);
+  for (const id of ids) deleteAttachmentsFor("task", id);
   tx.delete(projectDependencies)
     .where(and(eq(projectDependencies.predecessorType, "task"), inArray(projectDependencies.predecessorId, ids)))
     .run();

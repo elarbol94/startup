@@ -53,10 +53,6 @@ export type MunicipalityMovementSeries = {
   years: Record<string, { periodStart: string; periodEnd: string; values: Record<string, MovementCounts> }>;
 };
 
-export function isMovementMetricId(value: string): value is MovementMetricId {
-  return MOVEMENT_METRICS.some(({ id }) => id === value);
-}
-
 export function movementMetricUnit(id: MovementMetricId): MovementUnit {
   return MOVEMENT_METRICS.find((metric) => metric.id === id)!.unit;
 }

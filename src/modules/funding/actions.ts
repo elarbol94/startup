@@ -329,7 +329,7 @@ const bookingAllocationSchema = z.object({
   id: z.string().optional(),
   projectId: z.string().min(1),
   budgetItemId: z.string().min(1),
-  accountingEntryId: z.string().nullable(),
+  accountingEntryId: z.string().min(1),
   bookingDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   description: z.string().max(300).default(""),
   actualAmountCents: cents,
@@ -349,24 +349,22 @@ export async function upsertFundingBookingAllocation(input: FundingBookingAlloca
   if (!budgetItem || budgetItem.projectId !== data.projectId) throw new Error("Budget item not found");
   // Contract §5.5: the over-allocation check and the write share one transaction.
   db.transaction((tx) => {
-    if (data.accountingEntryId) {
-      const entry = tx
-        .select({ status: entries.status, grossAmountCents: entries.grossAmountCents })
-        .from(entries)
-        .where(eq(entries.id, data.accountingEntryId))
-        .get();
-      if (!entry || entry.status !== "finalized") throw new Error("Only finalized bookings can be allocated");
-      const allocated = tx
-        .select({ value: sql<number>`coalesce(sum(${fundingBookingAllocations.actualAmountCents}), 0)` })
-        .from(fundingBookingAllocations)
-        .where(and(
-          eq(fundingBookingAllocations.accountingEntryId, data.accountingEntryId),
-          data.id ? ne(fundingBookingAllocations.id, data.id) : undefined,
-        ))
-        .get()?.value ?? 0;
-      if (allocated + data.actualAmountCents > Math.abs(entry.grossAmountCents)) {
-        throw new Error("Allocations exceed the booking amount");
-      }
+    const entry = tx
+      .select({ status: entries.status, grossAmountCents: entries.grossAmountCents })
+      .from(entries)
+      .where(eq(entries.id, data.accountingEntryId))
+      .get();
+    if (!entry || entry.status !== "finalized") throw new Error("Only finalized bookings can be allocated");
+    const allocated = tx
+      .select({ value: sql<number>`coalesce(sum(${fundingBookingAllocations.actualAmountCents}), 0)` })
+      .from(fundingBookingAllocations)
+      .where(and(
+        eq(fundingBookingAllocations.accountingEntryId, data.accountingEntryId),
+        data.id ? ne(fundingBookingAllocations.id, data.id) : undefined,
+      ))
+      .get()?.value ?? 0;
+    if (allocated + data.actualAmountCents > Math.abs(entry.grossAmountCents)) {
+      throw new Error("Allocations exceed the booking amount");
     }
     if (data.id) {
       const existing = tx

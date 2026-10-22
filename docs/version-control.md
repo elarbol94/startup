@@ -22,9 +22,11 @@ revision tables are also captured, preserving their contents after a purge.
 
 History begins at activation. It cannot reconstruct earlier edits, unsaved browser
 changes, software releases, or files removed before retention was enabled. Git
-continues to manage application code. Login credentials, public
+continues to manage application code. Login credentials, mailbox passwords, public
 sharing tokens, invitations, temporary sessions/leases/presence, collaboration binary
-state, notifications, performance events and derived indexes are excluded. The
+state, notifications, performance events, worker heartbeats, upload progress and
+derived indexes (including OCR page text) are excluded; a table excluded later loses
+its triggers and journaled rows at the next start. The
 existing collaborative document projection is journaled after each durable save.
 Account profile changes are captured for inspection but cannot restore access rights.
 Original edits retain the authorship fields provided by their owning module; the

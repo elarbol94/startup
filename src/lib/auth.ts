@@ -80,10 +80,14 @@ export const auth = betterAuth({
       maxUsernameLength: 254,
       usernameValidator: (value) => /^[a-zA-Z0-9_.@+-]+$/.test(value),
     }),
+    // The plugin only supplies the role/banned columns. Invitations and user
+    // removal are the app's own flows, so its /api/auth/admin/* routes
+    // (impersonate, set-password, create, remove) answer 403; only the
+    // browser suite, which creates colleague accounts there, keeps them.
     admin({
       defaultRole: "member",
       adminRoles: ["admin"],
-      roles: { admin: adminAc, member: userAc, personnel: userAc },
+      roles: { admin: process.env.E2E_TEST === "true" ? adminAc : userAc, member: userAc, personnel: userAc },
     }),
     nextCookies(),
   ],

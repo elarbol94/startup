@@ -38,6 +38,13 @@ describe("deadline timing", () => {
     expect(todayLocal(new Date(2026, 6, 29, 0, 30))).toBe("2026-07-29");
   });
 
+  it("uses the Vienna calendar day even when the process runs in UTC", () => {
+    process.env.TZ = "UTC";
+    expect(todayLocal(new Date("2026-10-22T23:30:00Z"))).toBe("2026-10-23");
+    expect(deadlineDayState({ deadlineDate: "2026-10-23", deadlineAt: null, status: "open" }, new Date("2026-10-22T23:30:00Z"))).toBe("today");
+    expect(localDateValue("2026-10-23")?.getDate()).toBe(23);
+  });
+
   it("rejects calendar dates that roll into another month", () => {
     expect(localDateValue("2026-02-29")).toBeNull();
     expect(localDateValue("2026-02-28")).toBeInstanceOf(Date);

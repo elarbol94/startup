@@ -217,6 +217,3 @@ export function removeMeetingFiles(files: MeetingFiles) {
   }
   for (const id of files.derivedIds) attempt(() => fs.rmSync(derivedStagingPath(id), { force: true }));
 }
-
-/** Test hook: lets the next `runDailyOrphanSweep` run at once. */
-export function resetOrphanSweepClock() { lastSweep = 0; }

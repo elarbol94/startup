@@ -160,3 +160,7 @@ app-weite Suche. Texteingaben und Umschalt-Tastenkombinationen lösen die
 Tastenkombination nicht aus. Strg/Cmd+Z macht rückgängig, Strg/Cmd+Umschalt+Z
 stellt wieder her. Gespeicherte Analysen lassen sich direkt
 in der Übersicht über einen Löschknopf mit Bestätigungsdialog entfernen.
+
+## Gemeinderatsprotokolle anonymisieren
+
+`npm run municipalities:anonymize-minutes -- --source ORDNER --output ORDNER` schwärzt in Protokoll-PDFs Personennamen, E-Mail-Adressen, Telefonnummern und sensible Werte (Seiten ohne Textebene werden komplett geschwärzt), bevor sie weitergegeben werden.

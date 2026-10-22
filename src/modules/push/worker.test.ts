@@ -23,6 +23,7 @@ import { db, sqlite } from "@/db";
 import { calendarEvents, calendarReminders, calendars, taskAssignees, tasks, user, wikiNotifications } from "@/db/schema";
 import { pushDeliveries, pushPreferences, pushSubscriptions } from "./schema";
 import { pushActivity, pushCalendarReminders, pushTasksDue } from "./worker";
+import { listNotifications } from "@/modules/wiki/research-queries";
 
 const payloads = () => vi.mocked(webpush.sendNotification).mock.calls.map((call) => JSON.parse(call[1] as string));
 
@@ -54,6 +55,7 @@ it("pushes each new inbox notification once, linked to its task", async () => {
     // Ben has no device.
     { userId: "ben", actorId: "anna", type: "assignment", taskId: task.id },
   ]).run();
+  expect(listNotifications("anna", true, new Date(Date.now() - 10 * 60_000)).map((item) => item.type)).toEqual(["assignment"]);
   await pushActivity();
   await pushActivity();
   expect(payloads()).toEqual([expect.objectContaining({

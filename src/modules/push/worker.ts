@@ -22,8 +22,7 @@ const DELIVERY_RETENTION_MS = 30 * 24 * 60 * 60_000;
 /** Inbox notifications (task assignments, mentions, replies) as they are created. */
 export async function pushActivity(now = new Date()) {
   for (const userId of pushRecipients("activity")) {
-    const fresh = listNotifications(userId, true)
-      .filter((item) => now.getTime() - item.createdAt.getTime() < ACTIVITY_WINDOW_MS);
+    const fresh = listNotifications(userId, true, new Date(now.getTime() - ACTIVITY_WINDOW_MS));
     for (const item of fresh.reverse()) {
       if (!claimPushDelivery(userId, `notification:${item.id}`)) continue;
       await sendPushToUser(userId, (locale) => activityPayload(locale, { ...item, href: notificationHref(item) }));

@@ -7,6 +7,7 @@ vi.mock("./policy", async importOriginal => {
   return { ...actual, protectedTable: (name: string) => ["parent", "child"].includes(name) ? false : actual.protectedTable(name) };
 });
 import { installVersionJournal } from "./journal";
+import { tracksTable } from "./policy";
 import { listVersions, previewRestore, restoreVersion, type Version } from "./store";
 import { getTableName, is, Table } from "drizzle-orm";
 import * as schema from "@/db/schema";
@@ -47,10 +48,19 @@ describe("platform version history", () => {
   });
   it("never captures credentials, public tokens, sessions or ephemeral collaboration", () => {
     const tracked = sqlite.prepare("SELECT name FROM sqlite_master WHERE type='trigger' AND name LIKE 'platform_version_%'").all() as { name: string }[];
-    for (const name of ["account", "session", "verification", "user_invitations", "wiki_presentation_access", "wiki_collaboration_rooms", "wiki_collaboration_presence"]) {
+    for (const name of ["account", "session", "verification", "user_invitations", "wiki_presentation_access", "wiki_collaboration_rooms", "wiki_collaboration_presence", "mail_accounts", "meeting_jobs"]) {
       expect(tracked.some(row => row.name === `platform_version_${name}_insert`)).toBe(false);
     }
+    expect(tracksTable("mail_accounts")).toBe(false);
     expect(tracked.length).toBeGreaterThan(200);
+  });
+  it("drops triggers and journaled rows of a table excluded after it was tracked", () => {
+    // State left by an older release that journaled mail_accounts before the policy excluded it.
+    sqlite.exec("INSERT INTO platform_versions (table_name, record_key, operation, before_json, after_json, created_at) VALUES ('mail_accounts', '{\"id\":\"a\"}', 'insert', NULL, '{\"password_encrypted\":\"secret\"}', 1)");
+    sqlite.exec("CREATE TRIGGER platform_version_mail_accounts_insert AFTER INSERT ON mail_accounts BEGIN SELECT 1; END");
+    installVersionJournal(sqlite, ["mail_accounts"]);
+    expect(listVersions(sqlite, { table: "mail_accounts" })).toEqual([]);
+    expect(sqlite.prepare("SELECT count(*) AS n FROM sqlite_master WHERE type='trigger' AND name LIKE 'platform_version_mail_accounts_%'").get()).toEqual({ n: 0 });
   });
   it("records composite keys and cascading deletions independently of their parent", () => {
     sqlite.exec("CREATE TABLE parent (id TEXT PRIMARY KEY); CREATE TABLE child (parent_id TEXT REFERENCES parent(id) ON DELETE CASCADE, name TEXT, PRIMARY KEY(parent_id,name))");

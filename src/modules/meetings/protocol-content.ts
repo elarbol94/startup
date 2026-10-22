@@ -31,13 +31,6 @@ export function parseProtocolContent(json: string): ProtocolContent {
   return parsed.success ? parsed.data : emptyProtocol();
 }
 
-/** Every evidence id the protocol cites. */
-export function citedSegmentIds(content: ProtocolContent) {
-  return [
-    ...content.agendaItems, ...content.decisions, ...content.actionItems, ...content.openQuestions,
-  ].flatMap((item) => item.evidence);
-}
-
 /**
  * Keys must be unique per list, so action items can be decided by key and a
  * later version can refer to the same item.

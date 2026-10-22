@@ -5,6 +5,7 @@ import type {
   PortfolioTask,
 } from "@/modules/projects/queries";
 import { projectScheduleRisk } from "@/modules/projects/schedule";
+import { isoDate, isoWeekNumber } from "@/modules/calendar/date-utils";
 import { localDateValue } from "@/modules/tasks/deadline-utils";
 import { BAR_EDGE_GRAB_WIDTH, DAY_MS } from "./portfolio-constants";
 import type { Zoom } from "./portfolio-types";
@@ -80,9 +81,7 @@ export function parseDate(value: string) {
   return new Date(`${value}T00:00:00.000Z`);
 }
 
-export function isoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
-}
+export { isoDate };
 
 export function addCalendarDays(value: string, days: number) {
   return isoDate(new Date(parseDate(value).getTime() + days * DAY_MS));
@@ -92,13 +91,7 @@ export function calendarDistance(start: string, end: string) {
   return Math.round((parseDate(end).getTime() - parseDate(start).getTime()) / DAY_MS);
 }
 
-export function calendarWeek(date: Date) {
-  const weekDate = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const day = weekDate.getUTCDay() || 7;
-  weekDate.setUTCDate(weekDate.getUTCDate() + 4 - day);
-  const yearStart = new Date(Date.UTC(weekDate.getUTCFullYear(), 0, 1));
-  return Math.ceil(((weekDate.getTime() - yearStart.getTime()) / DAY_MS + 1) / 7);
-}
+export const calendarWeek = (date: Date) => isoWeekNumber(isoDate(date));
 
 export function minDate(values: Array<string | null | undefined>) {
   return values.filter((value): value is string => Boolean(value)).sort()[0] ?? null;

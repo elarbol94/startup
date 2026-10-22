@@ -225,9 +225,12 @@ const ALLOWED_TRANSITIONS: Record<string, string[]> = {
 export async function setInvoiceStatus(
   id: string,
   status: z.infer<typeof statusSchema>,
+  paidOn?: string,
 ) {
   const user = await requireUserOrThrow();
   const newStatus = statusSchema.parse(status);
+  const paidDate = paidOn ?? toLocalIsoDate();
+  if (!isValidIsoDate(paidDate)) throw new Error("Invalid calendar date");
 
   db.transaction((tx) => {
     const invoice = tx
@@ -264,7 +267,7 @@ export async function setInvoiceStatus(
       .set({
         status: newStatus,
         issuedSnapshot,
-        paidAt: newStatus === "paid" ? new Date() : invoice.paidAt,
+        paidAt: newStatus === "paid" ? (paidOn ? new Date(`${paidDate}T00:00:00Z`) : new Date()) : invoice.paidAt,
         updatedAt: new Date(),
       })
       .where(and(eq(invoices.id, id), eq(invoices.status, invoice.status)))
@@ -313,12 +316,11 @@ export async function setInvoiceStatus(
         );
       }
 
-      const today = toLocalIsoDate();
       for (const group of totals.byRate) {
         const description = `Rechnung ${invoice.invoiceNumber}`;
         const entryValues = {
           kind: "income" as const,
-          date: today,
+          date: paidDate,
           documentDate: invoice.issueDate,
           documentNumber: invoice.invoiceNumber,
           description,
@@ -351,7 +353,7 @@ export async function setInvoiceStatus(
         tx.insert(entryTaxLines).values(taxLine).run();
         const paymentLine = {
           entryId: entry.id,
-          date: today,
+          date: paidDate,
           description,
           recipient: customer?.name ?? "",
           amountCents: group.grossCents,

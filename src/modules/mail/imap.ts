@@ -2,7 +2,7 @@ import "server-only";
 
 import { ImapFlow, type FetchMessageObject, type ListResponse, type MessageAddressObject, type MessageStructureObject } from "imapflow";
 import { simpleParser, type AddressObject } from "mailparser";
-import { assertReachableMailHost, MailError, toMailError, type MailCredentials } from "./connection";
+import { MailError, resolveMailHost, toMailError, type MailCredentials, type MailTarget } from "./connection";
 import { hasRemoteContent, sanitizeMailHtml } from "./sanitize";
 import type { MailAddress, MailAttachmentInfo, MailFolder, MailListItem, MailListPage, MailMessage, MailSpecialUse } from "./types";
 
@@ -22,9 +22,9 @@ function fingerprintOf(id: string, credentials: MailCredentials) {
   return [id, credentials.imapHost, credentials.imapPort, credentials.imapSecure, credentials.username, credentials.password].join("\u0000");
 }
 
-function createClient(credentials: MailCredentials) {
+function createClient(credentials: MailCredentials, target: MailTarget) {
   return new ImapFlow({
-    host: credentials.imapHost,
+    ...target,
     port: credentials.imapPort,
     secure: credentials.imapSecure,
     auth: { user: credentials.username, pass: credentials.password },
@@ -53,8 +53,7 @@ async function clientFor(accountId: string, credentials: MailCredentials): Promi
     const created: PoolEntry = {
       fingerprint,
       ready: (async () => {
-        await assertReachableMailHost(credentials.imapHost);
-        const client = createClient(credentials);
+        const client = createClient(credentials, await resolveMailHost(credentials.imapHost));
         client.on("error", () => drop(accountId, created));
         client.on("close", () => drop(accountId, created));
         await client.connect();
@@ -95,8 +94,7 @@ export async function withImap<T>(accountId: string, credentials: MailCredential
 
 /** Logs in once without keeping the connection, to check new account settings. */
 export async function verifyImapLogin(credentials: MailCredentials): Promise<void> {
-  await assertReachableMailHost(credentials.imapHost);
-  const client = createClient(credentials);
+  const client = createClient(credentials, await resolveMailHost(credentials.imapHost));
   client.on("error", () => undefined);
   try {
     await client.connect();

@@ -1,8 +1,9 @@
 "use client";
 
-// The node-graph analysis editor: graph state, undo/redo, React Flow wiring and the studio layout.
+// The node-graph analysis editor: graph state, data loading and the studio layout. Committing edits and
+// undo/redo live in use-analysis-graph-commit.ts, React Flow change handlers in use-analysis-flow-changes.ts
+// and palette/toolbar actions in use-analysis-canvas-actions.ts.
 // Used by municipality-analysis-client.tsx inside a ReactFlowProvider.
-import { createId } from "@paralleldrive/cuid2";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -11,10 +12,7 @@ import {
   MiniMap,
   Controls,
   ReactFlow,
-  type Connection,
   type Edge,
-  type EdgeChange,
-  type NodeChange,
   SelectionMode,
   type Viewport,
   useReactFlow,
@@ -25,32 +23,19 @@ import {
   Save, SlidersHorizontal, Trash2,
   WandSparkles,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
-import {
-  renameMunicipalityAnalysis,
-  saveMunicipalityAnalysisGraph,
-} from "../../actions";
+import { renameMunicipalityAnalysis } from "../../actions";
 import {
   municipalityDatasetRefSchema,
   ANALYSIS_OPERATION_VERSION,
-  analysisNodeHeight,
-  analysisNodeWidth,
   analysisOperatorIds,
   applyMunicipalityAnalysisGraphOperations,
-  datasetMunicipalityName,
-  wouldCreateAnalysisCycle,
   type AnalysisOperatorId,
-  type AnalysisAnnotationColor,
   type MunicipalityAnalysisData,
-  type MunicipalityAnalysisGraph,
-  type MunicipalityAnalysisGraphOperation,
-  type MunicipalityDatasetRef,
 } from "../../analysis";
-import { arrangeAnalysisNodes, autoLayoutAnalysisGraph, type AnalysisArrangeAction } from "../../analysis-layout";
 import { loadMunicipalityAnalysisData } from "../../analysis-data";
 import {
   buildKennzahlGraph,
@@ -60,7 +45,7 @@ import type { MunicipalityAnalysisSummary, MunicipalityMetricRecord } from "../.
 import { useMunicipalityAnalysisPersistence } from "../municipality-analysis-persistence-provider";
 import { CONSTANT_DRAG_VALUE, DATASET_DRAG_TYPE, OPERATOR_DRAG_TYPE } from "./analysis-editor-constants";
 import { DeleteAnalysisDialog, SaveAsKennzahlDialog } from "./analysis-editor-dialogs";
-import type { AnalysisDisplayEdge, AnalysisRecord, DisplayNode } from "./analysis-editor-types";
+import type { AnalysisRecord, DisplayNode } from "./analysis-editor-types";
 import { AnalysisInspectorPanel } from "./analysis-inspector-panel";
 import { analysisOptionLabel, datasetTitle } from "./analysis-labels";
 import { edgeTypes, nodeTypes } from "./analysis-node-card";
@@ -68,11 +53,12 @@ import { AnalysisQuickAddDialog } from "./analysis-quick-add-dialog";
 import { AnalysisHistoryButtons, AnalysisQuickAddButton } from "./analysis-toolbar-buttons";
 import { MunicipalityPicker } from "./municipality-picker";
 import { StudioPalette } from "./studio-palette";
+import { useAnalysisCanvasActions } from "./use-analysis-canvas-actions";
 import { useAnalysisDisplayGraph } from "./use-analysis-display-graph";
+import { useAnalysisFlowChanges } from "./use-analysis-flow-changes";
+import { useAnalysisGraphCommit } from "./use-analysis-graph-commit";
 import { useAnalysisShortcuts } from "./use-analysis-shortcuts";
 
-/** How many edits back undo reaches. Each entry is a whole graph, capped at 100 nodes. */
-const UNDO_DEPTH = 50;
 // The node card is w-52 and roughly this tall — enough to tell whether a restored
 // viewport still shows anything, which is all these are used for.
 const NODE_WIDTH = 208;
@@ -83,7 +69,7 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
   const tf = useTranslations("municipalityFilters");
   const router = useRouter();
   const reactFlow = useReactFlow<DisplayNode, Edge>();
-  const { enqueue, flush, getPendingOperations, getSaveState, markApplied } = useMunicipalityAnalysisPersistence();
+  const { flush, getPendingOperations, getSaveState, markApplied } = useMunicipalityAnalysisPersistence();
   const optimisticOperations = getPendingOperations(analysis.id);
   const [graph, setGraph] = useState(analysis.graph);
   const graphRef = useRef(graph);
@@ -118,14 +104,6 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
     () => lastPointerPosition.current ? reactFlow.screenToFlowPosition(lastPointerPosition.current) : null,
     [reactFlow],
   );
-  // Undo restores a whole earlier graph rather than inverting operations, so this is a
-  // bounded stack of snapshots. Selection and viewport are excluded: they would fill it
-  // with entries that look like nothing happened.
-  const undoStack = useRef<MunicipalityAnalysisGraph[]>([]);
-  const redoStack = useRef<MunicipalityAnalysisGraph[]>([]);
-  /** Set for the rest of the turn once a snapshot has been taken — see `commitOperations`. */
-  const historyRecorded = useRef(false);
-  const [historyDepth, setHistoryDepth] = useState({ undo: 0, redo: 0 });
   const datasetSignature = useMemo(() => JSON.stringify(graph.nodes.flatMap((node) => node.type === "dataset" ? [node.data.dataset] : [])), [graph.nodes]);
   const optimisticSignature = JSON.stringify(optimisticOperations);
 
@@ -176,131 +154,18 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
     return () => cancelAnimationFrame(frame);
   }, [reactFlow]);
 
-  const commitOperations = useCallback((
-    operations: MunicipalityAnalysisGraphOperation[],
-    options?: { debounceKey?: string; delay?: number; recordHistory?: boolean },
-  ) => {
-    try {
-      const before = graphRef.current;
-      const next = applyMunicipalityAnalysisGraphOperations(before, operations, expandKennzahlIntoGraph).graph;
-      // One gesture is one step back, even when it reaches the graph as several commits.
-      // Deleting a connected block is the case that needs this: React Flow reports the
-      // removal of its connections first and the block itself after, both in the same
-      // turn, and recording each separately left an undo that restored a block with its
-      // connections silently missing.
-      if ((options?.recordHistory ?? true) && operations.some(({ type }) => type !== "set-selected-node" && type !== "set-viewport")) {
-        if (!historyRecorded.current) {
-          undoStack.current = [...undoStack.current, before].slice(-UNDO_DEPTH);
-          historyRecorded.current = true;
-          queueMicrotask(() => { historyRecorded.current = false; });
-        }
-        redoStack.current = [];
-        setHistoryDepth({ undo: undoStack.current.length, redo: 0 });
-      }
-      graphRef.current = next;
-      setGraph(next);
-      enqueue(analysis.id, operations, options);
-      // Applied right here, so the queue never hands them back for a replay on top of
-      // themselves — see `markApplied`.
-      markApplied(analysis.id, operations);
-      return true;
-    } catch {
-      toast.error(t("analysisNodeLimit"));
-      return false;
-    }
-  }, [analysis.id, enqueue, markApplied, setGraph, setHistoryDepth, t]);
-
-  // Debounced: editing a constant is typing, and each keystroke should not become its own
-  // entry in the operation journal.
-  const setNodeValue = useCallback((nodeId: string, value: number) => {
-    if (!Number.isFinite(value)) return;
-    commitOperations(
-      [{ version: ANALYSIS_OPERATION_VERSION, type: "set-node-value", nodeId, value }],
-      { debounceKey: `node-value:${nodeId}`, delay: 400 },
-    );
-  }, [commitOperations]);
-
-  const setNodeTitle = useCallback((nodeId: string, title: string | null) => {
-    commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "set-node-title",
-      nodeId,
-      title,
-    }]);
-  }, [commitOperations]);
-
-  const setAnnotation = useCallback((nodeId: string, text: string, color: AnalysisAnnotationColor) => {
-    commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "set-annotation",
-      nodeId,
-      text,
-      color,
-    }], { debounceKey: `annotation:${nodeId}`, delay: 300 });
-  }, [commitOperations]);
-
-  /**
-   * Undo restores the graph as it stood before the last edit and writes that whole graph,
-   * rather than trying to invert each operation. The queue is drained first so a delayed
-   * move cannot land on top of the restored state.
-   */
-  const undoLastEdit = useCallback(() => {
-    const previous = undoStack.current.pop();
-    if (!previous) return;
-    redoStack.current = [...redoStack.current, graphRef.current].slice(-UNDO_DEPTH);
-    setHistoryDepth({ undo: undoStack.current.length, redo: redoStack.current.length });
-    graphRef.current = previous;
-    setGraph(previous);
-    setDragPositions(null);
-    setResizeDrafts({});
-    const selection = previous.selectedNodeId ? [previous.selectedNodeId] : [];
-    selectedNodeIdsRef.current = selection;
-    setSelectedNodeIds(selection);
-    startTransition(async () => {
-      await flush(analysis.id);
-      await saveMunicipalityAnalysisGraph({ analysisId: analysis.id, graph: previous });
-      toast(t("analysisUndone"));
-      router.refresh();
-    });
-  }, [analysis.id, flush, router, setDragPositions, setGraph, setHistoryDepth, setResizeDrafts, setSelectedNodeIds, startTransition, t]);
-
-  const redoLastEdit = useCallback(() => {
-    const next = redoStack.current.pop();
-    if (!next) return;
-    undoStack.current = [...undoStack.current, graphRef.current].slice(-UNDO_DEPTH);
-    setHistoryDepth({ undo: undoStack.current.length, redo: redoStack.current.length });
-    graphRef.current = next;
-    setGraph(next);
-    setDragPositions(null);
-    setResizeDrafts({});
-    const selection = next.selectedNodeId ? [next.selectedNodeId] : [];
-    selectedNodeIdsRef.current = selection;
-    setSelectedNodeIds(selection);
-    startTransition(async () => {
-      await flush(analysis.id);
-      await saveMunicipalityAnalysisGraph({ analysisId: analysis.id, graph: next });
-      toast(t("analysisRedone"));
-      router.refresh();
-    });
-  }, [analysis.id, flush, router, setDragPositions, setGraph, setHistoryDepth, setResizeDrafts, setSelectedNodeIds, startTransition, t]);
+  const {
+    commitOperations, setNodeValue, setNodeTitle, setAnnotation, undoLastEdit, redoLastEdit, historyDepth,
+  } = useAnalysisGraphCommit({
+    analysis, graphRef, setGraph, startTransition, setDragPositions, setResizeDrafts, selectedNodeIdsRef, setSelectedNodeIds,
+  });
 
   const { quickAddOpen, setQuickAddOpen } = useAnalysisShortcuts({ undoLastEdit, redoLastEdit });
 
-  /**
-   * Pins the node to the graph's subject, or releases a pinned one. A node that arrived
-   * from the map carries the municipality that was selected there; without this the
-   * header can say "no municipality" while every node is about one.
-   */
-  const togglePin = useCallback((nodeId: string) => {
-    const node = graphRef.current.nodes.find(({ id }) => id === nodeId);
-    if (!node || node.type !== "dataset" || node.data.dataset.kind === "constant") return;
-    const pinned = Boolean(datasetMunicipalityName(node.data.dataset));
-    if (!pinned && !graphRef.current.subject) { toast.error(t("pinNodeNoSubject")); return; }
-    commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION, type: "set-node-municipality", nodeId,
-      municipality: pinned ? null : graphRef.current.subject,
-    }]);
-  }, [commitOperations, t]);
+  const {
+    togglePin, addOperator, addConstant, addAnnotation, insertDataset,
+    autoLayout, arrangeSelection, resizeSelectedNode, deleteSelection,
+  } = useAnalysisCanvasActions({ graphRef, commitOperations, pointerFlowPosition, selectedNodeIdsRef, setSelectedNodeIds });
 
   const {
     results, positionedNodes, displayEdges,
@@ -315,240 +180,9 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
       : selectedNode?.type === "annotation" ? t("studioNote") : t("analysisNoResultSelected");
   const selectedTitle = selectedNode && selectedNode.type !== "annotation" ? selectedNode.data.alias ?? selectedTechnicalTitle : selectedTechnicalTitle;
 
-  const onNodesChange = useCallback((changes: NodeChange<DisplayNode>[]) => {
-    const resizeBatchIds = new Set(changes.flatMap((change) => change.type === "dimensions" && change.resizing !== undefined ? [change.id] : []));
-    const selection = new Set(selectedNodeIdsRef.current);
-    let selectionChanged = false;
-    const updateResizeDraft = (id: string, draft: { x?: number; y?: number; width?: number; height?: number }) => {
-      const next = { ...(resizeDraftsRef.current[id] ?? {}), ...draft };
-      resizeDraftsRef.current = { ...resizeDraftsRef.current, [id]: next };
-      setResizeDrafts(resizeDraftsRef.current);
-      return next;
-    };
-    // Deleting or dropping a multiple selection arrives as one batch of changes. Committing
-    // each one on its own would fill the undo stack with steps the reader never took, and
-    // stack up a toast per node.
-    const removedIds: string[] = [];
-    const moves: Array<Extract<MunicipalityAnalysisGraphOperation, { type: "move-node" }>> = [];
-    for (const change of changes) {
-      if (change.type === "remove") {
-        removedIds.push(change.id);
-        selection.delete(change.id);
-        selectionChanged = true;
-      } else if (change.type === "position" && change.position) {
-        const { id, position } = change;
-        if (resizeBatchIds.has(id)) {
-          updateResizeDraft(id, position);
-          continue;
-        }
-        if (change.dragging) {
-          setDragPositions((current) => ({ ...current, [id]: position }));
-          continue;
-        }
-        setDragPositions(null);
-        const current = graphRef.current.nodes.find((node) => node.id === id);
-        if (current?.position.x === position.x && current.position.y === position.y) continue;
-        moves.push({ version: ANALYSIS_OPERATION_VERSION, type: "move-node", nodeId: id, position });
-      } else if (change.type === "dimensions" && change.dimensions && change.resizing !== undefined) {
-        const draft = updateResizeDraft(change.id, change.dimensions);
-        if (change.resizing === false) {
-          const node = graphRef.current.nodes.find(({ id }) => id === change.id);
-          if (node) {
-            commitOperations([{
-              version: ANALYSIS_OPERATION_VERSION,
-              type: "resize-node",
-              nodeId: change.id,
-              position: { x: draft.x ?? node.position.x, y: draft.y ?? node.position.y },
-              width: draft.width ?? analysisNodeWidth(node),
-              height: draft.height ?? analysisNodeHeight(node),
-            }]);
-          }
-          const remaining = { ...resizeDraftsRef.current };
-          delete remaining[change.id];
-          resizeDraftsRef.current = remaining;
-          setResizeDrafts(remaining);
-        }
-      } else if (change.type === "select") {
-        if (change.selected) selection.add(change.id);
-        else selection.delete(change.id);
-        selectionChanged = true;
-      }
-    }
-    if (removedIds.length) {
-      // Backspace/Delete removes nodes straight into the persisted graph, so the removal
-      // has to be reversible: keep the nodes and their edges for the undo action.
-      const removed = new Set(removedIds);
-      const removedNodes = graphRef.current.nodes.filter(({ id }) => removed.has(id));
-      const removedEdges = graphRef.current.edges.filter(({ source, target }) => removed.has(source) || removed.has(target));
-      commitOperations(removedIds.map((nodeId) => ({ version: ANALYSIS_OPERATION_VERSION, type: "remove-node", nodeId })));
-      if (removedNodes.length) {
-        toast(t("analysisNodeRemoved", { count: removedNodes.length }), {
-          action: {
-            label: t("analysisUndo"),
-            onClick: () => commitOperations([
-              ...removedNodes.map((node): MunicipalityAnalysisGraphOperation => ({
-                version: ANALYSIS_OPERATION_VERSION, type: "add-node", node,
-              })),
-              ...removedEdges.map((edge): MunicipalityAnalysisGraphOperation => ({
-                version: ANALYSIS_OPERATION_VERSION, type: "add-edge", edge,
-              })),
-            ]),
-          },
-        });
-      }
-    }
-    if (moves.length) commitOperations(moves, { debounceKey: `node-position:${moves.map(({ nodeId }) => nodeId).join(",")}`, delay: 500 });
-    if (selectionChanged) {
-      const ids = [...selection];
-      selectedNodeIdsRef.current = ids;
-      setSelectedNodeIds(ids);
-      const primary = ids.at(-1) ?? null;
-      if (primary !== graphRef.current.selectedNodeId) {
-        commitOperations([{ version: ANALYSIS_OPERATION_VERSION, type: "set-selected-node", nodeId: primary }], { recordHistory: false });
-      }
-    }
-  }, [commitOperations, setDragPositions, setResizeDrafts, setSelectedNodeIds, t]);
-
-  /**
-   * Connections carry no selection of their own in the saved graph, so it is held here and
-   * handed back to React Flow — which is what lets one be clicked and then deleted.
-   */
-  const onEdgesChange = useCallback((changes: EdgeChange<AnalysisDisplayEdge>[]) => {
-    const removed = changes.flatMap((change) => change.type === "remove" ? [change.id] : []);
-    if (removed.length) {
-      commitOperations(removed.map((edgeId) => ({ version: ANALYSIS_OPERATION_VERSION, type: "remove-edge", edgeId })));
-    }
-    const selections = changes.filter((change) => change.type === "select");
-    if (removed.length || selections.length) {
-      setSelectedEdgeIds((current) => {
-        const next = new Set(current.filter((id) => !removed.includes(id)));
-        for (const change of selections) {
-          if (change.selected) next.add(change.id);
-          else next.delete(change.id);
-        }
-        return [...next];
-      });
-    }
-  }, [commitOperations, setSelectedEdgeIds]);
-
-  const connect = useCallback((connection: Connection) => {
-    if (!connection.source || !connection.target || (connection.targetHandle !== "a" && connection.targetHandle !== "b")) return;
-    if (wouldCreateAnalysisCycle(graphRef.current.edges, connection.source, connection.target)) {
-      toast.error(t("analysisCycleError"));
-      return;
-    }
-    commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "add-edge",
-      edge: { id: createId(), source: connection.source, target: connection.target, sourceHandle: "output", targetHandle: connection.targetHandle },
-    }]);
-  }, [commitOperations, t]);
-
-  // Stable identities: the palette below is a hundred-odd catalog entries, and it must
-  // not be rebuilt on every frame of a node drag just because a callback is new.
-  const addOperator = useCallback((operator: AnalysisOperatorId, position?: { x: number; y: number }) => {
-    if (graphRef.current.nodes.length >= 100) { toast.error(t("analysisNodeLimit")); return; }
-    const id = createId();
-    if (commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "add-node",
-      node: { id, type: "operator", position: position ?? pointerFlowPosition() ?? { x: 360, y: 120 + graphRef.current.nodes.length * 30 }, data: { operator } },
-    }])) {
-      selectedNodeIdsRef.current = [id];
-      setSelectedNodeIds([id]);
-    }
-  }, [commitOperations, pointerFlowPosition, setSelectedNodeIds, t]);
-
-  const addConstant = useCallback((position?: { x: number; y: number }) => {
-    if (graphRef.current.nodes.length >= 100) { toast.error(t("analysisNodeLimit")); return; }
-    const id = createId();
-    if (commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "add-node",
-      node: {
-        id, type: "dataset",
-        position: position ?? pointerFlowPosition() ?? { x: 360, y: 120 + graphRef.current.nodes.length * 30 },
-        data: { dataset: { kind: "constant", value: 0 } },
-      },
-    }])) {
-      selectedNodeIdsRef.current = [id];
-      setSelectedNodeIds([id]);
-    }
-  }, [commitOperations, pointerFlowPosition, setSelectedNodeIds, t]);
-
-  const addAnnotation = useCallback((position?: { x: number; y: number }) => {
-    if (graphRef.current.nodes.length >= 100) { toast.error(t("analysisNodeLimit")); return; }
-    const id = createId();
-    if (commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "add-node",
-      node: {
-        id,
-        type: "annotation",
-        position: position ?? pointerFlowPosition() ?? { x: 240, y: 160 + graphRef.current.nodes.length * 24 },
-        data: { text: t("studioNotePlaceholder"), color: "sand" },
-      },
-    }])) {
-      selectedNodeIdsRef.current = [id];
-      setSelectedNodeIds([id]);
-    }
-  }, [commitOperations, pointerFlowPosition, setSelectedNodeIds, t]);
-
-  function applyNodePositions(positions: Record<string, { x: number; y: number }>) {
-    const operations = Object.entries(positions).flatMap(([nodeId, position]): MunicipalityAnalysisGraphOperation[] => {
-      const node = graphRef.current.nodes.find(({ id }) => id === nodeId);
-      if (!node || (node.position.x === position.x && node.position.y === position.y)) return [];
-      return [{ version: ANALYSIS_OPERATION_VERSION, type: "move-node", nodeId, position }];
-    });
-    if (operations.length) commitOperations(operations);
-  }
-
-  function autoLayout() {
-    applyNodePositions(autoLayoutAnalysisGraph(graphRef.current));
-    requestAnimationFrame(() => void reactFlow.fitView({ padding: 0.2, duration: 250 }));
-  }
-
-  function arrangeSelection(action: AnalysisArrangeAction) {
-    applyNodePositions(arrangeAnalysisNodes(graphRef.current, selectedNodeIdsRef.current, action));
-  }
-
-  function resizeSelectedNode(size: { width?: number; height?: number }) {
-    const node = selectedNodeIdsRef.current.length === 1
-      ? graphRef.current.nodes.find(({ id }) => id === selectedNodeIdsRef.current[0])
-      : null;
-    if (!node) return;
-    const width = size.width ?? analysisNodeWidth(node);
-    const height = size.height ?? analysisNodeHeight(node);
-    if (!Number.isFinite(width) || !Number.isFinite(height)) return;
-    commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION,
-      type: "resize-node",
-      nodeId: node.id,
-      position: node.position,
-      width,
-      height,
-    }], { debounceKey: `node-size:${node.id}`, delay: 300 });
-  }
-
-  function deleteSelection() {
-    const ids = [...selectedNodeIdsRef.current];
-    if (!ids.length) return;
-    commitOperations(ids.map((nodeId) => ({ version: ANALYSIS_OPERATION_VERSION, type: "remove-node", nodeId })));
-    selectedNodeIdsRef.current = [];
-    setSelectedNodeIds([]);
-  }
-
-  /**
-   * Puts a catalog entry on the canvas. One operation for both catalogs: `add-kennzahl`
-   * expands a derivation into real nodes and falls back to a single node for an
-   * Ausgangsdatum, which is exactly the difference between the two lists.
-   */
-  const insertDataset = useCallback((request: { label: string; dataset: MunicipalityDatasetRef }, position?: { x: number; y: number }) => {
-    const inserted = commitOperations([{
-      version: ANALYSIS_OPERATION_VERSION, type: "add-kennzahl", nodeId: createId(), dataset: request.dataset, position,
-    }]);
-    if (inserted) toast.success(t("kennzahlInserted", { kennzahl: request.label }));
-  }, [commitOperations, t]);
+  const { onNodesChange, onEdgesChange, connect } = useAnalysisFlowChanges({
+    graphRef, commitOperations, setDragPositions, resizeDraftsRef, setResizeDrafts, selectedNodeIdsRef, setSelectedNodeIds, setSelectedEdgeIds,
+  });
 
   function commitRename() {
     if (!name.trim() || name.trim() === analysis.name) { setName(analysis.name); setRenaming(false); return; }

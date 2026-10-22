@@ -11,7 +11,7 @@ vi.mock("@/db", async () => {
   return { db, sqlite };
 });
 import { db, sqlite } from "@/db";
-import { categories, customers, entries, invoices, user } from "@/db/schema";
+import { categories, customers, entries, invoices, tasks, user } from "@/db/schema";
 import { attachmentAccessError } from "./attachment-access";
 
 const member = { id: "member", role: "member" };
@@ -40,6 +40,7 @@ beforeAll(() => {
     { ...invoice, id: "inv-draft", invoiceNumber: "RE-1", numberSeq: 1, status: "draft" },
     { ...invoice, id: "inv-sent", invoiceNumber: "RE-2", numberSeq: 2, status: "sent" },
   ]).run();
+  db.insert(tasks).values({ id: "task", title: "Task", createdBy: "member" }).run();
 });
 afterAll(() => sqlite.close());
 
@@ -56,4 +57,11 @@ it("hides payroll receipts from roles without personnel access", () => {
   expect(attachmentAccessError(member, "entry", "salary", "read")).toBe(404);
   expect(attachmentAccessError(personnel, "entry", "salary", "read")).toBeNull();
   expect(attachmentAccessError(member, "entry", "missing", "read")).toBe(404);
+});
+
+it("refuses uploads to tasks, pages and sources that do not exist", () => {
+  expect(attachmentAccessError(member, "task", "task", "upload")).toBeNull();
+  expect(attachmentAccessError(member, "task", "missing", "upload")).toBe(404);
+  expect(attachmentAccessError(member, "wikiPage", "missing", "upload")).toBe(404);
+  expect(attachmentAccessError(member, "wikiSource", "missing", "read")).toBe(404);
 });

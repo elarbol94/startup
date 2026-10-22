@@ -22,6 +22,11 @@ function snapshot(columns: Column[], prefix: string) {
  */
 export function installVersionJournal(sqlite: Database.Database, schemaTables: string[]) {
   sqlite.transaction(() => {
+    // A table excluded after it was tracked loses its triggers and its already journaled rows.
+    for (const table of schemaTables.filter(table => !tracksTable(table))) {
+      for (const operation of ["insert", "update", "delete"]) sqlite.exec(`DROP TRIGGER IF EXISTS ${quote(`platform_version_${table}_${operation}`)}`);
+      sqlite.exec(`DELETE FROM platform_versions WHERE table_name = ${literal(table)}`);
+    }
     for (const table of schemaTables.filter(tracksTable)) {
       const columns = columnsFor(sqlite, table);
       if (!columns.length) continue;

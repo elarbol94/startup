@@ -11,6 +11,10 @@ export const excludedTables = new Set([
   "calendar_subscriptions",
   // Office history is append-only and managed by the office store/UI.
   "wiki_office_documents", "wiki_office_sessions", "wiki_office_versions", "wiki_office_operations",
+  // Holds the encrypted mailbox password.
+  "mail_accounts",
+  // Worker heartbeats and chunk progress change every few seconds; OCR text is already in the FTS index.
+  "meeting_jobs", "media_upload_sessions", "wiki_pdf_pages",
 ]);
 
 export function tracksTable(name: string) {

@@ -213,18 +213,6 @@ export function listMembers() {
     .all();
 }
 
-export function getTaskDialogOptions() {
-  return {
-    members: listMembers(),
-    projects: db
-      .select({ id: projects.id, name: projects.name })
-      .from(projects)
-      .where(eq(projects.status, "active"))
-      .orderBy(asc(projects.name))
-      .all(),
-  };
-}
-
 export type TaskOverviewFilters = {
   includeProjects?: boolean;
   assigneeId?: string;

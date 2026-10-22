@@ -12,7 +12,7 @@ vi.mock("@/db", async () => {
   return { db, sqlite };
 });
 import { db, sqlite } from "@/db";
-import { account, networkContacts, networkContactTags, networkLeads, networkTags, session, user, userInvitations, userProfilePreferences, projects } from "@/db/schema";
+import { account, calendars, calendarSubscriptions, mailAccounts, networkContacts, networkContactTags, networkLeads, networkTags, session, user, userInvitations, userProfilePreferences, projects } from "@/db/schema";
 import { removeUserAccount } from "./user-removal";
 import { listUsers } from "./queries";
 
@@ -81,6 +81,19 @@ it("rolls back all changes on a storage failure", () => {
 it("returns a missing-user error without affecting other accounts", () => {
   expect(removeUserAccount("missing", "admin")).toEqual({ error: "userNotFound" });
   expect(listUsers()).toHaveLength(2);
+});
+it("deletes the removed user's mail accounts and calendar feed subscriptions", () => {
+  db.insert(mailAccounts).values([
+    { id: "mine", userId: "member", emailAddress: "m@example.com", imapHost: "imap", smtpHost: "smtp", username: "m", passwordEncrypted: "secret" },
+    { id: "admins", userId: "admin", emailAddress: "a@example.com", imapHost: "imap", smtpHost: "smtp", username: "a", passwordEncrypted: "secret" },
+  ]).run();
+  db.insert(calendars).values([{ id: "feed", ownerId: "member", name: "Feed" }, { id: "admin-feed", ownerId: "admin", name: "Feed" }]).run();
+  db.insert(calendarSubscriptions).values([{ calendarId: "feed", url: "https://secret/feed.ics" }, { calendarId: "admin-feed", url: "https://secret/admin.ics" }]).run();
+
+  expect(removeUserAccount("member", "admin")).toEqual({ error: null });
+  expect(db.select({ id: mailAccounts.id }).from(mailAccounts).all()).toEqual([{ id: "admins" }]);
+  expect(db.select({ id: calendarSubscriptions.calendarId }).from(calendarSubscriptions).all()).toEqual([{ id: "admin-feed" }]);
+  expect(db.select({ id: calendars.id }).from(calendars).all().map((row) => row.id).sort()).toEqual(["admin-feed", "feed"]);
 });
 it("deletes the removed user's private network contacts but keeps shared ones", () => {
   db.insert(networkContacts).values([

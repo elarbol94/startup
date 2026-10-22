@@ -1,11 +1,14 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
-import { and, eq, notInArray, or, sql } from "drizzle-orm";
+import { and, eq, inArray, notInArray, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { removeUnusedOrganizations } from "@/modules/network/organizations";
 import {
   account,
+  calendars,
+  calendarSubscriptions,
+  mailAccounts,
   networkContacts,
   networkContactTags,
   networkTags,
@@ -37,6 +40,9 @@ export function removeUserAccount(userId: string, adminId: string) {
     tx.delete(session).where(or(eq(session.userId, userId), eq(session.impersonatedBy, userId))).run();
     tx.delete(account).where(eq(account.userId, userId)).run();
     tx.delete(userProfilePreferences).where(eq(userProfilePreferences.userId, userId)).run();
+    // Mailbox credentials and secret feed URLs leave with the account; synced events stay.
+    tx.delete(mailAccounts).where(eq(mailAccounts.userId, userId)).run();
+    tx.delete(calendarSubscriptions).where(inArray(calendarSubscriptions.calendarId, tx.select({ id: calendars.id }).from(calendars).where(eq(calendars.ownerId, userId)))).run();
     // Revoke links issued by this user and old links addressed to their account.
     // In-flight sends cannot reactivate a deleted invitation row.
     tx.delete(userInvitations).where(or(

@@ -26,7 +26,7 @@ import {
   kennzahlFromGraph,
   serializeKennzahlExpression,
 } from "./kennzahlen";
-import { listMunicipalityAnalysesForUser, listMunicipalityMetricsForUser } from "./queries";
+import { listMunicipalityAnalysesForUser } from "./queries";
 import { municipalityAnalyses, municipalityMetrics } from "./schema";
 
 const idSchema = z.string().min(1).max(100);
@@ -95,13 +95,6 @@ export async function createMunicipalityAnalysis(input: {
 export async function createMunicipalityAnalysisAndRedirect(formData: FormData) {
   const result = await createMunicipalityAnalysis({ name: String(formData.get("name") ?? "") });
   redirect(`/municipalities/analysis?analysis=${encodeURIComponent(result.id)}`);
-}
-
-export async function addDatasetToMunicipalityAnalysis(input: {
-  analysisId: string;
-  dataset: unknown;
-}) {
-  return addDatasetsToMunicipalityAnalysis({ analysisId: input.analysisId, datasets: [input.dataset] });
 }
 
 export async function addDatasetsToMunicipalityAnalysis(input: {
@@ -210,17 +203,11 @@ export async function deleteMunicipalityAnalysis(analysisIdInput: string) {
   return { deleted: true };
 }
 
-
 // --- user-defined Kennzahlen ------------------------------------------------
 
 function revalidateMetrics() {
   revalidatePath("/municipalities/overview");
   revalidatePath("/municipalities/analysis");
-}
-
-export async function listMyMunicipalityMetrics() {
-  const user = await requireUserOrThrow();
-  return listMunicipalityMetricsForUser(user.id);
 }
 
 /**

@@ -2,7 +2,7 @@ import "server-only";
 
 import nodemailer from "nodemailer";
 import MailComposer from "nodemailer/lib/mail-composer";
-import { assertReachableMailHost, MailError, toMailError, type MailCredentials } from "./connection";
+import { MailError, resolveMailHost, toMailError, type MailCredentials, type MailTarget } from "./connection";
 import { formatAddress } from "./mail-utils";
 import type { MailAddress } from "./types";
 
@@ -17,9 +17,9 @@ export type OutgoingMail = {
   attachments: { filename: string; contentType: string; content: Buffer }[];
 };
 
-function transportFor(credentials: MailCredentials) {
+function transportFor(credentials: MailCredentials, target: MailTarget) {
   return nodemailer.createTransport({
-    host: credentials.smtpHost,
+    ...target,
     port: credentials.smtpPort,
     secure: credentials.smtpSecurity === "tls",
     requireTLS: credentials.smtpSecurity === "starttls",
@@ -34,8 +34,7 @@ function transportFor(credentials: MailCredentials) {
 
 /** Logs in to the SMTP server without sending, to check new account settings. */
 export async function verifySmtpLogin(credentials: MailCredentials): Promise<void> {
-  await assertReachableMailHost(credentials.smtpHost);
-  const transport = transportFor(credentials);
+  const transport = transportFor(credentials, await resolveMailHost(credentials.smtpHost));
   try {
     await transport.verify();
   } catch (error) {
@@ -53,7 +52,7 @@ export async function verifySmtpLogin(credentials: MailCredentials): Promise<voi
  */
 export async function sendOutgoingMail(credentials: MailCredentials, mail: OutgoingMail): Promise<{ raw: Buffer; rejected: string[] }> {
   if (mail.to.length + mail.cc.length + mail.bcc.length === 0) throw new MailError("recipient_rejected", "No recipients");
-  await assertReachableMailHost(credentials.smtpHost);
+  const target = await resolveMailHost(credentials.smtpHost);
   const from = { name: credentials.displayName, address: credentials.emailAddress };
   const composer = new MailComposer({
     from: formatAddress(from),
@@ -68,7 +67,7 @@ export async function sendOutgoingMail(credentials: MailCredentials, mail: Outgo
     disableUrlAccess: true,
   });
   const raw = await composer.compile().build();
-  const transport = transportFor(credentials);
+  const transport = transportFor(credentials, target);
   try {
     const result = await transport.sendMail({
       envelope: {

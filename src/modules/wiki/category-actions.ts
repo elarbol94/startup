@@ -79,29 +79,6 @@ export async function deleteCategory(id: string) {
   revalidateCategories();
 }
 
-export async function reorderCategories(input: { parentId: string | null; orderedIds: string[] }) {
-  await requireUserOrThrow();
-  const data = z.object({
-    parentId: z.string().min(1).nullable(),
-    orderedIds: z.array(z.string().min(1)).min(1).max(500),
-  }).parse(input);
-  const rows = db
-    .select({ id: wikiCategories.id, parentId: wikiCategories.parentId })
-    .from(wikiCategories)
-    .where(inArray(wikiCategories.id, data.orderedIds))
-    .all();
-  if (rows.length !== data.orderedIds.length) throw new Error("Category not found");
-  if (rows.some((row) => (row.parentId ?? null) !== data.parentId)) {
-    throw new Error("Categories do not share the given parent");
-  }
-  db.transaction(() => {
-    data.orderedIds.forEach((id, index) => {
-      db.update(wikiCategories).set({ sortOrder: index, updatedAt: new Date() }).where(eq(wikiCategories.id, id)).run();
-    });
-  });
-  revalidateCategories();
-}
-
 /** Moves a passage from one outline entry to another without touching the annotation. */
 export async function moveEvidenceToCategory(input: { linkId: string; categoryId: string }) {
   await requireUserOrThrow();

@@ -1,14 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db, sqlite } from "@/db";
 import {
   wikiFavorites,
-  wikiPages,
-  wikiCitationStyles,
-  wikiPageSources,
   wikiPageTags,
   wikiSourceContributors,
   wikiSourceRevisions,
@@ -18,8 +15,8 @@ import {
 } from "@/db/schema";
 import { requireAdmin, requireUserOrThrow } from "@/lib/auth";
 import { sourceInputSchema } from "./lib/source-input";
-import { ensureTags, saveSourceRecord, syncSourceFts } from "./source-records";
-import { purgePageTree, purgeSource, restorePageTree, restoreSource, softDeleteSource } from "./page-trash";
+import { saveSourceRecord, syncSourceFts } from "./source-records";
+import { purgePageTree, purgeSource, softDeleteSource } from "./page-trash";
 import { buildFtsQuery } from "./lib/tiptap";
 import { fuseRankings } from "./lib/search-ranking";
 import { searchSimilar } from "./lib/vector-store.server";
@@ -27,28 +24,6 @@ import { searchPdfPageText } from "./pdf-queries";
 
 function revalidateWiki() {
   revalidatePath("/wiki", "layout");
-}
-
-const pageMetaSchema = z.object({
-  pageId: z.string().min(1),
-  status: z.enum(["inbox", "working", "evergreen"]),
-  citationLocale: z.enum(["de-DE", "en-US"]),
-  citationStyle: z.enum(wikiCitationStyles).optional(),
-  tagNames: z.array(z.string().trim().min(1).max(40)).max(20),
-});
-
-export async function updatePageResearchMeta(input: z.input<typeof pageMetaSchema>) {
-  const currentUser = await requireUserOrThrow();
-  const data = pageMetaSchema.parse(input);
-  const page = db.select().from(wikiPages).where(and(eq(wikiPages.id, data.pageId), isNull(wikiPages.deletedAt))).get();
-  if (!page) throw new Error("Page not found");
-  const tags = ensureTags(data.tagNames, currentUser.id);
-  db.transaction(() => {
-    db.update(wikiPages).set({ status: data.status, citationLocale: data.citationLocale, ...(data.citationStyle ? { citationStyle: data.citationStyle } : {}), updatedBy: currentUser.id, updatedAt: new Date(), version: page.version + 1 }).where(eq(wikiPages.id, page.id)).run();
-    db.delete(wikiPageTags).where(eq(wikiPageTags.pageId, page.id)).run();
-    if (tags.length) db.insert(wikiPageTags).values(tags.map((tag) => ({ pageId: page.id, tagId: tag.id }))).run();
-  });
-  revalidateWiki();
 }
 
 export async function toggleFavorite(entityType: "page" | "source", entityId: string) {
@@ -68,23 +43,9 @@ export async function saveSource(input: z.infer<typeof sourceInputSchema>) {
   return result;
 }
 
-export async function linkSupportingSource(pageId: string, sourceId: string) {
-  await requireUserOrThrow();
-  db.insert(wikiPageSources).values({ pageId, sourceId, relation: "supporting" }).onConflictDoNothing().run();
-  revalidateWiki();
-}
-
 export async function deleteSource(id: string) {
   const currentUser = await requireUserOrThrow();
   db.transaction(() => softDeleteSource(id, currentUser.id));
-  revalidateWiki();
-}
-
-export async function restoreFromTrash(entityType: "page" | "source", id: string) {
-  const currentUser = await requireUserOrThrow();
-  const result = entityType === "page" ? restorePageTree(id, currentUser.id).result : restoreSource(id, currentUser.id);
-  if (result === "notFound") throw new Error(entityType === "page" ? "Page not found" : "Source not found");
-  if (result === "notTrashed") throw new Error("Not in the trash");
   revalidateWiki();
 }
 
@@ -266,4 +227,3 @@ export async function mergeTags(sourceTagId: string, targetTagId: string) {
   });
   revalidateWiki();
 }
-

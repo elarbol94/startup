@@ -54,7 +54,8 @@ Settings.
 
 ## Workflow
 
-Refresh the snapshot from the current app code:
+`design/source/` is not committed: generate it from the current app code
+whenever you need it:
 
 ```bash
 npm run design:sync

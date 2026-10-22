@@ -8,10 +8,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
 import { requireUserOrThrow } from "@/lib/auth";
-import { calendarPreferences, calendarSavedViews, calendarViews } from "./schema";
+import { calendarSavedViews, calendarViews } from "./schema";
 import type { CalendarView } from "./types";
-
-const timePattern = /^\d{2}:\d{2}$/;
 
 export async function saveCalendarView(input: {
   id?: string;
@@ -83,54 +81,4 @@ export async function saveCalendarView(input: {
   });
   revalidatePath("/calendar");
   return id;
-}
-
-export async function updateCalendarPreferences(input: {
-  timezone: string;
-  weekStartsOn: number;
-  workingDayStart: string;
-  workingDayEnd: string;
-  workingDays: number[];
-  defaultView: CalendarView;
-}) {
-  const currentUser = await requireUserOrThrow();
-  const data = z
-    .object({
-      timezone: z.string().trim().min(1).max(120),
-      weekStartsOn: z.number().int().min(0).max(6),
-      workingDayStart: z.string().regex(timePattern),
-      workingDayEnd: z.string().regex(timePattern),
-      workingDays: z.array(z.number().int().min(0).max(6)).min(1).max(7),
-      defaultView: z.enum(calendarViews),
-    })
-    .parse(input);
-  try {
-    new Intl.DateTimeFormat("en", { timeZone: data.timezone }).format();
-  } catch {
-    throw new Error("Unknown timezone");
-  }
-  db.insert(calendarPreferences)
-    .values({
-      userId: currentUser.id,
-      timezone: data.timezone,
-      weekStartsOn: data.weekStartsOn,
-      workingDayStart: data.workingDayStart,
-      workingDayEnd: data.workingDayEnd,
-      workingDaysJson: JSON.stringify(data.workingDays),
-      defaultView: data.defaultView,
-    })
-    .onConflictDoUpdate({
-      target: calendarPreferences.userId,
-      set: {
-        timezone: data.timezone,
-        weekStartsOn: data.weekStartsOn,
-        workingDayStart: data.workingDayStart,
-        workingDayEnd: data.workingDayEnd,
-        workingDaysJson: JSON.stringify(data.workingDays),
-        defaultView: data.defaultView,
-        updatedAt: new Date(),
-      },
-    })
-    .run();
-  revalidatePath("/calendar");
 }

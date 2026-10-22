@@ -1,5 +1,3 @@
-import type { PayrollEmploymentType } from "@/modules/accounting/lib/payroll-at-2026";
-
 export type PayrollRuleStatus = "verified" | "forecast";
 
 export type PayrollRuleSet = {
@@ -147,8 +145,4 @@ export function getPayrollRuleSet(year: number): PayrollRuleSet {
   const rules = PAYROLL_RULE_SETS[year];
   if (!rules) throw new Error(`No payroll rule set for ${year}`);
   return rules;
-}
-
-export function defaultSpecialPayments(employmentType: PayrollEmploymentType) {
-  return employmentType !== "freelance" && employmentType !== "shareholder_managing_director_gsvg";
 }

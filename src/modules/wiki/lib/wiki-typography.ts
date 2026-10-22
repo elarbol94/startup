@@ -132,10 +132,6 @@ export function parseWikiTypography(value: string | null | undefined) {
   return parseWikiTypographyProfile(value).typography;
 }
 
-export function serializeWikiTypography(settings: WikiTypographySettingsV1) {
-  return serializeWikiTypographyProfile({ typography: settings, templates: [] });
-}
-
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? value as Record<string, unknown>

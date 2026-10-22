@@ -6,7 +6,6 @@ import {
 import { layoutRoots, type PresentationAlignment } from "./presentation-layout";
 
 export type GeometryField = "x" | "y" | "width" | "height" | "rotation";
-export const precisionFields: GeometryField[] = ["x", "y", "width", "height", "rotation"];
 export const frameAlignments = ["left", "center", "right", "top", "middle", "bottom"] as const;
 export function canEditGeometry(elements: PresentationElement[], element: PresentationElement) {
   return !isPresentationElementLocked(elements, element.id)

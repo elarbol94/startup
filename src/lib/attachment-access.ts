@@ -1,6 +1,6 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
-import { categories, entries, invoices, wikiPages } from "@/db/schema";
+import { categories, entries, invoices, tasks, wikiPages, wikiSources } from "@/db/schema";
 import type { AttachmentEntityType } from "@/lib/files";
 import { presentationRole } from "@/modules/wiki/presentation-access";
 import { meetingRole } from "@/modules/meetings/access";
@@ -59,7 +59,12 @@ export function attachmentAccessError(
     case "wikiPresentationLibrary":
       // Managed exclusively through the design library actions.
       return access === "read" ? null : 403;
-    default:
-      return null;
+    // Shared workspace content: anyone signed in, but only for rows that exist.
+    case "task":
+      return db.select({ id: tasks.id }).from(tasks).where(eq(tasks.id, entityId)).get() ? null : 404;
+    case "wikiPage":
+      return db.select({ id: wikiPages.id }).from(wikiPages).where(eq(wikiPages.id, entityId)).get() ? null : 404;
+    case "wikiSource":
+      return db.select({ id: wikiSources.id }).from(wikiSources).where(eq(wikiSources.id, entityId)).get() ? null : 404;
   }
 }

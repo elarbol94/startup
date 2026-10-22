@@ -1,10 +1,8 @@
 import "server-only";
 
-
 import { EMBEDDING_MODEL, modelCacheDir, withPrefix } from "./embedding-config";
 
 export { EMBEDDING_DIMENSIONS, EMBEDDING_MODEL } from "./embedding-config";
-
 
 type Embedder = (texts: string[], options: { pooling: "mean"; normalize: boolean }) => Promise<{
   tolist(): number[][];
@@ -35,11 +33,6 @@ async function getEmbedder(): Promise<Embedder | null> {
   })();
   return embedderPromise;
 }
-
-export async function isEmbeddingAvailable() {
-  return (await getEmbedder()) !== null;
-}
-
 
 export async function embedPassages(texts: string[]): Promise<Float32Array[] | null> {
   if (!texts.length) return [];

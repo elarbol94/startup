@@ -59,29 +59,3 @@ export async function updateCalendar(input: {
     .run();
   revalidatePath("/calendar");
 }
-
-export async function setCalendarMember(input: {
-  calendarId: string;
-  userId: string;
-  role: "viewer" | "editor";
-}) {
-  const currentUser = await requireUserOrThrow();
-  const data = z
-    .object({
-      calendarId: z.string().min(1),
-      userId: z.string().min(1),
-      role: z.enum(["viewer", "editor"]),
-    })
-    .parse(input);
-  if (calendarRoleForUser(data.calendarId, currentUser.id) !== "owner") {
-    throw new Error("Only the owner can share this calendar");
-  }
-  db.insert(calendarMemberships)
-    .values(data)
-    .onConflictDoUpdate({
-      target: [calendarMemberships.calendarId, calendarMemberships.userId],
-      set: { role: data.role },
-    })
-    .run();
-  revalidatePath("/calendar");
-}

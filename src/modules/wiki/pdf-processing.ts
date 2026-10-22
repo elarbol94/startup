@@ -63,6 +63,11 @@ function parseOcrTsv(tsv: string) {
 function claimNextJob(): PdfJob | null {
   const now = Date.now();
   const stale = now - 15 * 60_000;
+  // A job whose process died on its last allowed attempt is never reclaimed below; fail it so the UI offers a retry.
+  sqlite.prepare(`
+    UPDATE wiki_pdf_documents SET status = 'failed', error = ?, locked_at = NULL, updated_at = ?
+    WHERE status IN ('extracting', 'ocr') AND coalesce(locked_at, 0) < ? AND attempts >= 3
+  `).run("Processing was interrupted repeatedly", now, stale);
   const job = sqlite.prepare(`
     SELECT d.id, d.source_id AS sourceId, a.stored_name AS storedName,
            d.attempts, d.metadata_json AS metadataJson

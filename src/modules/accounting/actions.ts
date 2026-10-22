@@ -1,13 +1,12 @@
 "use server";
 
 import { z } from "zod";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import {
   assets,
   appSettings,
-  budgetPlans,
   businessLocations,
   categories,
   entries,
@@ -18,11 +17,14 @@ import {
   employmentTypes,
   payrollMonthContexts,
 } from "@/db/schema";
-import { requireAdmin, requireUserOrThrow } from "@/lib/auth";
+import { requireUserOrThrow } from "@/lib/auth";
 import { deleteAttachmentsFor } from "@/lib/files";
-import { breakdownFromGross, isVatRate } from "./lib/vat";
-import { categoryUsageCount } from "./queries";
-import { syncFundingIncomeLink } from "@/modules/funding/accounting-integration";
+import { breakdownFromGross, breakdownFromNet, isVatRate, type VatBreakdown } from "./lib/vat";
+import {
+  assertFundingAllocationsFit,
+  deleteFundingAllocations,
+  syncFundingIncomeLink,
+} from "@/modules/funding/accounting-integration";
 import {
   calculateFromSpecialFields,
   normalizeEmploymentType,
@@ -248,8 +250,11 @@ export async function upsertEntry(input: EntryInput): Promise<{ id: string }> {
 
   for (const line of lines) {
     if (!isVatRate(line.vatRate)) throw new Error("Invalid VAT rate");
-    if (line.netAmountCents + line.vatAmountCents !== line.grossAmountCents) {
-      throw new Error("Tax line total does not match");
+    // The browser's VAT split is not trusted: the line must be what our rounding yields from its gross or its net.
+    const matches = (b: VatBreakdown) =>
+      b.netCents === line.netAmountCents && b.vatCents === line.vatAmountCents && b.grossCents === line.grossAmountCents;
+    if (!matches(breakdownFromGross(line.grossAmountCents, line.vatRate)) && !matches(breakdownFromNet(line.netAmountCents, line.vatRate))) {
+      throw new Error("Tax line does not match its VAT rate");
     }
     if (settings?.kleinunternehmer && data.kind === "income" && line.vatRate !== 0) {
       throw new Error("Small-business income must not contain VAT");
@@ -370,6 +375,7 @@ export async function upsertEntry(input: EntryInput): Promise<{ id: string }> {
       if (existing.status === "voided") throw new Error("Voided entries cannot be edited");
       // A finalized booking may only be voided (audited), never turned back into a deletable draft.
       if (existing.status === "finalized" && data.status !== "finalized") throw new Error("Finalized entries cannot be reverted to draft");
+      assertFundingAllocationsFit(tx, id, values.grossAmountCents);
       const existingTaxLines = tx.select().from(entryTaxLines).where(eq(entryTaxLines.entryId, id)).all();
       const existingPaymentLines = tx.select().from(entryPaymentLines).where(eq(entryPaymentLines.entryId, id)).all();
       tx.insert(entryAuditLog).values({
@@ -531,6 +537,7 @@ export async function upsertEntry(input: EntryInput): Promise<{ id: string }> {
             changedBy: user.id,
           }).run();
         }
+        assertFundingAllocationsFit(tx, row.id, totalCents);
         tx.update(entries).set({
           grossAmountCents: totalCents,
           netAmountCents: totalCents,
@@ -606,6 +613,7 @@ export async function deleteEntry(id: string) {
         .set({ status: "voided", voidedAt: new Date(), voidedBy: user.id, updatedAt: new Date() })
         .where(eq(entries.id, id))
         .run();
+      deleteFundingAllocations(tx, id);
     });
   }
   revalidatePath("/accounting");
@@ -614,149 +622,4 @@ export async function deleteEntry(id: string) {
   revalidatePath("/accounting/planning");
   revalidatePath("/accounting/funding");
   revalidatePath("/documents");
-}
-
-// --- Categories (admin only) ---
-
-const categorySchema = z.object({
-  id: z.string().optional(),
-  name: z.string().min(1).max(100),
-  kind: z.enum(["income", "expense"]),
-  color: z
-    .string()
-    .regex(/^#[0-9a-fA-F]{6}$/)
-    .default("#64748b"),
-  template: z.enum([
-    "standard_income",
-    "grant_income",
-    "standard_expense",
-    "hospitality",
-    "travel",
-    "vehicle",
-    "asset",
-    "personnel",
-    "svs",
-    "tax_levy",
-  ]).optional(),
-});
-
-export type CategoryInput = z.infer<typeof categorySchema>;
-
-export async function upsertCategory(input: CategoryInput) {
-  await requireAdmin();
-  const data = categorySchema.parse(input);
-
-  if (data.id) {
-    db.update(categories)
-      .set({
-        name: data.name,
-        color: data.color,
-        ...(data.template ? { template: data.template } : {}),
-      })
-      .where(eq(categories.id, data.id))
-      .run();
-  } else {
-    db.insert(categories)
-      .values({
-        name: data.name,
-        kind: data.kind,
-        color: data.color,
-        template:
-          data.template ??
-          (data.kind === "income" ? "standard_income" : "standard_expense"),
-      })
-      .run();
-  }
-  revalidatePath("/settings/categories");
-  revalidatePath("/accounting");
-  revalidatePath("/accounting/bookings");
-  revalidatePath("/documents");
-  revalidatePath("/accounting/planning");
-}
-
-export async function setCategoryArchived(id: string, archived: boolean) {
-  await requireAdmin();
-  db.update(categories).set({ archived }).where(eq(categories.id, id)).run();
-  revalidatePath("/settings/categories");
-  revalidatePath("/accounting");
-  revalidatePath("/accounting/bookings");
-  revalidatePath("/documents");
-  revalidatePath("/accounting/planning");
-}
-
-/** Deletes a category only when no entries reference it; archive otherwise. */
-export async function deleteCategory(id: string): Promise<{ deleted: boolean }> {
-  await requireAdmin();
-  if (categoryUsageCount(id) > 0) return { deleted: false };
-  db.delete(categories).where(eq(categories.id, id)).run();
-  revalidatePath("/settings/categories");
-  revalidatePath("/accounting");
-  revalidatePath("/accounting/bookings");
-  revalidatePath("/accounting/planning");
-  revalidatePath("/documents");
-  return { deleted: true };
-}
-
-const planningSchema = z.object({
-  year: z.number().int().min(2000).max(2100),
-  amounts: z
-    .array(
-      z.object({
-        categoryId: z.string().min(1),
-        month: z.number().int().min(1).max(12),
-        amountCents: z.number().int().min(0).max(100_000_000_000),
-      }),
-    )
-    .max(12_000),
-});
-
-export type PlanningInput = z.infer<typeof planningSchema>;
-
-/** Saves the supplied planning cells without disturbing categories not shown in the UI. */
-export async function savePlanning(input: PlanningInput) {
-  await requireUserOrThrow();
-  const data = planningSchema.parse(input);
-  const categoryIds = [...new Set(data.amounts.map((amount) => amount.categoryId))];
-  const existingIds =
-    categoryIds.length === 0
-      ? []
-      : db
-          .select({ id: categories.id })
-          .from(categories)
-          .where(inArray(categories.id, categoryIds))
-          .all()
-          .map((row) => row.id);
-  if (existingIds.length !== categoryIds.length) throw new Error("Unknown category");
-
-  db.transaction((tx) => {
-    for (const amount of data.amounts) {
-      if (amount.amountCents === 0) {
-        tx.delete(budgetPlans)
-          .where(
-            and(
-              eq(budgetPlans.categoryId, amount.categoryId),
-              eq(budgetPlans.year, data.year),
-              eq(budgetPlans.month, amount.month),
-            ),
-          )
-          .run();
-        continue;
-      }
-      tx.insert(budgetPlans)
-        .values({
-          categoryId: amount.categoryId,
-          year: data.year,
-          month: amount.month,
-          amountCents: amount.amountCents,
-          updatedAt: new Date(),
-        })
-        .onConflictDoUpdate({
-          target: [budgetPlans.categoryId, budgetPlans.year, budgetPlans.month],
-          set: { amountCents: amount.amountCents, updatedAt: new Date() },
-        })
-        .run();
-    }
-  });
-
-  revalidatePath("/accounting/planning");
 }

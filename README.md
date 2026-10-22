@@ -225,8 +225,9 @@ entries afterwards (overnight shifts allowed; overlaps are rejected). Entries
 store start, end and break in Europe/Vienna time and may be linked to a project,
 task and type. Target hours come from the user's linked employee contract period
 (weekly minutes ÷ workdays, Austrian public holidays excluded); the week and month
-views show recorded time, target and the balance to date. Admins and the personnel
-role can view and correct everyone's entries. Entries are history-tracked but not
+views show recorded time, target and the balance to date. Entries are strictly
+personal: nobody, not even an admin, can view or correct another user's entries.
+Entries are history-tracked but not
 restorable through Version Control.
 
 ### Version Control

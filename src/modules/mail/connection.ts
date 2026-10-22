@@ -37,14 +37,18 @@ export function credentialsFor(account: MailAccountRow): MailCredentials {
   return { ...account, password };
 }
 
+/** Connection options for imapflow/nodemailer: the checked address, with the typed name kept for SNI and certificate checks. */
+export type MailTarget = { host: string; tls?: { servername: string } };
+
 /**
  * Mail hosts are typed in by users, so the server would otherwise connect to
  * anything it can reach, including the Compose services next to it. Private
  * addresses are refused unless MAIL_ALLOW_PRIVATE_HOSTS=true (for a mail
- * server in the same LAN).
+ * server in the same LAN). The connection goes to the address that was
+ * checked, so a second DNS answer cannot point it elsewhere.
  */
-export async function assertReachableMailHost(host: string): Promise<void> {
-  if (process.env.MAIL_ALLOW_PRIVATE_HOSTS === "true") return;
+export async function resolveMailHost(host: string): Promise<MailTarget> {
+  if (process.env.MAIL_ALLOW_PRIVATE_HOSTS === "true") return { host };
   let addresses: string[];
   try {
     addresses = net.isIP(host) ? [host] : (await dns.lookup(host, { all: true })).map((entry) => entry.address);
@@ -54,6 +58,7 @@ export async function assertReachableMailHost(host: string): Promise<void> {
   if (addresses.length === 0 || addresses.some(privateAddress)) {
     throw new MailError("connection_failed", `Host ${host} is in a private network`);
   }
+  return net.isIP(host) ? { host } : { host: addresses[0], tls: { servername: host } };
 }
 
 const tlsCodes = /CERT|SELF_SIGNED|TLS|SSL|EPROTO|wrong version number/i;

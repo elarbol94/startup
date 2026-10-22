@@ -14,10 +14,6 @@ export function RowSelectionProvider({ ids, children }: { ids: readonly string[]
   return <RowSelectionContext.Provider value={selection}>{children}</RowSelectionContext.Provider>;
 }
 
-export function RowSelectionContextProvider({ selection, children }: { selection: RowSelection; children: ReactNode }) {
-  return <RowSelectionContext.Provider value={selection}>{children}</RowSelectionContext.Provider>;
-}
-
 export function useRowSelectionContext(): RowSelection {
   const selection = useContext(RowSelectionContext);
   if (!selection) throw new Error("useRowSelectionContext needs a RowSelectionProvider");

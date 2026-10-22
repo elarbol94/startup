@@ -39,7 +39,9 @@ platform. Each user connects their own mailboxes over IMAP (reading) and SMTP
   yet. Gmail, iCloud and Yahoo need an app password.
 - Messages above 40 MB are not opened in the reader.
 - Mail hosts that resolve to private addresses are refused, so users cannot make
-  the server connect to services next to it. Set `MAIL_ALLOW_PRIVATE_HOSTS=true`
+  the server connect to services next to it; the connection then goes to the
+  address that passed the check (the typed name stays the TLS server name), so
+  a changed DNS answer cannot redirect it. Set `MAIL_ALLOW_PRIVATE_HOSTS=true`
   for a mail server in the same LAN.
 
 ## Keyboard shortcuts

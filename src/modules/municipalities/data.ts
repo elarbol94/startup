@@ -4,7 +4,6 @@ export const MUNICIPALITY_DATASET_DATE = "2026-01-01";
 export const EXPECTED_MUNICIPALITY_COUNT = 2_092;
 
 export type MunicipalityBounds = [west: number, south: number, east: number, north: number];
-export const AUSTRIA_BOUNDS: MunicipalityBounds = [9.45, 46.3, 17.2, 49.08];
 
 const STATE_BY_CODE_PREFIX = {
   "1": "Burgenland", "2": "Kärnten", "3": "Niederösterreich", "4": "Oberösterreich", "5": "Salzburg",

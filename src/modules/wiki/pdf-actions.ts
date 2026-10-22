@@ -70,19 +70,6 @@ export async function createPdfAnnotation(input: z.input<typeof annotationSchema
   return { id };
 }
 
-export async function extendPdfAnnotation(input: { id: string; geometry: z.input<typeof rectSchema>[]; selectedText: string }) {
-  const currentUser = await requireUserOrThrow();
-  const data = z.object({ id: z.string().min(1), geometry: z.array(rectSchema).min(1).max(200), selectedText: z.string().max(20_000) }).parse(input);
-  const annotation = db.select().from(wikiPdfAnnotations).where(and(eq(wikiPdfAnnotations.id, data.id), isNull(wikiPdfAnnotations.deletedAt))).get();
-  if (!annotation) throw new Error("Annotation not found");
-  if (annotation.createdBy !== currentUser.id && currentUser.role !== "admin") throw new Error("Forbidden");
-  if (annotation.kind === "bookmark") throw new Error("Bookmarks cannot be extended");
-  if (annotation.kind === "text" && !data.selectedText.trim()) throw new Error("Selected text is required");
-  db.update(wikiPdfAnnotations).set({ geometryJson: JSON.stringify(data.geometry), selectedText: data.selectedText.trim(), updatedBy: currentUser.id, updatedAt: new Date() })
-    .where(eq(wikiPdfAnnotations.id, data.id)).run();
-  revalidatePath("/wiki/sources/" + annotation.sourceId, "page");
-}
-
 export async function updatePdfAnnotation(input: { id: string; note: string; label: string }) {
   const currentUser = await requireUserOrThrow();
   const data = z.object({ id: z.string().min(1), note: z.string().max(10_000), label: z.string().max(200) }).parse(input);

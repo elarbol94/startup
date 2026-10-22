@@ -14,9 +14,6 @@ import { getAttachment } from "@/lib/files";
 import { decode, encode, documentJSON, presentationJSON, patchPresentation, seedPage, type Kind } from "./codec";
 import { pushToLiveDocument } from "./live-registry";
 
-/** Transaction origin for database state merged into a live document. */
-export const DATABASE_ORIGIN = "collaboration-database";
-
 export type Viewer = { id: string; role?: string | null; name?: string };
 type Room = { key: string; state: Buffer; sequence: number };
 export function roomKey(kind: Kind, id: string) { return `${kind}:${id}`; }
@@ -168,23 +165,6 @@ export function mutateRoom(kind: Kind, id: string, viewer: Viewer, mutate: (doc:
   return room;
 }
 
-/**
- * Persists a document held in memory by the live WebSocket server.
- *
- * Other writers (history restore, older HTTP clients) may have committed to
- * the room in the meantime, so the stored state is merged into the live
- * document first; Yjs merging is idempotent, so nothing is lost either way.
- * Returns the committed room; throws when the document is invalid, too large
- * or no longer accessible.
- */
-export function storeLiveDocument(kind: Kind, id: string, live: Y.Doc, viewer: Viewer) {
-  return sqlite.transaction(() => {
-    authorize(kind, id, viewer);
-    const room = loadRoom(kind, id);
-    Y.applyUpdate(live, room.state, DATABASE_ORIGIN);
-    return commit(kind, id, room, live, viewer);
-  }).immediate();
-}
 export function wireRoom(room: Room) { return { update: encode(room.state), sequence: room.sequence }; }
 export function replayRoom(kind: Kind, id: string, after: number) {
   const room = loadRoom(kind, id);

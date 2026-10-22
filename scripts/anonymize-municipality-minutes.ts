@@ -53,30 +53,6 @@ async function pageCount(file: string) {
   return value;
 }
 
-function parseTsv(tsv: string, page: number): TsvWord[] {
-  const rows = tsv.trim().split("\n").slice(1);
-  const words: TsvWord[] = [];
-  for (const row of rows) {
-    const columns = row.split("\t");
-    if (columns.length < 12 || columns[0] !== "5" || !columns[11]?.trim()) continue;
-    const [, block, paragraph, line, , left, top, width, height] = columns;
-    words.push({
-      id: words.length, text: columns.slice(11).join("\t").trim(),
-      line: `${page}:${block}:${paragraph}:${line}`,
-      left: Number(left), top: Number(top), width: Number(width), height: Number(height),
-    });
-  }
-  return words.filter((word) => [word.left, word.top, word.width, word.height].every(Number.isFinite));
-}
-
-async function ocrPageWords(imagePath: string, page: number, dpi: number) {
-  try {
-    return parseTsv(await run(process.env.TESSERACT_PATH || "tesseract", [imagePath, "stdout", "-l", process.env.PDF_OCR_LANGUAGES || "deu+eng", "--dpi", String(dpi), "--psm", "3", "tsv"], 120_000), page);
-  } catch {
-    return parseTsv(await run(process.env.TESSERACT_PATH || "tesseract", [imagePath, "stdout", "-l", "deu", "--dpi", "100", "--psm", "6", "tsv"], 120_000), page);
-  }
-}
-
 function decodeHtml(value: string) {
   return value.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, "\"").replace(/&#39;/g, "'");
 }

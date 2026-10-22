@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { CalendarRange, ChevronDown, ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { toast } from "sonner";
-import { savePlanning, type PlanningInput } from "../actions";
+import { savePlanning, type PlanningInput } from "../planning-actions";
 import type { PlanningRow } from "../queries";
 import { formatCents, parseAmountToCents } from "@/lib/money";
 import { cn } from "@/lib/utils";

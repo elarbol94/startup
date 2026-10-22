@@ -1,15 +1,3 @@
-"use client";
-
-import { createContext, useContext, useMemo } from "react";
-
-type ProjectFocusModeContextValue = {
-  isFocused: boolean;
-};
-
-const ProjectFocusModeContext = createContext<ProjectFocusModeContextValue>({
-  isFocused: false,
-});
-
 /**
  * Route-local and transient: unlike wiki focus preferences, this boundary never
  * reads or writes localStorage. The marker lets the ancestor shell hide chrome
@@ -22,19 +10,12 @@ export function ProjectFocusProvider({
   active: boolean;
   children: React.ReactNode;
 }) {
-  const value = useMemo(() => ({ isFocused: active }), [active]);
   return (
-    <ProjectFocusModeContext.Provider value={value}>
-      <div
-        className="contents"
-        data-project-focus-root={active ? "true" : undefined}
-      >
-        {children}
-      </div>
-    </ProjectFocusModeContext.Provider>
+    <div
+      className="contents"
+      data-project-focus-root={active ? "true" : undefined}
+    >
+      {children}
+    </div>
   );
-}
-
-export function useProjectFocusMode() {
-  return useContext(ProjectFocusModeContext);
 }

@@ -7,7 +7,7 @@
 // action body limit.
 import { z } from "zod";
 import { requireUserOrThrow } from "@/lib/auth";
-import { deleteMessages, listFolders, listMessages, moveMessages, readMessage, setFlags } from "./imap";
+import { deleteMessages, listFolders, listMessages, readMessage, setFlags } from "./imap";
 import { runOnMailbox } from "./mailbox";
 import type { MailFolder, MailListPage, MailMessage, MailResult } from "./types";
 
@@ -58,15 +58,6 @@ export async function updateMailFlags(input: {
   const data = z.object({ accountId, folder, uids, seen: z.boolean().optional(), flagged: z.boolean().optional() }).parse(input);
   return runOnMailbox(currentUser.id, data.accountId, async (client) => {
     await setFlags(client, data.folder, data.uids, { seen: data.seen, flagged: data.flagged });
-    return null;
-  });
-}
-
-export async function moveMail(input: { accountId: string; folder: string; uids: number[]; target: string }): Promise<MailResult<null>> {
-  const currentUser = await requireUserOrThrow();
-  const data = z.object({ accountId, folder, uids, target: folder }).parse(input);
-  return runOnMailbox(currentUser.id, data.accountId, async (client) => {
-    await moveMessages(client, data.folder, data.uids, data.target);
     return null;
   });
 }

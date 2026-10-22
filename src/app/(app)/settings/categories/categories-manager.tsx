@@ -9,7 +9,7 @@ import {
   deleteCategory,
   setCategoryArchived,
   upsertCategory,
-} from "@/modules/accounting/actions";
+} from "@/modules/accounting/category-actions";
 import type { categories as categoriesTable } from "@/modules/accounting/schema";
 import { categoryTemplates, type CategoryTemplate } from "@/modules/accounting/schema";
 import { Badge } from "@/components/ui/badge";
