@@ -1,4 +1,5 @@
 import { moduleNav, moduleNavGroups, type ModuleNavGroup, type ModuleNavItem } from "@/modules/registry";
+import { COMPACT_LAYOUT_QUERY } from "@/lib/compact-layout";
 
 export const NAVIGATION_ORDER_STORAGE_KEY = "app-navigation-order:v1";
 
@@ -11,11 +12,15 @@ export function railStorageKey(userId: string): string {
   return `app-sidebar-collapsed:v1:${userId}`;
 }
 
-/** Applies the stored collapsed state to <html> while the HTML is parsed, so a reload never paints the wide sidebar first. */
+/**
+ * Applies the stored collapsed state to <html> while the HTML is parsed, so a reload never paints the wide sidebar first.
+ * Mirrors useSidebarRail: laptop widths read their own key and start collapsed.
+ */
 export function railBootstrapScript(userId: string): string {
   // JSON is valid JS; escaping "<" keeps any value from closing the script element.
-  const key = JSON.stringify(railStorageKey(userId)).replace(/</g, "\\u003c");
-  return `(function(){try{if(window.localStorage.getItem(${key})==="true")document.documentElement.setAttribute("${RAIL_ATTRIBUTE}","collapsed")}catch(x){}})()`;
+  const data = JSON.stringify({ key: railStorageKey(userId), query: COMPACT_LAYOUT_QUERY }).replace(/</g, "\\u003c");
+  return `(function(){try{var c=${data},m=window.matchMedia(c.query).matches,v=window.localStorage.getItem(m?c.key+":compact":c.key);`
+    + `if(v===null?m:v==="true")document.documentElement.setAttribute("${RAIL_ATTRIBUTE}","collapsed")}catch(x){}})()`;
 }
 
 /** Saved order first, then any module the saved order does not know yet (new modules). */

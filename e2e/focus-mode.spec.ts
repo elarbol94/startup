@@ -189,3 +189,36 @@ test("on phones the header disappears and the focus bar stays reachable", async 
   await pill.getByRole("button", { name: "Fokus beenden", exact: true }).click();
   await expect(header).toBeVisible();
 });
+
+test("laptop widths start with collapsed side panels and remember their own choice", async ({ page }) => {
+  // src/lib/compact-layout.ts: below 1536px the rail starts collapsed; Mod+Shift+X toggles all panels.
+  const sidebar = page.getByTestId("app-sidebar");
+  await openPersonnel(page);
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await expect(page.locator("html")).toHaveAttribute("data-app-rail", "collapsed");
+
+  await page.keyboard.press("Control+Shift+X");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await page.reload();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await expect(page.locator("html")).not.toHaveAttribute("data-app-rail", "collapsed");
+
+  // A wide screen keeps its own (default expanded) state; collapsing it there leaves the laptop choice alone.
+  // Reloading after each resize keeps the shortcut from racing the re-render that switches keys.
+  await page.setViewportSize({ width: 1700, height: 1000 });
+  await page.reload();
+  await waitForHydration(page);
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+  await page.keyboard.press("Control+Shift+X");
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await waitForHydration(page);
+  await expect(sidebar).toHaveAttribute("data-collapsed", "false");
+
+  // The search palette offers the same toggle.
+  await page.keyboard.press("Control+K");
+  await page.getByRole("dialog").getByRole("textbox").fill("seitenleisten");
+  await page.getByTestId("search-side-panels-action").click();
+  await expect(sidebar).toHaveAttribute("data-collapsed", "true");
+});

@@ -24,8 +24,10 @@ import {
 import { useFocusMode } from "@/components/focus-mode";
 import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { useKeyboardShortcut } from "@/components/use-keyboard-shortcut";
+import { compactStorageKey, storedCollapsed } from "@/lib/compact-layout";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { cn } from "@/lib/utils";
+import { useCompactLayout, useSidePanelsToggle } from "@/lib/use-compact-layout";
 import { navItemClass } from "@/components/app-sidebar/nav-items";
 import { searchResearch } from "../research-actions";
 import { useQuickNoteCreator } from "./use-quick-note-creator";
@@ -116,11 +118,13 @@ export function ResearchSidebar({
   const t = useTranslations("wiki");
   const { openSearch, userId } = useWikiNavigation();
   const { chromeHidden } = useFocusMode();
-  // The labelled panel is the default; collapsing to the icon rail is remembered per
-  // user in this browser. While collapsed, hovering/focusing expands it as an overlay
-  // without shifting the page content.
-  const [collapsedRaw, saveCollapsed] = useWikiLocalSetting(`wiki-rail-collapsed:${userId}`);
-  const collapsed = collapsedRaw === "true";
+  // The labelled panel is the wide-screen default; laptops start on the icon rail. The choice
+  // is remembered per user, browser and laptop/wide screen. While collapsed, hovering/focusing
+  // expands it as an overlay without shifting the page content.
+  const compactLayout = useCompactLayout();
+  const [collapsedRaw, saveCollapsed] = useWikiLocalSetting(compactStorageKey(`wiki-rail-collapsed:${userId}`, compactLayout));
+  const collapsed = storedCollapsed(collapsedRaw, compactLayout);
+  useSidePanelsToggle(saveCollapsed);
   const [peeking, setPeeking] = useState(false);
   const expanded = !collapsed || peeking;
   useEffect(() => {
@@ -449,6 +453,7 @@ export function ResearchSidebar({
 
       <aside
         data-testid="research-sidebar"
+        data-side-panel={collapsed ? "collapsed" : "expanded"}
         data-focus-chrome
         data-expanded={expanded}
         className={cn(

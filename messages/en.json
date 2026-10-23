@@ -4964,7 +4964,9 @@
     "controls": "Focus mode",
     "showTabs": "Show tabs",
     "hideTabs": "Hide tabs",
-    "keywords": "focus fokus zen distraction-free"
+    "keywords": "focus fokus zen distraction-free",
+    "sidePanels": "Collapse or expand side panels",
+    "sidePanelsKeywords": "side panels sidebar collapse expand laptop"
   },
   "shortcuts": {
     "ctrl": "Ctrl",

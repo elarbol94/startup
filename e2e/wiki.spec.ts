@@ -20,6 +20,8 @@ async function quickNote(page: Page, title: string) {
 }
 
 test("knowledge launchpad prioritizes search, writing, and sources", async ({ page }) => {
+  // The rail's search field shows on wide screens; laptops start on the icon rail.
+  await page.setViewportSize({ width: 1600, height: 900 });
   await login(page);
   await quickNote(page, "Onboarding");
   await page.goto("/wiki");

@@ -130,6 +130,7 @@ export function AppSidebar({
 
       <aside
         data-testid="app-sidebar"
+        data-side-panel={collapsed ? "collapsed" : "expanded"}
         data-collapsed={collapsed}
         className="app-rail-transition fixed inset-y-0 left-0 z-40 hidden h-dvh w-[var(--app-rail-width)] shrink-0 flex-col border-r border-sidebar-border bg-sidebar duration-[220ms] ease-out motion-reduce:transition-none md:flex"
       >

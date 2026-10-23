@@ -28,6 +28,11 @@ export const GLOBAL_SHORTCUTS = {
   switchTab: "Alt+Q",
   /** Fokusmodus */
   focusMode: "Mod+Shift+F",
+  /**
+   * Seitenleisten ein-/ausklappen. Not a mnemonic: S, B, R, H and G belong to the browser and
+   * E, L to the app; X reads as "close the panels".
+   */
+  sidePanels: "Mod+Shift+X",
   /** Link der Seite kopieren */
   copyPageLink: "Mod+Shift+L",
 } as const;

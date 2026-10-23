@@ -4964,7 +4964,9 @@
     "controls": "Fokusmodus",
     "showTabs": "Tabs anzeigen",
     "hideTabs": "Tabs ausblenden",
-    "keywords": "fokus focus zen ablenkungsfrei"
+    "keywords": "fokus focus zen ablenkungsfrei",
+    "sidePanels": "Seitenleisten ein-/ausklappen",
+    "sidePanelsKeywords": "seitenleisten seitenleiste einklappen ausklappen laptop panels"
   },
   "shortcuts": {
     "ctrl": "Strg",

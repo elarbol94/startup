@@ -61,7 +61,7 @@ export function CalendarSidebar({
 
   if (collapsed) {
     return (
-      <aside aria-label={t("sidebarLabel")} className="hidden w-12 shrink-0 flex-col items-center rounded-xl border bg-card pt-3 shadow-card xl:flex" data-testid="calendar-sidebar">
+      <aside data-side-panel="collapsed" aria-label={t("sidebarLabel")} className="hidden w-12 shrink-0 flex-col items-center rounded-xl border bg-card pt-3 shadow-card xl:flex" data-testid="calendar-sidebar">
         <ShortcutTooltip label={t("sidebarExpand")} hint={t("hintSidebarExpand")} side="right">
           <Button size="icon-sm" variant="ghost" aria-label={t("sidebarExpand")} aria-expanded={false} onClick={() => setCollapsed(false)}>
             <PanelLeftOpen />
@@ -72,7 +72,7 @@ export function CalendarSidebar({
   }
 
   return (
-    <aside aria-label={t("sidebarLabel")} className="hidden w-60 shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-card xl:flex" data-testid="calendar-sidebar">
+    <aside data-side-panel="expanded" aria-label={t("sidebarLabel")} className="hidden w-60 shrink-0 flex-col overflow-hidden rounded-xl border bg-card shadow-card xl:flex" data-testid="calendar-sidebar">
       <div className="flex items-center gap-1 px-4 pt-4">
         <div className="min-w-0 flex-1">
           <CalendarSearchInput t={t} filters={filters} updateFilters={updateFilters} />

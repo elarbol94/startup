@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useSyncExternalStore } from "react";
+import { compactStorageKey, storedCollapsed } from "@/lib/compact-layout";
+import { useCompactLayout, useSidePanelsToggle } from "@/lib/use-compact-layout";
 import { RAIL_ATTRIBUTE, RAIL_WIDTH, railStorageKey } from "./sidebar-model";
 
 const RAIL_CHANGE_EVENT = "app-sidebar-rail-change";
@@ -14,17 +16,19 @@ function subscribe(onChange: () => void) {
   };
 }
 
-function readCollapsed(userId: string): boolean {
+function readCollapsed(key: string, compact: boolean): boolean {
   try {
-    return window.localStorage.getItem(railStorageKey(userId)) === "true";
+    return storedCollapsed(window.localStorage.getItem(key), compact);
   } catch {
-    return false;
+    return compact;
   }
 }
 
-/** Whether the desktop sidebar is collapsed to its icon rail; remembered per user in this browser. */
+/** Whether the desktop sidebar is collapsed to its icon rail; remembered per user, browser and laptop/wide screen. */
 export function useSidebarRail(userId: string) {
-  const collapsed = useSyncExternalStore(subscribe, () => readCollapsed(userId), () => false);
+  const compact = useCompactLayout();
+  const key = compactStorageKey(railStorageKey(userId), compact);
+  const collapsed = useSyncExternalStore(subscribe, () => readCollapsed(key, compact), () => false);
 
   // After hydration the sidebar publishes its width inline; the page padding and the wiki rail follow it.
   useEffect(() => {
@@ -40,12 +44,13 @@ export function useSidebarRail(userId: string) {
 
   const setCollapsed = useCallback((next: boolean) => {
     try {
-      window.localStorage.setItem(railStorageKey(userId), String(next));
+      window.localStorage.setItem(key, String(next));
     } catch {
       // Storage can be unavailable (private mode); the rail then resets on reload.
     }
     window.dispatchEvent(new Event(RAIL_CHANGE_EVENT));
-  }, [userId]);
+  }, [key]);
+  useSidePanelsToggle(setCollapsed);
 
   return { collapsed, setCollapsed };
 }

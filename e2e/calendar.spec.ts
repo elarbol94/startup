@@ -48,7 +48,7 @@ test("calendar rail entry opens the Flow week and creates a timed event", async 
   page,
 }) => {
   await login(page);
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.setViewportSize({ width: 1600, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
   await expectExpandedAppSidebar(appSidebar);
@@ -144,7 +144,7 @@ test("global new-event shortcut opens and clears the calendar dialog state", asy
   page,
 }) => {
   await login(page);
-  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.setViewportSize({ width: 1600, height: 1000 });
 
   const appSidebar = page.getByTestId("app-sidebar");
   await expectExpandedAppSidebar(appSidebar);

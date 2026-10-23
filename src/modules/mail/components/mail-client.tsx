@@ -210,7 +210,7 @@ export function MailClient({ initialAccounts, userName }: { initialAccounts: Mai
   const listTitle = query ? t("list.resultsFor", { query }) : folderLabel(currentFolder) || folderPath;
 
   return (
-    <div data-mail-root className="grid h-full min-h-0 grid-cols-1 bg-background md:grid-cols-[200px_minmax(280px,360px)_1fr] lg:grid-cols-[220px_minmax(300px,400px)_1fr]">
+    <div data-mail-root className="grid h-full min-h-0 grid-cols-1 bg-background md:grid-cols-[200px_minmax(280px,360px)_1fr] 2xl:grid-cols-[220px_minmax(300px,400px)_1fr]">
       <div className={cn("min-h-0 border-r border-line-soft bg-sidebar/40 max-md:hidden", mobileView === "folders" && "max-md:block")}>
         <FolderPane
           accounts={accounts}

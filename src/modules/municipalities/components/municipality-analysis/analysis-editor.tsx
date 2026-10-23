@@ -26,6 +26,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useCompactLayout, useSidePanelsToggle } from "@/lib/use-compact-layout";
 import { cn } from "@/lib/utils";
 import { renameMunicipalityAnalysis } from "../../actions";
 import {
@@ -89,8 +90,16 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
   // the delete key removes the edges its store has marked selected, and with a controlled
   // edge list nothing marks them unless the selection change is applied here.
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
-  const [paletteCollapsed, setPaletteCollapsed] = useState(false);
-  const [inspectorCollapsed, setInspectorCollapsed] = useState(false);
+  // Both side panels follow the laptop default until clicked (see lib/compact-layout.ts).
+  const compactLayout = useCompactLayout();
+  const [paletteChoice, setPaletteCollapsed] = useState<boolean | null>(null);
+  const [inspectorChoice, setInspectorCollapsed] = useState<boolean | null>(null);
+  const paletteCollapsed = paletteChoice ?? compactLayout;
+  const inspectorCollapsed = inspectorChoice ?? compactLayout;
+  useSidePanelsToggle((collapsed) => {
+    setPaletteCollapsed(collapsed);
+    setInspectorCollapsed(collapsed);
+  });
   const [paletteSheetOpen, setPaletteSheetOpen] = useState(false);
   const [inspectorSheetOpen, setInspectorSheetOpen] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -254,10 +263,10 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className={cn("hidden min-h-0 shrink-0 border-r bg-surface-raised transition-[width] lg:flex lg:flex-col", paletteCollapsed ? "w-11 p-1" : "w-64 p-3")}>
+        <aside data-side-panel={paletteCollapsed ? "collapsed" : "expanded"} className={cn("hidden min-h-0 shrink-0 border-r bg-surface-raised transition-[width] lg:flex lg:flex-col", paletteCollapsed ? "w-11 p-1" : "w-64 p-3")}>
           <div className="mb-2 flex items-center justify-between">
             {!paletteCollapsed && <h2 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioLibrary")}</h2>}
-            <Button variant="ghost" size="icon-sm" className={cn(paletteCollapsed && "mx-auto")} aria-label={paletteCollapsed ? t("studioOpenPalette") : t("studioClosePalette")} onClick={() => setPaletteCollapsed((value) => !value)}>{paletteCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}</Button>
+            <Button variant="ghost" size="icon-sm" className={cn(paletteCollapsed && "mx-auto")} aria-label={paletteCollapsed ? t("studioOpenPalette") : t("studioClosePalette")} onClick={() => setPaletteCollapsed(!paletteCollapsed)}>{paletteCollapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}</Button>
           </div>
           {!paletteCollapsed && palettePanel}
         </aside>
@@ -314,10 +323,10 @@ export function AnalysisEditor({ analysis, analyses, metrics }: { analysis: Anal
           </div>
         </section>
 
-        <aside className={cn("hidden min-h-0 shrink-0 border-l bg-card transition-[width] lg:flex lg:flex-col", inspectorCollapsed ? "w-11 p-1" : "w-72 p-3")}>
+        <aside data-side-panel={inspectorCollapsed ? "collapsed" : "expanded"} className={cn("hidden min-h-0 shrink-0 border-l bg-card transition-[width] lg:flex lg:flex-col", inspectorCollapsed ? "w-11 p-1" : "w-72 p-3")}>
           <div className="mb-2 flex items-center justify-between">
             {!inspectorCollapsed && <h2 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("studioInspector")}</h2>}
-            <Button variant="ghost" size="icon-sm" className={cn(inspectorCollapsed && "mx-auto")} aria-label={inspectorCollapsed ? t("studioOpenInspector") : t("studioCloseInspector")} onClick={() => setInspectorCollapsed((value) => !value)}>{inspectorCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}</Button>
+            <Button variant="ghost" size="icon-sm" className={cn(inspectorCollapsed && "mx-auto")} aria-label={inspectorCollapsed ? t("studioOpenInspector") : t("studioCloseInspector")} onClick={() => setInspectorCollapsed(!inspectorCollapsed)}>{inspectorCollapsed ? <PanelRightOpen className="size-4" /> : <PanelRightClose className="size-4" />}</Button>
           </div>
           {!inspectorCollapsed && inspectorPanel}
         </aside>

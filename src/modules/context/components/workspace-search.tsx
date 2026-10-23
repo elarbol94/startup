@@ -7,6 +7,7 @@ import {
   BookOpen,
   Maximize2,
   Minimize2,
+  PanelLeftClose,
   ClipboardCheck,
   FileSearch,
   FolderKanban,
@@ -27,6 +28,7 @@ import type {
   WorkspaceSearchResultDto,
 } from "../types";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { toggleSidePanels } from "@/lib/compact-layout";
 import { matchesShortcut } from "@/lib/shortcuts";
 import { useFocusMode } from "@/components/focus-mode";
 import { ShortcutKeys } from "@/components/ui/shortcut-tooltip";
@@ -124,6 +126,9 @@ export function WorkspaceSearch({
     trimmedQuery.length < 2 ||
     [focusLabel, tFocus("keywords")].some((text) => text.toLocaleLowerCase().includes(trimmedQuery));
   const FocusIcon = globalFocused ? Minimize2 : Maximize2;
+  const showSidePanelsAction =
+    trimmedQuery.length < 2 ||
+    [tFocus("sidePanels"), tFocus("sidePanelsKeywords")].some((text) => text.toLocaleLowerCase().includes(trimmedQuery));
 
   return (
     <Dialog
@@ -176,6 +181,23 @@ export function WorkspaceSearch({
               </span>
               <span className="min-w-0 flex-1 truncate text-sm font-medium">{focusLabel}</span>
               <ShortcutKeys shortcut={GLOBAL_SHORTCUTS.focusMode} className="text-xs text-muted-foreground" />
+            </button>
+          )}
+          {showSidePanelsAction && (
+            <button
+              type="button"
+              data-testid="search-side-panels-action"
+              onClick={() => {
+                changeOpen(false);
+                toggleSidePanels();
+              }}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground">
+                <PanelLeftClose className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-sm font-medium">{tFocus("sidePanels")}</span>
+              <ShortcutKeys shortcut={GLOBAL_SHORTCUTS.sidePanels} className="text-xs text-muted-foreground" />
             </button>
           )}
           {pending ? (

@@ -16,6 +16,7 @@ import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isWorkspaceFrame } from "@/components/workspace/model";
 import { GLOBAL_SHORTCUTS } from "@/lib/app-shortcuts";
+import { toggleSidePanels } from "@/lib/compact-layout";
 import { matchesShortcut } from "@/lib/shortcuts";
 import {
   FOCUS_GLOBAL_ATTRIBUTE,
@@ -291,6 +292,11 @@ export function FocusModeProvider({ userId, children }: { userId: string; childr
     // same keys handle them first and call preventDefault.
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || event.repeat || event.isComposing) return;
+      if (matchesShortcut(event, GLOBAL_SHORTCUTS.sidePanels)) {
+        event.preventDefault();
+        toggleSidePanels();
+        return;
+      }
       if (!matchesShortcut(event, GLOBAL_SHORTCUTS.focusMode)) return;
       event.preventDefault();
       shortcutRef.current();

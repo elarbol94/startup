@@ -32,7 +32,7 @@ async function expectWidth(locator: Locator, width: number) {
 
 test("desktop sidebar collapses to a remembered icon rail and survives focus mode", async ({ page }) => {
   await login(page);
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/wiki/inbox");
 
   await expect(page.getByTestId("app-sidebar")).toHaveCount(1);
@@ -106,7 +106,7 @@ test("desktop sidebar collapses to a remembered icon rail and survives focus mod
 
 test("desktop navigation reorders within a group, also when a drag leaves the sidebar", async ({ page }) => {
   await login(page);
-  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto("/personnel");
 
   const appSidebar = page.getByTestId("app-sidebar").filter({ visible: true });
