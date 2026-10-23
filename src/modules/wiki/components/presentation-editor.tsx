@@ -39,7 +39,7 @@ import { alignPresentationToFrame, setPreciseGeometry } from "../lib/presentatio
 import { PresentationLibraryPanel } from "./presentation-library-panel";
 import type { SaveState } from "./presentation-editor/presentation-editor-utils";
 import { DraftInput } from "./presentation-editor/draft-fields";
-import { CanvasDots, GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
+import { CanvasSurface, GridOverlay, SnapGuides } from "./presentation-editor/canvas-decorations";
 import { PresentationMiniMap, PresentationMiniMapToggle } from "./presentation-editor/presentation-minimap";
 import { PresentationDocumentTitle } from "./presentation-editor/presentation-document-title";
 import { presentationShortcutLabels } from "./presentation-editor/presentation-shortcuts";
@@ -539,10 +539,10 @@ function Editor({
             onPaneClick={event => { endGesture(); clickSelection.onPaneClick(event); }}
             proOptions={{ hideAttribution: false }}
           >
-            {/* Shown gridlines replace the background dots: the overlay draws them over the slide. */}
+            {/* Gridlines draw over the slide; off, the canvas is plain. */}
             {settings.grid.show
               ? <GridOverlay spacing={settings.grid.spacing} transparency={settings.grid.transparency} />
-              : <CanvasDots surface={presentationSurface(background)} />}
+              : <CanvasSurface surface={presentationSurface(background)} />}
             {/* React Flow insets panels by 15 px; past the vertical ruler when it shows. */}
             <Controls position="bottom-left" showInteractive={false} style={settings.ruler ? { marginLeft: RULER_SIZE + 15 } : undefined} />
             {elements.length > 0 && miniMapVisible && <PresentationMiniMap label={interact("minimapLabel")} />}

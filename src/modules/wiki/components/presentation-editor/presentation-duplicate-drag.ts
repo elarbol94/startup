@@ -7,12 +7,15 @@ import { createId } from "@paralleldrive/cuid2";
 import { toast } from "sonner";
 import { mutableSelection, selectionRoots } from "../../lib/presentation-interactions";
 import { PRESENTATION_SNAP_TOLERANCE, duplicatePresentationTree, isPresentationElementLocked, presentationAncestors, presentationCameraBounds, presentationDescendants, snapBounds, unionBounds, type PresentationCanvasAction, type PresentationElement, type SnapGuide } from "../../lib/presentation";
+import type { PresentationSnapOptions } from "../../lib/presentation-grid";
 import type { PresentationNode } from "../presentation-canvas";
 import { frameInsertionEdit } from "./use-presentation-frames";
 
 export function startDuplicateDrag(event: React.PointerEvent<HTMLDivElement>, {
-  disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel, setSelectedIds, dispatch,
+  disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel, setSelectedIds, dispatch, snapOptions,
 }: {
+  /** View → Grid and Guides, so a copy snaps exactly like a plain drag. */
+  snapOptions: (altKey?: boolean) => PresentationSnapOptions;
   disabled: boolean;
   isMac: boolean;
   elements: PresentationElement[];
@@ -49,7 +52,7 @@ export function startDuplicateDrag(event: React.PointerEvent<HTMLDivElement>, {
     preview = copied.map(copy => { const original = source.find(e => idMap.get(e.id) === copy.id)!; return { ...copy, x: original.x + dx, y: original.y + dy }; });
     const movingBox = unionBounds(preview.filter(e => roots.some(root => idMap.get(root.id) === e.id)))!;
     const targets = elements.filter(e => !(e.type === "shape" && e.content.connection)).map(presentationCameraBounds);
-    const snapped = snapBounds(movingBox, movingBox, targets, (moveEvent.altKey && !isMac) || moveEvent.shiftKey ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), false);
+    const snapped = snapBounds(movingBox, movingBox, targets, (moveEvent.altKey && !isMac) || moveEvent.shiftKey ? 0 : PRESENTATION_SNAP_TOLERANCE / reactFlow.getZoom(), false, [], snapOptions(moveEvent.altKey && !isMac));
     preview = preview.map(e => ({ ...e, x: e.x + snapped.bounds.x - movingBox.x, y: e.y + snapped.bounds.y - movingBox.y }));
     setPreviewGuides(snapped.guides);
     setDragPreview(preview);

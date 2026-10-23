@@ -5,9 +5,6 @@ import { remapConnection } from "./presentation-connectors";
 export { frameAtPoint } from "./presentation-hierarchy";
 
 export const isLinearShape = (element: PresentationElement) => element.type === "shape" && ["line", "arrow", "doubleArrow"].includes(element.content.shape);
-export function adaptiveGridGap(zoom: number): number {
-  return 24 * 2 ** Math.floor(Math.log2(1 / Math.max(0.02, zoom)));
-}
 export function selectionRoots(elements: PresentationElement[], ids: Iterable<string>): PresentationElement[] {
   const selected = new Set(ids);
   return elements.filter(e => selected.has(e.id) && !presentationAncestors(elements, e.id).some(p => selected.has(p.id)));

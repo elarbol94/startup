@@ -53,8 +53,6 @@ test("shape choices, endpoint handles, adaptive grid, and clipboard round trip",
   await expect(node(page, "line")).toHaveAttribute("style", /rotate\(/);
   await expect.poll(async () => (await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "line").rotation).not.toBe(0);
   await node(page, "a").click(); await page.locator("[data-presentation-canvas]").focus(); await page.keyboard.press("Control+c"); await page.keyboard.press("Control+v"); await expect(page.locator(".react-flow__node-text")).toHaveCount(3);
-  const pattern = page.locator(".react-flow__background pattern"); const before = await pattern.getAttribute("width");
-  await page.locator(".react-flow__controls-zoomin").click(); await expect.poll(() => pattern.getAttribute("width")).not.toBe(before);
   await save(page); await page.reload(); await expect(page.locator(".react-flow__node-text")).toHaveCount(3);
 });
 

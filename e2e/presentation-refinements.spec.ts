@@ -75,6 +75,21 @@ test("equal distance and alignment guides appear while moving and Ctrl-dragging 
   expect((await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "c").x).toBeCloseTo(400, 0);
 });
 
+test("with smart guides switched off a drag lands where it is dropped", async ({ page }) => {
+  const id = await seed(page, false, false, shapes);
+  await page.getByTestId("presentation-view-menu").click(); await page.getByTestId("view-grid-settings").click();
+  await page.getByRole("checkbox", { name: /Intelligente Führungslinien/ }).click(); await page.keyboard.press("Escape");
+  const zoom = (await node(page, "a").boundingBox())!.width / 100, c = (await node(page, "c").boundingBox())!;
+  // 4 units short of the equal-spacing slot at x = 400, well inside the snap tolerance.
+  await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2); await page.mouse.down();
+  await page.mouse.move(c.x + c.width / 2 - 196 * zoom, c.y + c.height / 2, { steps: 12 });
+  const moved = (await node(page, "c").boundingBox())!;
+  await page.mouse.move(c.x + c.width / 2 - 196 * zoom + (c.x - 196 * zoom - moved.x), c.y + c.height / 2);
+  await expect(page.getByTestId("presentation-distance-guide")).toHaveCount(0);
+  await expect(page.getByTestId("presentation-snap-guide")).toHaveCount(0); await page.mouse.up();
+  expect((await snapshot(page, id)).elements.find((e: { id: string }) => e.id === "c").x).toBeGreaterThan(401);
+});
+
 test("rotation magnetically stops on vertical without requiring exact pointer placement", async ({ page }) => {
   const id = await seed(page, false, false, shapes.map(element => element.id === "b" ? { ...element, rotation: 30 } : element)); await node(page, "a").click();
   const box = (await node(page, "a").boundingBox())!, handle = (await page.getByRole("button", { name: "Auswahl drehen" }).boundingBox())!;

@@ -111,7 +111,7 @@ export function usePresentationDrag({ elements, selectedIds, selectedSet, setSel
   );
 
   const duplicateDrag = (event: React.PointerEvent<HTMLDivElement>) => startDuplicateDrag(event, {
-    disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel: dragCancelRef, setSelectedIds, dispatch,
+    disabled, isMac, elements, selectedIds, reactFlow, t, setPreviewGuides, setDragPreview, dragCancel: dragCancelRef, setSelectedIds, dispatch, snapOptions,
   });
 
   return { previewGuides, dragPreview, onNodesChange, duplicateDrag };

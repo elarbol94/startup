@@ -1,15 +1,12 @@
 import { resizePresentationElement } from "./presentation-interactions";
 import { describe, expect, it } from "vitest";
-import { adaptiveGridGap, isLinearShape, lineEndpoints, moveLineEndpoint, mutableSelection, parsePresentationClipboard, pastePresentationObjects, reorderSelection, selectionRoots, serializeSelection, ungroupSteps } from "./presentation-interactions";
+import { isLinearShape, lineEndpoints, moveLineEndpoint, mutableSelection, parsePresentationClipboard, pastePresentationObjects, reorderSelection, selectionRoots, serializeSelection, ungroupSteps } from "./presentation-interactions";
 import { presentationElementsSchema, type PresentationElement } from "./presentation";
 import { copyPresentationFormat, pastePresentationFormat } from "./presentation-format";
 const shape: PresentationElement = { id: "line", type: "shape", x: 10, y: 20, width: 100, height: 20, rotation: 0, content: { shape: "arrow", fill: "", stroke: "", strokeWidth: 2, opacity: 1 } };
 const frame: PresentationElement = { id: "frame", type: "frame", x: 0, y: 0, width: 600, height: 400, rotation: 0, content: { label: "", shape: "none", color: "", isGroup: true } };
 const text: PresentationElement = { id: "text", type: "text", parentId: "frame", x: 20, y: 20, width: 200, height: 80, rotation: 0, content: { text: "Hello", runs: [{ text: "Hello", bold: true }], fontSize: 32, bold: false, color: "", align: "left" } };
 describe("presentation interaction geometry", () => {
-  it("keeps grid spacing readable at every supported zoom", () => {
-    for (const zoom of [0.02, 0.1, 0.5, 1, 2, 4, 8]) { const gap = adaptiveGridGap(zoom); expect(gap * zoom).toBeGreaterThanOrEqual(12); expect(gap * zoom).toBeLessThanOrEqual(24); expect(Math.abs(Math.log2(gap / 24) % 1)).toBe(0); }
-  });
   it("moves one endpoint while retaining the opposite endpoint", () => {
     const next = moveLineEndpoint(shape, 1, { x: 10, y: 230 }, false);
     const [start, end] = lineEndpoints(next);
