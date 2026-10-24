@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { Columns2, Plus, Search, PanelTop, ArrowUpRight, Loader2 } from "lucide-react";
+import { Columns2, Plus, Search, PanelTop, ArrowUpRight, Loader2, Maximize2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { ShortcutTooltip } from "@/components/ui/shortcut-tooltip";
 import { moduleNav, moduleNavItemForPath } from "@/modules/registry";
 import { searchWorkspacePages } from "@/modules/context/actions";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const TAB_SWITCH_ARIA_SHORTCUTS = [GLOBAL_SHORTCUTS.switchTab, `Shift+${GLOBAL_S
 export function AppWorkspace({ children, navigation, userId }: { children: ReactNode; navigation: ReactNode; userId: string }) {
   const t = useTranslations("appWorkspace");
   const nav = useTranslations("nav");
+  const tFocus = useTranslations("focus");
   const pathname = usePathname();
   const router = useRouter();
   const search = useSearchParams();
@@ -56,7 +58,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
   const frames = useRef(new Map<string, HTMLIFrameElement>());
   const [sideOnOpen, setSideOnOpen] = useState(false);
   // Global focus hides the tab strip; the focus bar can bring it back temporarily.
-  const { globalFocused } = useFocusMode();
+  const { globalFocused, setGlobalFocused } = useFocusMode();
   const [focusTabsRevealed, setFocusTabsRevealed] = useState(false);
   const [tabsRevealFocus, setTabsRevealFocus] = useState(globalFocused);
   if (tabsRevealFocus !== globalFocused) {
@@ -359,6 +361,7 @@ export function AppWorkspace({ children, navigation, userId }: { children: React
           </div>
           <button type="button" className={buttonClass} title={t("newTab")} aria-label={t("newTab")} onClick={() => openPicker()}><Plus className="size-4" /><span className="ml-1 hidden text-[13px] sm:inline">{t("newTab")}</span></button>
           <button type="button" className={cn(buttonClass, showSplit && "bg-muted text-foreground")} title={wide ? t(showSplit ? "single" : "split") : t("narrow")} aria-label={t(showSplit ? "single" : "split")} aria-pressed={showSplit} disabled={!wide} onClick={() => { if (showSplit) setSplit(false); else if (tabs.length) { setLeftPane(active); setSecondary(tabs.find(tab => tab.id !== active)?.id || "primary"); setSplit(true); } else openPicker(true); }}><Columns2 className="size-4" /></button>
+          <ShortcutTooltip label={tFocus("enter")} shortcut={GLOBAL_SHORTCUTS.focusMode}><button type="button" className={buttonClass} aria-label={tFocus("enter")} aria-keyshortcuts={ariaKeyShortcuts(GLOBAL_SHORTCUTS.focusMode)} data-testid="focus-mode-button" onClick={() => setGlobalFocused(true)}><Maximize2 className="size-4" /></button></ShortcutTooltip>
         </div>}
         <div data-workspace-content className={cn("relative min-w-0", !embedded && "flex h-[calc(100dvh-2.75rem)] overflow-hidden", !embedded && (tabs.length ? "max-md:h-[calc(100dvh-6.25rem)]" : "max-md:h-[calc(100dvh-3.5rem)]"))}>
           <div id="workspace-panel-primary" ref={primary} role={embedded ? undefined : "tabpanel"} aria-labelledby={embedded ? undefined : "workspace-tab-primary"} hidden={!primaryVisible} className={cn("min-w-0 px-4 pt-4 pb-6 sm:px-5 sm:py-4 2xl:px-7 2xl:py-6", !embedded && "h-full overflow-auto", showSplit && leftPane === "primary" ? "shrink-0 border-r" : "flex-1")} style={showSplit ? { order: leftPane === "primary" ? 0 : 2, width: leftPane === "primary" ? `${splitRatio(ratio, width)}%` : undefined } : undefined}>

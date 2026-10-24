@@ -122,6 +122,20 @@ test("focus starts from the user menu and ends from search", async ({ page }) =>
   await expect(visibleSidebar(page)).toBeVisible();
 });
 
+test("the toolbar button starts focus on any page", async ({ page }) => {
+  await openPersonnel(page);
+  const button = page.locator("[data-workspace-toolbar]").getByRole("button", { name: "Fokusmodus starten", exact: true });
+  await button.click();
+  const pill = page.getByTestId("focus-pill");
+  await expect(pill).toBeVisible();
+  await expect(visibleSidebar(page)).toHaveCount(0);
+  await expect(page.locator("[data-workspace-toolbar]")).toBeHidden();
+
+  await pill.getByRole("button", { name: "Fokus beenden", exact: true }).click();
+  await expect(pill).toHaveCount(0);
+  await expect(button).toBeVisible();
+});
+
 test("global focus also hides the wiki rail", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/wiki/inbox");
