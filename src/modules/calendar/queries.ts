@@ -5,6 +5,7 @@ import { and, asc, eq, inArray, isNull, or } from "drizzle-orm";
 import { db } from "@/db";
 import { user } from "@/db/core-schema";
 import {
+  calendarCaldavLinks,
   calendarEventAttendees,
   calendarEventExceptions,
   calendarEvents,
@@ -138,10 +139,20 @@ function listAccessibleCalendars(userId: string) {
         lastError: subscription.lastError,
       }]),
   );
+  const nextcloudLinks = new Map(
+    db
+      .select()
+      .from(calendarCaldavLinks)
+      .all()
+      .map((link) => [link.calendarId, {
+        lastSyncedAt: link.lastSyncedAt?.toISOString() ?? null,
+        lastError: link.lastError,
+      }]),
+  );
   return rows.flatMap((calendar) => {
     const role = calendarRoleForUser(calendar.id, userId);
     return role
-      ? [{ ...calendar, role, subscription: subscriptions.get(calendar.id) ?? null }]
+      ? [{ ...calendar, role, subscription: subscriptions.get(calendar.id) ?? null, nextcloud: nextcloudLinks.get(calendar.id) ?? null }]
       : [];
   });
 }
@@ -545,6 +556,7 @@ export function listCalendarWorkspace(input: {
       role: calendar.role,
       visibility: calendar.visibility,
       subscription: calendar.subscription,
+      nextcloud: calendar.nextcloud,
     })),
     members: db
       .select({ id: user.id, name: user.name })

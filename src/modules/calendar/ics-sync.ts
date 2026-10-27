@@ -65,7 +65,7 @@ export function normalizeFeedUrl(value: string) {
   return url.toString();
 }
 
-function ownerTimezone(ownerId: string) {
+export function ownerTimezone(ownerId: string) {
   return (
     db
       .select({ timezone: calendarPreferences.timezone })
@@ -122,14 +122,15 @@ function chunks<T>(values: T[], size = 500) {
 /**
  * Upserts events by iCalendar UID. `mirror` makes the calendar match the feed
  * (changed rows are updated, vanished ones deleted); `import` only adds UIDs the
- * calendar does not have yet, so local edits of earlier imports are kept.
+ * calendar does not have yet, so local edits of earlier imports are kept; `merge`
+ * updates like `mirror` but keeps events missing from `events` (CalDAV sends changes only).
  * Unchanged rows are not rewritten, which keeps the version journal quiet.
  */
 export function applyIcsEvents(input: {
   calendarId: string;
   userId: string;
   events: IcsEvent[];
-  mode: "mirror" | "import";
+  mode: "mirror" | "merge" | "import";
 }): IcsApplyResult {
   const result: IcsApplyResult = { created: 0, updated: 0, removed: 0, skipped: 0 };
   const now = new Date();
@@ -143,7 +144,7 @@ export function applyIcsEvents(input: {
         .map((row) => [row.externalUid!, row]),
     );
     const exceptionsByEvent = new Map<string, (typeof calendarEventExceptions.$inferSelect)[]>();
-    if (input.mode === "mirror") {
+    if (input.mode !== "import") {
       for (const ids of chunks([...existing.values()].map((row) => row.id))) {
         for (const exception of tx
           .select()

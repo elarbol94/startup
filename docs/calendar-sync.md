@@ -1,7 +1,40 @@
-# External calendars (Google Calendar, iCal)
+# External calendars (Nextcloud, Google Calendar, iCal)
 
-The calendar can show events from Google Calendar or any other iCalendar source
-in two ways. Both are reached from **Filters → Add calendar**.
+The calendar can sync both ways with Nextcloud, and show events from Google
+Calendar or any other iCalendar source read-only or as a one-time copy. All are
+reached from **Filters → Add calendar**.
+
+## Nextcloud (two-way CalDAV sync)
+
+*Sync with Nextcloud…* connects the user's own account on the Nextcloud set in
+`NEXTCLOUD_URL` (the same instance as the Cloud tab) with a login name and an
+**app password** (Nextcloud → Personal settings → Security → *Create new app
+password*).
+
+- Pick a Nextcloud calendar in the dialog to create a matching app calendar,
+  or choose *Sync to Nextcloud* in an existing calendar's menu to create a new
+  Nextcloud calendar from it. Read-only (shared) Nextcloud calendars and
+  subscribed feeds cannot be linked.
+- Events stay editable on both sides. The server syncs every linked calendar
+  every minute (`startCaldavSync`, started from `src/instrumentation.ts`);
+  *Sync now* in the calendar's menu runs it at once.
+- Each run pulls first with RFC 6578 `sync-collection` (only changes since the
+  last sync token; a full listing when the token expires), then pushes local
+  creates, edits and deletions with `If-Match`/`If-None-Match` ETags. When both
+  sides changed the same event, **the Nextcloud version wins**.
+- Title, description, location, times, all-day, recurrence (including moved
+  and cancelled occurrences) and free/busy are synced. App-only data (event
+  kind, address, linked task, attendees, reminders) stays local and survives
+  remote edits. Deleting an event on either side deletes it on the other.
+- *Stop syncing with Nextcloud* and *Disconnect* only stop the exchange; both
+  copies are kept. Deleting an app calendar never deletes the Nextcloud one.
+- The app password is encrypted like mailbox passwords (`mail/crypto.ts`,
+  key from `BETTER_AUTH_SECRET`) in `calendar_caldav_accounts`, which the
+  version journal excludes. Requests only ever go to the `NEXTCLOUD_URL`
+  origin. After a rejected login the background sync pauses that user's
+  calendars (avoiding Nextcloud's brute-force lockout) until a new app
+  password is saved or *Sync now* is used.
+- The app server must reach `NEXTCLOUD_URL` itself (not just the browser).
 
 ## Subscription (read-only mirror)
 
@@ -45,3 +78,10 @@ edits are kept.
   background worker, upload unpacking.
 - `src/modules/calendar/subscription-actions.ts`: subscribe, replace URL,
   sync now, remove.
+- `src/modules/calendar/ics-write.ts`: serializes an event with its
+  occurrence exceptions back to iCalendar (for CalDAV pushes).
+- `src/modules/calendar/caldav-client.ts`: CalDAV requests (discovery,
+  listing, sync report, multiget, PUT/DELETE, MKCALENDAR).
+- `src/modules/calendar/caldav-sync.ts`: two-way sync engine and worker.
+- `src/modules/calendar/caldav-actions.ts`: connect, link, push, sync now,
+  unlink, disconnect.

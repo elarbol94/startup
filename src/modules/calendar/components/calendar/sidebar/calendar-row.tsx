@@ -1,7 +1,7 @@
 "use client";
 
 // One calendar with a colour-filled checkbox and an options menu (show only this, edit;
-// sync now and remove for subscriptions).
+// sync now and remove for subscriptions; sync now, start and stop Nextcloud sync).
 // Used by calendar-list-section.tsx.
 import { Check, MoreHorizontal, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ export function CalendarRow({
   onEdit,
   onSync,
   onRemove,
+  onPushToNextcloud,
+  onUnlinkNextcloud,
 }: {
   t: CalendarT;
   calendar: CalendarEntry;
@@ -34,8 +36,12 @@ export function CalendarRow({
   onEdit: () => void;
   onSync?: () => void;
   onRemove?: () => void;
+  onPushToNextcloud?: () => void;
+  onUnlinkNextcloud?: () => void;
 }) {
-  const manageSubscription = calendar.role === "owner" && calendar.subscription;
+  const owner = calendar.role === "owner";
+  const manageSubscription = owner && calendar.subscription;
+  const sync = calendar.subscription ?? (calendar.nextcloud && { host: "Nextcloud", ...calendar.nextcloud });
   return (
     <div className={cn("group flex items-center gap-1 rounded-md transition-colors hover:bg-accent", !dense && "border pr-2")}>
       <label
@@ -55,10 +61,10 @@ export function CalendarRow({
         <span className="min-w-0">
           <span className={cn("flex items-center gap-1.5 leading-snug", dense ? "text-[13px]" : "text-sm font-medium")}>
             <span className="truncate">{calendar.name}</span>
-            {dense && calendar.subscription && <SubscriptionStatus t={t} subscription={calendar.subscription} compact />}
+            {dense && sync && <SubscriptionStatus t={t} subscription={sync} compact />}
           </span>
           {showOwner && <UserIdentity userId={calendar.ownerId} compact className="text-xs text-muted-foreground" />}
-          {!dense && calendar.subscription && <SubscriptionStatus t={t} subscription={calendar.subscription} />}
+          {!dense && sync && <SubscriptionStatus t={t} subscription={sync} />}
         </span>
       </label>
       <DropdownMenu>
@@ -79,7 +85,16 @@ export function CalendarRow({
         <DropdownMenuContent align="end" className="min-w-48">
           <DropdownMenuItem onClick={onOnly}>{t("onlyCalendar", { name: calendar.name })}</DropdownMenuItem>
           {calendar.role === "owner" && <DropdownMenuItem onClick={onEdit}>{t("editCalendar")}</DropdownMenuItem>}
-          {manageSubscription && onSync && <DropdownMenuItem onClick={onSync}><RefreshCw />{t("feeds.syncNow")}</DropdownMenuItem>}
+          {(manageSubscription || (owner && calendar.nextcloud)) && onSync && <DropdownMenuItem onClick={onSync}><RefreshCw />{t("feeds.syncNow")}</DropdownMenuItem>}
+          {owner && !calendar.subscription && !calendar.nextcloud && onPushToNextcloud && (
+            <DropdownMenuItem onClick={onPushToNextcloud}>{t("nextcloud.push")}</DropdownMenuItem>
+          )}
+          {owner && calendar.nextcloud && onUnlinkNextcloud && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={onUnlinkNextcloud}>{t("nextcloud.unlink")}</DropdownMenuItem>
+            </>
+          )}
           {manageSubscription && onRemove && (
             <>
               <DropdownMenuSeparator />

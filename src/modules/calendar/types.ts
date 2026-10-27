@@ -67,6 +67,11 @@ export type CalendarSource = {
     lastSyncedAt: string | null;
     lastError: string | null;
   } | null;
+  /** Set for calendars synced both ways with a Nextcloud calendar of the owner. */
+  nextcloud: {
+    lastSyncedAt: string | null;
+    lastError: string | null;
+  } | null;
 };
 
 export type CalendarPreferencesValue = {

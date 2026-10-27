@@ -1,7 +1,7 @@
 "use client";
 
 // "My calendars" / "Other calendars" lists with visibility checkboxes and an add menu
-// (new calendar, Google Calendar subscription, file import).
+// (new calendar, Google Calendar subscription, file import, Nextcloud sync).
 // Used by calendar-sidebar.tsx and calendar-filters-dialog.tsx.
 import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,7 @@ export function AddCalendarMenu({
       </ShortcutTooltip>
       <DropdownMenuContent align="start" className="min-w-56">
         <DropdownMenuItem onClick={openNewCalendar}>{t("feeds.newCalendar")}</DropdownMenuItem>
+        <DropdownMenuItem onClick={feeds.openNextcloud}>{t("nextcloud.menu")}</DropdownMenuItem>
         <DropdownMenuItem onClick={feeds.openSubscribe}>{t("feeds.subscribe")}</DropdownMenuItem>
         <DropdownMenuItem disabled={!feeds.canImport} onClick={feeds.openImport}>{t("feeds.import")}</DropdownMenuItem>
       </DropdownMenuContent>
@@ -103,6 +104,8 @@ export function CalendarListSection({
                 onEdit={() => openEditCalendar(calendar)}
                 onSync={() => void feeds.syncNow(calendar)}
                 onRemove={() => void feeds.remove(calendar)}
+                onPushToNextcloud={() => void feeds.pushToNextcloud(calendar)}
+                onUnlinkNextcloud={() => void feeds.unlink(calendar)}
               />
             ))}
           </div>

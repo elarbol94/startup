@@ -68,7 +68,7 @@ SQLite database. Stop the normal development server before running it.
 - `docs/municipality-kennzahlen.md`: Ausgangsdaten vs. Kennzahlen, and how to add one.
 - `docs/office-documents.md`: Word documents in ONLYOFFICE (topology, secrets,
   versions/restore, workspace plugin, local development).
-- `docs/calendar-sync.md`: Google Calendar/iCal subscriptions and `.ics` imports.
+- `docs/calendar-sync.md`: Nextcloud two-way sync, Google Calendar/iCal subscriptions and `.ics` imports.
 - `docs/meetings.md`: meeting recordings, AI protocols, consent, retention.
 - `docs/push-notifications.md`: installable app, Web Push (VAPID keys), what is pushed.
 - `docs/chat.md`: Chat section, Element Web on `/element/`, Matrix homeserver.

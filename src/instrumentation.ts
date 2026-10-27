@@ -36,6 +36,9 @@ export async function register() {
     // Calendars subscribed to iCal feeds (e.g. Google Calendar) re-sync every 30 minutes.
     const { startCalendarSubscriptionSync } = await import("./modules/calendar/ics-sync");
     startCalendarSubscriptionSync();
+    // Calendars linked to Nextcloud sync both ways every minute.
+    const { startCaldavSync } = await import("./modules/calendar/caldav-sync");
+    startCaldavSync();
     // Web Push: inbox notifications, calendar reminders and the morning due-tasks summary.
     const { startPushWorker } = await import("./modules/push/worker");
     startPushWorker();

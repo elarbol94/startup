@@ -9,6 +9,8 @@ export const excludedTables = new Set([
   "push_subscriptions", "push_preferences", "push_deliveries",
   // Holds the secret feed URL and sync status; synced events are versioned as usual.
   "calendar_subscriptions",
+  // Nextcloud login (encrypted app password) and per-object sync state; synced events are versioned as usual.
+  "calendar_caldav_accounts", "calendar_caldav_links", "calendar_caldav_objects",
   // Office history is append-only and managed by the office store/UI.
   "wiki_office_documents", "wiki_office_sessions", "wiki_office_versions", "wiki_office_operations",
   // Holds the encrypted mailbox password.

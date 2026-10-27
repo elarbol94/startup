@@ -145,6 +145,68 @@ export const calendarSubscriptions = sqliteTable("calendar_subscriptions", {
     .$defaultFn(() => new Date()),
 });
 
+/**
+ * A user's Nextcloud login for two-way CalDAV sync (server: NEXTCLOUD_URL).
+ * The app password is encrypted like mailbox passwords (mail/crypto.ts).
+ */
+export const calendarCaldavAccounts = sqliteTable("calendar_caldav_accounts", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  username: text("username").notNull(),
+  passwordEncrypted: text("password_encrypted").notNull(),
+  /** Absolute URL of the user's calendar home, found at connect time. */
+  homeUrl: text("home_url").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+  updatedAt: integer("updated_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+/** An app calendar kept in two-way sync with one Nextcloud calendar of its owner. */
+export const calendarCaldavLinks = sqliteTable("calendar_caldav_links", {
+  calendarId: text("calendar_id")
+    .primaryKey()
+    .references(() => calendars.id, { onDelete: "cascade" }),
+  userId: text("user_id")
+    .notNull()
+    .references(() => calendarCaldavAccounts.userId, { onDelete: "cascade" }),
+  /** Absolute URL of the Nextcloud calendar collection (ends with "/"). */
+  collectionUrl: text("collection_url").notNull(),
+  /** RFC 6578 sync token of the last pull; null forces a full listing. */
+  syncToken: text("sync_token"),
+  lastAttemptAt: integer("last_attempt_at", { mode: "timestamp_ms" }),
+  lastSyncedAt: integer("last_synced_at", { mode: "timestamp_ms" }),
+  lastError: text("last_error"),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .$defaultFn(() => new Date()),
+});
+
+/**
+ * One synced event per Nextcloud object. `eventId` has no foreign key on purpose:
+ * a row whose event is gone tells the next sync to delete the remote object.
+ */
+export const calendarCaldavObjects = sqliteTable(
+  "calendar_caldav_objects",
+  {
+    calendarId: text("calendar_id")
+      .notNull()
+      .references(() => calendarCaldavLinks.calendarId, { onDelete: "cascade" }),
+    href: text("href").notNull(),
+    eventId: text("event_id").notNull(),
+    etag: text("etag"),
+    /** Local version (event/exception updatedAt) that matches the remote object. */
+    syncedAt: integer("synced_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.calendarId, table.href] }),
+    index("calendar_caldav_objects_event_idx").on(table.eventId),
+  ],
+);
+
 export const calendarEventAttendees = sqliteTable(
   "calendar_event_attendees",
   {

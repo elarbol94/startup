@@ -30,6 +30,14 @@ const feedErrors = [
   "fetch_failed",
   "already_subscribed",
   "forbidden",
+  // Nextcloud (CalDAV) sync
+  "auth_failed",
+  "not_found",
+  "unreachable",
+  "bad_response",
+  "not_connected",
+  "already_linked",
+  "read_only",
 ] as const;
 
 export function feedErrorMessage(t: T, code: string | null | undefined) {
