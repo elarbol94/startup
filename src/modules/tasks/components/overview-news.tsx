@@ -7,8 +7,8 @@ import { UserIdentity } from "@/components/user-identity";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { withWorkItemFocus } from "@/modules/context/routes";
 import type { listNotifications } from "@/modules/wiki/research-queries";
+import { notificationHref } from "@/modules/wiki/notification-href";
 import { useMarkNotificationRead } from "@/modules/wiki/components/use-mark-notification-read";
 import { ItemDetails } from "./item-details";
 
@@ -40,10 +40,8 @@ export function OverviewNews({ items }: { items: ReturnType<typeof listNotificat
       ) : (
         <ul className="divide-y divide-line-soft">
           {items.slice(0, shownItems).map(item => {
-            const title = item.taskTitle || item.pageTitle || wiki("notifications");
-            const href = item.taskTitle && item.taskId
-              ? withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task")
-              : item.pageSlug ? `/wiki/pages/${encodeURIComponent(item.pageSlug)}` : null;
+            const title = item.taskTitle || item.pageTitle || item.subject || wiki("notifications");
+            const href = notificationHref(item);
             return (
               <li key={item.id} className="flex items-center gap-3 px-[18px] py-2.5 transition-colors hover:bg-accent">
                 <UserIdentity userId={item.actorId} name={item.actorName} avatarOnly className="[&>span:first-child]:size-6 [&>span:first-child]:text-[10px]" />

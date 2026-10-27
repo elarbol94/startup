@@ -58,3 +58,17 @@ export function saveTaskAssignees(tx: Transaction, input: {
     }).run();
   }
 }
+
+/**
+ * Call when a task or deadline turns done: tells everyone who assigned it (the actors of its
+ * assignment notifications), except whoever completed it. Uses `db`, which is the open
+ * transaction's connection when called inside one.
+ */
+export function notifyTaskCompleted(taskId: string, actorId: string) {
+  const assigners = db.selectDistinct({ id: wikiNotifications.actorId }).from(wikiNotifications)
+    .where(and(eq(wikiNotifications.taskId, taskId), eq(wikiNotifications.type, "assignment"))).all()
+    .filter((row) => row.id !== actorId);
+  if (assigners.length) db.insert(wikiNotifications).values(assigners.map((row) => ({
+    userId: row.id, actorId, type: "completed" as const, taskId,
+  }))).run();
+}

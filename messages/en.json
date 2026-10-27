@@ -3444,7 +3444,10 @@
       "mention": "mentioned you on",
       "reply": "replied on",
       "assignment": "assigned you on",
-      "resolved": "resolved a thread on"
+      "resolved": "resolved a thread on",
+      "invitation": "invited you to",
+      "completed": "completed",
+      "protocol": "has a new AI protocol for"
     },
     "recoverableDeletion": "Recoverable deletion",
     "trashDescription": "Deleted pages and sources stay recoverable until an administrator purges them.",
@@ -4235,7 +4238,7 @@
       "categories": "Notify me about",
       "activity": "Task assignments, mentions and replies",
       "calendar": "Calendar reminders",
-      "tasksDue": "Tasks and deadlines due today (in the morning)",
+      "tasksDue": "Tasks and deadlines due today and tomorrow (in the morning)",
       "testSent": "Test notification sent.",
       "testFailed": "No device accepted the test notification.",
       "failed": "Could not change push notifications."
@@ -5645,6 +5648,8 @@
   "push": {
     "tasksDueTitle": "{count, plural, one {# task due today} other {# tasks due today}}",
     "tasksDueMore": "{titles} and {count} more",
+    "tasksDueTomorrowTitle": "{count, plural, one {# task due tomorrow} other {# tasks due tomorrow}}",
+    "tasksDueTomorrow": "Tomorrow: {titles}",
     "testTitle": "Notifications are working",
     "testBody": "This device will now receive notifications."
   }

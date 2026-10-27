@@ -8,9 +8,24 @@ Push notifications even when it is closed.
 
 | Category (profile setting) | Source | Timing |
 | --- | --- | --- |
-| Assignments, mentions and replies | rows in `wiki_notifications` (task assignments, wiki/office mentions, replies) | within ~30 s of creation |
+| Assignments, mentions and replies | new unread rows in `wiki_notifications` (see below) | within ~30 s of creation |
 | Calendar reminders | `calendar_reminders` (incl. recurring occurrences) | when the reminder is due |
-| Tasks and deadlines due today | open tasks assigned via `task_assignees` and deadlines via `tasks.assignee_id` with `due_date` = today | once per day, 08:00–18:00 Europe/Vienna |
+| Tasks and deadlines due today and tomorrow | open tasks assigned via `task_assignees` and deadlines via `tasks.assignee_id` with `due_date` = today or tomorrow | once per day, 08:00–18:00 Europe/Vienna |
+
+Inbox rows (`wiki_notifications.type`) and who writes them:
+
+| Type | When | Written by |
+| --- | --- | --- |
+| `assignment` | someone else assigns you a task or deadline | `projects/assignees.ts`, `contextual-task-actions.ts` |
+| `mention` | someone @-mentions you in a Word document | `wiki/office/office-actions.ts` |
+| `invitation` | you are added as an attendee to an event | `calendar/invitations.ts` (event save, series split) |
+| `completed` | a task you assigned is completed by someone else | `notifyTaskCompleted` in `projects/assignees.ts` |
+| `protocol` | the AI protocol of a meeting you created is ready | `meetings/processing/stages.ts` |
+
+`reply` and `resolved` are still valid types but nothing writes them since the
+old wiki editor was removed. Rows about something that is neither a page nor a
+task carry their own `subject` and `link`. To push a new kind of event, insert an
+inbox row; the worker, the inbox list and the dashboard pick it up.
 
 Each user turns push on per device and picks categories under
 **Settings → Profile → Push notifications**. Signing out unbinds the device from

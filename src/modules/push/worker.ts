@@ -54,14 +54,17 @@ export function openItemsDueOn(userId: string, date: string) {
     .map((row) => row.title);
 }
 
-/** One morning summary of the user's open tasks and deadlines due today. */
+/** One morning summary of the user's open tasks and deadlines due today and tomorrow. */
 export async function pushTasksDue(now = new Date()) {
   const { date, hour } = businessClock(now);
   if (hour < DIGEST_FROM_HOUR || hour >= DIGEST_UNTIL_HOUR) return;
+  // The digest runs after 08:00, so +24 h never skips or repeats a day across a DST switch.
+  const tomorrow = businessClock(new Date(now.getTime() + 24 * 60 * 60_000)).date;
   for (const userId of pushRecipients("tasksDue")) {
     if (!claimPushDelivery(userId, `tasks-due:${date}`)) continue;
-    const titles = openItemsDueOn(userId, date);
-    if (titles.length) await sendPushToUser(userId, (locale) => tasksDuePayload(locale, date, titles));
+    const today = openItemsDueOn(userId, date);
+    const next = openItemsDueOn(userId, tomorrow);
+    if (today.length || next.length) await sendPushToUser(userId, (locale) => tasksDuePayload(locale, date, today, next));
   }
 }
 

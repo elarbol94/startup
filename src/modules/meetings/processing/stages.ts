@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, asc, desc, eq, inArray, isNull, max, ne, or, sql } from "drizzle-orm";
 import { db, sqlite } from "@/db";
-import { attachments, user } from "@/db/schema";
+import { attachments, user, wikiNotifications } from "@/db/schema";
 import { moveStagedFileIntoStore, newStoredName, purgeMediaAttachment, registerStagedAttachment } from "@/lib/files";
 import {
   meetingAccess,
@@ -325,6 +325,11 @@ async function protocol(job: MeetingJob, context: StageContext) {
       updatedAt: new Date(),
     }).where(eq(meetings.id, meeting.id)).run();
     audit(tx, meeting.id, null, "ai.protocol", { model: result.model, version, sessionTranscriptId: session.id });
+    // No human actor: the inbox reads "<creator> has a new AI protocol for <meeting>".
+    tx.insert(wikiNotifications).values({
+      userId: meeting.createdBy, actorId: meeting.createdBy, type: "protocol",
+      subject: meeting.title, link: `/meetings/${meeting.id}`,
+    }).run();
   }, { checkPolicy: true });
 }
 

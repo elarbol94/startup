@@ -17,7 +17,7 @@ export function NotificationList({ items }: { items: ReturnType<typeof listNotif
   const markRead = useMarkNotificationRead();
   if (!items.length) return <EmptyState icon={<Bell />} title={t("noNotifications")} />;
   return <div className="divide-y divide-line-soft">{items.map((item) => {
-    const title = item.taskTitle || item.pageTitle || t("notifications");
+    const title = item.taskTitle || item.pageTitle || item.subject || t("notifications");
     const message = `${item.actorName} ${t(`notificationTypes.${item.type}`)} ${title}`;
     const href = notificationHref(item);
     const when = format.dateTime(item.createdAt, { dateStyle: "medium", timeStyle: "short" });

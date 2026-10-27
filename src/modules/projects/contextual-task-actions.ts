@@ -21,7 +21,7 @@ import { requireUserOrThrow } from "@/lib/auth";
 import { safeInternalRoute } from "@/lib/internal-route";
 import { leafTasks, taskDescendants } from "@/modules/projects/schedule";
 import { getPortfolioSchedule } from "./queries";
-import { saveTaskAssignees, taskAssigneeFields } from "./assignees";
+import { notifyTaskCompleted, saveTaskAssignees, taskAssigneeFields } from "./assignees";
 import {
   SORT_GAP,
   projectHierarchyRows,
@@ -261,6 +261,7 @@ export async function upsertContextualTask(
       taskId: id, assigneeIds: data.assigneeIds, actorId: currentUser.id,
       pageId: data.context?.type === "wikiPage" ? data.context.entityId : null,
     });
+    if (existing?.status === "open" && data.status === "done") notifyTaskCompleted(id, currentUser.id);
     if (data.context) {
       const context = {
         taskId: id,
@@ -354,7 +355,7 @@ function dashboardColumn(
 }
 
 export async function moveDashboardTask(input: { taskId: string; stage: DashboardStage }) {
-  await requireUserOrThrow();
+  const currentUser = await requireUserOrThrow();
   const data = z.object({ taskId: z.string().min(1), stage: z.enum(["todo", "in_progress", "done"]) }).parse(input);
   const task = db.select().from(tasks).where(eq(tasks.id, data.taskId)).get();
   if (!task || task.kind !== "task") throw new Error("Task not found");
@@ -380,6 +381,7 @@ export async function moveDashboardTask(input: { taskId: string; stage: Dashboar
       sortOrder: column?.id !== task.columnId ? nextContextTaskSortOrder(column?.id ?? null) : task.sortOrder,
       updatedAt: now,
     }).where(eq(tasks.id, task.id)).run();
+    if (task.status === "open" && data.stage === "done") notifyTaskCompleted(task.id, currentUser.id);
     if (task.projectId) {
       if (task.parentTaskId) syncTaskAncestors(task.id);
       syncProjectBounds(task.projectId);

@@ -18,7 +18,8 @@ vi.mock("@/db", async () => {
 
 import { db, sqlite } from "@/db";
 import { projectColumns, projects, taskAssignees, tasks, user, wikiNotifications } from "@/db/schema";
-import { upsertTask } from "./task-actions";
+import { requireUserOrThrow } from "@/lib/auth";
+import { setTaskStatus, upsertTask } from "./task-actions";
 import { upsertContextualTask } from "./contextual-task-actions";
 import { upsertContextualDeadline } from "./deadline-actions";
 import { getBoard, getPersonalWorkSummary, getPortfolioSchedule, listDeadlineOverview, listMyTasks, listTaskOverview, listTasksForContext } from "./queries";
@@ -132,6 +133,18 @@ describe("task assignees", () => {
     const { id } = await upsertTask(boardInput);
     db.delete(tasks).where(eq(tasks.id, id)).run();
     expect(assignedIds(id)).toEqual([]);
+  });
+
+  it("tells whoever assigned a task once an assignee completes it", async () => {
+    const context = { type: "app" as const, entityId: "/", route: "/", label: "Overview" };
+    const { id } = await upsertContextualTask({ ...taskInput, context });
+    const completed = () => db.select().from(wikiNotifications)
+      .where(eq(wikiNotifications.type, "completed")).all().map((row) => [row.userId, row.actorId]);
+    vi.mocked(requireUserOrThrow).mockResolvedValueOnce({ id: "alice" } as Awaited<ReturnType<typeof requireUserOrThrow>>);
+    await setTaskStatus(id, "done");
+    // Already done: no second notice.
+    await setTaskStatus(id, "done");
+    expect(completed()).toEqual([["actor", "alice"]]);
   });
 });
 
