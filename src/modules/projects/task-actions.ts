@@ -25,7 +25,7 @@ import {
   leafTasks,
   taskDescendants,
 } from "@/modules/projects/schedule";
-import { saveTaskAssignees } from "./assignees";
+import { notifyTaskCompleted, saveTaskAssignees } from "./assignees";
 import { assertProjectEditable } from "./guards";
 import { deleteTaskSubtreeSideRows } from "./cleanup";
 import {
@@ -333,6 +333,7 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
     }
     if (!id) throw new Error("Task was not saved");
     saveTaskAssignees(tx, { taskId: id, assigneeIds: data.assigneeIds, actorId: user.id });
+    if (existing?.status === "open" && values.status === "done") notifyTaskCompleted(id, user.id);
     const affectedParents = new Set(
       [existing?.parentTaskId, data.parentTaskId].filter(
         (parentTaskId): parentTaskId is string => Boolean(parentTaskId),
@@ -357,7 +358,7 @@ export async function upsertTask(input: TaskInput): Promise<{ id: string }> {
 const taskStatusSchema = z.object({ id: z.string().min(1), status: z.enum(["open", "done"]) });
 
 export async function setTaskStatus(id: string, status: "open" | "done") {
-  await requireUserOrThrow();
+  const currentUser = await requireUserOrThrow();
   const data = taskStatusSchema.parse({ id, status });
   const task = db.select().from(tasks).where(eq(tasks.id, data.id)).get();
   if (!task) throw new Error("Task not found");
@@ -409,6 +410,7 @@ export async function setTaskStatus(id: string, status: "open" | "done") {
       ...(columnId !== task.columnId ? { sortOrder: nextContextTaskSortOrder(columnId) } : {}),
       updatedAt: now,
     }).where(eq(tasks.id, task.id)).run();
+    if (task.status === "open" && data.status === "done") notifyTaskCompleted(task.id, currentUser.id);
     if (projectId) {
       if (task.parentTaskId) syncTaskAncestors(task.id);
       syncProjectBounds(projectId);

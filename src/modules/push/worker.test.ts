@@ -24,6 +24,7 @@ import { calendarEvents, calendarReminders, calendars, taskAssignees, tasks, use
 import { pushDeliveries, pushPreferences, pushSubscriptions } from "./schema";
 import { pushActivity, pushCalendarReminders, pushTasksDue } from "./worker";
 import { listNotifications } from "@/modules/wiki/research-queries";
+import { notifyNewAttendees } from "@/modules/calendar/invitations";
 
 const payloads = () => vi.mocked(webpush.sendNotification).mock.calls.map((call) => JSON.parse(call[1] as string));
 
@@ -85,7 +86,24 @@ it("sends due calendar reminders and claims them so the in-app toast skips them"
   expect(payloads()).toEqual([{ title: "Standup", body: "Starting at 9:00 AM", url: "/calendar?date=2026-10-14", tag: "calendar:standup:2026-10-14T07:00:00.000Z" }]);
 });
 
-it("sends one morning summary of open tasks and deadlines due today", async () => {
+it("pushes a calendar invitation to newly added attendees only, linked to the event", async () => {
+  db.delete(wikiNotifications).run();
+  const event = {
+    id: "kickoff", title: "Kickoff", allDay: false, startDate: null,
+    startAt: new Date("2026-10-20T08:00:00Z"), timezone: "Europe/Vienna",
+  };
+  db.transaction((tx) => notifyNewAttendees(tx, { event, actorId: "ben", attendeeIds: ["anna", "ben"], previousIds: [] }));
+  // A later save with the same attendees invites nobody again.
+  db.transaction((tx) => notifyNewAttendees(tx, { event, actorId: "ben", attendeeIds: ["anna"], previousIds: ["anna"] }));
+  await pushActivity();
+  expect(payloads()).toEqual([expect.objectContaining({
+    title: "Kickoff",
+    body: "Ben invited you to Kickoff",
+    url: `/calendar?date=2026-10-20&item=${encodeURIComponent("kickoff:2026-10-20T08:00:00.000Z")}`,
+  })]);
+});
+
+it("sends one morning summary of open tasks and deadlines due today and tomorrow", async () => {
   const today = "2026-10-15";
   const task = db.insert(tasks).values({ title: "Submit invoice", dueDate: today, createdBy: "ben" }).returning().get();
   db.insert(taskAssignees).values({ taskId: task.id, userId: "anna" }).run();
@@ -94,11 +112,13 @@ it("sends one morning summary of open tasks and deadlines due today", async () =
     { title: "Already done", kind: "deadline", assigneeId: "anna", dueDate: today, status: "done", createdBy: "ben" },
     { title: "Tomorrow", kind: "deadline", assigneeId: "anna", dueDate: "2026-10-16", createdBy: "ben" },
   ]).run();
+  await pushTasksDue(new Date("2026-10-14T06:00:00Z")); // the day before: only tomorrow's items
   await pushTasksDue(new Date("2026-10-15T05:30:00Z")); // 07:30 in Vienna: too early
-  expect(sendNotification).not.toHaveBeenCalled();
+  expect(payloads()).toEqual([{ title: "2 tasks due tomorrow", body: "Funding deadline, Submit invoice", url: "/", tag: "tasks-due:2026-10-14" }]);
   await pushTasksDue(new Date("2026-10-15T06:00:00Z")); // 08:00 in Vienna
   await pushTasksDue(new Date("2026-10-15T09:00:00Z"));
-  expect(payloads()).toEqual([{ title: "2 tasks due today", body: "Funding deadline, Submit invoice", url: "/", tag: `tasks-due:${today}` }]);
+  expect(payloads()[1]).toEqual({ title: "2 tasks due today", body: "Funding deadline, Submit invoice\nTomorrow: Tomorrow", url: "/", tag: `tasks-due:${today}` });
+  expect(payloads()).toHaveLength(2);
 });
 
 it("drops subscriptions the push service reports as gone", async () => {

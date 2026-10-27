@@ -7,10 +7,12 @@ type NotificationTarget = {
   taskRoute: string | null;
   pageSlug: string | null;
   officeActionLink: string | null;
+  link: string | null;
 };
 
-/** Where a notification leads: the focused task/deadline, else the wiki page (and office comment). */
+/** Where a notification leads: its own link, the focused task/deadline, else the wiki page (and office comment). */
 export function notificationHref(item: NotificationTarget) {
+  if (item.link) return item.link;
   if (item.taskTitle && item.taskId) {
     return withWorkItemFocus(item.taskRoute || "/", item.taskId, item.taskKind === "deadline" ? "deadline" : "task");
   }

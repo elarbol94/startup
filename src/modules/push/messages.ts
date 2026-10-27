@@ -1,5 +1,6 @@
 import { createTranslator } from "next-intl";
 import { timeZone, type Locale } from "@/i18n/config";
+import type { wikiNotifications } from "@/modules/wiki/schema";
 import de from "../../../messages/de.json";
 import en from "../../../messages/en.json";
 
@@ -7,6 +8,7 @@ import en from "../../../messages/en.json";
 export type PushPayload = { title: string; body: string; url: string; tag: string };
 
 const catalogs = { de, en };
+type WikiNotificationType = typeof wikiNotifications.$inferSelect.type;
 
 export function pushTranslator(locale: Locale) {
   return createTranslator({ locale, messages: catalogs[locale], timeZone });
@@ -21,11 +23,11 @@ export function businessClock(now: Date) {
 }
 
 export function activityPayload(locale: Locale, item: {
-  id: string; type: "mention" | "reply" | "assignment" | "resolved"; actorName: string;
-  taskTitle: string | null; pageTitle: string | null; href: string | null;
+  id: string; type: WikiNotificationType; actorName: string;
+  taskTitle: string | null; pageTitle: string | null; subject: string | null; href: string | null;
 }): PushPayload {
   const t = pushTranslator(locale);
-  const title = item.taskTitle || item.pageTitle || t("wiki.notifications");
+  const title = item.taskTitle || item.pageTitle || item.subject || t("wiki.notifications");
   return {
     title,
     body: `${item.actorName} ${t(`wiki.notificationTypes.${item.type}`)} ${title}`,
@@ -46,12 +48,21 @@ export function calendarPayload(locale: Locale, reminder: { id: string; title: s
   };
 }
 
-export function tasksDuePayload(locale: Locale, date: string, titles: string[]): PushPayload {
+/** Morning summary: today's items, then tomorrow's on a second line (or alone when nothing is due today). */
+export function tasksDuePayload(locale: Locale, date: string, today: string[], tomorrow: string[]): PushPayload {
   const t = pushTranslator(locale);
-  const shown = titles.slice(0, 3).join(", ");
+  const list = (titles: string[]) => {
+    const shown = titles.slice(0, 3).join(", ");
+    return titles.length > 3 ? t("push.tasksDueMore", { titles: shown, count: titles.length - 3 }) : shown;
+  };
+  const lines = today.length
+    ? [list(today), ...(tomorrow.length ? [t("push.tasksDueTomorrow", { titles: list(tomorrow) })] : [])]
+    : [list(tomorrow)];
   return {
-    title: t("push.tasksDueTitle", { count: titles.length }),
-    body: titles.length > 3 ? t("push.tasksDueMore", { titles: shown, count: titles.length - 3 }) : shown,
+    title: today.length
+      ? t("push.tasksDueTitle", { count: today.length })
+      : t("push.tasksDueTomorrowTitle", { count: tomorrow.length }),
+    body: lines.join("\n"),
     url: "/",
     tag: `tasks-due:${date}`,
   };

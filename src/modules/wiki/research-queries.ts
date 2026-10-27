@@ -373,6 +373,8 @@ export function listNotifications(userId: string, unreadOnly = false, since?: Da
       threadId: wikiNotifications.threadId,
       taskId: wikiNotifications.taskId,
       officeActionLink: wikiNotifications.officeActionLink,
+      subject: wikiNotifications.subject,
+      link: wikiNotifications.link,
       actorName: user.name,
       actorId: wikiNotifications.actorId,
       actorMarkColor: userProfilePreferences.markColor,

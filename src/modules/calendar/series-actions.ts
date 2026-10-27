@@ -15,6 +15,7 @@ import {
   calendarReminders,
 } from "./schema";
 import { zonedParts } from "./date-utils";
+import { notifyNewAttendees } from "./invitations";
 import { linkedProjects, syncProjectLinks } from "@/modules/context/project-link-refs";
 import {
   accessibleUserIds,
@@ -210,6 +211,14 @@ export async function splitCalendarEventSeries(input: {
         )
         .run();
     }
+    // People already on the original series were invited before.
+    notifyNewAttendees(tx, {
+      event: { id: newId, title: data.title, allDay: data.allDay, startDate: data.allDay ? data.startDate : null, startAt: data.allDay ? null : startAt, timezone: data.timezone },
+      actorId: currentUser.id,
+      attendeeIds,
+      previousIds: tx.select({ userId: calendarEventAttendees.userId }).from(calendarEventAttendees)
+        .where(eq(calendarEventAttendees.eventId, existing.id)).all().map((row) => row.userId),
+    });
     // The future part of the series keeps the series' project tags unless changed.
     syncProjectLinks(tx, {
       targetType: "calendarEvent",

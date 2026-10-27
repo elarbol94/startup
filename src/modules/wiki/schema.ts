@@ -441,12 +441,15 @@ export const wikiNotifications = sqliteTable(
     id: text("id").primaryKey().$defaultFn(() => createId()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
     actorId: text("actor_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    type: text("type", { enum: ["mention", "reply", "assignment", "resolved"] }).notNull(),
+    type: text("type", { enum: ["mention", "reply", "assignment", "resolved", "invitation", "completed", "protocol"] }).notNull(),
     pageId: text("page_id").references(() => wikiPages.id, { onDelete: "cascade" }),
     threadId: text("thread_id").references(() => wikiCommentThreads.id, { onDelete: "cascade" }),
     taskId: text("task_id"),
     /** ONLYOFFICE comment deep link (DocsAPI `actionLink`, JSON) for office documents. */
     officeActionLink: text("office_action_link"),
+    // Items that are neither a page nor a task (calendar events, meetings): title and link as sent.
+    subject: text("subject"),
+    link: text("link"),
     readAt: integer("read_at", { mode: "timestamp_ms" }),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
   },

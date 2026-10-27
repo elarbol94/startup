@@ -9,6 +9,7 @@ import { db } from "@/db";
 import { projectColumns, tasks } from "@/db/schema";
 import { requireUserOrThrow } from "@/lib/auth";
 import { leafTasks, taskDescendants } from "@/modules/projects/schedule";
+import { notifyTaskCompleted } from "./assignees";
 import { assertProjectEditable } from "./guards";
 import { pickColumnDeletionTarget } from "./column-rules";
 import {
@@ -155,7 +156,7 @@ const moveSchema = z.object({
 
 /** Persists a drag-and-drop move with gap-based ordering; renumbers on collision. */
 export async function moveTask(input: z.infer<typeof moveSchema>) {
-  await requireUserOrThrow();
+  const currentUser = await requireUserOrThrow();
   const data = moveSchema.parse(input);
 
   const task = db.select().from(tasks).where(eq(tasks.id, data.taskId)).get();
@@ -253,6 +254,7 @@ export async function moveTask(input: z.infer<typeof moveSchema>) {
         .run();
     }
     if (task.parentTaskId && changesStatus) syncTaskAncestors(task.id);
+    if (task.status === "open" && statusFields.status === "done") notifyTaskCompleted(task.id, currentUser.id);
   });
 
   revalidateTaskViews(projectId);

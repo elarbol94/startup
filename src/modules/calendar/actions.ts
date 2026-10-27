@@ -12,6 +12,7 @@ import {
   calendarEvents,
   calendarReminders,
 } from "./schema";
+import { notifyNewAttendees } from "./invitations";
 import { validateRecurrenceRule } from "./recurrence";
 import { syncProjectLinks } from "@/modules/context/project-link-refs";
 import {
@@ -121,14 +122,14 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
         })
         .run();
     }
+    const previousAttendees = data.id
+      ? tx.select({ userId: calendarEventAttendees.userId, response: calendarEventAttendees.response })
+          .from(calendarEventAttendees)
+          .where(eq(calendarEventAttendees.eventId, id))
+          .all()
+      : [];
     const previousResponses = new Map(
-      keepResponses
-        ? tx.select({ userId: calendarEventAttendees.userId, response: calendarEventAttendees.response })
-            .from(calendarEventAttendees)
-            .where(eq(calendarEventAttendees.eventId, id))
-            .all()
-            .map((row) => [row.userId, row.response] as const)
-        : [],
+      keepResponses ? previousAttendees.map((row) => [row.userId, row.response] as const) : [],
     );
     tx.delete(calendarEventAttendees)
       .where(eq(calendarEventAttendees.eventId, id))
@@ -144,6 +145,12 @@ export async function upsertCalendarEvent(input: CalendarEventInput) {
         )
         .run();
     }
+    notifyNewAttendees(tx, {
+      event: { id, title: data.title, allDay: data.allDay, startDate: data.allDay ? data.startDate : null, startAt: data.allDay ? null : startAt, timezone: data.timezone },
+      actorId: currentUser.id,
+      attendeeIds,
+      previousIds: previousAttendees.map((row) => row.userId),
+    });
     tx.delete(calendarReminders)
       .where(
         and(

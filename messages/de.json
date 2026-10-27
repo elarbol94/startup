@@ -3476,7 +3476,10 @@
       "mention": "hat dich erwähnt in",
       "reply": "hat geantwortet in",
       "assignment": "hat dir zugewiesen in",
-      "resolved": "hat einen Kommentar erledigt in"
+      "resolved": "hat einen Kommentar erledigt in",
+      "invitation": "hat dich eingeladen zu",
+      "completed": "hat erledigt:",
+      "protocol": "hat ein neues KI-Protokoll für"
     },
     "recoverableDeletion": "Wiederherstellbares Löschen",
     "trashDescription": "Gelöschte Seiten und Quellen bleiben erhalten, bis ein Administrator sie endgültig entfernt.",
@@ -4267,7 +4270,7 @@
       "categories": "Benachrichtige mich über",
       "activity": "Aufgabenzuweisungen, Erwähnungen und Antworten",
       "calendar": "Kalender-Erinnerungen",
-      "tasksDue": "Heute fällige Aufgaben und Fristen (am Morgen)",
+      "tasksDue": "Heute und morgen fällige Aufgaben und Fristen (am Morgen)",
       "testSent": "Testbenachrichtigung gesendet.",
       "testFailed": "Kein Gerät hat die Testbenachrichtigung angenommen.",
       "failed": "Push-Benachrichtigungen konnten nicht geändert werden."
@@ -5677,6 +5680,8 @@
   "push": {
     "tasksDueTitle": "{count, plural, one {# Aufgabe heute fällig} other {# Aufgaben heute fällig}}",
     "tasksDueMore": "{titles} und {count} weitere",
+    "tasksDueTomorrowTitle": "{count, plural, one {# Aufgabe morgen fällig} other {# Aufgaben morgen fällig}}",
+    "tasksDueTomorrow": "Morgen: {titles}",
     "testTitle": "Benachrichtigungen funktionieren",
     "testBody": "Dieses Gerät erhält ab jetzt Benachrichtigungen."
   }
