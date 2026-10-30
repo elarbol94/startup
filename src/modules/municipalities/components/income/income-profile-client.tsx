@@ -35,7 +35,7 @@ export function IncomeProfileClient({ profile, hasInvestments }: { profile: Muni
     <div className="space-y-4 pb-8">
       <header className="flex flex-col gap-4 rounded-xl border bg-card px-[18px] py-4 shadow-card md:flex-row md:items-end md:justify-between">
         <div>
-          <Button variant="ghost" size="sm" className="-ml-2 mb-3" render={<Link href={`/municipalities/overview?municipality=${profile.municipality.code}`} />}>
+          <Button nativeButton={false} variant="ghost" size="sm" className="-ml-2 mb-3" render={<Link href={`/municipalities/overview?municipality=${profile.municipality.code}`} />}>
             <ArrowLeft className="size-4" />{t("back")}
           </Button>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-ink uppercase">{t("eyebrow")}</p>
@@ -49,8 +49,8 @@ export function IncomeProfileClient({ profile, hasInvestments }: { profile: Muni
           </div>
         </div>
         <div className="flex flex-wrap items-end gap-2">
-          <Button variant="outline" render={<Link href="/municipalities/income" />}><Coins className="size-4" />{t("toMarket")}</Button>
-          {hasInvestments ? <Button variant="outline" render={<Link href={`/municipalities/${profile.municipality.code}/investments`} />}><Landmark className="size-4" />{t("toInvestments")}</Button> : null}
+          <Button nativeButton={false} variant="outline" render={<Link href={`/municipalities/overview?metric=costs&dataKind=derived&costMeasure=per-capita&costCategory=income-total&municipality=${profile.municipality.code}`} />}><Coins className="size-4" />{t("toMarket")}</Button>
+          {hasInvestments ? <Button nativeButton={false} variant="outline" render={<Link href={`/municipalities/${profile.municipality.code}/investments`} />}><Landmark className="size-4" />{t("toInvestments")}</Button> : null}
           <Filter label={t("year")}>
             <select className={`${SELECT_CLASS} w-28`} value={selected.year} onChange={(event) => setYear(Number(event.target.value))}>
               {[...profile.years].reverse().map((item) => <option key={item.year} value={item.year}>{item.year}</option>)}

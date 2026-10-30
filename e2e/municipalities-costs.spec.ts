@@ -41,14 +41,14 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
   await page.getByLabel("Kennzahl").selectOption("costs");
   await expect(page).toHaveURL(/metric=costs/);
   await expect(page.getByRole("slider", { name: "Jahr" })).toHaveValue("2024");
-  await expect(page.getByLabel("Aufgabenbereich")).toHaveValue("0");
+  await expect(page.getByLabel("Bereich", { exact: true })).toHaveValue("0");
   await expect(page.getByTestId("population-legend")).toContainText("Rechnungsabschluss 2024");
 
   const details = page.getByTestId("municipality-details");
   await expect(details.getByText("27,3 %", { exact: true })).toBeVisible();
   await expect(details).toContainText("Statistik Austria via OffenerHaushalt.at");
 
-  await page.getByLabel("Aufgabenbereich").selectOption("8");
+  await page.getByLabel("Bereich", { exact: true }).selectOption("8");
   await expect(page).toHaveURL(/costCategory=8/);
   await expect(details.getByText("10,1 %", { exact: true })).toBeVisible();
   const year = page.getByRole("slider", { name: "Jahr" });
@@ -81,7 +81,7 @@ test("cost overview is shareable, sourced, gap-safe and charted", async ({ page 
   await expect(page).not.toHaveURL(/costMeasure=/);
   await page.reload();
   await expect(page.getByLabel("Kennzahl")).toHaveValue("costs");
-  await expect(page.getByLabel("Aufgabenbereich")).toHaveValue("8");
+  await expect(page.getByLabel("Bereich", { exact: true })).toHaveValue("8");
   await expect(year).toHaveValue("2010");
   await expect(display).toHaveValue("share");
 

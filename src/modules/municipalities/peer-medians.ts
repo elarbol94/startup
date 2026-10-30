@@ -1,25 +1,32 @@
 import type { MunicipalityAnalysisData } from "./analysis";
 import { median, municipalityCostPerCapita, municipalityPopulationBand, type CostTargetId } from "./costs";
-export function createPeerMedianIndex(data: MunicipalityAnalysisData) {
+
+/**
+ * Median per-capita value of a Gemeinde's comparison group: same population band in the
+ * same Bundesland, or nationwide when the Bundesland has fewer than five. `perCapita`
+ * reads one Gemeinde's value for `key`, so costs and income share one definition.
+ */
+export function createBandMedianIndex<Key extends string>(
+  data: Pick<MunicipalityAnalysisData, "index" | "population">,
+  perCapita: (code: string, year: number, inhabitants: number, key: Key) => number | null,
+) {
   const cache = new Map<string, Map<string, number | null>>();
-  return (code: string, year: number, category: CostTargetId) => {
-    const cacheKey = `${category}|${year}`;
+  return (code: string, year: number, key: Key) => {
+    const cacheKey = `${key}|${year}`;
     let medians = cache.get(cacheKey);
     if (!medians) {
       const groups = new Map<string, number[]>();
-      const yearCosts = data.costs?.years[String(year)]?.values ?? {};
       const populations = data.population.years[String(year)]?.values ?? {};
       for (const municipality of data.index.municipalities) {
         const inhabitants = populations[municipality.municipalityCode];
-        const tuple = yearCosts[municipality.municipalityCode];
-        if (!tuple || !inhabitants) continue;
-        const value = municipalityCostPerCapita(tuple, category, inhabitants);
+        if (!inhabitants) continue;
+        const value = perCapita(municipality.municipalityCode, year, inhabitants, key);
         if (value === null) continue;
         const band = municipalityPopulationBand(inhabitants);
-        for (const key of [`${municipality.state}|${band}`, `*|${band}`]) {
-          const group = groups.get(key);
+        for (const groupKey of [`${municipality.state}|${band}`, `*|${band}`]) {
+          const group = groups.get(groupKey);
           if (group) group.push(value);
-          else groups.set(key, [value]);
+          else groups.set(groupKey, [value]);
         }
       }
       medians = new Map();
@@ -37,3 +44,9 @@ export function createPeerMedianIndex(data: MunicipalityAnalysisData) {
   };
 }
 
+export function createPeerMedianIndex(data: MunicipalityAnalysisData) {
+  return createBandMedianIndex<CostTargetId>(data, (code, year, inhabitants, category) => {
+    const tuple = data.costs?.years[String(year)]?.values[code];
+    return tuple ? municipalityCostPerCapita(tuple, category, inhabitants) : null;
+  });
+}

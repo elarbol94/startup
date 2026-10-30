@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
-import { BarChart3, Coins, FolderKanban, ListFilter, Map, Plus } from "lucide-react";
+import { BarChart3, FolderKanban, ListFilter, Map, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -100,9 +100,6 @@ export function MunicipalitiesSubnav() {
         </SubNavLink>
         <SubNavLink href="/municipalities/filter" active={pathname.endsWith("/filter")} icon={<ListFilter />}>
           {tf("nav")}
-        </SubNavLink>
-        <SubNavLink href="/municipalities/income" active={pathname.endsWith("/municipalities/income")} icon={<Coins />}>
-          {t("incomeTab")}
         </SubNavLink>
         <SubNavLink
           href={lastAnalysisId ? "/municipalities/analysis?analysis=" + encodeURIComponent(lastAnalysisId) : "/municipalities/analysis"}

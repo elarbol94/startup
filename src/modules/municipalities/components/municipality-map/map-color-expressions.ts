@@ -88,6 +88,8 @@ export type ColorInputs = {
   metric: MapMetric;
   movementPalette: MovementPalette | null;
   costMeasure: CostMeasureId;
+  /** Balances (Saldo 1, freie Finanzspitze) are signed and use the diverging ramp. */
+  costDiverging?: boolean;
   politicsView?: PoliticsView;
   digitalView?: DigitalPlatformViewId;
 };
@@ -128,7 +130,7 @@ const DIGITAL_PLATFORM_PROVIDER_COLOR: ExpressionSpecification = [
  * movement or cost map was painted with population class breaks.
  */
 export function metricColorExpression({
-  usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure,
+  usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure, costDiverging = false,
   politicsView = "leading-list", digitalView = "overview",
 }: ColorInputs): ExpressionSpecification {
   if (metric === "politics" && politicsView === "leading-list") return POLITICS_LEADING_COLOR;
@@ -141,7 +143,7 @@ export function metricColorExpression({
       : sequentialColorExpression(scaleDomain, MOVEMENT_COLORS);
   }
   if (metric === "costs") {
-    return costMeasure === "peer-deviation"
+    return costMeasure === "peer-deviation" || costDiverging
       ? divergingColorExpression(scaleDomain)
       : sequentialColorExpression(scaleDomain, COST_COLORS);
   }

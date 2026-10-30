@@ -4,6 +4,7 @@
 // everything else lazily once the selection asks for it. Used by municipalities-workspace.tsx.
 import { useEffect, useMemo, useState } from "react";
 import { validateMunicipalityCostSeries, type MunicipalityCostSeries } from "../../costs";
+import { MUNICIPALITY_INCOME_FILE, validateMunicipalityIncomeSeries, type MunicipalityIncomeSeries } from "../../income";
 import { validateMunicipalityIndex, type MunicipalityIndex } from "../../data";
 import {
   validateMunicipalityDigitalPlatformDataset,
@@ -39,6 +40,7 @@ import { fetchJson, type MunicipalityProfileDataset } from "./workspace-utils";
 
 export function useWorkspaceDatasets({
   selectedCode, metric, customMetric, needsDemography, needsMovement, needsCosts, needsStructure,
+  needsIncome,
 }: {
   selectedCode: string;
   metric: MapMetric;
@@ -47,6 +49,7 @@ export function useWorkspaceDatasets({
   needsMovement: boolean;
   needsCosts: boolean;
   needsStructure: boolean;
+  needsIncome: boolean;
 }) {
   const [index, setIndex] = useState<MunicipalityIndex | null>(null);
   const [populationSeries, setPopulationSeries] =
@@ -58,6 +61,8 @@ export function useWorkspaceDatasets({
   const [structureSeries, setStructureSeries] =
     useState<MunicipalityStructureSeries | null>(null);
   const [costSeries, setCostSeries] = useState<MunicipalityCostSeries | null>(null);
+  const [incomeSeries, setIncomeSeries] = useState<MunicipalityIncomeSeries | null>(null);
+  const [incomeError, setIncomeError] = useState(false);
   const [digitalPlatforms, setDigitalPlatforms] = useState<MunicipalityDigitalPlatformDataset | null>(null);
   const [investmentMunicipalityCodes, setInvestmentMunicipalityCodes] = useState<Set<string> | null>(null);
   const [profiles, setProfiles] = useState<MunicipalityProfileDataset | null>(null);
@@ -247,7 +252,22 @@ export function useWorkspaceDatasets({
   }, [costError, costSeries, index, needsCosts]);
 
   useEffect(() => {
-    if (!(metric === "digital" || (metric === "custom" && customMetric && kennzahlExpressionInputs(customMetric.expression).some(input => input.kind === "condition"))) || digitalPlatforms || digitalPlatformsError || !index) return;
+    if (!needsIncome || incomeSeries || incomeError || !index) return;
+    const controller = new AbortController();
+    fetchJson<MunicipalityIncomeSeries>(`/data/${MUNICIPALITY_INCOME_FILE}`, controller.signal)
+      .then((data) => setIncomeSeries(validateMunicipalityIncomeSeries(
+        data,
+        index.municipalities.map(({ municipalityCode }) => municipalityCode),
+      )))
+      .catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) setIncomeError(true);
+      });
+    return () => controller.abort();
+  }, [incomeError, incomeSeries, index, needsIncome]);
+
+  useEffect(() => {
+    // The income market panel splits Gemeinden by Bürger-App status, so it needs the inventory too.
+    if (!(metric === "digital" || needsIncome || (metric === "custom" && customMetric && kennzahlExpressionInputs(customMetric.expression).some(input => input.kind === "condition"))) || digitalPlatforms || digitalPlatformsError || !index) return;
     const controller = new AbortController();
     fetchJson<MunicipalityDigitalPlatformDataset>(
       "/data/municipality-digital-platforms.json",
@@ -261,11 +281,11 @@ export function useWorkspaceDatasets({
         if (!(error instanceof DOMException && error.name === "AbortError")) setDigitalPlatformsError(true);
       });
     return () => controller.abort();
-  }, [customMetric, digitalPlatforms, digitalPlatformsError, index, metric]);
+  }, [customMetric, digitalPlatforms, digitalPlatformsError, index, metric, needsIncome]);
 
   return {
     index, populationSeries, demographySeries, movementSeries, structureSeries, costSeries,
-    digitalPlatforms, investmentMunicipalityCodes, profiles, currentPolitics, electionHistory,
+    incomeSeries, incomeError, digitalPlatforms, investmentMunicipalityCodes, profiles, currentPolitics, electionHistory,
     politicsError, politicsHistoryRequested, setPoliticsHistoryRequested, loadError,
     demographyError, movementError, structureError, costError, digitalPlatformsError, selected,
   };

@@ -9,6 +9,13 @@ import {
   type MunicipalityCostSeries,
 } from "../../costs";
 import type { MunicipalityIndex } from "../../data";
+import {
+  isIncomeTargetId,
+  municipalityIncomeValue,
+  type CostViewTarget,
+  type IncomeTargetId,
+  type MunicipalityIncomeSeries,
+} from "../../income";
 import type { MunicipalityDigitalPlatformDataset } from "../../digital-platforms";
 import {
   demographicIndicatorValue,
@@ -32,6 +39,7 @@ import {
   kennzahlExpressionInputs,
   type KennzahlExpression,
 } from "../../kennzahlen";
+import { createBandMedianIndex } from "../../peer-medians";
 import type { MunicipalityPopulationSeries } from "../../population";
 import {
   populationViewValue,
@@ -46,7 +54,7 @@ type DatasetSelection = {
   ageMeasure: AgeMeasure;
   sex: SexFilter;
   movementView: MovementTargetId;
-  costCategory: CostTargetId;
+  costCategory: CostViewTarget;
   costMeasure: CostMeasureId;
   customExpression: KennzahlExpression | null;
 };
@@ -58,6 +66,7 @@ type DatasetSeries = {
   demography: MunicipalityDemographySeries | null;
   movement: MunicipalityMovementSeries | null;
   costs: MunicipalityCostSeries | null;
+  income?: MunicipalityIncomeSeries | null;
 };
 
 /**
@@ -67,14 +76,23 @@ type DatasetSeries = {
  */
 export function createDatasetLookup(selection: DatasetSelection, data: DatasetSeries) {
   const { metric, populationView, ageView, ageMeasure, sex, movementView, costCategory, costMeasure, customExpression } = selection;
-  const { index, population, structure, demography, movement, costs } = data;
+  const { index, population, structure, demography, movement, costs, income = null } = data;
+  // The Kostenübersicht holds both sides: Aufgabengruppen read the cost series, income targets the income series.
+  const incomeTarget = metric === "costs" && isIncomeTargetId(costCategory) ? costCategory : null;
+  const costTarget: CostTargetId = isIncomeTargetId(costCategory) ? "0" : costCategory;
   const byCode = new Map(index.municipalities.map((item) => [item.municipalityCode, item]));
   const indicator = isDemographicIndicatorId(ageView) ? ageView : null;
   const ageGroup = indicator ? "0-5" as AgeGroupId : ageView as AgeGroupId;
   // One shared implementation of the peer comparison, also used to evaluate user-defined
   // Kennzahlen — see createPeerMedianIndex.
   const peerMedianIndex = createPeerMedianIndex({ index, population, structure, demography, movement, costs });
-  const peerMedianFor = (code: string, year: number) => peerMedianIndex(code, year, costCategory);
+  const incomePeerMedian = createBandMedianIndex<IncomeTargetId>({ index, population }, (code, year, inhabitants, target) => {
+    const tuple = income?.years[String(year)]?.values[code];
+    return tuple ? municipalityIncomeValue(tuple, target, "per-capita", inhabitants, year) : null;
+  });
+  const peerMedianFor = (code: string, year: number) => incomeTarget
+    ? incomePeerMedian(code, year, incomeTarget)
+    : peerMedianIndex(code, year, costTarget);
 
   const customLookup = customExpression
     ? createKennzahlLookup(customExpression, { index, population, structure, demography, movement, costs, digital: data.digital }, peerMedianIndex)
@@ -102,15 +120,24 @@ export function createDatasetLookup(selection: DatasetSelection, data: DatasetSe
       if (!counts || inhabitants === undefined) return null;
       return movementTargetValue(counts, inhabitants, movementView);
     }
+    if (incomeTarget) {
+      const tuple = income?.years[key]?.values[code];
+      if (!tuple) return null;
+      const inhabitants = population.years[key]?.values[code];
+      if (costMeasure !== "peer-deviation") return municipalityIncomeValue(tuple, incomeTarget, costMeasure, inhabitants, year);
+      const perCapita = municipalityIncomeValue(tuple, incomeTarget, "per-capita", inhabitants, year);
+      const peerMedian = peerMedianFor(code, year);
+      return perCapita !== null && peerMedian && peerMedian > 0 ? perCapita / peerMedian - 1 : null;
+    }
     const tuple = costs?.years[key]?.values[code];
     if (!tuple) return null;
-    if (costMeasure === "share") return municipalityCostShare(tuple, costCategory);
+    if (costMeasure === "share") return municipalityCostShare(tuple, costTarget);
     const inhabitants = population.years[key]?.values[code];
     if (inhabitants === undefined) return null;
     if (costMeasure === "real-per-capita") {
-      return municipalityCostRealPerCapita(tuple, costCategory, inhabitants, year);
+      return municipalityCostRealPerCapita(tuple, costTarget, inhabitants, year);
     }
-    const perCapita = municipalityCostPerCapita(tuple, costCategory, inhabitants);
+    const perCapita = municipalityCostPerCapita(tuple, costTarget, inhabitants);
     if (costMeasure === "per-capita") return perCapita;
     const peerMedian = peerMedianFor(code, year);
     return perCapita !== null && peerMedian && peerMedian > 0 ? perCapita / peerMedian - 1 : null;
@@ -121,7 +148,7 @@ export function createDatasetLookup(selection: DatasetSelection, data: DatasetSe
     const usesCosts = metric === "custom"
       ? (customExpression ? kennzahlExpressionInputs(customExpression).some(({ kind }) => kind === "cost-share") : false)
       : metric === "costs";
-    const series = usesCosts ? costs : metric === "age" ? demography : metric === "movement" ? movement : population;
+    const series = incomeTarget ? income : usesCosts ? costs : metric === "age" ? demography : metric === "movement" ? movement : population;
     return series ? Object.keys(series.years).map(Number) : [];
   };
 

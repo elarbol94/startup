@@ -67,7 +67,7 @@ test("municipality subpages route and transfer a dataset into a saved analysis",
 
   await page.getByLabel("Kennzahl").selectOption("costs");
   await expect(page).toHaveURL(/metric=costs/);
-  await page.getByLabel("Aufgabenbereich").selectOption("8");
+  await page.getByLabel("Bereich", { exact: true }).selectOption("8");
   await expect(page).toHaveURL(/costCategory=8/);
   await page.getByTestId("municipality-metric-chart").getByRole("button", { name: "Zur Analyse hinzufügen" }).click();
   await expect(picker).toBeVisible();

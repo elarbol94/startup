@@ -167,9 +167,20 @@ in der Übersicht über einen Löschknopf mit Bestätigungsdialog entfernen.
 
 ## Einnahmen und Marktanalyse
 
-Unter **Gemeinden → Einnahmen** (`/municipalities/income`) liegt eine Marktanalyse der
-Gemeindeeinnahmen, je Gemeinde ergänzt um ein Einnahmenprofil
-(`/municipalities/<Kennziffer>/income`, verlinkt aus dem Detailbereich der Übersicht).
+Die Einnahmen sind Teil der **Kostenübersicht** auf der Karte. Das Feld „Bereich“
+gruppiert die Aufgabengruppen (Ausgaben), 15 Einnahmenarten inklusive Gesamt und
+Finanzkraft sowie zwei Salden. Alle fünf Darstellungen der Kostenübersicht gelten auch für
+Einnahmen: Euro, Anteil, je Einwohner, inflationsbereinigt und Abweichung von ähnlichen
+Gemeinden (gemeinsamer Median über `createBandMedianIndex`). „Anteil“ und „Abweichung“
+lassen die Salden aus (`incomeTargetsForMeasure`); Salden haben eine divergierende
+Farbskala. Die Ziel-IDs tragen das Präfix `income-` im selben URL-Parameter `costCategory`.
+
+Ist eine Einnahmenansicht aktiv, zeigt der Detailbereich die Einnahmenkennzahlen der
+gewählten Gemeinde, und unter der Karte erscheint die Marktanalyse für das Kartenjahr.
+Ein Gemeindename in deren Rangliste wählt die Gemeinde auf der Karte. Das vollständige
+Einnahmenprofil (`/municipalities/<Kennziffer>/income`) ist aus dem Detailbereich und der
+Rangliste verlinkt. Einnahmen sind noch kein Ausgangsdatum des Analyse-Tools und des
+Filters; sie lassen sich deshalb nicht in eine Analyse ziehen.
 
 **Quelle.** Die Finanzierungshaushalte der Rechnungsabschlüsse 2010–2024 von Statistik
 Austria (offenerhaushalt.at, Dateien `<Kennziffer>_<Jahr>_ra_fhh_statistik_at.csv`). Jahre
@@ -202,4 +213,4 @@ scp municipality-income-2010-2024.json banond:/srv/management-software/public/da
 ```
 
 Danach `docker compose up --build -d app` auf banond, denn das Image kopiert
-`public/` beim Bauen. Fehlt die Datei, zeigt die Seite einen Hinweis statt eines Fehlers.
+`public/` beim Bauen. Fehlt die Datei, meldet die Karte die Einnahmenansichten als nicht ladbar; das Einnahmenprofil liefert 404.

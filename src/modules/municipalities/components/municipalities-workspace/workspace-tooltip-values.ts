@@ -1,7 +1,8 @@
 // Builds the per-municipality hover text of the workspace map for the selected metric and year.
 // Used by municipalities-workspace.tsx.
 import type { useTranslations } from "next-intl";
-import type { CostMeasureId, CostTargetId, MunicipalityCostSeries } from "../../costs";
+import type { CostMeasureId } from "../../costs";
+import type { CostViewTarget } from "../../income";
 import type { MunicipalityIndex } from "../../data";
 import type { DigitalPlatformViewId, MunicipalityDigitalPlatformDataset } from "../../digital-platforms";
 import {
@@ -60,8 +61,9 @@ export function buildTooltipValues({
   movementView: MovementTargetId;
   movementFormatter: Intl.NumberFormat;
   movementUnitLabel: string;
-  activeCosts: MunicipalityCostSeries["years"][string] | null;
-  costCategory: CostTargetId;
+  /** The loaded year of whichever series the Kostenübersicht reads (expenses or income); only checked for presence. */
+  activeCosts: object | null;
+  costCategory: CostViewTarget;
   costMeasure: CostMeasureId;
   electionHistory: MunicipalityElectionHistoryDataset | null;
   politicsView: PoliticsView;

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useLocale } from "next-intl";
+import { isIncomeBalanceTarget } from "../income";
 import { Info, ListFilter, MapPinned, SlidersHorizontal, X } from "lucide-react";
 import { DIGITAL_PLATFORM_PROVIDER_CATEGORIES } from "../digital-platforms";
 import { DIGITAL_PLATFORM_PROVIDER_COLORS } from "../provider-colors";
@@ -108,8 +109,9 @@ export function MunicipalityMap({
   const fillColor = useMemo(
     () => metricColorExpression({
       usePopulationClasses, scaleDomain, metric, movementPalette, costMeasure, politicsView, digitalView,
+      costDiverging: isIncomeBalanceTarget(costCategory),
     }),
-    [costMeasure, digitalView, metric, movementPalette, politicsView, scaleDomain, usePopulationClasses],
+    [costCategory, costMeasure, digitalView, metric, movementPalette, politicsView, scaleDomain, usePopulationClasses],
   );
   const tooltipLines = (code: string) => {
     const value = tooltipValues
@@ -122,7 +124,7 @@ export function MunicipalityMap({
 
   const isDiverging =
     (metric === "movement" && movementPalette === "diverging") ||
-    (metric === "costs" && costMeasure === "peer-deviation");
+    (metric === "costs" && (costMeasure === "peer-deviation" || isIncomeBalanceTarget(costCategory)));
   // The bar has to carry the same non-linear stops as the map, otherwise it reports a
   // value range the fills never use.
   const legendGradient = isDiverging

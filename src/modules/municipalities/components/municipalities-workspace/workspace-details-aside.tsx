@@ -116,6 +116,7 @@ export function WorkspaceDetailsAside({
             </p>
             {investmentMunicipalityCodes?.has(selected.municipalityCode) && (
               <Button
+                nativeButton={false}
                 variant="outline"
                 className="mt-5 w-full"
                 render={<Link href={`/municipalities/${selected.municipalityCode}/investments`} />}
@@ -126,6 +127,7 @@ export function WorkspaceDetailsAside({
             )}
             {incomeMunicipalityCodes.has(selected.municipalityCode) && (
               <Button
+                nativeButton={false}
                 variant="outline"
                 className={investmentMunicipalityCodes?.has(selected.municipalityCode) ? "mt-2 w-full" : "mt-5 w-full"}
                 render={<Link href={`/municipalities/${selected.municipalityCode}/income`} />}

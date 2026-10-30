@@ -77,5 +77,5 @@ test("Datenart splits source data from metrics across the other two dropdowns", 
   await expect(page.getByLabel("Darstellung")).toHaveValue("absolute");
   expect(await optionValues(page, "Darstellung")).toEqual(["absolute"]);
   // The summary column is only offered where it means something.
-  expect(await optionValues(page, "Aufgabenbereich")).toContain("total");
+  expect(await optionValues(page, "Bereich")).toContain("total");
 });

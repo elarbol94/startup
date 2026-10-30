@@ -5,11 +5,10 @@
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import {
   COST_TARGETS,
-  isCostTargetId,
   isCostMeasureId,
   type CostMeasureId,
-  type CostTargetId,
 } from "../../costs";
+import { incomeTargetsForMeasure, isIncomeTargetId, type CostViewTarget } from "../../income";
 import { isDigitalPlatformViewId, type DigitalPlatformViewId } from "../../digital-platforms";
 import {
   isAgeGroupId,
@@ -77,14 +76,16 @@ export function useWorkspaceSelection(searchParams: ReadonlyURLSearchParams, met
     COST_MEASURES_BY_KIND[dataKind],
   );
   // The summary column is only meaningful as a raw amount — as a share it is always 100 %.
-  const costCategoryOptions: readonly CostTargetId[] = costMeasure === "absolute"
-    ? COST_TARGETS
-    : COST_CATEGORY_IDS;
+  // Income targets follow the Aufgabengruppen in the same dropdown.
+  const costCategoryOptions: readonly CostViewTarget[] = [
+    ...(costMeasure === "absolute" ? COST_TARGETS : COST_CATEGORY_IDS),
+    ...incomeTargetsForMeasure(costMeasure),
+  ];
   const costCategoryParameter = searchParams.get("costCategory") ?? "0";
-  const costCategory: CostTargetId = allow(
-    isCostTargetId(costCategoryParameter) ? costCategoryParameter : "0",
-    costCategoryOptions,
-  );
+  // A measure that cannot show the chosen income target stays on the income side.
+  const costCategory: CostViewTarget = (costCategoryOptions as readonly string[]).includes(costCategoryParameter)
+    ? costCategoryParameter as CostViewTarget
+    : isIncomeTargetId(costCategoryParameter) ? incomeTargetsForMeasure(costMeasure)[0] : "0";
   const politicsViewParameter = searchParams.get("politicsView") ?? "";
   const politicsView: PoliticsView = allow(
     isPoliticsView(politicsViewParameter) ? politicsViewParameter : "",

@@ -1,18 +1,22 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+// The income market analysis under the map, shown while the Kostenübersicht is on an income
+// view. Works from the series the map already loaded and follows the map's year.
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useMemo, useState } from "react";
 import { Database, RotateCcw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { median } from "../../costs";
-import { normalizeMunicipalitySearch } from "../../data";
-import { quantileBreaks, summarizeIncomeSegment, tierFor } from "../../income";
-import type { IncomeMarket, IncomeMarketEntry } from "../../income-data.server";
-import { POPULATION_CLASSES } from "../../population";
+import { normalizeMunicipalitySearch, type MunicipalityIndex } from "../../data";
+import { digitalPlatformProviderClassification, type MunicipalityDigitalPlatformDataset } from "../../digital-platforms";
+import {
+  buildIncomeMarketEntries, municipalityIncomeYears, populationClassIndex, quantileBreaks, summarizeIncomeSegment, tierFor,
+  type IncomeMarketEntry, type MunicipalityIncomeSeries,
+} from "../../income";
+import { POPULATION_CLASSES, type MunicipalityPopulationSeries } from "../../population";
 import { AnalysisSeriesChart } from "../analysis-series-chart";
 import { IncomeRankingTable } from "./income-ranking-table";
 import { IncomeSegmentTable, type IncomeSegment } from "./income-segment-table";
@@ -36,28 +40,56 @@ function groupBy<Key>(entries: IncomeMarketEntry[], key: (entry: IncomeMarketEnt
   return groups;
 }
 
-export type InitialIncomeFilters = { state?: string; populationClass?: string; app?: string; query?: string };
+function buildMarket(series: MunicipalityIncomeSeries, population: MunicipalityPopulationSeries, index: MunicipalityIndex, digital: MunicipalityDigitalPlatformDataset | null, year: number) {
+  const providers = new Map(Object.entries(digital?.municipalities ?? {}).map(([code, profile]) => [
+    code, digitalPlatformProviderClassification(profile)?.category ?? null,
+  ]));
+  const years = municipalityIncomeYears().filter((item) => (series.years[String(item)]?.coverage ?? 0) > 0);
+  const categoryTrend = years.map((trendYear) => {
+    const categories = buildIncomeMarketEntries({ series, population, municipalities: index.municipalities, providerFor: () => null, year: trendYear });
+    return {
+      year: trendYear,
+      categories: categories.reduce((sums, entry) => sums.map((sum, position) => sum + entry.categories[position]), categories[0]?.categories.map(() => 0) ?? []),
+      population: categories.reduce((sum, entry) => sum + entry.population, 0),
+    };
+  });
+  // Population of every Gemeinde, covered or not, so a state's total can be estimated.
+  const allPopulation = { byState: {} as Record<string, number>, count: { byState: {} as Record<string, number>, byClass: [] as number[] } };
+  for (const { municipalityCode, state } of index.municipalities) {
+    const inhabitants = population.years[String(year)]?.values[municipalityCode] ?? 0;
+    const band = populationClassIndex(inhabitants);
+    allPopulation.byState[state] = (allPopulation.byState[state] ?? 0) + inhabitants;
+    allPopulation.count.byState[state] = (allPopulation.count.byState[state] ?? 0) + 1;
+    allPopulation.count.byClass[band] = (allPopulation.count.byClass[band] ?? 0) + 1;
+  }
+  return {
+    year,
+    entries: buildIncomeMarketEntries({ series, population, municipalities: index.municipalities, providerFor: (code) => providers.get(code) ?? null, year }),
+    categoryTrend,
+    allPopulation,
+    coverage: series.years[String(year)]?.coverage ?? 0,
+    municipalityCount: index.municipalities.length,
+    source: series.source,
+  };
+}
 
-export function IncomeMarketClient({ market, initialFilters = {} }: { market: IncomeMarket; initialFilters?: InitialIncomeFilters }) {
+export function IncomeMarketPanel({ series, population, index, digital, year, onSelect }: {
+  series: MunicipalityIncomeSeries;
+  population: MunicipalityPopulationSeries;
+  index: MunicipalityIndex;
+  digital: MunicipalityDigitalPlatformDataset | null;
+  year: number;
+  onSelect: (code: string) => void;
+}) {
   const t = useTranslations("municipalityIncome");
-  const router = useRouter();
   const formats = useIncomeFormats();
   const providerLabel = useProviderLabel();
-  const [state, setState] = useState(initialFilters.state ?? "all");
-  const [populationClass, setPopulationClass] = useState(initialFilters.populationClass ?? "all");
-  const [app, setApp] = useState<AppFilter>((initialFilters.app as AppFilter | undefined) ?? "all");
-  const [query, setQuery] = useState(initialFilters.query ?? "");
+  const [state, setState] = useState("all");
+  const [populationClass, setPopulationClass] = useState("all");
+  const [app, setApp] = useState<AppFilter>("all");
+  const [query, setQuery] = useState("");
+  const market = useMemo(() => buildMarket(series, population, index, digital, year), [digital, index, population, series, year]);
   const states = Object.keys(market.allPopulation.byState).sort((left, right) => left.localeCompare(right, formats.locale));
-
-  useEffect(() => {
-    const parameters = new URLSearchParams();
-    if (market.year !== market.years.at(-1)) parameters.set("year", String(market.year));
-    if (state !== "all") parameters.set("state", state);
-    if (populationClass !== "all") parameters.set("class", populationClass);
-    if (app !== "all") parameters.set("app", app);
-    if (query) parameters.set("q", query);
-    window.history.replaceState(null, "", `${window.location.pathname}${parameters.size ? `?${parameters}` : ""}`);
-  }, [app, market.year, market.years, populationClass, query, state]);
 
   const normalizedQuery = normalizeMunicipalitySearch(query);
   const matches = (entry: IncomeMarketEntry, omit?: "state" | "class" | "app") =>
@@ -114,26 +146,18 @@ export function IncomeMarketClient({ market, initialFilters = {} }: { market: In
   function resetFilters() { setState("all"); setPopulationClass("all"); setApp("all"); setQuery(""); }
 
   return (
-    <div className="space-y-4 pb-8">
+    <section className="col-span-full mt-4 space-y-4 pb-8" aria-labelledby="income-market-title" data-testid="income-market-panel">
       <header className="flex flex-col gap-4 rounded-xl border bg-card px-[18px] py-4 shadow-card md:flex-row md:items-end md:justify-between">
         <div>
           <p className="text-[11px] font-semibold tracking-[0.14em] text-brand-ink uppercase">{t("eyebrow")}</p>
-          <h2 className="mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em]">{t("marketTitle")}</h2>
+          <h2 id="income-market-title" className="mt-1 text-[22px] leading-tight font-semibold tracking-[-0.02em]">{t("marketTitle")}</h2>
           <p className="mt-1 max-w-3xl text-[13.5px] text-muted-foreground">{t("marketDescription")}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant="outline">{t("coverage", { covered: market.coverage[market.year], total: market.municipalityCount })}</Badge>
+            <Badge variant="outline">{t("yearNote", { year: market.year })}</Badge>
+            <Badge variant="outline">{t("coverage", { covered: market.coverage, total: market.municipalityCount })}</Badge>
             <Badge variant="outline"><Database className="size-3" />{market.source.title}</Badge>
           </div>
         </div>
-        <Filter label={t("year")}>
-          <select className={`${SELECT_CLASS} md:w-36`} value={market.year} onChange={(event) => {
-            const parameters = new URLSearchParams(window.location.search);
-            parameters.set("year", event.target.value);
-            router.push(`?${parameters}`);
-          }}>
-            {[...market.years].reverse().map((year) => <option key={year} value={year}>{year}</option>)}
-          </select>
-        </Filter>
       </header>
 
       <Card className="shadow-card">
@@ -185,9 +209,9 @@ export function IncomeMarketClient({ market, initialFilters = {} }: { market: In
       <IncomeSegmentTable title={t("byPopulationClass")} description={t("byPopulationClassDescription")} segments={classSegments} formats={formats} extraLabel={t("coverageShort")} onSelect={(id) => setPopulationClass(populationClass === id ? "all" : id)} selected={populationClass} />
       <IncomeSegmentTable title={t("byApp")} description={t("byAppDescription")} segments={appSegments} formats={formats} extraLabel={t("leadingProviders")} onSelect={(id) => setApp(app === id ? "all" : id as AppFilter)} selected={app} />
       {tierSegments.length ? <IncomeSegmentTable title={t("byTier")} description={t("byTierDescription")} segments={tierSegments} formats={formats} extraLabel={t("appAdoption")} /> : null}
-      <IncomeRankingTable entries={filtered} formats={formats} year={market.year} />
+      <IncomeRankingTable entries={filtered} formats={formats} year={market.year} onSelect={onSelect} />
 
       <p className="text-xs text-muted-foreground">{t("methodology")}</p>
-    </div>
+    </section>
   );
 }

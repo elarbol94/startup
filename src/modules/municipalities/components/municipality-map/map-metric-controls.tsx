@@ -2,7 +2,9 @@
 
 // Desktop metric, view and year control panel overlaid on the municipality map.
 // Used by municipality-map.tsx.
-import type { CostMeasureId, CostTargetId } from "../../costs";
+import type { CostMeasureId } from "../../costs";
+import type { CostViewTarget } from "../../income";
+import { CostCategoryOptions } from "./cost-category-options";
 import type { DigitalPlatformViewId } from "../../digital-platforms";
 import type { AgeViewId, MapMetric } from "../../demography";
 import type { MovementTargetId } from "../../movement";
@@ -283,11 +285,9 @@ export function MapMetricControls({
               id="municipality-cost-view"
               value={costCategory}
               className="h-8 min-w-0 rounded-md border bg-background px-2 text-[10px]"
-              onChange={(event) => onCostCategoryChange(event.target.value as CostTargetId)}
+              onChange={(event) => onCostCategoryChange(event.target.value as CostViewTarget)}
             >
-              {Object.entries(labels.costCategories).map(([id, label]) => (
-                <option key={id} value={id}>{id} · {label}</option>
-              ))}
+              <CostCategoryOptions labels={labels} />
             </select>
           </div>
           {costsLoading && <p className="text-[10px] text-muted-foreground">{labels.loadingCosts}</p>}

@@ -2,7 +2,8 @@
 // and how a year-over-year change is formatted. Used by municipalities-workspace.tsx.
 import type { useTranslations } from "next-intl";
 import { analysisUnitLabel, type MunicipalityDatasetRef } from "../../analysis";
-import type { CostMeasureId, CostTargetId } from "../../costs";
+import type { CostMeasureId } from "../../costs";
+import { isIncomeTargetId, type CostViewTarget } from "../../income";
 import type { MunicipalityIndexItem } from "../../data";
 import type { DigitalPlatformViewId } from "../../digital-platforms";
 import type {
@@ -45,7 +46,7 @@ export function describeWorkspaceMetric({
   populationUnitLabel: string;
   politicsView: PoliticsView;
   politicsParty: CanonicalPartyId;
-  costCategory: CostTargetId;
+  costCategory: CostViewTarget;
   populationView: PopulationViewId;
   movementView: MovementTargetId;
   ageGroup: AgeGroupId;
@@ -139,7 +140,7 @@ export function describeWorkspaceMetric({
       : metric === "digital" ? ""
       : metric === "politics" ? ""
       : metric === "costs"
-      ? t("costChartLabel", { municipality: selected.name, category: metricLabel })
+      ? t(isIncomeTargetId(costCategory) ? "incomeChartLabel" : "costChartLabel", { municipality: selected.name, category: metricLabel })
       : metric === "population"
         ? populationView === "count"
           ? t("populationChartLabel", { municipality: selected.name })
@@ -148,10 +149,12 @@ export function describeWorkspaceMetric({
           ? t("movementChartLabel", { municipality: selected.name, metric: metricLabel })
           : t("ageChartLabel", { municipality: selected.name, ageGroup: metricLabel })
     : "";
+  // Income has no analysis Ausgangsdatum yet, so it is charted but not draggable into a graph.
+  const costTarget = isIncomeTargetId(costCategory) ? null : costCategory;
   const analysisDataset: MunicipalityDatasetRef | null = !selected || metric === "politics" || metric === "digital" || metric === "custom"
     ? null
     : metric === "costs"
-      ? { kind: "cost-share", municipalityCode: selected.municipalityCode, municipalityName: selected.name, category: costCategory, measure: costMeasure }
+      ? costTarget && { kind: "cost-share", municipalityCode: selected.municipalityCode, municipalityName: selected.name, category: costTarget, measure: costMeasure }
       : metric === "population"
       ? { kind: "population", municipalityCode: selected.municipalityCode, municipalityName: selected.name, view: populationView }
       : metric === "movement"

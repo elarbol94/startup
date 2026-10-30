@@ -13,7 +13,6 @@ import {
 import {
   INCOME_CATEGORY_IDS,
   MUNICIPALITY_INCOME_FILE,
-  compoundAnnualGrowth,
   incomeCategoryCents,
   municipalityIncomeFacts,
   municipalityIncomeYears,
@@ -27,7 +26,6 @@ import {
 import { validateMunicipalityPopulationSeries, type MunicipalityPopulationSeries } from "./population";
 
 const DATA_DIRECTORY = resolve("public/data");
-const GROWTH_SPAN = 5;
 
 async function readJson<T>(name: string) {
   return JSON.parse(await readFile(resolve(DATA_DIRECTORY, name), "utf8")) as T;
@@ -78,87 +76,6 @@ function populationAt(context: IncomeContext, code: string, year: number) {
 function factsAt(context: IncomeContext, code: string, year: number) {
   const value = context.series.years[String(year)]?.values[code];
   return value ? municipalityIncomeFacts(value, populationAt(context, code, year)) : null;
-}
-
-export type IncomeMarketEntry = {
-  code: string;
-  name: string;
-  state: string;
-  population: number;
-  populationClass: number;
-  provider: DigitalPlatformProviderCategory | null;
-  facts: MunicipalityIncomeFacts;
-  categories: number[];
-  /** Annual growth of income per head over the last five years, when both ends exist. */
-  growth: number | null;
-};
-
-export type IncomeMarket = {
-  year: number;
-  years: number[];
-  coverage: Record<string, number>;
-  municipalityCount: number;
-  source: MunicipalityIncomeSeries["source"];
-  generatedAt: string;
-  entries: IncomeMarketEntry[];
-  /** Sum of every covered Gemeinde's income per category and year, euro. */
-  categoryTrend: Array<{ year: number; categories: number[]; population: number }>;
-  /** Population of all Gemeinden, covered or not, so segments can be extrapolated. */
-  allPopulation: { byState: Record<string, number>; byClass: number[]; count: { byState: Record<string, number>; byClass: number[] } };
-};
-
-export async function loadMunicipalityIncomeMarket(requestedYear?: number): Promise<IncomeMarket | null> {
-  const loaded = await loadContext();
-  if (!loaded) return null;
-  const years = municipalityIncomeYears().filter((year) => loaded.series.years[String(year)].coverage > 0);
-  const year = requestedYear && years.includes(requestedYear) ? requestedYear : years.at(-1)!;
-  const entries = Object.entries(loaded.series.years[String(year)].values).flatMap(([code, value]) => {
-    const municipality = loaded.municipalities.get(code);
-    const population = populationAt(loaded, code, year);
-    if (!municipality || !population) return [];
-    const facts = municipalityIncomeFacts(value, population);
-    const past = factsAt(loaded, code, year - GROWTH_SPAN);
-    return [{
-      code,
-      name: municipality.name,
-      state: municipality.state,
-      population,
-      populationClass: populationClassIndex(population),
-      provider: loaded.providers.get(code) ?? null,
-      facts,
-      categories: INCOME_CATEGORY_IDS.map((category) => incomeCategoryCents(value, category) / 100),
-      growth: compoundAnnualGrowth(past?.totalPerCapita, facts.totalPerCapita, GROWTH_SPAN),
-    } satisfies IncomeMarketEntry];
-  });
-  const categoryTrend = years.map((trendYear) => {
-    const categories = INCOME_CATEGORY_IDS.map(() => 0);
-    let population = 0;
-    for (const [code, value] of Object.entries(loaded.series.years[String(trendYear)].values)) {
-      INCOME_CATEGORY_IDS.forEach((category, index) => { categories[index] += incomeCategoryCents(value, category) / 100; });
-      population += populationAt(loaded, code, trendYear) ?? 0;
-    }
-    return { year: trendYear, categories, population };
-  });
-  const allPopulation: IncomeMarket["allPopulation"] = { byState: {}, byClass: [], count: { byState: {}, byClass: [] } };
-  for (const [code, municipality] of loaded.municipalities) {
-    const population = populationAt(loaded, code, year) ?? 0;
-    const band = populationClassIndex(population);
-    allPopulation.byState[municipality.state] = (allPopulation.byState[municipality.state] ?? 0) + population;
-    allPopulation.byClass[band] = (allPopulation.byClass[band] ?? 0) + population;
-    allPopulation.count.byState[municipality.state] = (allPopulation.count.byState[municipality.state] ?? 0) + 1;
-    allPopulation.count.byClass[band] = (allPopulation.count.byClass[band] ?? 0) + 1;
-  }
-  return {
-    year,
-    years,
-    allPopulation,
-    coverage: Object.fromEntries(years.map((item) => [item, loaded.series.years[String(item)].coverage])),
-    municipalityCount: loaded.municipalities.size,
-    source: loaded.series.source,
-    generatedAt: loaded.series.generatedAt,
-    entries,
-    categoryTrend,
-  };
 }
 
 export type MunicipalityIncomeProfile = {

@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Download } from "lucide-react";
+import { ArrowDown, ArrowUp, Download, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { IncomeMarketEntry } from "../../income-data.server";
+import type { IncomeMarketEntry } from "../../income";
 import { formatOrDash, useProviderLabel, type IncomeFormats } from "./income-shared";
 
 const PAGE_SIZE = 50;
@@ -23,7 +23,12 @@ const COLUMNS = [
 ] as const;
 type ColumnId = (typeof COLUMNS)[number]["id"];
 
-export function IncomeRankingTable({ entries, formats, year }: { entries: IncomeMarketEntry[]; formats: IncomeFormats; year: number }) {
+export function IncomeRankingTable({ entries, formats, year, onSelect }: {
+  entries: IncomeMarketEntry[];
+  formats: IncomeFormats;
+  year: number;
+  onSelect: (code: string) => void;
+}) {
   const t = useTranslations("municipalityIncome");
   const providerLabel = useProviderLabel();
   const [sort, setSort] = useState<ColumnId>("total");
@@ -89,7 +94,12 @@ export function IncomeRankingTable({ entries, formats, year }: { entries: Income
             {visible.map((entry) => (
               <TableRow key={entry.code}>
                 <TableCell>
-                  <Link className="font-medium underline-offset-2 hover:underline" href={`/municipalities/${entry.code}/income`}>{entry.name}</Link>
+                  <div className="flex items-center gap-1.5">
+                    <button type="button" className="font-medium underline-offset-2 hover:underline" onClick={() => onSelect(entry.code)}>{entry.name}</button>
+                    <Link className="text-muted-foreground hover:text-foreground" href={`/municipalities/${entry.code}/income`} aria-label={t("openProfile", { municipality: entry.name })} title={t("openProfile", { municipality: entry.name })}>
+                      <ExternalLink className="size-3.5" />
+                    </Link>
+                  </div>
                   <p className="text-xs text-muted-foreground">{entry.state}</p>
                 </TableCell>
                 <TableCell className="text-sm">{providerLabel(entry.provider)}</TableCell>

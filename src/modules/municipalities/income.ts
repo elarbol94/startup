@@ -1,5 +1,6 @@
-import { median } from "./costs";
-import { POPULATION_CLASSES } from "./population";
+import { AUSTRIAN_CPI_ANNUAL, median, type CostMeasureId, type CostTargetId } from "./costs";
+import type { DigitalPlatformProviderCategory } from "./digital-platforms";
+import { POPULATION_CLASSES, type MunicipalityPopulationSeries } from "./population";
 
 export const MUNICIPALITY_INCOME_SCHEMA_VERSION = 1;
 export const MUNICIPALITY_INCOME_FIRST_YEAR = 2010;
@@ -94,6 +95,71 @@ export function incomeCategoryCents(value: MunicipalityIncomeTuple, category: In
 
 const sumCategories = (value: MunicipalityIncomeTuple, include: (category: (typeof INCOME_CATEGORIES)[number]) => boolean) =>
   INCOME_CATEGORIES.reduce((sum, category, index) => include(category) ? sum + value[index + 1] : sum, 0);
+
+/**
+ * What the Kostenübersicht offers on the income side, next to the Aufgabengruppen. The
+ * prefix keeps the ids apart from the expenditure targets in the shared `costCategory`
+ * URL parameter.
+ */
+export const INCOME_TARGETS = [
+  "income-total",
+  ...INCOME_CATEGORY_IDS.map((id) => `income-${id}` as const),
+  "income-fiscalCapacity",
+  "income-operatingBalance",
+  "income-freeBalance",
+] as const;
+export type IncomeTargetId = (typeof INCOME_TARGETS)[number];
+/** Everything the Kostenübersicht's category dropdown can hold. */
+export type CostViewTarget = CostTargetId | IncomeTargetId;
+const BALANCE_TARGETS: readonly IncomeTargetId[] = ["income-operatingBalance", "income-freeBalance"];
+
+export function isIncomeTargetId(value: string): value is IncomeTargetId {
+  return (INCOME_TARGETS as readonly string[]).includes(value);
+}
+
+/** Balances can be negative, so they are drawn on a diverging scale. */
+export function isIncomeBalanceTarget(value: string) {
+  return (BALANCE_TARGETS as readonly string[]).includes(value);
+}
+
+/**
+ * The income targets a measure can show. A balance has no share of income and its
+ * median can be negative, so "share" and "peer-deviation" leave balances out; the total
+ * is always 100 % of itself.
+ */
+export function incomeTargetsForMeasure(measure: CostMeasureId): readonly IncomeTargetId[] {
+  if (measure === "share") return INCOME_TARGETS.filter((id) => id !== "income-total" && !isIncomeBalanceTarget(id));
+  if (measure === "peer-deviation") return INCOME_TARGETS.filter((id) => !isIncomeBalanceTarget(id));
+  return INCOME_TARGETS;
+}
+
+export function incomeTargetEuro(value: MunicipalityIncomeTuple, target: IncomeTargetId) {
+  const id = target.slice("income-".length);
+  if (isIncomeCategoryId(id)) return incomeCategoryCents(value, id) / 100;
+  const facts = municipalityIncomeFacts(value, undefined);
+  return id === "total" ? facts.total
+    : id === "fiscalCapacity" ? facts.fiscalCapacity
+      : id === "operatingBalance" ? facts.operatingBalance
+        : facts.freeBalance;
+}
+
+/** Same measures as the expenditure side; peer deviation is formed by the caller from per-capita. */
+export function municipalityIncomeValue(
+  value: MunicipalityIncomeTuple,
+  target: IncomeTargetId,
+  measure: Exclude<CostMeasureId, "peer-deviation">,
+  population: number | undefined,
+  year: number,
+) {
+  const euro = incomeTargetEuro(value, target);
+  if (measure === "absolute") return euro;
+  if (measure === "share") return value[0] > 0 && !isIncomeBalanceTarget(target) ? (euro * 100) / value[0] : null;
+  if (!population || population <= 0) return null;
+  const perCapita = euro / population;
+  if (measure === "per-capita") return perCapita;
+  const index = AUSTRIAN_CPI_ANNUAL[year];
+  return index ? (perCapita * AUSTRIAN_CPI_ANNUAL[2024]) / index : null;
+}
 
 /** The figures a market analysis reads off one Rechnungsabschluss, all in euro. */
 export function municipalityIncomeFacts(value: MunicipalityIncomeTuple, population: number | undefined) {
@@ -225,4 +291,48 @@ export function validateMunicipalityIncomeSeries(series: MunicipalityIncomeSerie
     }
   }
   return series;
+}
+
+const GROWTH_SPAN = 5;
+
+export type IncomeMarketEntry = {
+  code: string;
+  name: string;
+  state: string;
+  population: number;
+  populationClass: number;
+  provider: DigitalPlatformProviderCategory | null;
+  facts: MunicipalityIncomeFacts;
+  categories: number[];
+  /** Annual growth of income per head over the last five years, when both ends exist. */
+  growth: number | null;
+};
+
+/** One row per Gemeinde with a Rechnungsabschluss in `year`; the market panel's only input. */
+export function buildIncomeMarketEntries({ series, population, municipalities, providerFor, year }: {
+  series: MunicipalityIncomeSeries;
+  population: MunicipalityPopulationSeries;
+  municipalities: Iterable<{ municipalityCode: string; name: string; state: string }>;
+  providerFor: (code: string) => DigitalPlatformProviderCategory | null;
+  year: number;
+}): IncomeMarketEntry[] {
+  const values = series.years[String(year)]?.values ?? {};
+  const pastValues = series.years[String(year - GROWTH_SPAN)]?.values ?? {};
+  return [...municipalities].flatMap(({ municipalityCode: code, name, state }) => {
+    const value = values[code];
+    const inhabitants = population.years[String(year)]?.values[code];
+    if (!value || !inhabitants) return [];
+    const facts = municipalityIncomeFacts(value, inhabitants);
+    const past = pastValues[code];
+    const pastFacts = past ? municipalityIncomeFacts(past, population.years[String(year - GROWTH_SPAN)]?.values[code]) : null;
+    return [{
+      code, name, state,
+      population: inhabitants,
+      populationClass: populationClassIndex(inhabitants),
+      provider: providerFor(code),
+      facts,
+      categories: INCOME_CATEGORY_IDS.map((category) => incomeCategoryCents(value, category) / 100),
+      growth: compoundAnnualGrowth(pastFacts?.totalPerCapita, facts.totalPerCapita, GROWTH_SPAN),
+    }];
+  });
 }

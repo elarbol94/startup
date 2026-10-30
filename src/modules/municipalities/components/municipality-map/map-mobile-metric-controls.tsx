@@ -2,7 +2,9 @@
 
 // Metric, view and year controls inside the mobile "display" bottom sheet of the municipality map.
 // Used by municipality-map.tsx.
-import type { CostMeasureId, CostTargetId } from "../../costs";
+import type { CostMeasureId } from "../../costs";
+import type { CostViewTarget } from "../../income";
+import { CostCategoryOptions } from "./cost-category-options";
 import type { DigitalPlatformViewId } from "../../digital-platforms";
 import type { AgeViewId, MapMetric } from "../../demography";
 import type { MovementTargetId } from "../../movement";
@@ -160,8 +162,8 @@ export function MobileMetricControls({
           </div>
           <div className="space-y-2">
             <label htmlFor="municipality-cost-view-mobile" className="text-sm font-semibold">{labels.costView}</label>
-            <select id="municipality-cost-view-mobile" value={costCategory} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onCostCategoryChange(event.target.value as CostTargetId)}>
-              {Object.entries(labels.costCategories).map(([id, label]) => <option key={id} value={id}>{id} · {label}</option>)}
+            <select id="municipality-cost-view-mobile" value={costCategory} className="h-11 w-full rounded-lg border bg-background px-3 text-sm" onChange={(event) => onCostCategoryChange(event.target.value as CostViewTarget)}>
+              <CostCategoryOptions labels={labels} />
             </select>
           </div>
           {costsLoading ? <p className="text-xs text-muted-foreground">{labels.loadingCosts}</p> : null}

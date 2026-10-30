@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { aggregateMunicipalityIncomeCsv } from "../../../scripts/update-municipality-income";
 import {
+  INCOME_TARGETS,
   INCOME_TUPLE_LENGTH,
+  buildIncomeMarketEntries,
   compoundAnnualGrowth,
+  incomeTargetsForMeasure,
+  isIncomeBalanceTarget,
+  municipalityIncomeValue,
   incomeCategoryCents,
   incomeCategoryForRow,
   municipalityIncomeFacts,
@@ -111,5 +116,46 @@ describe("municipality income market figures", () => {
     expect(() => validateMunicipalityIncomeSeries(series, ["20502"])).toThrow("Unbekannter Gemeindecode");
     series.years["2024"].values["20501"] = [100, 50, ...tuple.slice(2)];
     expect(() => validateMunicipalityIncomeSeries(series, ["20501"])).toThrow("Ungültige Einnahmenübersicht");
+  });
+});
+
+describe("income on the Kostenübersicht map", () => {
+  const tuple = aggregateMunicipalityIncomeCsv([
+    header,
+    row("3111", "833", "300,00"), row("3111", "831", "100,00"),
+    row("3112", "859", "500,00"), row("3121", "861", "100,00"),
+    row("3221", "500", "1.200,00"),
+  ].join("\n"), "20501", 2024);
+
+  it("reads every target in the cost measures", () => {
+    expect(municipalityIncomeValue(tuple, "income-total", "absolute", 10, 2024)).toBe(1_000);
+    expect(municipalityIncomeValue(tuple, "income-communalTax", "share", 10, 2024)).toBeCloseTo(0.3);
+    expect(municipalityIncomeValue(tuple, "income-fiscalCapacity", "per-capita", 10, 2024)).toBe(90);
+    expect(municipalityIncomeValue(tuple, "income-total", "real-per-capita", 10, 2010)).toBeCloseTo(100 * 673.9 / 454.5);
+    expect(municipalityIncomeValue(tuple, "income-operatingBalance", "absolute", 10, 2024)).toBe(-200);
+    expect(municipalityIncomeValue(tuple, "income-operatingBalance", "share", 10, 2024)).toBeNull();
+    expect(municipalityIncomeValue(tuple, "income-total", "per-capita", undefined, 2024)).toBeNull();
+  });
+
+  it("offers only targets a measure can express", () => {
+    expect(incomeTargetsForMeasure("absolute")).toEqual(INCOME_TARGETS);
+    expect(incomeTargetsForMeasure("share")).not.toContain("income-total");
+    expect(incomeTargetsForMeasure("share").some(isIncomeBalanceTarget)).toBe(false);
+    expect(incomeTargetsForMeasure("peer-deviation")).toContain("income-total");
+    expect(incomeTargetsForMeasure("peer-deviation").some(isIncomeBalanceTarget)).toBe(false);
+  });
+
+  it("builds market rows only where a statement and a population exist", () => {
+    const series = {
+      years: { "2019": { coverage: 1, values: { "20501": tuple } }, "2024": { coverage: 2, values: { "20501": tuple, "20502": tuple } } },
+    } as unknown as MunicipalityIncomeSeries;
+    const population = { years: { "2019": { values: { "20501": 20 } }, "2024": { values: { "20501": 10 } } } } as never;
+    const entries = buildIncomeMarketEntries({
+      series, population, year: 2024, providerFor: () => "gem2go",
+      municipalities: [{ municipalityCode: "20501", name: "Althofen", state: "Kärnten" }, { municipalityCode: "20502", name: "X", state: "Kärnten" }],
+    });
+    expect(entries.map(({ code }) => code)).toEqual(["20501"]);
+    expect(entries[0].provider).toBe("gem2go");
+    expect(entries[0].growth).toBeCloseTo(2 ** (1 / 5) - 1);
   });
 });

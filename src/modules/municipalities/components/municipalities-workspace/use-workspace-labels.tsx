@@ -7,8 +7,8 @@ import {
   COST_CATEGORIES,
   type CostCategoryId,
   type CostMeasureId,
-  type CostTargetId,
 } from "../../costs";
+import { INCOME_TARGETS, isIncomeTargetId, type CostViewTarget, type IncomeTargetId } from "../../income";
 import {
   digitalPlatformCostEstimate,
   digitalPlatformProviderClassification,
@@ -130,15 +130,23 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
     "internal-arrivals": t("movementInternalArrivalsDefinition"),
     "internal-departures": t("movementInternalDeparturesDefinition"),
   };
-  const costCategoryLabels: Record<CostTargetId, string> = {
+  const costCategoryLabels: Record<CostViewTarget, string> = {
     ...Object.fromEntries(
       COST_CATEGORIES.map(({ id }) => [id, t(`costCategory${id}` as "costCategory0")]),
     ) as Record<CostCategoryId, string>,
     total: t("costCategoryTotal"),
+    ...Object.fromEntries(INCOME_TARGETS.map((id) => [id, t(`incomeTargets.${id.slice("income-".length)}` as "incomeTargets.total")])) as Record<IncomeTargetId, string>,
   };
   const costMeasureLabels: Record<CostMeasureId, string> = {
     absolute: t("costMeasureAbsolute"),
     share: t("costMeasureShare"),
+    "per-capita": t("costMeasurePerCapita"),
+    "real-per-capita": t("costMeasureRealPerCapita"),
+    "peer-deviation": t("costMeasurePeerDeviation"),
+  };
+  const incomeMeasureLabels: Record<CostMeasureId, string> = {
+    absolute: t("incomeMeasureAbsolute"),
+    share: t("incomeMeasureShare"),
     "per-capita": t("costMeasurePerCapita"),
     "real-per-capita": t("costMeasureRealPerCapita"),
     "peer-deviation": t("costMeasurePeerDeviation"),
@@ -217,10 +225,17 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
     "real-per-capita": t("costMeasureRealPerCapitaDefinition"),
     "peer-deviation": t("costMeasurePeerDeviationDefinition"),
   };
+  const incomeMeasureDefinitions: Record<CostMeasureId, string> = {
+    absolute: t("incomeMeasureAbsoluteDefinition"),
+    share: t("incomeMeasureShareDefinition"),
+    "per-capita": t("incomeMeasurePerCapitaDefinition"),
+    "real-per-capita": t("costMeasureRealPerCapitaDefinition"),
+    "peer-deviation": t("costMeasurePeerDeviationDefinition"),
+  };
   /** The label set MunicipalityMap needs for the current selection. */
   const mapLabels = ({
     metric, year, digitalReferenceDate, usesCitizenship, dataKind, digitalViewOptions, metrics,
-    customMetric, digitalView, costCategoryOptions, costMeasure,
+    customMetric, digitalView, costCategoryOptions, costMeasure, costCategory,
   }: {
     metric: MapMetric;
     year: number;
@@ -231,8 +246,9 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
     metrics: MunicipalityMetricRecord[];
     customMetric: MunicipalityMetricRecord | null;
     digitalView: DigitalPlatformViewId;
-    costCategoryOptions: readonly CostTargetId[];
+    costCategoryOptions: readonly CostViewTarget[];
     costMeasure: CostMeasureId;
+    costCategory: CostViewTarget;
   }): MunicipalityMapLabels => ({
     map: t("mapLabel"),
     zoomIn: t("zoomIn"),
@@ -289,8 +305,11 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
     costView: t("costView"),
     costCategories: pick(costCategoryLabels, costCategoryOptions),
     costMeasure: t("costMeasure"),
-    costMeasures: pick(costMeasureLabels, COST_MEASURES_BY_KIND[dataKind]),
-    costDefinition: costMeasureDefinitions[costMeasure],
+    costMeasures: pick(isIncomeTargetId(costCategory) ? incomeMeasureLabels : costMeasureLabels, COST_MEASURES_BY_KIND[dataKind]),
+    costDefinition: isIncomeTargetId(costCategory)
+      ? `${incomeMeasureDefinitions[costMeasure]} ${t("incomeDefinition")}`
+      : costMeasureDefinitions[costMeasure],
+    costGroups: { expenses: t("costGroupExpenses"), income: t("costGroupIncome"), balances: t("costGroupBalances") },
     sexes: {
       all: t("sexAll"),
       female: t("sexFemale"),
@@ -326,7 +345,7 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
 
   return {
     ageGroupLabels, populationViewLabels, populationViewDefinitions, indicatorLabels,
-    indicatorDefinitions, movementLabels, movementDefinitions, costCategoryLabels,
+    indicatorDefinitions, movementLabels, movementDefinitions, costCategoryLabels, incomeMeasureLabels,
     costMeasureLabels, politicsViewLabels, politicsPartyLabels, digitalViewLabels,
     digitalProviderDescription, formatDigitalCostRange, digitalProviderCostDescription,
     renderDigitalCostMethodology, mapLabels,

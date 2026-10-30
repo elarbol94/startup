@@ -105,13 +105,13 @@ export function WorkspaceDetailsSheet({
             ) : null}
 
             {investmentMunicipalityCodes?.has(selected.municipalityCode) ? (
-              <Button className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/investments`} />}>
+              <Button nativeButton={false} className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/investments`} />}>
                 <Landmark className="size-4" />
                 {t("investmentDetails")}
               </Button>
             ) : null}
             {incomeMunicipalityCodes.has(selected.municipalityCode) ? (
-              <Button className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/income`} />}>
+              <Button nativeButton={false} className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/income`} />}>
                 <Coins className="size-4" />
                 {t("incomeDetails")}
               </Button>

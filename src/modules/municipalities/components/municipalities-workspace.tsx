@@ -10,9 +10,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   MUNICIPALITY_COSTS_FIRST_YEAR,
   MUNICIPALITY_COSTS_LATEST_YEAR,
-  municipalityCostPerCapita,
   municipalityPopulationBand,
 } from "../costs";
+import { isIncomeBalanceTarget, isIncomeTargetId } from "../income";
+import { IncomeDetailFacts } from "./income/income-detail-facts";
+import { IncomeMarketPanel } from "./income/income-market-panel";
 import {
   searchMunicipalities,
   type MunicipalityIndexItem,
@@ -110,16 +112,18 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const customInputs = metric === "custom" && customMetric ? kennzahlExpressionInputs(customMetric.expression) : [];
   const needsDemography = metric === "age" || customInputs.some(({ kind }) => kind === "age-group" || kind === "age-indicator");
   const needsMovement = metric === "movement" || customInputs.some(({ kind }) => kind === "movement");
-  const needsCosts = metric === "costs" || customInputs.some(({ kind }) => kind === "cost-share");
+  const needsIncome = metric === "costs" && isIncomeTargetId(costCategory);
+  const needsCosts = (metric === "costs" && !needsIncome) || customInputs.some(({ kind }) => kind === "cost-share");
   const needsStructure = usesCitizenship || customInputs.some((input) => input.kind === "population"
     && (input.view === "foreign-share" || input.view === "foreign-persons" || input.view === "structure-population"));
   const {
     index, populationSeries, demographySeries, movementSeries, structureSeries, costSeries,
-    digitalPlatforms, investmentMunicipalityCodes, profiles, currentPolitics, electionHistory,
+    incomeSeries, incomeError, digitalPlatforms, investmentMunicipalityCodes, profiles, currentPolitics, electionHistory,
     politicsError, politicsHistoryRequested, setPoliticsHistoryRequested, loadError,
     demographyError, movementError, structureError, costError, digitalPlatformsError, selected,
   } = useWorkspaceDatasets({
     selectedCode, metric, customMetric, needsDemography, needsMovement, needsCosts, needsStructure,
+    needsIncome,
   });
   const digitalReferenceDate = dateFormatter.format(new Date(`${digitalPlatforms?.referenceDate ?? "2026-08-25"}T00:00:00`));
   const selectedProfile = selected ? (profiles?.profiles[selected.municipalityCode] ?? null) : null;
@@ -154,10 +158,11 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const {
     ageGroupLabels, populationViewLabels, populationViewDefinitions, indicatorLabels,
     indicatorDefinitions, movementLabels, movementDefinitions, costCategoryLabels,
-    costMeasureLabels, politicsViewLabels, politicsPartyLabels, digitalViewLabels,
+    costMeasureLabels: expenseMeasureLabels, incomeMeasureLabels, politicsViewLabels, politicsPartyLabels, digitalViewLabels,
     digitalProviderDescription, formatDigitalCostRange, digitalProviderCostDescription,
     renderDigitalCostMethodology, mapLabels,
   } = useWorkspaceLabels(digitalCostFormatter);
+  const costMeasureLabels = needsIncome ? incomeMeasureLabels : expenseMeasureLabels;
   // Network contacts per municipality, drawn over any metric (see the network module).
   const showNetwork = searchParams.get("network") === "1";
   const networkOverlay = useNetworkMapOverlay(showNetwork, index?.municipalities ?? null);
@@ -187,6 +192,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
         demography: demographySeries,
         movement: movementSeries,
         costs: costSeries,
+        income: incomeSeries,
         digital: digitalPlatforms,
       },
     );
@@ -203,13 +209,13 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
     }
     const collected = values.subarray(0, count);
     const diverging = (metric === "movement" && movementTargetPalette(movementView) === "diverging")
-      || (metric === "costs" && costMeasure === "peer-deviation");
+      || (metric === "costs" && (costMeasure === "peer-deviation" || isIncomeBalanceTarget(costCategory)));
     return {
       ...lookup,
       domain: diverging ? symmetricDomain(collected) : metric === "custom" ? clippedDomain(collected) : datasetDomain(collected),
     };
   }, [
-    ageMeasure, ageView, costCategory, costMeasure, costSeries, customMetric, demographySeries, index,
+    ageMeasure, ageView, costCategory, costMeasure, costSeries, customMetric, demographySeries, incomeSeries, index,
     digitalPlatforms, digitalView, electionHistory, metric, movementSeries, movementView, politicsParty, politicsView, populationSeries, populationView, sex, structureSeries,
   ]);
 
@@ -306,7 +312,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const valueFor = dataset!.valueFor;
   const activeDemography = demographySeries?.years[String(year)] ?? null;
   const activeMovement = movementSeries?.years[String(year)] ?? null;
-  const activeCosts = costSeries?.years[String(year)] ?? null;
+  const activeCosts = (needsIncome ? incomeSeries : costSeries)?.years[String(year)] ?? null;
   const populationUnit = populationViewUnit(populationView);
   const populationViewFormatter =
     populationUnit === "persons" ? personsFormatter : populationUnit === "share" ? shareFormatter : ratioFormatter;
@@ -318,15 +324,15 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const movementUnitLabel =
     movementUnit === "persons" ? t("populationUnit") : t("per1000Inhabitants");
   const selectedPeerGroup = (() => {
-    if (metric !== "costs" || costMeasure !== "peer-deviation" || !selected || !activeCosts) return null;
+    if (metric !== "costs" || costMeasure !== "peer-deviation" || !selected) return null;
     const selectedPopulation = populationSeries.years[String(year)].values[selected.municipalityCode];
     if (!selectedPopulation) return null;
     const band = municipalityPopulationBand(selectedPopulation);
     const peers = index.municipalities.flatMap((municipality) => {
       const population = populationSeries.years[String(year)].values[municipality.municipalityCode];
-      const costs = activeCosts.values[municipality.municipalityCode];
-      if (!population || !costs || municipalityPopulationBand(population) !== band) return [];
-      return municipalityCostPerCapita(costs, costCategory, population) === null ? [] : [municipality];
+      if (!population || municipalityPopulationBand(population) !== band) return [];
+      // valueFor is null exactly where a Gemeinde has no comparable per-capita value, on either side.
+      return valueFor(municipality.municipalityCode, year) === null ? [] : [municipality];
     });
     const regionalPeers = peers.filter((municipality) => municipality.state === selected.state);
     const comparison = regionalPeers.length >= 5 ? regionalPeers : peers;
@@ -383,7 +389,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
     (metric === "population" && (!usesCitizenship || structureSeries)) ||
     (metric === "age" && demographySeries) ||
     (metric === "movement" && movementSeries) ||
-    (metric === "costs" && costSeries) ||
+    (metric === "costs" && (needsIncome ? incomeSeries : costSeries)) ||
     (metric === "custom"
       && (!needsDemography || demographySeries) && (!needsMovement || movementSeries)
       && (!needsCosts || costSeries) && (!needsStructure || structureSeries));
@@ -417,7 +423,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
         ) - 1
       : null;
 
-  const detailFacts = selected ? (
+  const detailFacts = selected ? (<>
     <WorkspaceDetailFacts
       selected={selected}
       selectedProfile={selectedProfile}
@@ -441,7 +447,10 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
       digitalProviderDescription={digitalProviderDescription}
       formatDigitalCostRange={formatDigitalCostRange}
     />
-  ) : null;
+    {needsIncome && incomeSeries ? (
+      <IncomeDetailFacts series={incomeSeries} code={selected.municipalityCode} year={year} population={activePopulation.values[selected.municipalityCode]} />
+    ) : null}
+  </>) : null;
   const detailsProps: WorkspaceDetailsProps = {
     selected, detailFacts, metric, digitalView, renderDigitalCostMethodology,
     selectedDigitalPlatforms, digitalPlatforms, selectedCurrentPolitics, currentPolitics,
@@ -508,8 +517,8 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
             needsMovement && !movementSeries && !movementError
           }
           movementError={movementError}
-          costsLoading={needsCosts && !costSeries && !costError}
-          costsError={costError}
+          costsLoading={(needsCosts && !costSeries && !costError) || (needsIncome && !incomeSeries && !incomeError)}
+          costsError={needsIncome ? incomeError : costError}
           politicsLoading={metric === "politics" && !electionHistory && !politicsError}
           politicsError={politicsError}
           digitalLoading={metric === "digital" && !digitalPlatforms && !digitalPlatformsError}
@@ -545,7 +554,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
           onOpenDetails={() => setDetailsOpen(true)}
           labels={mapLabels({
             metric, year, digitalReferenceDate, usesCitizenship, dataKind, digitalViewOptions,
-            metrics, customMetric, digitalView, costCategoryOptions, costMeasure,
+            metrics, customMetric, digitalView, costCategoryOptions, costMeasure, costCategory,
           })}
           selectedMetricHistory={history}
           metricChartLabel={metricChartLabel}
@@ -554,7 +563,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
           chartUnitLabel={chartUnit}
           chartChangeLabels={metric === "population" && populationView === "count" ? { previousYear: t("populationChangePreviousYear"), sinceFirstYear: t("populationChangeSinceFirstYear", { year: populationSeries.firstYear }) } : undefined}
           analysisDataset={analysisDataset}
-          showMetricChart={Boolean(analysisDataset) || metric === "custom"}
+          showMetricChart={Boolean(analysisDataset) || metric === "custom" || metric === "costs"}
           markers={networkOverlay.markers}
           markerTooltips={networkOverlay.markerTooltips}
           overlayToggle={{
@@ -573,6 +582,20 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
         costSeries={costSeries}
         costMeasure={costMeasure}
       />
+
+      {needsIncome && incomeSeries ? (
+        <IncomeMarketPanel
+          series={incomeSeries}
+          population={populationSeries}
+          index={index}
+          digital={digitalPlatforms}
+          year={year}
+          onSelect={(code) => {
+            selectByCode(code);
+            document.querySelector("[data-testid=municipalities-workspace]")?.scrollIntoView({ behavior: "smooth" });
+          }}
+        />
+      ) : null}
 
       <WorkspaceDetailsSheet
         {...detailsProps}

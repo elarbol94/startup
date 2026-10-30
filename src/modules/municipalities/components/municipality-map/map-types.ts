@@ -1,7 +1,8 @@
 // Prop and label types shared by MunicipalityMap, the bare map canvas and their extracted pieces.
 // Used by municipality-map.tsx, the files in municipality-map/ and the network map.
 import type { MunicipalityDatasetRef } from "../../analysis";
-import type { CostMeasureId, CostTargetId } from "../../costs";
+import type { CostMeasureId } from "../../costs";
+import type { CostViewTarget } from "../../income";
 import type { DigitalPlatformProviderCategory, DigitalPlatformViewId } from "../../digital-platforms";
 import type {
   AgeGroupId,
@@ -61,7 +62,8 @@ export type Labels = {
   sexes: Record<SexFilter, string>;
   movements: Partial<Record<MovementTargetId, string>>;
   costView: string;
-  costCategories: Partial<Record<CostTargetId, string>>;
+  costCategories: Partial<Record<CostViewTarget, string>>;
+  costGroups: { expenses: string; income: string; balances: string };
   costMeasure: string;
   costMeasures: Partial<Record<CostMeasureId, string>>;
   costDefinition: string;
@@ -129,7 +131,7 @@ export type MunicipalityMapProps = {
   dataKind: DataKind;
   sex: SexFilter;
   movementView: MovementTargetId;
-  costCategory: CostTargetId;
+  costCategory: CostViewTarget;
   costMeasure: CostMeasureId;
   politicsView: PoliticsView;
   politicsParty: CanonicalPartyId;
@@ -159,7 +161,7 @@ export type MunicipalityMapProps = {
   onDataKindChange: (kind: DataKind) => void;
   onSexChange: (sex: SexFilter) => void;
   onMovementViewChange: (view: MovementTargetId) => void;
-  onCostCategoryChange: (category: CostTargetId) => void;
+  onCostCategoryChange: (category: CostViewTarget) => void;
   onCostMeasureChange: (measure: CostMeasureId) => void;
   onPoliticsViewChange: (view: PoliticsView) => void;
   onPoliticsPartyChange: (party: CanonicalPartyId) => void;
