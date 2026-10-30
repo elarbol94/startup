@@ -2,6 +2,7 @@ import { kennzahlExpressionInputs, unbindKennzahlInput, type KennzahlInput } fro
 import { validateMunicipalityDigitalPlatformDataset, type MunicipalityDigitalPlatformDataset } from "./digital-platforms";
 import { validateMunicipalityIndex, type MunicipalityIndex } from "./data";
 import { validateMunicipalityCostSeries, type MunicipalityCostSeries } from "./costs";
+import { isIncomeTargetId, MUNICIPALITY_INCOME_FILE, validateMunicipalityIncomeSeries, type MunicipalityIncomeSeries } from "./income";
 import { validateMunicipalityDemographySeries, type MunicipalityDemographySeries } from "./demography";
 import { validateMunicipalityMovementSeries, type MunicipalityMovementSeries } from "./movement";
 import { validateMunicipalityPopulationSeries, type MunicipalityPopulationSeries } from "./population";
@@ -46,32 +47,44 @@ export async function loadMunicipalityAnalysisData(graph: MunicipalityAnalysisGr
   const datasets = graph.nodes.flatMap((node) => node.type === "dataset" ? [node.data.dataset] : []).flatMap<MunicipalityDatasetRef | KennzahlInput>(dataset => dataset.kind === "condition" ? kennzahlExpressionInputs({ input: unbindKennzahlInput(dataset)! }) : [dataset]);
   const needsDemography = datasets.some(({ kind }) => kind === "age-group" || kind === "age-indicator");
   const needsMovement = datasets.some(({ kind }) => kind === "movement");
-  const needsCosts = datasets.some(({ kind }) => kind === "cost-share");
+  const needsCosts = datasets.some((dataset) => dataset.kind === "cost-share" && !isIncomeTargetId(dataset.category));
+  const needsIncome = datasets.some((dataset) => dataset.kind === "cost-share" && isIncomeTargetId(dataset.category));
   const needsStructure = datasets.some((dataset) => dataset.kind === "population"
     && (dataset.view === "foreign-share" || dataset.view === "foreign-persons" || dataset.view === "structure-population"));
-  const [demography, movement, structure, costs, digital] = await Promise.all([
+  const [demography, movement, structure, costs, digital, income] = await Promise.all([
     needsDemography ? fetchJson<MunicipalityDemographySeries>("/data/municipality-demography-2002-2025.json", (raw) => validateMunicipalityDemographySeries(raw, population, codes)) : null,
     needsMovement ? fetchJson<MunicipalityMovementSeries>("/data/municipality-movement-2002-2025.json", (raw) => validateMunicipalityMovementSeries(raw, population, codes)) : null,
     needsStructure ? fetchJson<MunicipalityStructureSeries>("/data/municipality-structure-2022-2024.json", (raw) => validateMunicipalityStructureSeries(raw, population, codes)) : null,
     needsCosts ? fetchJson<MunicipalityCostSeries>("/data/municipality-cost-shares-2010-2024.json", (raw) => validateMunicipalityCostSeries(raw, codes)) : null,
     datasets.some(dataset => dataset.kind === "condition") ? loadMunicipalityDigitalPlatforms(codes) : null,
+    needsIncome ? loadMunicipalityIncome(codes) : null,
   ]);
-  return { index, population, demography, movement, structure, costs, digital };
+  return { index, population, demography, movement, structure, costs, digital, income };
 }
 
 export async function loadMunicipalityFilterData() {
   const index = await loadMunicipalityIndex();
   const codes = index.municipalities.map(item => item.municipalityCode);
   const [population, digital] = await Promise.all([loadMunicipalityPopulation(codes), loadMunicipalityDigitalPlatforms(codes)]);
-  const [demography, movement, structure, costs] = await Promise.all([
+  const [demography, movement, structure, costs, income] = await Promise.all([
     fetchJson<MunicipalityDemographySeries>("/data/municipality-demography-2002-2025.json", raw => validateMunicipalityDemographySeries(raw, population, codes)),
     fetchJson<MunicipalityMovementSeries>("/data/municipality-movement-2002-2025.json", raw => validateMunicipalityMovementSeries(raw, population, codes)),
     fetchJson<MunicipalityStructureSeries>("/data/municipality-structure-2022-2024.json", raw => validateMunicipalityStructureSeries(raw, population, codes)),
     fetchJson<MunicipalityCostSeries>("/data/municipality-cost-shares-2010-2024.json", raw => validateMunicipalityCostSeries(raw, codes)),
+    loadMunicipalityIncome(codes),
   ]);
-  return { index, population, digital, demography, movement, structure, costs };
+  return { index, population, digital, demography, movement, structure, costs, income };
 }
 
 function loadMunicipalityDigitalPlatforms(codes: string[]) {
   return fetchJson<MunicipalityDigitalPlatformDataset>("/data/municipality-digital-platforms.json", raw => validateMunicipalityDigitalPlatformDataset(raw, codes));
+}
+
+/**
+ * The income file is generated and copied onto the server, not committed, so a checkout
+ * without it still opens the filter and analysis: income values simply read as missing.
+ */
+function loadMunicipalityIncome(codes: string[]) {
+  return fetchJson<MunicipalityIncomeSeries>(`/data/${MUNICIPALITY_INCOME_FILE}`, raw => validateMunicipalityIncomeSeries(raw, codes))
+    .catch(() => null);
 }

@@ -8,7 +8,7 @@ import {
   type CostCategoryId,
   type CostMeasureId,
 } from "../../costs";
-import { INCOME_TARGETS, isIncomeTargetId, type CostViewTarget, type IncomeTargetId } from "../../income";
+import { INCOME_TARGETS, isIncomeBalanceTarget, isIncomeTargetId, type CostViewTarget, type IncomeTargetId } from "../../income";
 import {
   digitalPlatformCostEstimate,
   digitalPlatformProviderClassification,
@@ -305,7 +305,8 @@ export function useWorkspaceLabels(digitalCostFormatter: Intl.NumberFormat) {
     costView: t("costView"),
     costCategories: pick(costCategoryLabels, costCategoryOptions),
     costMeasure: t("costMeasure"),
-    costMeasures: pick(isIncomeTargetId(costCategory) ? incomeMeasureLabels : costMeasureLabels, COST_MEASURES_BY_KIND[dataKind]),
+    costMeasures: pick(isIncomeBalanceTarget(costCategory) ? { ...incomeMeasureLabels, absolute: t("balanceMeasureAbsolute") }
+      : isIncomeTargetId(costCategory) ? incomeMeasureLabels : costMeasureLabels, COST_MEASURES_BY_KIND[dataKind]),
     costDefinition: isIncomeTargetId(costCategory)
       ? `${incomeMeasureDefinitions[costMeasure]} ${t("incomeDefinition")}`
       : costMeasureDefinitions[costMeasure],

@@ -11,7 +11,7 @@ import {
   datasetUnit,
   type MunicipalityDatasetRef,
 } from "./analysis";
-import type { CostTargetId } from "./costs";
+import { isIncomeTargetId, type CostViewTarget } from "./income";
 import type { AgeTargetId, MapMetric, SexFilter } from "./demography";
 import type { MovementTargetId } from "./movement";
 
@@ -94,7 +94,7 @@ const AREA = inp({ kind: "attribute", field: "area" });
 const age = (ageGroup: AgeTargetId, sex: SexFilter = "all") =>
   inp({ kind: "age-group", ageGroup, measure: "persons", sex });
 const move = (metric: MovementTargetId) => inp({ kind: "movement", metric });
-const cost = (category: CostTargetId) => inp({ kind: "cost-share", category, measure: "absolute" });
+const cost = (category: CostViewTarget) => inp({ kind: "cost-share", category, measure: "absolute" });
 
 const youth = add(age("0-5"), age("6-14"));
 const seniors = add(age("65-79"), age("80-plus"));
@@ -163,7 +163,8 @@ export function kennzahlExpressionFor(output: KennzahlInput): KennzahlExpression
   // `attribute` is always base and returned above; only cost measures are left.
   if (output.kind !== "cost-share") return null;
   const measure = output.measure ?? "share";
-  if (measure === "share") return div(cost(output.category), cost("total"));
+  // A share is of its own side: Auszahlungen of all Auszahlungen, Einzahlungen of all Einzahlungen.
+  if (measure === "share") return div(cost(output.category), cost(isIncomeTargetId(output.category) ? "income-total" : "total"));
   if (measure === "per-capita") return div(cost(output.category), POPULATION);
   return null; // real-per-capita, peer-deviation
 }

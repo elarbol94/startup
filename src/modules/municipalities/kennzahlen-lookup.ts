@@ -3,12 +3,7 @@
 import { createPeerMedianIndex } from "./peer-medians";
 import { evaluateCondition, combineMatches } from "./filters";
 import type { MunicipalityAnalysisData } from "./analysis";
-import {
-  municipalityCostAbsolute,
-  municipalityCostPerCapita,
-  municipalityCostRealPerCapita,
-  municipalityCostShare,
-} from "./costs";
+import { costViewValue } from "./cost-view";
 import { demographicIndicatorValue, demographyMetricValue } from "./demography";
 import type { KennzahlExpression, KennzahlInput } from "./kennzahlen-expression";
 import { movementTargetValue } from "./movement";
@@ -66,15 +61,9 @@ function baseReader(
   const measure = input.measure ?? "share";
   const category = input.category;
   return (code, year) => {
-    const tuple = data.costs?.years[String(year)]?.values[code];
-    if (!tuple) return null;
-    if (measure === "absolute") return municipalityCostAbsolute(tuple, category);
-    if (measure === "share") return municipalityCostShare(tuple, category);
     const inhabitants = data.population.years[String(year)]?.values[code];
-    if (inhabitants === undefined) return null;
-    if (measure === "real-per-capita") return municipalityCostRealPerCapita(tuple, category, inhabitants, year);
-    const perCapita = municipalityCostPerCapita(tuple, category, inhabitants);
-    if (measure === "per-capita") return perCapita;
+    if (measure !== "peer-deviation") return costViewValue(data, code, year, category, measure, inhabitants);
+    const perCapita = costViewValue(data, code, year, category, "per-capita", inhabitants);
     const peerMedian = peerMedianFor(code, year, category);
     return perCapita !== null && peerMedian && peerMedian > 0 ? perCapita / peerMedian - 1 : null;
   };

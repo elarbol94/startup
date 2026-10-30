@@ -1,6 +1,7 @@
 // What the map offers per Datenart: the view lists behind the Ausgangsdaten/Kennzahlen dropdowns and
 // the Ausgangsdaten catalogue assembled from them. Used through kennzahlen.ts.
 import { COST_TARGETS, type CostMeasureId } from "./costs";
+import { INCOME_TARGETS } from "./income";
 import { AGE_GROUPS, AGE_TARGETS, DEMOGRAPHIC_INDICATORS, type AgeMeasure, type AgeViewId, type MapMetric } from "./demography";
 import { DIGITAL_PLATFORM_VIEWS, type DigitalPlatformViewId } from "./digital-platforms";
 import { datasetClass, type DataKind, type KennzahlInput } from "./kennzahlen-expression";
@@ -80,7 +81,7 @@ export const AUSGANGSDATEN_CATALOG: AusgangsdatumDefinition[] = [
   ...MOVEMENT_VIEWS_BY_KIND.base.map((metric): AusgangsdatumDefinition => ({
     id: `movement-${metric}`, category: "movement", output: { kind: "movement", metric },
   })),
-  ...COST_TARGETS.map((category): AusgangsdatumDefinition => ({
+  ...[...COST_TARGETS, ...INCOME_TARGETS].map((category): AusgangsdatumDefinition => ({
     id: `cost-${category}`, category: "costs",
     output: { kind: "cost-share", category, measure: "absolute" },
   })),

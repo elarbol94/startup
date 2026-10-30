@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,6 +12,7 @@ import {
   type MunicipalityAnalysisData,
 } from "./analysis";
 import { COST_CATEGORIES, COST_MEASURES, type MunicipalityCostSeries } from "./costs";
+import { incomeTargetsForMeasure, MUNICIPALITY_INCOME_FILE, type MunicipalityIncomeSeries } from "./income";
 import type { MunicipalityIndex } from "./data";
 import { AGE_GROUPS, DEMOGRAPHIC_INDICATORS, type MunicipalityDemographySeries } from "./demography";
 import { MOVEMENT_METRICS, type MunicipalityMovementSeries } from "./movement";
@@ -51,6 +52,8 @@ const data: MunicipalityAnalysisData = {
   demography: read<MunicipalityDemographySeries>("municipality-demography-2002-2025.json"),
   movement: read<MunicipalityMovementSeries>("municipality-movement-2002-2025.json"),
   costs: read<MunicipalityCostSeries>("municipality-cost-shares-2010-2024.json"),
+  // Generated on the server and not committed: income cases run where the file exists.
+  income: existsSync(resolve("public/data", MUNICIPALITY_INCOME_FILE)) ? read<MunicipalityIncomeSeries>(MUNICIPALITY_INCOME_FILE) : null,
 };
 
 // One city and one small municipality — the small one is where zero denominators and
@@ -72,6 +75,8 @@ const DERIVED_OUTPUTS: KennzahlInput[] = [
   ...COST_CATEGORIES.flatMap(({ id }) => COST_MEASURES
     .filter((measure) => measure !== "absolute")
     .map((measure): KennzahlInput => ({ kind: "cost-share", category: id, measure }))),
+  ...(data.income ? COST_MEASURES.filter((measure) => measure !== "absolute").flatMap((measure) =>
+    incomeTargetsForMeasure(measure).map((category): KennzahlInput => ({ kind: "cost-share", category, measure }))) : []),
 ];
 
 /** The four cases the current node vocabulary genuinely cannot express. */

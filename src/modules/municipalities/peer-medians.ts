@@ -1,5 +1,7 @@
 import type { MunicipalityAnalysisData } from "./analysis";
-import { median, municipalityCostPerCapita, municipalityPopulationBand, type CostTargetId } from "./costs";
+import { median, municipalityPopulationBand } from "./costs";
+import { costViewValue } from "./cost-view";
+import type { CostViewTarget } from "./income";
 
 /**
  * Median per-capita value of a Gemeinde's comparison group: same population band in the
@@ -45,8 +47,6 @@ export function createBandMedianIndex<Key extends string>(
 }
 
 export function createPeerMedianIndex(data: MunicipalityAnalysisData) {
-  return createBandMedianIndex<CostTargetId>(data, (code, year, inhabitants, category) => {
-    const tuple = data.costs?.years[String(year)]?.values[code];
-    return tuple ? municipalityCostPerCapita(tuple, category, inhabitants) : null;
-  });
+  return createBandMedianIndex<CostViewTarget>(data, (code, year, inhabitants, category) =>
+    costViewValue(data, code, year, category, "per-capita", inhabitants));
 }

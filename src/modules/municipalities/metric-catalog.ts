@@ -46,5 +46,10 @@ export const KENNZAHL_CATALOG: KennzahlDefinition[] = [
   { id: "cost-per-capita", category: "costs", labelKey: "costMeasurePerCapita", output: { kind: "cost-share", category: "0", measure: "per-capita" } },
   { id: "cost-real-per-capita", category: "costs", labelKey: "costMeasureRealPerCapita", output: { kind: "cost-share", category: "0", measure: "real-per-capita" } },
   { id: "cost-peer-deviation", category: "costs", labelKey: "costMeasurePeerDeviation", output: { kind: "cost-share", category: "0", measure: "peer-deviation" } },
+  // Income sits in the same Kostenübersicht; the filter expands these over every income target.
+  { id: "income-share", category: "costs", labelKey: "incomeKennzahlShare", output: { kind: "cost-share", category: "income-communalTax", measure: "share" } },
+  { id: "income-per-capita", category: "costs", labelKey: "incomeKennzahlPerCapita", output: { kind: "cost-share", category: "income-total", measure: "per-capita" } },
+  { id: "income-real-per-capita", category: "costs", labelKey: "incomeKennzahlRealPerCapita", output: { kind: "cost-share", category: "income-total", measure: "real-per-capita" } },
+  { id: "income-peer-deviation", category: "costs", labelKey: "incomeKennzahlPeerDeviation", output: { kind: "cost-share", category: "income-total", measure: "peer-deviation" } },
 ];
 

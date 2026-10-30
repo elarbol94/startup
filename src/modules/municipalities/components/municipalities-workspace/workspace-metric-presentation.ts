@@ -149,12 +149,10 @@ export function describeWorkspaceMetric({
           ? t("movementChartLabel", { municipality: selected.name, metric: metricLabel })
           : t("ageChartLabel", { municipality: selected.name, ageGroup: metricLabel })
     : "";
-  // Income has no analysis Ausgangsdatum yet, so it is charted but not draggable into a graph.
-  const costTarget = isIncomeTargetId(costCategory) ? null : costCategory;
   const analysisDataset: MunicipalityDatasetRef | null = !selected || metric === "politics" || metric === "digital" || metric === "custom"
     ? null
     : metric === "costs"
-      ? costTarget && { kind: "cost-share", municipalityCode: selected.municipalityCode, municipalityName: selected.name, category: costTarget, measure: costMeasure }
+      ? { kind: "cost-share", municipalityCode: selected.municipalityCode, municipalityName: selected.name, category: costCategory, measure: costMeasure }
       : metric === "population"
       ? { kind: "population", municipalityCode: selected.municipalityCode, municipalityName: selected.name, view: populationView }
       : metric === "movement"

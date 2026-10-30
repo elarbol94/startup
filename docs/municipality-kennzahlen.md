@@ -187,8 +187,19 @@ Ist eine Einnahmenansicht aktiv, zeigt der Detailbereich die Einnahmenkennzahlen
 gewählten Gemeinde, und unter der Karte erscheint die Marktanalyse für das Kartenjahr.
 Ein Gemeindename in deren Rangliste wählt die Gemeinde auf der Karte. Das vollständige
 Einnahmenprofil (`/municipalities/<Kennziffer>/income`) ist aus dem Detailbereich und der
-Rangliste verlinkt. Einnahmen sind noch kein Ausgangsdatum des Analyse-Tools und des
-Filters; sie lassen sich deshalb nicht in eine Analyse ziehen.
+Rangliste verlinkt.
+
+**Analyse und Filter.** Einnahmen sind kein eigener Datensatztyp, sondern Kategorien des
+Datensatzes `cost-share` (`income-…`). Damit gelten Katalog, Herleitung und Speicherung
+der Kostenübersicht unverändert: Die 17 Einnahmenbeträge stehen als Ausgangsdaten im
+Katalog, dazu vier Kennzahlen (Anteil an Gesamteinzahlungen, je Einwohner,
+inflationsbereinigt, Abweichung von ähnlichen Gemeinden). Ein Anteil teilt durch die
+Gesamtsumme der eigenen Seite (`income-total` statt `total`). Alle Pfade lesen über
+`costViewValue` (`cost-view.ts`), der Vergleichsgruppen-Median über
+`createPeerMedianIndex`. Im Filter erscheinen die Einnahmen-Kennzahlen je Einnahmenart
+(`income-per-capita:income-fiscalCapacity` usw.). Fehlt die Einnahmendatei, lädt
+Filter und Analyse trotzdem; Einnahmenwerte bleiben dann unbekannt. `kennzahlen.test.ts`
+prüft die Einnahmen-Kennzahlen nur, wenn die (nicht eingecheckte) Datei lokal vorliegt.
 
 **Quelle.** Die Finanzierungshaushalte der Rechnungsabschlüsse 2010–2024 von Statistik
 Austria (offenerhaushalt.at, Dateien `<Kennziffer>_<Jahr>_ra_fhh_statistik_at.csv`). Jahre

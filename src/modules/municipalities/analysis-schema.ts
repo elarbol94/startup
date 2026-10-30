@@ -1,5 +1,6 @@
 // The stored shape of a municipality analysis graph: node, edge, dataset and operation schemas, their
 // limits, and the serialised form. Used through analysis.ts.
+import { INCOME_TARGETS } from "./income";
 import { conditionSchema } from "./filters";
 import { z } from "zod";
 
@@ -80,7 +81,8 @@ export const municipalityDatasetRefSchema = z.discriminatedUnion("kind", [
   }),
   z.object({
     kind: z.literal("cost-share"), ...pinnedMunicipality,
-    category: z.enum(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "total"]),
+    // Aufgabengruppen and, with the `income-` prefix, Einnahmenarten and Salden.
+    category: z.enum(["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "total", ...INCOME_TARGETS]),
     measure: z.enum(["absolute", "share", "per-capita", "real-per-capita", "peer-deviation"]).optional(),
   }),
   z.object({

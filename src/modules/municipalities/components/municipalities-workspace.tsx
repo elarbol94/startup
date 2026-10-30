@@ -112,8 +112,10 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const customInputs = metric === "custom" && customMetric ? kennzahlExpressionInputs(customMetric.expression) : [];
   const needsDemography = metric === "age" || customInputs.some(({ kind }) => kind === "age-group" || kind === "age-indicator");
   const needsMovement = metric === "movement" || customInputs.some(({ kind }) => kind === "movement");
-  const needsIncome = metric === "costs" && isIncomeTargetId(costCategory);
-  const needsCosts = (metric === "costs" && !needsIncome) || customInputs.some(({ kind }) => kind === "cost-share");
+  // An income view drives the market panel and income facts; an own Kennzahl may read income too.
+  const incomeView = metric === "costs" && isIncomeTargetId(costCategory);
+  const needsIncome = incomeView || customInputs.some((input) => input.kind === "cost-share" && isIncomeTargetId(input.category));
+  const needsCosts = (metric === "costs" && !incomeView) || customInputs.some((input) => input.kind === "cost-share" && !isIncomeTargetId(input.category));
   const needsStructure = usesCitizenship || customInputs.some((input) => input.kind === "population"
     && (input.view === "foreign-share" || input.view === "foreign-persons" || input.view === "structure-population"));
   const {
@@ -162,7 +164,8 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
     digitalProviderDescription, formatDigitalCostRange, digitalProviderCostDescription,
     renderDigitalCostMethodology, mapLabels,
   } = useWorkspaceLabels(digitalCostFormatter);
-  const costMeasureLabels = needsIncome ? incomeMeasureLabels : expenseMeasureLabels;
+  const costMeasureLabels = isIncomeBalanceTarget(costCategory) ? { ...incomeMeasureLabels, absolute: t("balanceMeasureAbsolute") }
+    : incomeView ? incomeMeasureLabels : expenseMeasureLabels;
   // Network contacts per municipality, drawn over any metric (see the network module).
   const showNetwork = searchParams.get("network") === "1";
   const networkOverlay = useNetworkMapOverlay(showNetwork, index?.municipalities ?? null);
@@ -312,7 +315,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
   const valueFor = dataset!.valueFor;
   const activeDemography = demographySeries?.years[String(year)] ?? null;
   const activeMovement = movementSeries?.years[String(year)] ?? null;
-  const activeCosts = (needsIncome ? incomeSeries : costSeries)?.years[String(year)] ?? null;
+  const activeCosts = (incomeView ? incomeSeries : costSeries)?.years[String(year)] ?? null;
   const populationUnit = populationViewUnit(populationView);
   const populationViewFormatter =
     populationUnit === "persons" ? personsFormatter : populationUnit === "share" ? shareFormatter : ratioFormatter;
@@ -389,10 +392,10 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
     (metric === "population" && (!usesCitizenship || structureSeries)) ||
     (metric === "age" && demographySeries) ||
     (metric === "movement" && movementSeries) ||
-    (metric === "costs" && (needsIncome ? incomeSeries : costSeries)) ||
+    (metric === "costs" && (incomeView ? incomeSeries : costSeries)) ||
     (metric === "custom"
       && (!needsDemography || demographySeries) && (!needsMovement || movementSeries)
-      && (!needsCosts || costSeries) && (!needsStructure || structureSeries));
+      && (!needsCosts || costSeries) && (!needsIncome || incomeSeries) && (!needsStructure || structureSeries));
   const history =
     selected && historyAvailable
       ? Array.from({ length: availableLatestYear! - availableFirstYear! + 1 }, (_, offset) => availableFirstYear! + offset).map((historyYear) => ({
@@ -447,7 +450,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
       digitalProviderDescription={digitalProviderDescription}
       formatDigitalCostRange={formatDigitalCostRange}
     />
-    {needsIncome && incomeSeries ? (
+    {incomeView && incomeSeries ? (
       <IncomeDetailFacts series={incomeSeries} code={selected.municipalityCode} year={year} population={activePopulation.values[selected.municipalityCode]} />
     ) : null}
   </>) : null;
@@ -518,7 +521,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
           }
           movementError={movementError}
           costsLoading={(needsCosts && !costSeries && !costError) || (needsIncome && !incomeSeries && !incomeError)}
-          costsError={needsIncome ? incomeError : costError}
+          costsError={incomeView ? incomeError : costError}
           politicsLoading={metric === "politics" && !electionHistory && !politicsError}
           politicsError={politicsError}
           digitalLoading={metric === "digital" && !digitalPlatforms && !digitalPlatformsError}
@@ -583,7 +586,7 @@ export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { me
         costMeasure={costMeasure}
       />
 
-      {needsIncome && incomeSeries ? (
+      {incomeView && incomeSeries ? (
         <IncomeMarketPanel
           series={incomeSeries}
           population={populationSeries}

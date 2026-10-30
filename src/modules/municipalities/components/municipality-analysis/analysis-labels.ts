@@ -1,5 +1,6 @@
 // Translated titles for analysis datasets, saved analyses and series errors.
 // Used across the municipality analysis editor, catalog and landing page.
+import { isIncomeBalanceTarget, isIncomeTargetId } from "../../income";
 import type { useTranslations } from "next-intl";
 import type { AnalysisSeries, MunicipalityDatasetRef } from "../../analysis";
 import type { KennzahlInput } from "../../kennzahlen";
@@ -50,8 +51,10 @@ export function datasetTitle(dataset: MunicipalityDatasetRef | KennzahlInput, t:
   if (dataset.kind === "attribute") return t("attributeArea");
   if (dataset.kind === "cost-share") {
     const measure = dataset.measure ?? "share";
-    const measureKey = measure === "absolute" ? "costMeasureAbsolute" : measure === "share" ? "costMeasureShare" : measure === "per-capita" ? "costMeasurePerCapita" : measure === "real-per-capita" ? "costMeasureRealPerCapita" : "costMeasurePeerDeviation";
-    const categoryLabel = dataset.category === "total" ? t("costCategoryTotal") : t(`costCategory${dataset.category}` as "costCategory0");
+    const income = isIncomeTargetId(dataset.category);
+    const measureKey = measure === "absolute" ? (isIncomeBalanceTarget(dataset.category) ? "balanceMeasureAbsolute" : income ? "incomeMeasureAbsolute" : "costMeasureAbsolute") : measure === "share" ? (income ? "incomeMeasureShare" : "costMeasureShare") : measure === "per-capita" ? "costMeasurePerCapita" : measure === "real-per-capita" ? "costMeasureRealPerCapita" : "costMeasurePeerDeviation";
+    const categoryLabel = isIncomeTargetId(dataset.category) ? t(`incomeTargets.${dataset.category.slice("income-".length)}` as "incomeTargets.total")
+      : dataset.category === "total" ? t("costCategoryTotal") : t(`costCategory${dataset.category}` as "costCategory0");
     return `${t("metricCosts")} · ${categoryLabel} · ${t(measureKey)}`;
   }
   if (dataset.kind === "population") return t(POPULATION_VIEW_KEYS[dataset.view] as "populationCount");

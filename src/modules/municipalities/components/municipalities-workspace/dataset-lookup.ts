@@ -1,21 +1,9 @@
 // The single `(code, year) => value` reader behind the workspace map, its peer medians and its year range.
 // Used by municipalities-workspace.tsx.
-import {
-  municipalityCostPerCapita,
-  municipalityCostRealPerCapita,
-  municipalityCostShare,
-  type CostMeasureId,
-  type CostTargetId,
-  type MunicipalityCostSeries,
-} from "../../costs";
+import type { CostMeasureId, MunicipalityCostSeries } from "../../costs";
+import { costViewSeries, costViewValue } from "../../cost-view";
 import type { MunicipalityIndex } from "../../data";
-import {
-  isIncomeTargetId,
-  municipalityIncomeValue,
-  type CostViewTarget,
-  type IncomeTargetId,
-  type MunicipalityIncomeSeries,
-} from "../../income";
+import type { CostViewTarget, MunicipalityIncomeSeries } from "../../income";
 import type { MunicipalityDigitalPlatformDataset } from "../../digital-platforms";
 import {
   demographicIndicatorValue,
@@ -39,7 +27,6 @@ import {
   kennzahlExpressionInputs,
   type KennzahlExpression,
 } from "../../kennzahlen";
-import { createBandMedianIndex } from "../../peer-medians";
 import type { MunicipalityPopulationSeries } from "../../population";
 import {
   populationViewValue,
@@ -77,25 +64,16 @@ type DatasetSeries = {
 export function createDatasetLookup(selection: DatasetSelection, data: DatasetSeries) {
   const { metric, populationView, ageView, ageMeasure, sex, movementView, costCategory, costMeasure, customExpression } = selection;
   const { index, population, structure, demography, movement, costs, income = null } = data;
-  // The Kostenübersicht holds both sides: Aufgabengruppen read the cost series, income targets the income series.
-  const incomeTarget = metric === "costs" && isIncomeTargetId(costCategory) ? costCategory : null;
-  const costTarget: CostTargetId = isIncomeTargetId(costCategory) ? "0" : costCategory;
   const byCode = new Map(index.municipalities.map((item) => [item.municipalityCode, item]));
   const indicator = isDemographicIndicatorId(ageView) ? ageView : null;
   const ageGroup = indicator ? "0-5" as AgeGroupId : ageView as AgeGroupId;
   // One shared implementation of the peer comparison, also used to evaluate user-defined
   // Kennzahlen — see createPeerMedianIndex.
-  const peerMedianIndex = createPeerMedianIndex({ index, population, structure, demography, movement, costs });
-  const incomePeerMedian = createBandMedianIndex<IncomeTargetId>({ index, population }, (code, year, inhabitants, target) => {
-    const tuple = income?.years[String(year)]?.values[code];
-    return tuple ? municipalityIncomeValue(tuple, target, "per-capita", inhabitants, year) : null;
-  });
-  const peerMedianFor = (code: string, year: number) => incomeTarget
-    ? incomePeerMedian(code, year, incomeTarget)
-    : peerMedianIndex(code, year, costTarget);
+  const peerMedianIndex = createPeerMedianIndex({ index, population, structure, demography, movement, costs, income });
+  const peerMedianFor = (code: string, year: number) => peerMedianIndex(code, year, costCategory);
 
   const customLookup = customExpression
-    ? createKennzahlLookup(customExpression, { index, population, structure, demography, movement, costs, digital: data.digital }, peerMedianIndex)
+    ? createKennzahlLookup(customExpression, { index, population, structure, demography, movement, costs, income, digital: data.digital }, peerMedianIndex)
     : null;
 
   const valueFor = (code: string, year: number): number | null => {
@@ -120,25 +98,10 @@ export function createDatasetLookup(selection: DatasetSelection, data: DatasetSe
       if (!counts || inhabitants === undefined) return null;
       return movementTargetValue(counts, inhabitants, movementView);
     }
-    if (incomeTarget) {
-      const tuple = income?.years[key]?.values[code];
-      if (!tuple) return null;
-      const inhabitants = population.years[key]?.values[code];
-      if (costMeasure !== "peer-deviation") return municipalityIncomeValue(tuple, incomeTarget, costMeasure, inhabitants, year);
-      const perCapita = municipalityIncomeValue(tuple, incomeTarget, "per-capita", inhabitants, year);
-      const peerMedian = peerMedianFor(code, year);
-      return perCapita !== null && peerMedian && peerMedian > 0 ? perCapita / peerMedian - 1 : null;
-    }
-    const tuple = costs?.years[key]?.values[code];
-    if (!tuple) return null;
-    if (costMeasure === "share") return municipalityCostShare(tuple, costTarget);
+    // Ausgaben and Einnahmen alike: the Kostenübersicht reads through one shared reader.
     const inhabitants = population.years[key]?.values[code];
-    if (inhabitants === undefined) return null;
-    if (costMeasure === "real-per-capita") {
-      return municipalityCostRealPerCapita(tuple, costTarget, inhabitants, year);
-    }
-    const perCapita = municipalityCostPerCapita(tuple, costTarget, inhabitants);
-    if (costMeasure === "per-capita") return perCapita;
+    if (costMeasure !== "peer-deviation") return costViewValue({ costs, income }, code, year, costCategory, costMeasure, inhabitants);
+    const perCapita = costViewValue({ costs, income }, code, year, costCategory, "per-capita", inhabitants);
     const peerMedian = peerMedianFor(code, year);
     return perCapita !== null && peerMedian && peerMedian > 0 ? perCapita / peerMedian - 1 : null;
   };
@@ -148,7 +111,8 @@ export function createDatasetLookup(selection: DatasetSelection, data: DatasetSe
     const usesCosts = metric === "custom"
       ? (customExpression ? kennzahlExpressionInputs(customExpression).some(({ kind }) => kind === "cost-share") : false)
       : metric === "costs";
-    const series = incomeTarget ? income : usesCosts ? costs : metric === "age" ? demography : metric === "movement" ? movement : population;
+    // An own Kennzahl that reads income spans the same 2010–2024 as the cost file.
+    const series = usesCosts ? (metric === "costs" ? costViewSeries({ costs, income }, costCategory) : costs ?? income) : metric === "age" ? demography : metric === "movement" ? movement : population;
     return series ? Object.keys(series.years).map(Number) : [];
   };
 

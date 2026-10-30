@@ -10,15 +10,13 @@ import {
   type MunicipalityDatasetRef,
 } from "./analysis-schema";
 import {
-  municipalityCostAbsolute,
-  municipalityCostShare,
   median,
-  municipalityCostPerCapita,
-  municipalityCostRealPerCapita,
   municipalityPopulationBand,
   type MunicipalityCostSeries,
 } from "./costs";
 import type { MunicipalityIndex } from "./data";
+import { costViewSeries, costViewValue } from "./cost-view";
+import type { MunicipalityIncomeSeries } from "./income";
 import {
   demographicIndicatorUnit,
   demographicIndicatorValue,
@@ -50,6 +48,7 @@ export type MunicipalityAnalysisData = {
   demography: MunicipalityDemographySeries | null;
   movement: MunicipalityMovementSeries | null;
   costs: MunicipalityCostSeries | null;
+  income?: MunicipalityIncomeSeries | null;
   digital?: MunicipalityDigitalPlatformDataset | null;
 };
 
@@ -109,8 +108,9 @@ export function resolveMunicipalityDataset(
   subject: AnalysisSubject | null = null,
 ): AnalysisSeries {
   const points: AnalysisPoint[] = [];
-  const firstYear = dataset.kind === "cost-share" ? (data.costs?.firstYear ?? 2010) : data.population.firstYear;
-  const latestYear = dataset.kind === "cost-share" ? (data.costs?.latestYear ?? 2024) : data.population.latestYear;
+  const costSeries = dataset.kind === "cost-share" ? costViewSeries(data, dataset.category) : null;
+  const firstYear = dataset.kind === "cost-share" ? (costSeries?.firstYear ?? 2010) : data.population.firstYear;
+  const latestYear = dataset.kind === "cost-share" ? (costSeries?.latestYear ?? 2024) : data.population.latestYear;
 
   // A constant carries no municipality. It spans the population years so it intersects
   // with every other series an operator can pair it with.
@@ -157,24 +157,17 @@ export function resolveMunicipalityDataset(
       const counts = data.movement?.years[String(year)]?.values[code];
       if (counts) value = movementTargetValue(counts, population, dataset.metric);
     } else {
-      const costs = data.costs?.years[String(year)]?.values[code];
       const measure = dataset.measure ?? "share";
-      if (costs && measure === "absolute") value = municipalityCostAbsolute(costs, dataset.category);
-      else if (costs && measure === "share") value = municipalityCostShare(costs, dataset.category);
-      else if (costs && measure === "per-capita") {
-        value = municipalityCostPerCapita(costs, dataset.category, population);
-      } else if (costs && measure === "real-per-capita") {
-        value = municipalityCostRealPerCapita(costs, dataset.category, population, year);
-      } else if (costs) {
+      if (measure !== "peer-deviation") value = costViewValue(data, code, year, dataset.category, measure, population);
+      else {
         const selected = data.index.municipalities.find(({ municipalityCode }) => municipalityCode === code);
-        const selectedPerCapita = municipalityCostPerCapita(costs, dataset.category, population);
+        const selectedPerCapita = costViewValue(data, code, year, dataset.category, "per-capita", population);
         if (selected && selectedPerCapita !== null) {
           const band = municipalityPopulationBand(population);
           const peers = data.index.municipalities.flatMap((municipality) => {
             const peerPopulation = data.population.years[String(year)].values[municipality.municipalityCode];
-            const peerCosts = data.costs?.years[String(year)]?.values[municipality.municipalityCode];
-            if (municipalityPopulationBand(peerPopulation) !== band || !peerCosts) return [];
-            const peerValue = municipalityCostPerCapita(peerCosts, dataset.category, peerPopulation);
+            if (municipalityPopulationBand(peerPopulation) !== band) return [];
+            const peerValue = costViewValue(data, municipality.municipalityCode, year, dataset.category, "per-capita", peerPopulation);
             return peerValue === null ? [] : [{ state: municipality.state, value: peerValue }];
           });
           const regionalPeers = peers.filter(({ state }) => state === selected.state);
