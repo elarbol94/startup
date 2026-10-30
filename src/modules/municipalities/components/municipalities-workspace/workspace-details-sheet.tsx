@@ -5,7 +5,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Database, Landmark, Users, X } from "lucide-react";
+import { Coins, Database, Landmark, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MobileBottomSheet } from "@/components/ui/mobile-bottom-sheet";
 import { MunicipalityMetricChart } from "../municipality-metric-chart";
@@ -21,7 +21,7 @@ export function WorkspaceDetailsSheet({
   selectedDigitalPlatforms, digitalPlatforms, selectedCurrentPolitics, currentPolitics,
   selectedElectionHistory, electionHistory, politicsHistoryRequested, politicsError,
   setPoliticsHistoryRequested, digitalReferenceDate, year, usesCitizenship,
-  investmentMunicipalityCodes, updateSelection, index, populationSeries, detailsOpen,
+  investmentMunicipalityCodes, incomeMunicipalityCodes, updateSelection, index, populationSeries, detailsOpen,
   setDetailsOpen, history, analysisDataset, metricLabel, chartFormatter, chartUnit, populationView,
   metricChartLabel,
 }: WorkspaceDetailsProps & {
@@ -108,6 +108,12 @@ export function WorkspaceDetailsSheet({
               <Button className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/investments`} />}>
                 <Landmark className="size-4" />
                 {t("investmentDetails")}
+              </Button>
+            ) : null}
+            {incomeMunicipalityCodes.has(selected.municipalityCode) ? (
+              <Button className="h-11 w-full" variant="outline" render={<Link href={`/municipalities/${selected.municipalityCode}/income`} />}>
+                <Coins className="size-4" />
+                {t("incomeDetails")}
               </Button>
             ) : null}
             <Button

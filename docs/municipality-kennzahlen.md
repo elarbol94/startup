@@ -172,3 +172,42 @@ in der Übersicht über einen Löschknopf mit Bestätigungsdialog entfernen.
 ## Gemeinderatsprotokolle anonymisieren
 
 `npm run municipalities:anonymize-minutes -- --source ORDNER --output ORDNER` schwärzt in Protokoll-PDFs Personennamen, E-Mail-Adressen, Telefonnummern und sensible Werte (Seiten ohne Textebene werden komplett geschwärzt), bevor sie weitergegeben werden.
+
+## Einnahmen und Marktanalyse
+
+Unter **Gemeinden → Einnahmen** (`/municipalities/income`) liegt eine Marktanalyse der
+Gemeindeeinnahmen, je Gemeinde ergänzt um ein Einnahmenprofil
+(`/municipalities/<Kennziffer>/income`, verlinkt aus dem Detailbereich der Übersicht).
+
+**Quelle.** Die Finanzierungshaushalte der Rechnungsabschlüsse 2010–2024 von Statistik
+Austria (offenerhaushalt.at, Dateien `<Kennziffer>_<Jahr>_ra_fhh_statistik_at.csv`). Jahre
+vor 2020 hat Statistik Austria bereits auf VRV-2015-MVAG umgeschlüsselt, die Zeitreihe ist
+daher durchgehend. Die Rohdateien liegen auf `homeserver` unter
+`/mnt/storage_6tb/start up/Daten/<Land>/<Bezirk>/<Gemeinde>/Kostenübersicht/` – dieselben
+Dateien, aus denen auch Kostenübersicht und Investitionen erzeugt werden.
+
+**Abgrenzung.** Einnahmen = MVAG 31 (operativ) + MVAG 33 (investiv), gegliedert in 13
+Arten (`INCOME_CATEGORIES` in `income.ts`). Kommunalsteuer, Grundsteuer und
+Transfers von Bund/Land werden über die Kontengruppe (833, 830–832, 860, 861) getrennt.
+Darlehensaufnahmen (MVAG 35) sind keine Einnahmen und stehen getrennt daneben. Im Tupel
+liegen zusätzlich MVAG 32 und 36, damit Saldo 1 (31 − 32) und die freie Finanzspitze
+(Saldo 1 − 36) ohne zweite Datei berechenbar sind. **Finanzkraft** = Kommunalsteuer +
+Grundsteuer + Ertragsanteile.
+
+**Marktsicht.** Segmente nach Bundesland (mit Hochrechnung auf alle Einwohner des Landes,
+nur ohne weitere Filter), Einwohnerklasse (`POPULATION_CLASSES`), Bürger-App-Status
+(aus `municipality-digital-platforms.json`, aktueller Recherchestand) und
+Finanzkraft-Quintilen. Summen je Einwohner sind bevölkerungsgewichtet, Mediane je
+Gemeinde. Vergleichsgruppe im Profil = alle Gemeinden derselben Einwohnerklasse im
+selben Jahr. Etwa 400 Gemeinden haben keinen veröffentlichten Abschluss und fehlen.
+
+**Daten erzeugen und ablegen.** Die erzeugte Datei wird nicht eingecheckt (wie die
+Investitionsdaten), sondern auf dem Server abgelegt:
+
+```bash
+npm run data:municipality-income -- --source-root "/mnt/storage_6tb/start up/Daten" --output municipality-income-2010-2024.json
+scp municipality-income-2010-2024.json banond:/srv/management-software/public/data/
+```
+
+Danach `docker compose up --build -d app` auf banond, denn das Image kopiert
+`public/` beim Bauen. Fehlt die Datei, zeigt die Seite einen Hinweis statt eines Fehlers.

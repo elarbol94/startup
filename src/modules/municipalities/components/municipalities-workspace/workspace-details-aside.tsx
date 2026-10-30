@@ -5,7 +5,7 @@
 import type { ComponentProps, Dispatch, ReactNode, SetStateAction } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Database, Landmark, MapPinned, Users, X } from "lucide-react";
+import { Coins, Database, Landmark, MapPinned, Users, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MunicipalityDigitalPlatformsPanel } from "../municipality-digital-platforms-panel";
 import { MunicipalityPoliticsPanel } from "../municipality-politics-panel";
@@ -43,6 +43,7 @@ export type WorkspaceDetailsProps = {
   year: number;
   usesCitizenship: boolean;
   investmentMunicipalityCodes: Set<string> | null;
+  incomeMunicipalityCodes: Set<string>;
   updateSelection: (item: MunicipalityIndexItem | null) => void;
   index: MunicipalityIndex;
   populationSeries: MunicipalityPopulationSeries;
@@ -53,7 +54,7 @@ export function WorkspaceDetailsAside({
   selectedDigitalPlatforms, digitalPlatforms, selectedCurrentPolitics, currentPolitics,
   selectedElectionHistory, electionHistory, politicsHistoryRequested, politicsError,
   setPoliticsHistoryRequested, digitalReferenceDate, year, usesCitizenship,
-  investmentMunicipalityCodes, updateSelection, index, populationSeries, demographySeries,
+  investmentMunicipalityCodes, incomeMunicipalityCodes, updateSelection, index, populationSeries, demographySeries,
   structureSeries, movementSeries, costSeries, costMeasure,
 }: WorkspaceDetailsProps & {
   demographySeries: MunicipalityDemographySeries | null;
@@ -123,9 +124,19 @@ export function WorkspaceDetailsAside({
                 {t("investmentDetails")}
               </Button>
             )}
+            {incomeMunicipalityCodes.has(selected.municipalityCode) && (
+              <Button
+                variant="outline"
+                className={investmentMunicipalityCodes?.has(selected.municipalityCode) ? "mt-2 w-full" : "mt-5 w-full"}
+                render={<Link href={`/municipalities/${selected.municipalityCode}/income`} />}
+              >
+                <Coins className="size-4" />
+                {t("incomeDetails")}
+              </Button>
+            )}
             <Button
               variant="outline"
-              className={investmentMunicipalityCodes?.has(selected.municipalityCode) ? "mt-2 w-full" : "mt-5 w-full"}
+              className={investmentMunicipalityCodes?.has(selected.municipalityCode) || incomeMunicipalityCodes.has(selected.municipalityCode) ? "mt-2 w-full" : "mt-5 w-full"}
               onClick={() => updateSelection(null)}
             >
               <X className="size-4" />

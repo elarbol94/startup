@@ -69,3 +69,6 @@ docker-compose.override.yml
 
 # Generated snapshot for Claude Design (scripts/sync-design.mjs); regenerate, do not commit.
 design/source/
+
+# generated municipality income data (deployed separately, never committed)
+/public/data/municipality-income-2010-2024.json
