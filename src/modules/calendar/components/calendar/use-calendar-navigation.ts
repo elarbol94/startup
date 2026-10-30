@@ -13,7 +13,7 @@ import {
   type CalendarNavigateTarget,
   type FilterState,
 } from "./calendar-types";
-import { SOURCE_TYPES } from "./calendar-filter-utils";
+import { DEFAULT_SOURCES } from "./calendar-filter-utils";
 
 type FilterGroup = "sources" | "people" | "projects" | "calendars";
 
@@ -79,17 +79,19 @@ export function useCalendarNavigation({
   function toggleFilter(group: FilterGroup, value: string) {
     const current =
       group === "sources" && filters.sources.length === 0
-        ? [...SOURCE_TYPES]
+        ? [...DEFAULT_SOURCES]
         : group === "calendars" && filters.calendars.length === 0
           ? workspace.calendars.map((calendar) => calendar.id)
           : filters[group];
-    const values = current.includes(value) ? current.filter((item) => item !== value) : [...current, value];
+    const values = (current.includes(value) ? current.filter((item) => item !== value) : [...current, value])
+      .filter((id) => id !== "__none__");
+    // Back at the default selection means no filter, so the URL and the filter badge reset too.
+    const defaults =
+      group === "sources" ? DEFAULT_SOURCES : group === "calendars" ? workspace.calendars.map((calendar) => calendar.id) : null;
+    const isDefault = defaults && values.length === defaults.length && defaults.every((id) => values.includes(id));
     updateFilters({
       ...filters,
-      [group]:
-        values.length === 0 && (group === "sources" || group === "calendars")
-          ? ["__none__"]
-          : values.filter((id) => id !== "__none__"),
+      [group]: isDefault ? [] : values.length === 0 && defaults ? ["__none__"] : values,
     });
   }
 

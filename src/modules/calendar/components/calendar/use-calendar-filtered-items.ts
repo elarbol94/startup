@@ -5,7 +5,7 @@
 import { useMemo } from "react";
 import type { CalendarWorkspace } from "../../types";
 import type { FilterState } from "./calendar-types";
-import { SOURCE_TYPES, typeSource } from "./calendar-filter-utils";
+import { DEFAULT_SOURCES, typeSource } from "./calendar-filter-utils";
 
 export function useCalendarFilteredItems(
   workspace: CalendarWorkspace,
@@ -16,16 +16,18 @@ export function useCalendarFilteredItems(
     () =>
       filters.sources.length > 0
         ? new Set(filters.sources)
-        : new Set<string>(SOURCE_TYPES),
+        : new Set<string>(DEFAULT_SOURCES),
     [filters.sources],
   );
   const filteredItems = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase();
     return workspace.items.filter((item) => {
       if (!visibleSources.has(typeSource(item))) return false;
+      // Tasks, deadlines and projects belong to no calendar; only their source toggle hides them.
       if (
         filters.calendars.length > 0 &&
-        (!item.calendarId || !filters.calendars.includes(item.calendarId))
+        item.calendarId &&
+        !filters.calendars.includes(item.calendarId)
       ) {
         return false;
       }
@@ -68,7 +70,8 @@ export function useCalendarFilteredItems(
   );
   const filteredUnscheduledTasks = useMemo(() => {
     const query = filters.query.trim().toLocaleLowerCase();
-    if (!visibleSources.has("task")) return [];
+    // The planning tray stays until tasks are explicitly switched off.
+    if (filters.sources.length > 0 && !visibleSources.has("task")) return [];
     return workspace.unscheduledTasks.filter((task) =>
       (filters.people.length === 0 || filters.people.some((id) => task.assigneeIds.includes(id))) &&
       (filters.projects.length === 0 || (task.projectId && filters.projects.includes(task.projectId))) &&
