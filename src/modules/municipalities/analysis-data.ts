@@ -1,4 +1,4 @@
-import { filterMetric } from "./filter-metrics";
+import { kennzahlExpressionInputs, unbindKennzahlInput, type KennzahlInput } from "./kennzahlen-expression";
 import { validateMunicipalityDigitalPlatformDataset, type MunicipalityDigitalPlatformDataset } from "./digital-platforms";
 import { validateMunicipalityIndex, type MunicipalityIndex } from "./data";
 import { validateMunicipalityCostSeries, type MunicipalityCostSeries } from "./costs";
@@ -42,7 +42,8 @@ export async function loadMunicipalityAnalysisData(graph: MunicipalityAnalysisGr
   const index = await loadMunicipalityIndex();
   const codes = index.municipalities.map(({ municipalityCode }) => municipalityCode);
   const population = await loadMunicipalityPopulation(codes);
-  const datasets = graph.nodes.flatMap((node) => node.type === "dataset" ? [node.data.dataset] : []).flatMap<MunicipalityDatasetRef>(dataset => dataset.kind === "condition" && dataset.condition.field === "metric" ? [dataset, filterMetric(dataset.condition.metricId)!.output] : [dataset]);
+  // A condition reads whatever its Kennzahl reads, including an own Kennzahl's embedded formula.
+  const datasets = graph.nodes.flatMap((node) => node.type === "dataset" ? [node.data.dataset] : []).flatMap<MunicipalityDatasetRef | KennzahlInput>(dataset => dataset.kind === "condition" ? kennzahlExpressionInputs({ input: unbindKennzahlInput(dataset)! }) : [dataset]);
   const needsDemography = datasets.some(({ kind }) => kind === "age-group" || kind === "age-indicator");
   const needsMovement = datasets.some(({ kind }) => kind === "movement");
   const needsCosts = datasets.some(({ kind }) => kind === "cost-share");

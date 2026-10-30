@@ -62,7 +62,8 @@ const pinnedMunicipality = {
 };
 
 export const municipalityDatasetRefSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("condition"), ...pinnedMunicipality, condition: conditionSchema }),
+  // Lazy: a condition on an own Kennzahl embeds an expression, whose schema imports this file.
+  z.object({ kind: z.literal("condition"), ...pinnedMunicipality, condition: z.lazy(() => conditionSchema) }),
   z.object({ kind: z.literal("population"), ...pinnedMunicipality, view: z.enum(["count", "density", "foreign-share", "foreign-persons", "structure-population"]) }),
   z.object({
     kind: z.literal("age-group"), ...pinnedMunicipality,
@@ -166,7 +167,7 @@ export type MunicipalityAnalysisEdge = z.infer<typeof analysisEdgeSchema>;
 
 export const ANALYSIS_OPERATION_VERSION = 1;
 export const municipalityAnalysisGraphOperationSchema = z.discriminatedUnion("type", [
-  z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("update-condition"), nodeId: z.string().min(1).max(100), condition: conditionSchema }),
+  z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("update-condition"), nodeId: z.string().min(1).max(100), condition: z.lazy(() => conditionSchema) }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("add-node"), node: analysisNodeSchema }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("remove-node"), nodeId: z.string().min(1).max(100) }),
   z.object({ version: z.literal(ANALYSIS_OPERATION_VERSION), type: z.literal("move-node"), nodeId: z.string().min(1).max(100), position: positionSchema }),

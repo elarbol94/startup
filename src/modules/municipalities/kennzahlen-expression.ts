@@ -199,6 +199,7 @@ export function kennzahlFormulaText(
 export function kennzahlExpressionInputs(expression: KennzahlExpression): KennzahlInput[] {
   if ("input" in expression) {
     const input = expression.input;
+    if (input.kind === "condition" && input.condition.field === "custom-metric") return [input, ...kennzahlExpressionInputs(input.condition.expression)];
     const metric = input.kind === "condition" && input.condition.field === "metric" ? filterMetric(input.condition.metricId) : null;
     return metric ? [input, metric.output] : [input];
   }

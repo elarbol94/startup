@@ -4884,6 +4884,7 @@
     "matches": "Treffer",
     "unknown": "Daten unzureichend",
     "excluded": "Trifft nicht zu",
+    "excludedHidden": "Nicht zutreffende Gemeinden sind ausgeblendet.",
     "resultStatus": "Ergebnisse anzeigen",
     "search": "Ergebnisse durchsuchen",
     "municipality": "Gemeinde",
@@ -4928,7 +4929,8 @@
       "communication": "Anzahl Social-Media- / Nachrichtendienste",
       "open-data": "Anzahl Open-Data-Dienste",
       "other": "Anzahl sonstiger Plattformen",
-      "metric": "Kennzahl"
+      "metric": "Kennzahl",
+      "custom-metric": "Eigene Kennzahl"
     },
     "conditionsHint": "Wähle ein Datenfeld und lege fest, welche Werte die gesuchten Gemeinden erfüllen sollen.",
     "dataNotes": "Datenstand und fehlende Werte"

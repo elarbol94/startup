@@ -22,7 +22,8 @@ export function MunicipalityFilterExplorer({ data, year, results, valid, groups,
   const tm = useTranslations("municipalities");
   const [metricId, setMetricId] = useState("population-density");
   const unit = filterMetricUnit(metricId, tm);
-  const [mode, setMode] = useState("raw");
+  // Opens on the filter result: the map shows only the Gemeinden the conditions select.
+  const [mode, setMode] = useState("results");
   const [field, setField] = useState<FilterField>("population");
   const [selectedCode, setSelectedCode] = useState("");
   const [targetGroup, setTargetGroup] = useState(0);

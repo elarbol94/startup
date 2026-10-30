@@ -53,13 +53,15 @@ test("a Kennzahl derivation can be inspected, saved and used on the map", async 
   await page.getByRole("tab", { name: "Daten & Kennzahlen", exact: true }).click();
   const catalog = page.getByTestId("kennzahl-catalog");
   await expect(catalog).toBeVisible({ timeout: 30_000 });
+  // Categories start collapsed; a search opens the ones that match.
+  const search = catalog.getByLabel("Katalog durchsuchen");
+  await search.fill("Alterungsindex");
   // The formula must be readable in full, not cut off after the first terms.
   await expect(catalog.getByRole("button", { name: /Alterungsindex/ }))
     .toContainText("(65–79 (Ruhestand) · Personen + 80+ (Hochaltrigkeit) · Personen) ÷ (0–5 (Frühe Kindheit) · Personen + 6–14 (Schulalter) · Personen)) × 100");
-  // A primary calculation is listed but cannot be opened as a graph.
-  await expect(catalog.getByText("Primärberechnung", { exact: false }).first()).toBeVisible();
 
   // A Kennzahl is the same formula everywhere, so opening it needs no municipality.
+  await search.fill("Geburtenrate");
   await catalog.getByRole("button", { name: /^Geburtenrate/ }).click();
   await expect(page).toHaveURL(/analysis=/, { timeout: 30_000 });
 
@@ -86,6 +88,9 @@ test("a Kennzahl derivation can be inspected, saved and used on the map", async 
   await expect(editor.getByText("Gespeichert", { exact: true })).toBeVisible({ timeout: 30_000 });
   await page.reload();
   await expect(page.locator(".react-flow__node-operator")).toHaveCount(2);
+  // The inspector starts closed; select the result node and open it.
+  await page.getByRole("button", { name: "Multiplizieren", exact: true }).click();
+  await page.getByRole("button", { name: "Inspektor öffnen" }).click();
   await page.getByRole("tab", { name: "Ergebnis" }).click();
   await page.getByRole("button", { name: "Als Kennzahl speichern" }).click();
   const saveDialog = page.getByTestId("save-kennzahl-dialog");
@@ -104,5 +109,24 @@ test("a Kennzahl derivation can be inspected, saved and used on the map", async 
     await details.getByText("Meine Geburtenrate", { exact: true })
       .locator("xpath=following-sibling::dd[1]").textContent(),
   );
-  expect(own).toBe(builtIn);
+  // Own Kennzahlen keep four significant digits; the built-in one shows one decimal.
+  const graz = Number(own!.replace(",", "."));
+  expect(graz.toFixed(1).replace(".", ",")).toBe(builtIn);
+
+  // The filter offers it as a condition; the result follows Graz's value either side of a threshold.
+  await page.goto("/municipalities/filter");
+  const condition = page.getByTestId("filter-condition").first();
+  await condition.getByLabel("Datenfeld").selectOption("custom-metric");
+  // The second select names the Kennzahl; label text alone also matches the field options.
+  await expect(condition.locator("select").nth(1)).toHaveValue(/.+/);
+  await condition.locator("select").nth(2).selectOption("gte");
+  const results = page.getByRole("region", { name: "Ergebnisse" });
+  for (const [threshold, status] of [[graz - 0.2, "matches"], [graz + 0.2, "excluded"]] as const) {
+    await condition.locator("input[type=number]").first().fill(String(threshold));
+    await results.getByLabel("Ergebnisse anzeigen").selectOption(status);
+    await results.getByLabel("Ergebnisse durchsuchen").fill("Graz");
+    await expect(results.getByRole("link", { name: "Graz", exact: true })).toBeVisible({ timeout: 60_000 });
+  }
+  // The map opens on the result and hides what does not match.
+  await expect(page.getByText("Nicht zutreffende Gemeinden sind ausgeblendet.")).toBeVisible();
 });

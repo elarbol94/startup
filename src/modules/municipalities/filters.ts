@@ -1,5 +1,8 @@
 import { filterMetric, readFilterMetric } from "./filter-metrics";
 import type { MunicipalityAnalysisData } from "./analysis";
+import type { KennzahlExpression } from "./kennzahlen-expression";
+import { createKennzahlLookup } from "./kennzahlen-lookup";
+import { kennzahlExpressionSchema } from "./kennzahlen-persistence";
 import { z } from "zod";
 import type { MunicipalityIndexItem } from "./data";
 import type { MunicipalityPopulationSeries } from "./population";
@@ -13,6 +16,9 @@ export const filterStates = ["Burgenland", "Kärnten", "Niederösterreich", "Obe
 const numericOperators = ["gt", "gte", "lt", "lte", "eq", "between"] as const;
 export const conditionSchema = z.discriminatedUnion("field", [
   z.object({ field: z.literal("metric"), metricId: z.string().refine(id => Boolean(filterMetric(id))), operator: z.enum(numericOperators), value: z.number().finite(), upper: z.number().finite().optional(), negate: z.boolean().default(false) }).refine(r => r.operator !== "between" || (r.upper !== undefined && r.upper >= r.value)),
+  // An own Kennzahl carries its formula, so a shared link or an analysis built from the filter still
+  // evaluates for colleagues who do not own it. Lazy because the expression schema imports this file.
+  z.object({ field: z.literal("custom-metric"), metricId: z.string().min(1).max(100), name: z.string().trim().min(1).max(160), expression: z.lazy(() => kennzahlExpressionSchema), operator: z.enum(numericOperators), value: z.number().finite(), upper: z.number().finite().optional(), negate: z.boolean().default(false) }).refine(r => r.operator !== "between" || (r.upper !== undefined && r.upper >= r.value)),
   z.object({ field: z.enum(numericFilterFields), operator: z.enum(numericOperators), value: z.number().finite().min(0), upper: z.number().finite().min(0).optional(), negate: z.boolean().default(false) }).refine(r => r.operator !== "between" || (r.upper !== undefined && r.upper >= r.value)),
   z.object({ field: z.literal("state"), operator: z.literal("in"), values: z.array(z.enum(filterStates)).min(1).max(9), negate: z.boolean().default(false) }),
   z.object({ field: z.literal("providers"), operator: z.literal("in"), values: z.array(z.enum(DIGITAL_PLATFORM_PROVIDER_FAMILIES)).min(1).max(6), negate: z.boolean().default(false) }),
@@ -38,6 +44,20 @@ export function defaultCondition(field: FilterField): FilterCondition {
   if (field === "availability") return { field, operator: "eq", value: "none", negate: false };
   if (field === "research") return { field, operator: "eq", value: "complete", negate: false };
   return { field, operator: "gt", value: field === "population" ? 2000 : 0, negate: false };
+}
+export function customMetricCondition(metric: { id: string; name: string; expression: KennzahlExpression }): Extract<FilterCondition, { field: "custom-metric" }> {
+  return { field: "custom-metric", metricId: metric.id, name: metric.name, expression: metric.expression, operator: "gt", value: 0, negate: false };
+}
+const customLookups = new WeakMap<object, WeakMap<KennzahlExpression, ReturnType<typeof createKennzahlLookup>>>();
+/** An own Kennzahl's value, one lookup per dataset and expression so 2.092 municipalities share it. */
+export function readCustomMetric(expression: KennzahlExpression, code: string, year: number, data: FilterData): number | null {
+  if (!data.index) return null;
+  let lookups = customLookups.get(data);
+  if (!lookups) { lookups = new WeakMap(); customLookups.set(data, lookups); }
+  let lookup = lookups.get(expression);
+  if (!lookup) { lookup = createKennzahlLookup(expression, data as MunicipalityAnalysisData); lookups.set(expression, lookup); }
+  const value = lookup(code, year);
+  return value === null || !Number.isFinite(value) ? null : value;
 }
 export function providerMatch(profile: MunicipalityDigitalPlatformProfile | undefined, providers: readonly string[]): Match {
   if (!profile) return null;
@@ -69,7 +89,8 @@ export function evaluateCondition(rule: FilterCondition, municipality: Municipal
     const status = classification ? classification.providers.length ? "found" : "none" : "unknown";
     result = rule.value === "unknown" ? status === "unknown" : status === "unknown" ? null : status === rule.value;
   } else {
-    const raw = readFilterField(rule.field, municipality, year, data, rule.field === "metric" ? rule.metricId : undefined);
+    const raw = rule.field === "custom-metric" ? readCustomMetric(rule.expression, municipality.municipalityCode, year, data)
+      : readFilterField(rule.field, municipality, year, data, rule.field === "metric" ? rule.metricId : undefined);
     const value = typeof raw === "number" ? raw : null;
     result = value === null ? null : rule.operator === "gt" ? value > rule.value : rule.operator === "gte" ? value >= rule.value : rule.operator === "lt" ? value < rule.value : rule.operator === "lte" ? value <= rule.value : rule.operator === "between" ? value >= rule.value && value <= rule.upper! : value === rule.value;
   }

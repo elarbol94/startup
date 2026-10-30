@@ -4884,6 +4884,7 @@
     "matches": "Matches",
     "unknown": "Insufficient data",
     "excluded": "Does not match",
+    "excludedHidden": "Municipalities that do not match are hidden.",
     "resultStatus": "Show results",
     "search": "Search results",
     "municipality": "Municipality",
@@ -4928,7 +4929,8 @@
       "communication": "Number of social / messaging services",
       "open-data": "Number of open-data services",
       "other": "Number of other platforms",
-      "metric": "Calculated indicator"
+      "metric": "Calculated indicator",
+      "custom-metric": "Own indicator"
     },
     "conditionsHint": "Choose a data field and specify which values the municipalities should match.",
     "dataNotes": "Data dates and missing values"
