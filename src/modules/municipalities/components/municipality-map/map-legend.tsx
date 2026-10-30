@@ -88,9 +88,9 @@ export function MapLegend({
             </div>
             {/* The scale ends at the 95th percentile, so anything above shares the last
                 colour. Saying "≥" keeps the bar from claiming a range the fills exceed;
-                a diverging scale clips at both ends and gets "≤" as well. */}
+                a diverging scale or a saved Kennzahl clips at both ends and gets "≤" as well. */}
             <div className="mt-1 flex justify-between gap-2 text-[9px] tabular-nums">
-              <span>{isDiverging ? "≤ " : ""}{chartValueFormatter.format(scaleDomain[0])}</span>
+              <span>{isDiverging || metric === "custom" ? "≤ " : ""}{chartValueFormatter.format(scaleDomain[0])}</span>
               {isDiverging && <span className="text-muted-foreground">0</span>}
               <span>≥ {chartValueFormatter.format(scaleDomain[1])}</span>
             </div>
@@ -144,7 +144,7 @@ export function MobileMapLegend({
             {isDiverging ? <span className="absolute -top-0.5 h-6 w-px bg-foreground/60" style={{ left: "50%" }} /> : null}
           </div>
           <div className="mt-2 flex justify-between gap-2 text-xs tabular-nums">
-            <span>{isDiverging ? "≤ " : ""}{chartValueFormatter.format(scaleDomain[0])}</span>
+            <span>{isDiverging || metric === "custom" ? "≤ " : ""}{chartValueFormatter.format(scaleDomain[0])}</span>
             {isDiverging ? <span className="text-muted-foreground">0</span> : null}
             <span>≥ {chartValueFormatter.format(scaleDomain[1])}</span>
           </div>

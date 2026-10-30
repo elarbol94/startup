@@ -27,8 +27,8 @@ export function describeWorkspaceMetric({
   politicsView, politicsParty, costCategory, populationView, movementView, ageGroup, sex, selected,
   populationUnit, movementUnit, digitalViewLabels, politicsViewLabels, politicsPartyLabels,
   costCategoryLabels, costMeasureLabels, populationViewLabels, movementLabels, indicatorLabels,
-  ageGroupLabels, ratioFormatter, personsFormatter, shareFormatter, currencyFormatter,
-  signedDecimalFormatter,
+  ageGroupLabels, ratioFormatter, kennzahlFormatter, personsFormatter, shareFormatter,
+  currencyFormatter, signedDecimalFormatter,
 }: {
   metric: MapMetric;
   t: ReturnType<typeof useTranslations<"municipalities">>;
@@ -67,13 +67,14 @@ export function describeWorkspaceMetric({
 > & Pick<
   WorkspaceFormatters,
   | "ratioFormatter"
+  | "kennzahlFormatter"
   | "personsFormatter"
   | "shareFormatter"
   | "currencyFormatter"
   | "signedDecimalFormatter"
 >) {
   const chartFormatter =
-    metric === "custom" ? ratioFormatter
+    metric === "custom" ? kennzahlFormatter
     : metric === "digital" ? personsFormatter
     : metric === "politics" ? shareFormatter
     : metric === "costs"
@@ -163,6 +164,7 @@ export function describeWorkspaceMetric({
     comparison: number | null,
   ) => {
     if (current === null || comparison === null) return "—";
+    if (metric === "custom") return formatSigned(current - comparison, kennzahlFormatter);
     if (metric === "costs")
       return costMeasure === "share" || costMeasure === "peer-deviation"
         ? signedDecimalFormatter.format((current - comparison) * 100) + " " + t("percentagePoints")

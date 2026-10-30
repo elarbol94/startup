@@ -219,13 +219,15 @@ export function evaluateAnalysisOperator(
   });
 
   // Shift moves the input forward in time, so the value at a year is what the input read
-  // `years` earlier. Unit and value type are untouched; only the years move.
+  // `years` earlier. Unit and value type are untouched; only the years move. Years after the
+  // input's last one are dropped: "2026: 305.314" would read as a forecast, not as last year.
   if (operator === "shift") {
     if (!left) return fail("missing-input");
     if (left.error) return fail(left.error);
+    const lastYear = Math.max(...left.points.map(({ year }) => year));
     return {
       unit: left.unit, valueType: left.valueType,
-      points: left.points.map(({ year, value }) => ({ year: year + years, value })),
+      points: left.points.flatMap(({ year, value }) => year + years <= lastYear ? [{ year: year + years, value }] : []),
       error: null, warnings: [],
     };
   }

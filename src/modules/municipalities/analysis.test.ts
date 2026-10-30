@@ -314,7 +314,8 @@ describe("municipality analysis operators", () => {
     const population = series("persons", [[2022, 100], [2023, 110], [2024, 125]]);
     const previous = evaluateAnalysisOperator("shift", population, null, 1);
     expect(previous.unit).toBe("persons");
-    expect(previous.points).toEqual([{ year: 2023, value: 100 }, { year: 2024, value: 110 }, { year: 2025, value: 125 }]);
+    // 2025 would carry 2024's value past the end of the data and read as a forecast.
+    expect(previous.points).toEqual([{ year: 2023, value: 100 }, { year: 2024, value: 110 }]);
     // The first year has nothing to compare against and drops out of the intersection.
     expect(evaluateAnalysisOperator("subtract", population, previous).points)
       .toEqual([{ year: 2023, value: 10 }, { year: 2024, value: 15 }]);

@@ -5,6 +5,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { analysisUnitLabel, type AnalysisSeries } from "../analysis";
 import { chartTicks } from "./municipality-metric-chart";
 
+/** Four significant digits without rounding away whole units: 1,012 stays 1,012, 305.314 stays whole. */
+export const ANALYSIS_NUMBER_FORMAT = {
+  maximumFractionDigits: 0,
+  maximumSignificantDigits: 4,
+  roundingPriority: "morePrecision",
+} as const satisfies Intl.NumberFormatOptions;
+
 const PLOT_LEFT = 56;
 const PLOT_RIGHT = 8;
 
@@ -15,7 +22,7 @@ export function AnalysisSeriesChart({ series, label, compact = false, trueLabel,
   const valueFormat = useMemo(() => new Intl.NumberFormat(locale, series.unit === "share"
     ? { style: "percent", minimumFractionDigits: 1, maximumFractionDigits: 2 }
     : series.unit === "currency-per-person" ? { style: "currency", currency: "EUR" }
-    : { maximumFractionDigits: 2 }), [locale, series.unit]);
+    : ANALYSIS_NUMBER_FORMAT), [locale, series.unit]);
   const tickFormat = useMemo(() => new Intl.NumberFormat(locale, series.unit === "share"
     ? { style: "percent", maximumFractionDigits: 1 }
     : series.unit === "currency-per-person" ? { style: "currency", currency: "EUR", maximumFractionDigits: 0 }
