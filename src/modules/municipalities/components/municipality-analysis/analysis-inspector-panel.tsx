@@ -36,7 +36,7 @@ import {
 } from "../../analysis";
 import type { AnalysisArrangeAction } from "../../analysis-layout";
 import { conditionSchema } from "../../filters";
-import { AnalysisSeriesChart } from "../analysis-series-chart";
+import { ANALYSIS_NUMBER_FORMAT, AnalysisSeriesChart } from "../analysis-series-chart";
 import { ConditionNodeEditor } from "../municipality-condition-editor";
 import { NOTE_STYLES } from "./analysis-editor-constants";
 import { seriesErrorLabel } from "./analysis-labels";
@@ -201,7 +201,7 @@ export function AnalysisInspectorPanel({
                       <div className="max-h-80 overflow-y-auto">
                       <table className="w-full text-[11px]">
                         <thead className="sticky top-0 bg-muted text-muted-foreground"><tr><th className="px-2 py-1 text-left font-medium">{t("csvYearHeader")}</th><th className="px-2 py-1 text-right font-medium">{t("analysisValueHeader")}</th></tr></thead>
-                        <tbody>{[...selectedSeries.points].reverse().map(({ year, value }) => <tr key={year} className="border-t"><td className="px-2 py-1">{year}</td><td className="px-2 py-1 text-right tabular-nums">{value === null ? "—" : typeof value === "boolean" ? (value ? t("booleanTrue") : t("booleanFalse")) : format.number(value, { maximumFractionDigits: 2 })}</td></tr>)}</tbody>
+                        <tbody>{[...selectedSeries.points].reverse().map(({ year, value }) => <tr key={year} className="border-t"><td className="px-2 py-1">{year}</td><td className="px-2 py-1 text-right tabular-nums">{value === null ? "—" : typeof value === "boolean" ? (value ? t("booleanTrue") : t("booleanFalse")) : format.number(value, ANALYSIS_NUMBER_FORMAT)}</td></tr>)}</tbody>
                       </table>
                       </div>
                     </details>

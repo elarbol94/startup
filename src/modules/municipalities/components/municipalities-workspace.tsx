@@ -26,6 +26,7 @@ import {
 import {
   demographicIndicatorUnit,
   isDemographicIndicatorId,
+  clippedDomain,
   datasetDomain,
   symmetricDomain,
   type AgeViewId,
@@ -84,8 +85,8 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
-    personsFormatter, shareFormatter, signedShareFormatter, ratioFormatter, dateFormatter,
-    currencyFormatter, digitalCostFormatter, signedDecimalFormatter,
+    personsFormatter, shareFormatter, signedShareFormatter, ratioFormatter, kennzahlFormatter,
+    dateFormatter, currencyFormatter, digitalCostFormatter, signedDecimalFormatter,
   } = useWorkspaceFormatters(locale);
   const paramsRef = useRef(searchParams.toString());
   useEffect(() => {
@@ -202,7 +203,10 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
     const collected = values.subarray(0, count);
     const diverging = (metric === "movement" && movementTargetPalette(movementView) === "diverging")
       || (metric === "costs" && costMeasure === "peer-deviation");
-    return { ...lookup, domain: diverging ? symmetricDomain(collected) : datasetDomain(collected) };
+    return {
+      ...lookup,
+      domain: diverging ? symmetricDomain(collected) : metric === "custom" ? clippedDomain(collected) : datasetDomain(collected),
+    };
   }, [
     ageMeasure, ageView, costCategory, costMeasure, costSeries, customMetric, demographySeries, index,
     digitalPlatforms, digitalView, electionHistory, metric, movementSeries, movementView, politicsParty, politicsView, populationSeries, populationView, sex, structureSeries,
@@ -397,8 +401,8 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
     populationUnitLabel, politicsView, politicsParty, costCategory, populationView, movementView,
     ageGroup, sex, selected, populationUnit, movementUnit, digitalViewLabels, politicsViewLabels,
     politicsPartyLabels, costCategoryLabels, costMeasureLabels, populationViewLabels,
-    movementLabels, indicatorLabels, ageGroupLabels, ratioFormatter, personsFormatter,
-    shareFormatter, currencyFormatter, signedDecimalFormatter,
+    movementLabels, indicatorLabels, ageGroupLabels, ratioFormatter, kennzahlFormatter,
+    personsFormatter, shareFormatter, currencyFormatter, signedDecimalFormatter,
   });
   const scaleDomain = dataset!.domain;
   const averageAnnualPopulationChange =

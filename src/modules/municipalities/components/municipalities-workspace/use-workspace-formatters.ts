@@ -36,6 +36,17 @@ export function useWorkspaceFormatters(locale: string) {
       }),
     [locale],
   );
+  // A saved Kennzahl can be a factor near 1 or a count in the hundred thousands, so it keeps
+  // four significant digits but never rounds away whole units.
+  const kennzahlFormatter = useMemo(
+    () =>
+      new Intl.NumberFormat(locale, {
+        maximumFractionDigits: 0,
+        maximumSignificantDigits: 4,
+        roundingPriority: "morePrecision",
+      }),
+    [locale],
+  );
   const dateFormatter = useMemo(
     () => new Intl.DateTimeFormat(locale, { dateStyle: "medium" }),
     [locale],
@@ -58,8 +69,8 @@ export function useWorkspaceFormatters(locale: string) {
     [locale],
   );
   return {
-    personsFormatter, shareFormatter, signedShareFormatter, ratioFormatter, dateFormatter,
-    currencyFormatter, digitalCostFormatter, signedDecimalFormatter,
+    personsFormatter, shareFormatter, signedShareFormatter, ratioFormatter, kennzahlFormatter,
+    dateFormatter, currencyFormatter, digitalCostFormatter, signedDecimalFormatter,
   };
 }
 

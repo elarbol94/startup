@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { MunicipalityIndex } from "./data";
 import {
   ageGroupIndexForSourceCode,
+  clippedDomain,
   datasetDomain,
   symmetricDomain,
   demographicIndicatorValue,
@@ -88,6 +89,21 @@ describe("datasetDomain", () => {
 
   it("falls back to a usable domain for an empty dataset", () => {
     const [minimum, maximum] = datasetDomain([]);
+    expect(minimum).toBeLessThan(maximum);
+  });
+});
+
+describe("clippedDomain", () => {
+  it("clips a low outlier so a growth factor near 1 keeps its colour range", () => {
+    const values = [0.6, ...Array.from({ length: 99 }, (_, index) => 0.98 + index * 0.0005)];
+
+    const [minimum, maximum] = clippedDomain(values);
+    expect(minimum).toBeGreaterThan(0.98);
+    expect(maximum).toBeLessThan(1.03);
+  });
+
+  it("never collapses, so the map's interpolation cannot divide by zero", () => {
+    const [minimum, maximum] = clippedDomain([1, 1, 1]);
     expect(minimum).toBeLessThan(maximum);
   });
 });

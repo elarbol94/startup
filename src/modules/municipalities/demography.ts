@@ -159,6 +159,20 @@ export function datasetDomain(values: ArrayLike<number>): [number, number] {
 }
 
 /**
+ * The colour domain of a saved Kennzahl: its 5th to its 95th percentile.
+ *
+ * A Kennzahl has no natural floor the way a count or a share has zero, so the bottom is a
+ * clip as well. A growth factor clusters at 0,98–1,02, and one municipality falling to 0,6
+ * would otherwise paint all the others in the darkest colour.
+ */
+export function clippedDomain(values: ArrayLike<number>): [number, number] {
+  if (!values.length) return [0, 1];
+  const sorted = Float64Array.from(values);
+  sorted.sort();
+  return widenIfFlat(sortedPercentile(sorted, 0.05), sortedPercentile(sorted, 0.95));
+}
+
+/**
  * The colour domain of a dataset that has a sign, as ±p95 of the absolute values.
  *
  * Kept symmetric on purpose: the neutral colour has to stay on zero and equal colour
