@@ -75,7 +75,8 @@ const MunicipalityMap = dynamic(
   },
 );
 
-export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: MunicipalityMetricRecord[] }) {
+export function MunicipalitiesWorkspace({ metrics = [], incomeCodes = [] }: { metrics?: MunicipalityMetricRecord[]; incomeCodes?: string[] }) {
+  const incomeMunicipalityCodes = useMemo(() => new Set(incomeCodes), [incomeCodes]);
   const t = useTranslations("municipalities");
   const tf = useTranslations("municipalityFilters");
   const tn = useTranslations("network");
@@ -442,7 +443,7 @@ export function MunicipalitiesWorkspace({ metrics = [] }: { metrics?: Municipali
     selectedDigitalPlatforms, digitalPlatforms, selectedCurrentPolitics, currentPolitics,
     selectedElectionHistory, electionHistory, politicsHistoryRequested, politicsError,
     setPoliticsHistoryRequested, digitalReferenceDate, year, usesCitizenship,
-    investmentMunicipalityCodes, updateSelection, index, populationSeries,
+    investmentMunicipalityCodes, incomeMunicipalityCodes, updateSelection, index, populationSeries,
   };
 
   return (

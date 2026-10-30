@@ -28,6 +28,7 @@
     "data:municipality-demography": "tsx scripts/update-municipality-demography.ts",
     "data:municipality-movement": "tsx scripts/update-municipality-movement.ts",
     "data:municipality-costs": "tsx scripts/update-municipality-costs.ts",
+    "data:municipality-income": "tsx scripts/update-municipality-income.ts",
     "data:municipality-investments": "tsx scripts/update-municipality-investments.ts",
     "data:municipality-politics": "tsx scripts/update-municipality-politics.ts",
     "data:municipality-minutes": "tsx scripts/process-municipality-minutes.ts",

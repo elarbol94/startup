@@ -1,6 +1,6 @@
 import "server-only";
 
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   validateMunicipalityInvestmentData,
@@ -19,4 +19,10 @@ export async function loadMunicipalityInvestmentData(code: string) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
   }
+}
+
+/** Whether the investment page exists, without parsing a file that can run to megabytes. */
+export async function hasMunicipalityInvestmentData(code: string) {
+  if (!/^\d{5}$/.test(code)) return false;
+  return access(resolve(DATA_DIRECTORY, `${code}.json`)).then(() => true, () => false);
 }
