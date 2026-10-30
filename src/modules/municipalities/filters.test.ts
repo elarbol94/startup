@@ -2,7 +2,7 @@ import { FILTER_METRICS, filterMetricLabel, filterMetricUnit, readFilterMetric }
 import { datasetUnit } from "./analysis";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { combineMatches, conditionSchema, defaultCondition, evaluateCondition, evaluateMunicipalityFilter, exampleMunicipalityFilter, municipalityFilterSchema, negateMatch, providerMatch, readFilterField, type Match } from "./filters";
+import { combineMatches, conditionSchema, customMetricCondition, defaultCondition, evaluateCondition, evaluateMunicipalityFilter, exampleMunicipalityFilter, municipalityFilterSchema, negateMatch, providerMatch, readFilterField, type Match } from "./filters";
 import { filterToAnalysisGraph } from "./filter-graph";
 import { applyMunicipalityAnalysisGraphOperations, evaluateAnalysisGraph, parseMunicipalityAnalysisGraph, serializeMunicipalityAnalysisGraph, type MunicipalityAnalysisData } from "./analysis";
 import { createKennzahlLookup, kennzahlFromGraph, parseKennzahlExpression, serializeKennzahlExpression } from "./kennzahlen";
@@ -125,5 +125,43 @@ describe("Kennzahl filter conditions", () => {
       };
       for (const metric of FILTER_METRICS) { filterMetricLabel(metric.id, translate); filterMetricUnit(metric.id, translate); }
     }
+  });
+});
+
+describe("own Kennzahlen as filter conditions", () => {
+  // Einwohnerzahl ÷ Einwohnerzahl (t−1): the growth factor a user saves from the analysis tool.
+  const growth = { op: "divide", a: { input: { kind: "population", view: "count" } }, b: { op: "shift", a: { input: { kind: "population", view: "count" } }, years: 1 } } as const;
+  const own = { id: "own-growth", name: "Wachstumsfaktor", expression: growth };
+  const factor = (code: string) => data.population.years["2025"].values[code] / data.population.years["2024"].values[code];
+
+  it("evaluates the embedded formula and combines it with AND and OR", () => {
+    const growing = { ...customMetricCondition(own), operator: "gt" as const, value: 1 };
+    const large = { field: "population" as const, operator: "gt" as const, value: 10_000, negate: false };
+    for (const mode of ["and", "or"] as const) {
+      const filter = { ...exampleMunicipalityFilter, year: 2025, groups: [{ mode, negate: false, conditions: [growing, large] }] };
+      expect(municipalityFilterSchema.safeParse(filter).success).toBe(true);
+      for (const item of data.index.municipalities.slice(0, 200)) {
+        const code = item.municipalityCode;
+        const a = factor(code) > 1, b = data.population.years["2025"].values[code] > 10_000;
+        expect(evaluateMunicipalityFilter(filter, item, data)).toBe(mode === "and" ? a && b : a || b);
+      }
+    }
+  });
+
+  it("leaves the first data year unknown instead of excluding it", () => {
+    expect(evaluateCondition(customMetricCondition(own), municipality, 2002, data)).toBeNull();
+  });
+
+  it("survives a bookmark and the analysis graph with its formula intact", () => {
+    const filter = { ...exampleMunicipalityFilter, groups: [{ mode: "and" as const, negate: false, conditions: [{ ...customMetricCondition(own), operator: "lt" as const, value: 1 }] }] };
+    const parsed = municipalityFilterSchema.parse(JSON.parse(JSON.stringify(filter)));
+    expect(parsed.groups[0].conditions[0]).toMatchObject({ field: "custom-metric", name: "Wachstumsfaktor", expression: growth });
+    const graph = parseMunicipalityAnalysisGraph(serializeMunicipalityAnalysisGraph(filterToAnalysisGraph(parsed)));
+    const subject = { municipalityCode: municipality.municipalityCode, municipalityName: municipality.name };
+    expect(evaluateAnalysisGraph({ ...graph, subject }, data).get(graph.selectedNodeId!)?.points.find(p => p.year === 2025)?.value).toBe(factor(municipality.municipalityCode) < 1);
+  });
+
+  it("rejects a condition whose formula is not a valid Kennzahl", () => {
+    expect(conditionSchema.safeParse({ ...customMetricCondition(own), expression: { input: { kind: "nonsense" } } }).success).toBe(false);
   });
 });

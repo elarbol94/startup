@@ -116,8 +116,14 @@ Vorschau unter dem Button zeigt die Bedingung vor dem Hinzufügen.
 Unter Kategorie **Kennzahl** stehen die numerischen Kennzahlen des Analysekatalogs
 zur Verfügung: Bevölkerungsdichte, Ausländeranteil, Altersgruppen (nach Geschlecht),
 demografische Indikatoren, Bewegungsraten/-salden und Finanzkennzahlen für jede
-Aufgabengruppe. Eigene gespeicherte Kennzahlen und politische Wahldaten sind in
-dieser Auswahl noch nicht enthalten.
+Aufgabengruppe. Politische Wahldaten sind in dieser Auswahl noch nicht enthalten.
+
+Unter **Eigene Kennzahl** stehen die selbst gespeicherten Kennzahlen zur Wahl. Die
+Bedingung (`field: "custom-metric"`) trägt Namen und Formel der Kennzahl mit, damit ein
+geteilter Link und eine daraus geöffnete Analyse auch bei Kolleg:innen rechnen, denen die
+Kennzahl nicht gehört. Der Wert ist der Rohwert der Formel (keine Umrechnung in Prozent).
+`conditionSchema` validiert die Formel über `kennzahlExpressionSchema`; beide Schemas
+verweisen per `z.lazy` aufeinander, weil sie sich gegenseitig importieren.
 
 `filter-metrics.ts` erweitert den gemeinsamen Katalog um konkrete Alters- und
 Finanzkategorien und verwendet dieselben Primärberechnungen wie der Überblick.
@@ -134,6 +140,8 @@ Zeitreihen. Vergleichsgruppen-Mediane werden gemeinsam mit dem Überblick über
 zwischengespeichert. Tests prüfen die Übereinstimmung für alle Auswahlmöglichkeiten,
 Einheiten, negative Schwellen, Datenlücken und die Übernahme in die Analyse.
 
+Die Karte öffnet in der Darstellung „Ergebnisse“ und zeigt nur zutreffende
+(und unbekannte) Gemeinden; nicht zutreffende bleiben als Umriss stehen.
 Im Kartenmodus „Daten“ bleiben Gruppenauswahl, Hinzufügen-Button und
 Bedingungsvorschau ausgeblendet. Sie erscheinen nur bei gültigen „Ergebnissen“.
 Die Verknüpfung von Gruppen wird erst ab zwei Gruppen gezeigt; Hinweise zum

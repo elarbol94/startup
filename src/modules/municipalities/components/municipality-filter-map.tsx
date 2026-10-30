@@ -5,6 +5,8 @@ import * as maplibre from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import type { Match } from "../filters";
 maplibre.setWorkerUrl("/vendor/maplibre-gl/maplibre-gl-worker.mjs");
+// Only matches (and unknowns, which the filter cannot rule out) are drawn; the rest stay as outline.
+const resultColor = (value: Match) => value === null ? "#f59e0b" : value ? "#0d9488" : "rgba(0, 0, 0, 0)";
 export default function MunicipalityFilterMap({ results, colors, onSelect }: { results: Record<string, Match>; colors?: Record<string, string>; onSelect: (code: string) => void }) {
   const t = useTranslations("municipalityFilters");
   const container = useRef<HTMLDivElement>(null);
@@ -16,7 +18,7 @@ export default function MunicipalityFilterMap({ results, colors, onSelect }: { r
   useEffect(() => {
     latest.current = { results, colors };
     const map = mapRef.current;
-    if (map?.getSource("municipalities")) for (const [id, value] of Object.entries(results)) map.setFeatureState({ source: "municipalities", id }, { color: colors?.[id] ?? (value === null ? "#f59e0b" : value ? "#0d9488" : "#cbd5e1") });
+    if (map?.getSource("municipalities")) for (const [id, value] of Object.entries(results)) map.setFeatureState({ source: "municipalities", id }, { color: colors?.[id] ?? resultColor(value) });
   }, [results, colors]);
   useEffect(() => {
     if (!container.current) return;
@@ -34,9 +36,9 @@ export default function MunicipalityFilterMap({ results, colors, onSelect }: { r
     map.on("error", () => setFailed(true));
     map.on("load", () => {
       map.addSource("municipalities", { type: "geojson", data: "/data/municipalities-at-2026.geojson", promoteId: "municipalityCode", attribution: "© Statistik Austria, CC BY 4.0" });
-      for (const [id, value] of Object.entries(latest.current.results)) map.setFeatureState({ source: "municipalities", id }, { color: latest.current.colors?.[id] ?? (value === null ? "#f59e0b" : value ? "#0d9488" : "#cbd5e1") });
+      for (const [id, value] of Object.entries(latest.current.results)) map.setFeatureState({ source: "municipalities", id }, { color: latest.current.colors?.[id] ?? resultColor(value) });
       map.addLayer({ id: "fill", type: "fill", source: "municipalities", paint: { "fill-color": ["coalesce", ["feature-state", "color"], "#cbd5e1"], "fill-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 1, 0.85] } });
-      map.addLayer({ id: "borders", type: "line", source: "municipalities", paint: { "line-color": "#ffffff", "line-width": 0.5 } });
+      map.addLayer({ id: "borders", type: "line", source: "municipalities", paint: { "line-color": "#cbd5e1", "line-width": 0.5 } });
       map.addLayer({ id: "hover-outline", type: "line", source: "municipalities", paint: { "line-color": "#0f766e", "line-width": ["case", ["boolean", ["feature-state", "hover"], false], 2.5, 0] } });
       map.on("mousemove", "fill", e => {
         const feature = e.features?.[0];
@@ -54,5 +56,5 @@ export default function MunicipalityFilterMap({ results, colors, onSelect }: { r
     });
     return () => { cancelled = true; cancelAnimationFrame(frame); observer?.disconnect(); popup.remove(); map?.remove(); mapRef.current = null; };
   }, []);
-  return <div className="space-y-2"><div ref={container} className="h-[28rem] overflow-hidden rounded-xl border" role="region" aria-label={t("map")} />{failed && <p role="alert" className="text-sm text-destructive">{t("mapError")}</p>}{!colors && <div className="flex flex-wrap gap-4 text-xs">{([["matches", "bg-teal-600"], ["unknown", "bg-amber-500"], ["excluded", "bg-slate-300"]] as const).map(([key, color]) => <span className="flex items-center gap-2" key={key}><span className={`size-3 rounded-sm ${color}`} />{t(key)}</span>)}</div>}</div>;
+  return <div className="space-y-2"><div ref={container} className="h-[28rem] overflow-hidden rounded-xl border" role="region" aria-label={t("map")} />{failed && <p role="alert" className="text-sm text-destructive">{t("mapError")}</p>}{!colors && <div className="flex flex-wrap gap-4 text-xs">{([["matches", "bg-teal-600"], ["unknown", "bg-amber-500"]] as const).map(([key, color]) => <span className="flex items-center gap-2" key={key}><span className={`size-3 rounded-sm ${color}`} />{t(key)}</span>)}<span className="text-muted-foreground">{t("excludedHidden")}</span></div>}</div>;
 }

@@ -9,18 +9,18 @@ import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { loadMunicipalityFilterData } from "../analysis-data";
 import { defaultCondition, evaluateMunicipalityFilter, exampleMunicipalityFilter, initialMunicipalityFilter, municipalityFilterSchema, type MunicipalityFilter, type Match } from "../filters";
-import { MunicipalityConditionEditor } from "./municipality-condition-editor";
+import { MunicipalityConditionEditor, type ConditionMetric } from "./municipality-condition-editor";
 const selectClass = "h-9 min-w-0 max-w-full rounded-md border bg-background px-2 text-sm";
 function readFilter(query: string | null): MunicipalityFilter | null {
   if (!query) return initialMunicipalityFilter;
   try { return query.length <= 20000 ? municipalityFilterSchema.parse(JSON.parse(query)) : null; } catch { return null; }
 }
-export function MunicipalityFilterClient() {
+export function MunicipalityFilterClient({ metrics }: { metrics: ConditionMetric[] }) {
   const params = useSearchParams();
   const query = params.get("filter");
-  return <FilterWorkspace key={query ?? ""} query={query} />;
+  return <FilterWorkspace key={query ?? ""} query={query} metrics={metrics} />;
 }
-function FilterWorkspace({ query }: { query: string | null }) {
+function FilterWorkspace({ query, metrics }: { query: string | null; metrics: ConditionMetric[] }) {
   const t = useTranslations("municipalityFilters");
   const format = useFormatter();
   const router = useRouter();
@@ -64,7 +64,7 @@ function FilterWorkspace({ query }: { query: string | null }) {
       <div className="flex flex-wrap items-end gap-4"><label className="grid min-w-0 max-w-full gap-1 text-xs">{t("year")}<select className={selectClass} value={filter.year} onChange={e => update({ ...filter, year: Number(e.target.value) })}>{Array.from({ length: 24 }, (_, i) => 2025 - i).map(year => <option key={year}>{year}</option>)}</select></label>{filter.groups.length > 1 && <label className="grid min-w-0 max-w-full gap-1 text-xs">{t("combineGroups")}<select className={selectClass} value={filter.mode} onChange={e => update({ ...filter, mode: e.target.value as "and" | "or" })}><option value="and">{t("and")}</option><option value="or">{t("or")}</option></select></label>}</div>
       {filter.groups.map((group, groupIndex) => <div key={groupIndex} className="space-y-4 rounded-xl border bg-surface-raised p-3 sm:p-4" data-testid="filter-group">
         <div className="flex flex-wrap items-center gap-3"><h3 className="text-[11px] font-semibold tracking-[0.12em] text-text-tertiary uppercase">{t("group", { number: groupIndex + 1 })}</h3><select aria-label={t("combineConditions")} className={selectClass} value={group.mode} onChange={e => updateGroup(groupIndex, { ...group, mode: e.target.value as "and" | "or" })}><option value="and">{t("and")}</option><option value="or">{t("or")}</option></select><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={group.negate} onChange={e => updateGroup(groupIndex, { ...group, negate: e.target.checked })} />{t("negateGroup")}</label><Button variant="ghost" size="icon-sm" className="ml-auto" disabled={filter.groups.length === 1} aria-label={t("removeGroup")} onClick={() => update({ ...filter, groups: filter.groups.filter((_, i) => i !== groupIndex) })}><Trash2 /></Button></div>
-        {group.conditions.map((condition, index) => <div className="flex items-start gap-3 rounded-lg border bg-card p-3" key={index} data-testid="filter-condition"><MunicipalityConditionEditor value={condition} onChange={value => updateGroup(groupIndex, { ...group, conditions: group.conditions.map((c, i) => i === index ? value : c) })} /><Button variant="ghost" size="icon-sm" className="mt-5 shrink-0 text-muted-foreground" aria-label={t("removeCondition")} disabled={group.conditions.length === 1} onClick={() => updateGroup(groupIndex, { ...group, conditions: group.conditions.filter((_, i) => i !== index) })}><Trash2 /></Button></div>)}
+        {group.conditions.map((condition, index) => <div className="flex items-start gap-3 rounded-lg border bg-card p-3" key={index} data-testid="filter-condition"><MunicipalityConditionEditor value={condition} metrics={metrics} onChange={value => updateGroup(groupIndex, { ...group, conditions: group.conditions.map((c, i) => i === index ? value : c) })} /><Button variant="ghost" size="icon-sm" className="mt-5 shrink-0 text-muted-foreground" aria-label={t("removeCondition")} disabled={group.conditions.length === 1} onClick={() => updateGroup(groupIndex, { ...group, conditions: group.conditions.filter((_, i) => i !== index) })}><Trash2 /></Button></div>)}
         <Button variant="outline" size="sm" disabled={group.conditions.length >= 20 || conditionCount >= 50} onClick={() => updateGroup(groupIndex, { ...group, conditions: [...group.conditions, defaultCondition("population")] })}><Plus />{t("addCondition")}</Button>
       </div>)}
       <div className="flex flex-wrap items-center gap-2 border-t border-line-soft pt-4"><Button variant="outline" disabled={filter.groups.length >= 10 || conditionCount >= 50} onClick={() => update({ ...filter, groups: [...filter.groups, { mode: "and", negate: false, conditions: [defaultCondition("providers")] }] })}><Plus />{t("addGroup")}</Button><Button variant="outline" disabled={!valid || creating} onClick={openAnalysis}>{t("openAnalysis")}</Button><Button disabled={!valid} onClick={saveLink}>{t("saveLink")}</Button><Button variant="ghost" onClick={() => update(initialMunicipalityFilter)}>{t("reset")}</Button></div>
